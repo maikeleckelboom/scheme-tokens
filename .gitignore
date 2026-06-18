@@ -1,0 +1,27 @@
+# Modules
+node_modules/
+**/node_modules/
+
+# Editor directories
+.vscode/
+.idea/
+
+# Non-canonical lockfiles
+bun.lock
+bun.lockb
+package-lock.json
+yarn.lock
+
+# Logs
+*.log
+
+# Build output
+dist/
+**/dist/
+build/
+**/build/
+
+# Environment files
+.env
+.env.local
+.env.*.local
