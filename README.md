@@ -40,8 +40,8 @@ const graph = createSchemeGraph({
       kind: "color",
       key: tokenKey("scheme.primary"),
       value: [
-        {mode: lightMode, value: hex("#6750a4")},
-        {mode: darkMode, value: hex("#d0bcff")},
+        { mode: lightMode, value: hex("#6750a4") },
+        { mode: darkMode, value: hex("#d0bcff") },
       ],
     },
     {
@@ -73,9 +73,11 @@ if (compiled.ok) {
 
 ```bash
 pnpm install
-pnpm check
+pnpm validate
 pnpm release:check
 ```
 
-`pnpm release:check` currently runs type checking, tests, build, formatting, and a dry-run package pack. The package is
-marked `private: true`; do not publish it from this repository state.
+Tooling is Oxc-first: Oxlint is the lint gate and Oxfmt is the formatter.
+
+`pnpm release:check` currently runs type checking, linting, tests, build, formatting, and a dry-run package pack. The
+package is marked `private: true`; do not publish it from this repository state.
