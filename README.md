@@ -11,7 +11,7 @@ The intended pipeline is:
 ```text
 scheme source input
   -> scheme source graph
-  -> profile graph
+  -> optional profile graph
   -> compiled token set
   -> CSS variables or deterministic snapshot serialization
 ```
@@ -81,24 +81,17 @@ if (graphResult.ok) {
 ## Dynamic Source Recipe
 
 ```ts
-import {
-  appSurfaceProfile,
-  createSchemeTokens,
-  dynamicSchemeSource,
-  hex,
-} from "color-scheme-tokens";
+import { createSchemeTokens, dynamicSchemeSource, hex } from "color-scheme-tokens";
 
 const result = createSchemeTokens({
   source: dynamicSchemeSource({
     sourceColor: hex("#6750A4"),
-    variant: "tonal",
   }),
-  profile: appSurfaceProfile,
   css: { prefix: "theme" },
 });
 
 if (result.ok) {
-  result.value.cssVariables.includes("--theme-chrome-background:");
+  result.value.cssVariables.includes("--theme-scheme-primary:");
 }
 ```
 
@@ -111,6 +104,33 @@ and the package API does not expose Material-branded wrapper types.
 
 Dynamic color algorithm changes are package-level events because upstream generation changes can alter compiled token
 output. The upstream package is pinned exactly, and deterministic snapshot fixtures are expected to catch output drift.
+
+## Optional App Alias Profile
+
+```ts
+import {
+  appSurfaceProfile,
+  createSchemeTokens,
+  dynamicSchemeSource,
+  hex,
+} from "color-scheme-tokens";
+
+const result = createSchemeTokens({
+  source: dynamicSchemeSource({
+    sourceColor: hex("#6750A4"),
+  }),
+  profile: appSurfaceProfile,
+  css: { prefix: "theme" },
+});
+
+if (result.ok) {
+  result.value.cssVariables.includes("--theme-chrome-background:");
+}
+```
+
+Profiles are optional graph extensions. They do not affect source color generation. They add app-level aliases or
+additional token nodes on top of the scheme source graph. `appSurfaceProfile` adds app-facing aliases such as
+`chrome.*` and `semantic.*` tokens on top of the base `scheme.*` tokens.
 
 ## Current Scope
 
