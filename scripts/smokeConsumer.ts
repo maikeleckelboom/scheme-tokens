@@ -53,17 +53,17 @@ writeFileSync(
 writeFileSync(
   join(consumerDirectory, "esm.mjs"),
   `
-import { appSurfaceProfile, createSchemeTokens, dynamicSchemeSource, hex } from ${JSON.stringify(packageName)};
+import { appSurfaceLayer, createSchemeTokens, dynamicSchemeSource, hex } from ${JSON.stringify(packageName)};
 
 const result = createSchemeTokens({
   source: dynamicSchemeSource({ sourceColor: hex("#6750A4") }),
-  profile: appSurfaceProfile,
+  layers: [appSurfaceLayer],
   css: { prefix: "theme" },
 });
 
 if (!result.ok) throw new Error(JSON.stringify(result.problems));
 if (!result.value.cssVariables.includes("--theme-chrome-background:")) {
-  throw new Error("Missing profiled CSS variable from ESM import.");
+  throw new Error("Missing layered CSS variable from ESM import.");
 }
 `,
 );
@@ -71,7 +71,7 @@ writeFileSync(
   join(consumerDirectory, "types.ts"),
   `
 import {
-  appSurfaceProfile,
+  appSurfaceLayer,
   createSchemeGraph,
   createSchemeTokens,
   dynamicSchemeSource,
@@ -97,7 +97,7 @@ const graphOptions = {
 const graphResult = createSchemeGraph(graphOptions);
 const result = createSchemeTokens({
   source: dynamicSchemeSource({ sourceColor: hex("#6750A4") }),
-  profile: appSurfaceProfile,
+  layers: [appSurfaceLayer],
   css: { prefix: "theme" },
 });
 

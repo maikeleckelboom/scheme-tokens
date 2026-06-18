@@ -8,14 +8,16 @@ and not a product-specific theme object.
 ```text
 scheme source input
   -> scheme source graph
-  -> profile graph
-  -> compiled token set
+  -> optional token layers
+  -> optional graph transforms
+  -> validated/compiled token set
   -> exporter projection
 ```
 
 Scheme sources create graph nodes with stable token keys, modes, authored color intents, aliases, and provenance.
-Profiles map scheme roles into app-facing tokens and may add authored color tokens. The compiler validates the graph,
-resolves aliases, and unwraps color intents into concrete color values. Exporters consume compiled token sets only.
+Token layers map scheme roles into app-facing aliases and may add authored color tokens. Graph transforms provide a
+narrow programmatic customization hook before compile/export. The compiler validates the graph, resolves aliases, and
+unwraps color intents into concrete color values. Exporters consume compiled token sets only.
 
 ## Boundaries
 
@@ -23,7 +25,7 @@ resolves aliases, and unwraps color intents into concrete color values. Exporter
 - Scheme role keys use `scheme.*`.
 - The dynamic source is backed by `@material/material-color-utilities` internally; upstream types and Material-branded
   wrappers are not public runtime API.
-- Profiles may add generic app aliases such as `chrome.background` and `semantic.action.background`; they must not
+- Token layers may add generic app aliases such as `chrome.background` and `semantic.action.background`; they must not
   introduce project-specific semantics.
 - Color token nodes store `ModeValues<ColorIntent>`. v0 supports only solid color intents, and compiled color values
   remain concrete `ColorValue` objects.
@@ -38,8 +40,8 @@ resolves aliases, and unwraps color intents into concrete color values. Exporter
 ## Current Slice
 
 The repository exposes only implemented root behavior: key parsing, mode parsing, color constructors, solid color
-intents, source-backed graph creation, graph validation, profile application, compilation, deterministic serialization,
-CSS variable export, the dynamic scheme source, the app surface profile, and the `createSchemeTokens()` recipe.
+intents, source-backed graph creation, graph validation, compilation, deterministic serialization, CSS variable export,
+the dynamic scheme source, the app surface layer, and the `createSchemeTokens()` recipe.
 
 Dynamic source defaults are spec version `2021`, platform `phone`, contrast level `0`, and variant `tonal`. The source
 emits the reconciled role inventory as `scheme.*` keys: 55 required roles and four optional dim roles when the upstream

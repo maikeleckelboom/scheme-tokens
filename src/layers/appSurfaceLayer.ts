@@ -1,7 +1,7 @@
 import { tokenKey } from "../core/keys";
-import type { ColorSchemeProfile } from "./profile";
+import type { ColorSchemeTokenLayer } from "./layer";
 
-export const appSurfaceProfile: ColorSchemeProfile = {
+export const appSurfaceLayer: ColorSchemeTokenLayer = {
   name: "app-surface",
   tokens: [
     { kind: "alias", key: tokenKey("chrome.background"), target: tokenKey("scheme.surface") },

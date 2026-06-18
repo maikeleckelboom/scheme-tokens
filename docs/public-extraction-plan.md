@@ -24,8 +24,8 @@ it does not copy old Git history.
 2. Compile aliases and modes into deterministic token sets.
 3. Project compiled token sets to CSS.
 4. Internalize the dynamic-color source adapter behind `scheme.*` keys.
-5. Add plain profile data and an app-surface profile.
-6. Add a recipe that orchestrates source, profile, compiler, serializer, and CSS export.
+5. Add plain token layer data and an app-surface layer.
+6. Add a recipe that orchestrates source, layers, transforms, compiler, serializer, and CSS export.
 7. Add source and CSS snapshots before any public release candidate.
 
 ## Current Implementation Notes
@@ -34,6 +34,6 @@ it does not copy old Git history.
 - The package is ESM-only; CommonJS build output and `require` export conditions are not part of the public contract.
 - `ColorIntent` is implemented only as a solid authored color payload.
 - `dynamicSchemeSource()` accepts opaque sRGB source colors and keeps Material color utilities internal.
-- `appSurfaceProfile` maps scheme roles to `chrome.*` and `semantic.*` aliases.
+- `appSurfaceLayer` maps scheme roles to `chrome.*` and `semantic.*` aliases.
 - `serializeTokenSet()` remains the deterministic snapshot path; there is no public JSON exporter.
 - The upstream dynamic color utility version is pinned exactly because algorithm changes can alter generated token output.

@@ -9,12 +9,17 @@ import type { ColorSchemeTokenGraph, Result } from "../core/graph";
 import type { GraphBuildProblem, SchemeSource, SchemeSourceProblem } from "../core/schemeSource";
 import { serializeTokenSet } from "../core/serializeTokenSet";
 import { exportCssVariables, type CssVariableOptions } from "../exporters/exportCssVariables";
-import { applyProfile } from "../profiles/applyProfile";
-import type { ColorSchemeProfile } from "../profiles/profile";
+import { applyLayers } from "../layers/applyLayers";
+import type { ColorSchemeTokenLayer } from "../layers/layer";
+
+export type ColorSchemeTokenGraphTransform = (
+  graph: ColorSchemeTokenGraph,
+) => ColorSchemeTokenGraph;
 
 export interface SchemeTokensRecipeOptions {
   readonly source: SchemeSource;
-  readonly profile?: ColorSchemeProfile;
+  readonly layers?: readonly ColorSchemeTokenLayer[];
+  readonly transforms?: readonly ColorSchemeTokenGraphTransform[];
   readonly compile?: CompileOptions;
   readonly css?: CssVariableOptions;
 }
@@ -34,10 +39,11 @@ export function createSchemeTokens(
   const graphResult = createSchemeGraph({ source: options.source });
   if (!graphResult.ok) return graphResult;
 
-  const graph =
-    options.profile === undefined
+  const layeredGraph =
+    options.layers === undefined
       ? graphResult.value
-      : applyProfile(graphResult.value, options.profile);
+      : applyLayers(graphResult.value, options.layers);
+  const graph = applyTransforms(layeredGraph, options.transforms ?? []);
   const compiled = compileGraph(graph, options.compile);
   if (!compiled.ok) return compiled;
 
@@ -50,4 +56,11 @@ export function createSchemeTokens(
       snapshot: serializeTokenSet(compiled.value),
     },
   };
+}
+
+function applyTransforms(
+  graph: ColorSchemeTokenGraph,
+  transforms: readonly ColorSchemeTokenGraphTransform[],
+): ColorSchemeTokenGraph {
+  return transforms.reduce((currentGraph, transform) => transform(currentGraph), graph);
 }

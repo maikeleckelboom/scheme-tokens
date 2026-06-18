@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { appSurfaceProfile, createSchemeTokens, dynamicSchemeSource, hex } from "../../src/index";
+import { appSurfaceLayer, createSchemeTokens, dynamicSchemeSource, hex } from "../../src/index";
 
 describe("deterministic dynamic output", () => {
   it("matches the canonical purple token-set and CSS fixtures byte-for-byte", async () => {
@@ -30,7 +30,7 @@ describe("deterministic dynamic output", () => {
 function generateFixtureOutput(): { readonly snapshot: string; readonly cssVariables: string } {
   const result = createSchemeTokens({
     source: dynamicSchemeSource({ sourceColor: hex("#6750A4") }),
-    profile: appSurfaceProfile,
+    layers: [appSurfaceLayer],
     css: { prefix: "theme" },
   });
 

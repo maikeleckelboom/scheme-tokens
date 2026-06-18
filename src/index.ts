@@ -7,8 +7,7 @@ export { darkMode, lightMode, modeKey, parseModeKey } from "./core/modes";
 export { serializeTokenSet } from "./core/serializeTokenSet";
 export { validateGraph } from "./core/validateGraph";
 export { exportCssVariables } from "./exporters/exportCssVariables";
-export { applyProfile } from "./profiles/applyProfile";
-export { appSurfaceProfile } from "./profiles/appSurfaceProfile";
+export { appSurfaceLayer } from "./layers/appSurfaceLayer";
 export { createSchemeTokens } from "./recipes/createSchemeTokens";
 export { dynamicSchemeSource } from "./sources/dynamicScheme/dynamicSchemeSource";
 export type {
@@ -52,13 +51,9 @@ export type {
 export type { SerializeTokenSetOptions } from "./core/serializeTokenSet";
 export type { GraphValidationResult, TokenGraphProblem } from "./core/validateGraph";
 export type { CssVariableModeSelectors, CssVariableOptions } from "./exporters/exportCssVariables";
+export type { ColorSchemeTokenLayer } from "./layers/layer";
 export type {
-  ColorSchemeProfile,
-  ProfileAliasToken,
-  ProfileColorToken,
-  ProfileToken,
-} from "./profiles/profile";
-export type {
+  ColorSchemeTokenGraphTransform,
   SchemeTokensRecipeOptions,
   SchemeTokensRecipeProblem,
   SchemeTokensRecipeResult,

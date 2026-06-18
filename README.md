@@ -3,16 +3,17 @@
 Stable color scheme tokens for TypeScript apps.
 
 color-scheme-tokens is a graph-first package for stable, typed, inspectable color tokens. Dynamic color is the first
-scheme source, but it is not the package identity: scheme sources produce token graphs, profiles add app aliases, and
-exporters project compiled token sets.
+scheme source, but it is not the package identity: scheme sources produce token graphs, optional token layers add app
+aliases, optional graph transforms customize the graph, and exporters project compiled token sets.
 
 The intended pipeline is:
 
 ```text
 scheme source input
   -> scheme source graph
-  -> optional profile graph
-  -> compiled token set
+  -> optional token layers
+  -> optional graph transforms
+  -> validated/compiled token set
   -> CSS variables or deterministic snapshot serialization
 ```
 
@@ -105,21 +106,16 @@ and the package API does not expose Material-branded wrapper types.
 Dynamic color algorithm changes are package-level events because upstream generation changes can alter compiled token
 output. The upstream package is pinned exactly, and deterministic snapshot fixtures are expected to catch output drift.
 
-## Optional App Alias Profile
+## Optional App Alias Layer
 
 ```ts
-import {
-  appSurfaceProfile,
-  createSchemeTokens,
-  dynamicSchemeSource,
-  hex,
-} from "color-scheme-tokens";
+import { appSurfaceLayer, createSchemeTokens, dynamicSchemeSource, hex } from "color-scheme-tokens";
 
 const result = createSchemeTokens({
   source: dynamicSchemeSource({
     sourceColor: hex("#6750A4"),
   }),
-  profile: appSurfaceProfile,
+  layers: [appSurfaceLayer],
   css: { prefix: "theme" },
 });
 
@@ -128,16 +124,46 @@ if (result.ok) {
 }
 ```
 
-Profiles are optional graph extensions. They do not affect source color generation. They add app-level aliases or
-additional token nodes on top of the scheme source graph. `appSurfaceProfile` adds app-facing aliases such as
-`chrome.*` and `semantic.*` tokens on top of the base `scheme.*` tokens.
+Token layers are optional data-oriented graph additions. They do not affect source color generation and do not mutate a
+compiled token set. Layers usually add app-facing aliases such as `chrome.*` and `semantic.*` tokens on top of the base
+`scheme.*` graph, and the resulting graph still goes through normal validation and compilation.
+
+## Graph Transforms
+
+```ts
+import { createSchemeTokens, dynamicSchemeSource, hex, tokenKey } from "color-scheme-tokens";
+
+const result = createSchemeTokens({
+  source: dynamicSchemeSource({
+    sourceColor: hex("#6750A4"),
+  }),
+  transforms: [
+    (graph) => ({
+      ...graph,
+      tokens: [
+        ...graph.tokens,
+        {
+          kind: "alias",
+          key: tokenKey("brand.action"),
+          target: tokenKey("scheme.primary"),
+        },
+      ],
+    }),
+  ],
+  css: { prefix: "theme" },
+});
+```
+
+Transforms are optional programmatic graph customization hooks. They receive a token graph and return a token graph, run
+after layers and before compile/export, and should not mutate their input graph in place. Validation, compilation,
+deterministic serialization, and CSS export remain the normal package pipeline.
 
 ## Current Scope
 
 - Public token keys use `scheme.*` for scheme roles.
 - Color token nodes store mode-specific `ColorIntent` payloads; v0 supports only `solidColorIntent(value)`.
 - `validateGraph`, `compileGraph`, `serializeTokenSet`, `exportCssVariables`, `dynamicSchemeSource`,
-  `applyProfile`, `appSurfaceProfile`, and `createSchemeTokens` are implemented.
+  `appSurfaceLayer`, and `createSchemeTokens` are implemented.
 - A dedicated JSON token exporter is deferred; `serializeTokenSet()` is the deterministic JSON snapshot primitive.
 - Lab proof tooling, CLI integrations, framework bindings, DTCG export, broad source color support, image extraction,
   automatic contrast repair, and editor tooling are out of scope for this package shape.

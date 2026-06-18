@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  applyProfile,
-  appSurfaceProfile,
   compileGraph,
   darkMode,
   hex,
@@ -9,19 +7,21 @@ import {
   solidColorIntent,
   tokenKey,
   validateGraph,
+  type ColorSchemeTokenLayer,
   type ColorSchemeTokenGraph,
-  type ColorSchemeProfile,
   type TokenNode,
 } from "../../src/index";
+import { applyLayers } from "../../src/layers/applyLayers";
+import { appSurfaceLayer } from "../../src/layers/appSurfaceLayer";
 
-describe("applyProfile", () => {
+describe("token layers", () => {
   it("adds the exact app surface aliases without mutating the original graph", () => {
     const graph = baseGraph();
-    const profiled = applyProfile(graph, appSurfaceProfile);
+    const layered = applyLayers(graph, [appSurfaceLayer]);
 
     expect(graph.tokens).toHaveLength(7);
-    expect(profiled.tokens).toHaveLength(14);
-    expect(appSurfaceProfile.tokens.map((token) => String(token.key))).toEqual([
+    expect(layered.tokens).toHaveLength(14);
+    expect(appSurfaceLayer.tokens.map((token) => String(token.key))).toEqual([
       "chrome.background",
       "chrome.foreground",
       "chrome.border",
@@ -30,18 +30,18 @@ describe("applyProfile", () => {
       "semantic.danger.background",
       "semantic.danger.foreground",
     ]);
-    expect(validateGraph(profiled).ok).toBe(true);
+    expect(validateGraph(layered).ok).toBe(true);
   });
 
   it("is chainable and leaves duplicate token keys for graph validation to reject", () => {
     const graph = baseGraph();
-    const firstProfile: ColorSchemeProfile = {
+    const firstLayer: ColorSchemeTokenLayer = {
       name: "first",
       tokens: [
         { kind: "alias", key: tokenKey("chrome.background"), target: tokenKey("scheme.surface") },
       ],
     };
-    const secondProfile: ColorSchemeProfile = {
+    const secondLayer: ColorSchemeTokenLayer = {
       name: "second",
       tokens: [
         { kind: "alias", key: tokenKey("chrome.background"), target: tokenKey("scheme.primary") },
@@ -49,23 +49,25 @@ describe("applyProfile", () => {
     };
 
     const problems = expectProblems(
-      validateGraph(applyProfile(applyProfile(graph, firstProfile), secondProfile)),
+      validateGraph(applyLayers(applyLayers(graph, [firstLayer]), [secondLayer])),
     );
 
     expect(problems.some((problem) => problem.kind === "duplicate-token-key")).toBe(true);
   });
 
   it("rejects unknown alias targets during graph validation", () => {
-    const graph = applyProfile(baseGraph(), {
-      name: "unknown-target",
-      tokens: [
-        {
-          kind: "alias",
-          key: tokenKey("chrome.background"),
-          target: tokenKey("scheme.missing"),
-        },
-      ],
-    });
+    const graph = applyLayers(baseGraph(), [
+      {
+        name: "unknown-target",
+        tokens: [
+          {
+            kind: "alias",
+            key: tokenKey("chrome.background"),
+            target: tokenKey("scheme.missing"),
+          },
+        ],
+      },
+    ]);
 
     const problems = expectProblems(validateGraph(graph));
 
@@ -73,19 +75,21 @@ describe("applyProfile", () => {
   });
 
   it("supports mode-specific alias targets", () => {
-    const graph = applyProfile(baseGraph(), {
-      name: "mode-alias",
-      tokens: [
-        {
-          kind: "alias",
-          key: tokenKey("chrome.background"),
-          target: [
-            { mode: lightMode, value: tokenKey("scheme.surface") },
-            { mode: darkMode, value: tokenKey("scheme.primary") },
-          ],
-        },
-      ],
-    });
+    const graph = applyLayers(baseGraph(), [
+      {
+        name: "mode-alias",
+        tokens: [
+          {
+            kind: "alias",
+            key: tokenKey("chrome.background"),
+            target: [
+              { mode: lightMode, value: tokenKey("scheme.surface") },
+              { mode: darkMode, value: tokenKey("scheme.primary") },
+            ],
+          },
+        ],
+      },
+    ]);
     const compiled = compileGraph(graph, { include: [tokenKey("chrome.background")] });
 
     expect(compiled.ok).toBe(true);
@@ -98,19 +102,21 @@ describe("applyProfile", () => {
   });
 
   it("supports authored color tokens with ColorIntent payloads", () => {
-    const graph = applyProfile(baseGraph(), {
-      name: "authored-color",
-      tokens: [
-        {
-          kind: "color",
-          key: tokenKey("semantic.notice.background"),
-          values: [
-            { mode: lightMode, value: solidColorIntent(hex("#fff8e1")) },
-            { mode: darkMode, value: solidColorIntent(hex("#332600")) },
-          ],
-        },
-      ],
-    });
+    const graph = applyLayers(baseGraph(), [
+      {
+        name: "authored-color",
+        tokens: [
+          {
+            kind: "color",
+            key: tokenKey("semantic.notice.background"),
+            values: [
+              { mode: lightMode, value: solidColorIntent(hex("#fff8e1")) },
+              { mode: darkMode, value: solidColorIntent(hex("#332600")) },
+            ],
+          },
+        ],
+      },
+    ]);
     const compiled = compileGraph(graph, { include: [tokenKey("semantic.notice.background")] });
 
     expect(compiled.ok).toBe(true);

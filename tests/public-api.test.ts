@@ -5,8 +5,7 @@ describe("public API", () => {
   it("exports only the implemented initial runtime surface", () => {
     expect(Object.keys(api).sort()).toEqual(
       [
-        "appSurfaceProfile",
-        "applyProfile",
+        "appSurfaceLayer",
         "compileGraph",
         "createSchemeGraph",
         "createSchemeTokens",
