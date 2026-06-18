@@ -33,7 +33,7 @@ it does not copy old Git history.
 
 - The package remains `private: true` at version `0.0.0`.
 - The package is ESM-only; CommonJS build output and `require` export conditions are not part of the public contract.
-- `ColorIntent` is implemented only as a solid authored color payload.
+- `ColorTokenValue` is implemented only as a literal authored color payload.
 - Source adapters generate token graphs; they do not define the graph model.
 - `dynamicSchemeSource()` accepts opaque sRGB source colors and keeps Material color utilities internal as a source
   implementation detail.

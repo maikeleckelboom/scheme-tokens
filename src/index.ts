@@ -1,4 +1,4 @@
-export { solidColorIntent } from "./core/colorIntent";
+export { literalColor } from "./core/colorTokenValue";
 export { hex, parseHexColor, srgb255 } from "./core/colorValue";
 export { compileGraph } from "./core/compileGraph";
 export { createSchemeGraph } from "./core/createSchemeGraph";
@@ -20,7 +20,7 @@ export type {
   Result,
   TokenNode,
 } from "./core/graph";
-export type { ColorIntent, SolidColorIntent } from "./core/colorIntent";
+export type { ColorTokenValue, LiteralColorValue } from "./core/colorTokenValue";
 export type {
   CompileOptions,
   CompileProblem,

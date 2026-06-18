@@ -1,4 +1,4 @@
-import { validateColorIntent } from "./colorIntent";
+import { validateColorTokenValue } from "./colorTokenValue";
 import type { ColorSchemeTokenGraph, ModeValues, TokenNode } from "./graph";
 import type { TokenKey } from "./keys";
 import { parseTokenKey } from "./keys";
@@ -20,7 +20,7 @@ export interface TokenGraphProblem {
     | "unknown-mode-value"
     | "unknown-alias-target"
     | "alias-cycle"
-    | "invalid-color-intent"
+    | "invalid-color-token-value"
     | "invalid-color-value";
   readonly message: string;
   readonly key?: string;
@@ -152,7 +152,7 @@ function validateToken(
       modes,
       problems,
       (value, path) => {
-        for (const problem of validateColorIntent(value, path)) {
+        for (const problem of validateColorTokenValue(value, path)) {
           problems.push({
             kind: problem.kind,
             message: problem.message,

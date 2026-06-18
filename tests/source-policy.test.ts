@@ -15,6 +15,9 @@ describe("source policy", () => {
       "DynamicColorScheme",
       "PaletteStyle",
       "exportJsonTokens",
+      "solidColorIntent",
+      "ColorIntent",
+      "SolidColorIntent",
     ];
 
     expect(index).not.toMatch(/export\s+\*/);
@@ -26,7 +29,7 @@ describe("source policy", () => {
   it("keeps internal dynamic source mechanics out of the root type surface", async () => {
     const index = await readFile("src/index.ts", "utf8");
     const internalTypes = [
-      "ColorIntentProblem",
+      "ColorTokenValueProblem",
       "DynamicSchemePlatform",
       "DynamicSchemeResolvedOptions",
       "DynamicSchemeSource",

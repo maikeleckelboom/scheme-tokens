@@ -76,10 +76,13 @@ import {
   createSchemeTokens,
   dynamicSchemeSource,
   hex,
+  literalColor,
+  type ColorTokenValue,
   type CreateSchemeGraphOptions,
   type DynamicSchemeSourceOptions,
   type DynamicSchemeSourceProblem,
   type DynamicSchemeVariant,
+  type LiteralColorValue,
   type Result,
   type SchemeTokensRecipeProblem,
   type SchemeTokensRecipeResult,
@@ -91,6 +94,9 @@ const sourceOptions: DynamicSchemeSourceOptions = {
   variant,
   contrastLevel: 0,
 };
+const authoredColor = literalColor(hex("#6750A4"));
+const typedAuthoredColor: LiteralColorValue = authoredColor;
+const graphValue: ColorTokenValue = typedAuthoredColor;
 const graphOptions = {
   source: dynamicSchemeSource(sourceOptions),
 } satisfies CreateSchemeGraphOptions;
@@ -112,9 +118,20 @@ if (result.ok) {
   const value: SchemeTokensRecipeResult = result.value;
   value.cssVariables.includes("--theme-chrome-background:");
 }
+authoredColor.value.colorSpace.toUpperCase();
+graphValue.kind.toUpperCase();
 if (!typedResult.ok) {
   typedResult.problems.map((problem) => problem.kind);
 }
+
+// @ts-expect-error old authored color factory is intentionally not public.
+import(${JSON.stringify(packageName)}).then((module) => module.solidColorIntent);
+
+// @ts-expect-error old authored color value type is intentionally not public.
+type OldColorIntent = import(${JSON.stringify(packageName)}).ColorIntent;
+
+// @ts-expect-error old literal color value type is intentionally not public.
+type OldSolidColorIntent = import(${JSON.stringify(packageName)}).SolidColorIntent;
 
 // @ts-expect-error source-only createSchemeGraph calls are not public.
 createSchemeGraph(dynamicSchemeSource({ sourceColor: hex("#6750A4") }));

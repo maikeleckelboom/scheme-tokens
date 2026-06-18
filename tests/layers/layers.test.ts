@@ -4,7 +4,7 @@ import {
   darkMode,
   hex,
   lightMode,
-  solidColorIntent,
+  literalColor,
   tokenKey,
   validateGraph,
   type ColorSchemeTokenLayer,
@@ -101,7 +101,7 @@ describe("token layers", () => {
     ]);
   });
 
-  it("supports authored color tokens with ColorIntent payloads", () => {
+  it("supports authored color tokens with color token value payloads", () => {
     const graph = applyLayers(baseGraph(), [
       {
         name: "authored-color",
@@ -110,8 +110,8 @@ describe("token layers", () => {
             kind: "color",
             key: tokenKey("semantic.notice.background"),
             values: [
-              { mode: lightMode, value: solidColorIntent(hex("#fff8e1")) },
-              { mode: darkMode, value: solidColorIntent(hex("#332600")) },
+              { mode: lightMode, value: literalColor(hex("#fff8e1")) },
+              { mode: darkMode, value: literalColor(hex("#332600")) },
             ],
           },
         ],
@@ -162,8 +162,8 @@ function colorToken(key: string, light: string, dark: string) {
     kind: "color" as const,
     key: tokenKey(key),
     values: [
-      { mode: lightMode, value: solidColorIntent(hex(light)) },
-      { mode: darkMode, value: solidColorIntent(hex(dark)) },
+      { mode: lightMode, value: literalColor(hex(light)) },
+      { mode: darkMode, value: literalColor(hex(dark)) },
     ],
   };
 }

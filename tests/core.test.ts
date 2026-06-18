@@ -5,8 +5,8 @@ import {
   exportCssVariables,
   hex,
   lightMode,
+  literalColor,
   serializeTokenSet,
-  solidColorIntent,
   tokenKey,
   validateGraph,
   type ColorSchemeTokenGraph,
@@ -23,8 +23,8 @@ describe("graph core", () => {
           kind: "color",
           key: tokenKey("scheme.primary"),
           values: [
-            { mode: lightMode, value: solidColorIntent(hex("#6750a4")) },
-            { mode: darkMode, value: solidColorIntent(hex("#d0bcff")) },
+            { mode: lightMode, value: literalColor(hex("#6750a4")) },
+            { mode: darkMode, value: literalColor(hex("#d0bcff")) },
           ],
         },
         {
@@ -46,15 +46,15 @@ describe("graph core", () => {
     expect(exportCssVariables(compiled.value)).toContain("--scheme-primary: #d0bcff;");
   });
 
-  it("keeps ColorIntent at the authored graph boundary and compiles concrete colors", () => {
+  it("keeps color token values at the authored graph boundary and compiles concrete colors", () => {
     const graph = testGraph({
       tokens: [
         {
           kind: "color",
           key: tokenKey("scheme.primary"),
           values: [
-            { mode: lightMode, value: solidColorIntent(hex("#6750a4")) },
-            { mode: darkMode, value: solidColorIntent(hex("#d0bcff")) },
+            { mode: lightMode, value: literalColor(hex("#6750a4")) },
+            { mode: darkMode, value: literalColor(hex("#d0bcff")) },
           ],
         },
       ],

@@ -15,10 +15,10 @@ source adapter
   -> exporter projection
 ```
 
-Source adapters create graph nodes with stable token keys, modes, authored color intents, aliases, and provenance.
+Source adapters create graph nodes with stable token keys, modes, authored color token values, aliases, and provenance.
 Token layers are reusable graph additions and may add aliases or authored color tokens. Recipe `aliases` are sugar for
 simple alias nodes. The singular recipe `transform` provides a narrow programmatic graph hook after layers and aliases
-and before compile/export. The compiler validates the graph, resolves aliases, and unwraps color intents into concrete
+and before compile/export. The compiler validates the graph, resolves aliases, and unwraps color token values into concrete
 color values. Exporters consume compiled token sets only.
 
 ## Boundaries
@@ -30,7 +30,7 @@ color values. Exporters consume compiled token sets only.
   validation, compilation, layers, the transform hook, serialization, and CSS export remain generic.
 - Token layers may add generic app aliases such as `chrome.background` and `semantic.action.background`; they must not
   introduce project-specific semantics.
-- Color token nodes store `ModeValues<ColorIntent>`. v0 supports only solid color intents, and compiled color values
+- Color token nodes store `ModeValues<ColorTokenValue>`. v0 supports only literal color values, and compiled color values
   remain concrete `ColorValue` objects.
 - `serializeTokenSet()` is the deterministic JSON/snapshot primitive. A dedicated JSON token exporter is deferred.
 - Dynamic color algorithm changes are package-level events because upstream generation changes can alter compiled token
@@ -42,8 +42,8 @@ color values. Exporters consume compiled token sets only.
 
 ## Current Slice
 
-The repository exposes only implemented root behavior: key parsing, mode parsing, color constructors, solid color
-intents, source-backed graph creation, graph validation, compilation, deterministic serialization, CSS variable export,
+The repository exposes only implemented root behavior: key parsing, mode parsing, color constructors, literal color
+values, source-backed graph creation, graph validation, compilation, deterministic serialization, CSS variable export,
 the dynamic scheme source, the app surface layer, and the `createSchemeTokens()` recipe.
 
 Dynamic source defaults are spec version `2021`, platform `phone`, contrast level `0`, and variant `tonal`. The source

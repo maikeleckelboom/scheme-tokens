@@ -1,6 +1,6 @@
 import type { SrgbColor } from "../../core/colorValue";
 import { validateColorValue } from "../../core/colorValue";
-import { solidColorIntent } from "../../core/colorIntent";
+import { literalColor } from "../../core/colorTokenValue";
 import type { ModeValue, Result, TokenNode } from "../../core/graph";
 import { darkMode, lightMode } from "../../core/modes";
 import type { DynamicSchemeResolvedOptions } from "./dynamicSchemeSource";
@@ -78,9 +78,9 @@ export function createDynamicSchemeValues(
       continue;
     }
 
-    const values: ModeValue<ReturnType<typeof solidColorIntent>>[] = [
-      { mode: lightMode, value: solidColorIntent(argbToSrgb(lightValue)) },
-      { mode: darkMode, value: solidColorIntent(argbToSrgb(darkValue)) },
+    const values: ModeValue<ReturnType<typeof literalColor>>[] = [
+      { mode: lightMode, value: literalColor(argbToSrgb(lightValue)) },
+      { mode: darkMode, value: literalColor(argbToSrgb(darkValue)) },
     ];
 
     for (const entry of values) {

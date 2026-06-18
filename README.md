@@ -6,38 +6,33 @@ color-scheme-tokens builds typed, inspectable token graphs, compiles aliases and
 and exports those compiled tokens to CSS variables or stable JSON snapshots. Source adapters can generate a graph, but
 they do not define the graph model.
 
-This repository is private at version `0.0.0` while the public contract is being formed. It does not publish the old
-wrapper-shaped API. The package is ESM-only.
+This repository is private at version `0.0.0` while the public contract is being formed. The package is ESM-only.
 
-## Minimal Recipe
+## Recipe
 
 ```ts
 import { createSchemeTokens, dynamicSchemeSource, hex } from "color-scheme-tokens";
 
 const result = createSchemeTokens({
-  source: dynamicSchemeSource({
-    sourceColor: hex("#6750A4"),
-  }),
+  source: dynamicSchemeSource({ sourceColor: hex("#6750A4") }),
   css: { prefix: "theme" },
 });
 
-if (result.ok) {
-  result.value.cssVariables.includes("--theme-scheme-primary:");
-}
+if (!result.ok) throw new Error(JSON.stringify(result.problems));
+
+result.value.cssVariables;
 ```
 
 The recipe runs the source adapter, compiles the token graph, serializes a deterministic snapshot, and exports CSS
 variables. Consumers do not need layers or the transform hook for the basic path.
 
-## Simple Aliases
+## Add Aliases
 
 ```ts
 import { createSchemeTokens, dynamicSchemeSource, hex } from "color-scheme-tokens";
 
 const result = createSchemeTokens({
-  source: dynamicSchemeSource({
-    sourceColor: hex("#6750A4"),
-  }),
+  source: dynamicSchemeSource({ sourceColor: hex("#6750A4") }),
   aliases: {
     "app.action": "scheme.primary",
     "app.canvas": "scheme.surface",
@@ -45,45 +40,41 @@ const result = createSchemeTokens({
   css: { prefix: "theme" },
 });
 
-if (result.ok) {
-  result.value.cssVariables.includes("--theme-app-action:");
-}
+if (!result.ok) throw new Error(JSON.stringify(result.problems));
+
+result.value.cssVariables;
 ```
 
 `aliases` is recipe sugar for alias token nodes. Alias keys and targets are validated through the normal graph compile
 path, so duplicate keys, invalid token keys, and unresolved targets use the same validation behavior as manual graphs.
 
-## Optional Reusable Layers
+## Add A Layer
 
 ```ts
 import { appSurfaceLayer, createSchemeTokens, dynamicSchemeSource, hex } from "color-scheme-tokens";
 
 const result = createSchemeTokens({
-  source: dynamicSchemeSource({
-    sourceColor: hex("#6750A4"),
-  }),
+  source: dynamicSchemeSource({ sourceColor: hex("#6750A4") }),
   layers: [appSurfaceLayer],
   css: { prefix: "theme" },
 });
 
-if (result.ok) {
-  result.value.cssVariables.includes("--theme-chrome-background:");
-}
+if (!result.ok) throw new Error(JSON.stringify(result.problems));
+
+result.value.cssVariables;
 ```
 
 Token layers are optional reusable graph additions. They usually add aliases or authored token nodes that should be
 shared across recipes. `appSurfaceLayer` is a small convenience layer for `chrome.*` and `semantic.*` aliases, not a
 required app model.
 
-## Programmatic Transform
+## Add A Transform
 
 ```ts
 import { createSchemeTokens, dynamicSchemeSource, hex, tokenKey } from "color-scheme-tokens";
 
 const result = createSchemeTokens({
-  source: dynamicSchemeSource({
-    sourceColor: hex("#6750A4"),
-  }),
+  source: dynamicSchemeSource({ sourceColor: hex("#6750A4") }),
   aliases: {
     "app.action": "scheme.primary",
   },
@@ -102,9 +93,8 @@ const result = createSchemeTokens({
 });
 ```
 
-`transform` is the graph-native successor to older flat modification hooks such as `modifyColorScheme`. It receives the
-graph after layers and aliases, returns a graph, and then the normal validation, compile, serialization, and CSS export
-pipeline continues.
+`transform` receives the graph after layers and aliases, returns a graph, and then the normal validation, compile,
+serialization, and CSS export pipeline continues.
 
 The recipe pipeline is:
 
@@ -117,18 +107,16 @@ source
   -> CSS variables and deterministic snapshot serialization
 ```
 
-## Manual Graph API
+## Manual Graph
 
 ```ts
 import {
   type ColorSchemeTokenGraph,
   compileGraph,
   darkMode,
-  exportCssVariables,
   hex,
   lightMode,
-  serializeTokenSet,
-  solidColorIntent,
+  literalColor,
   tokenKey,
 } from "color-scheme-tokens";
 
@@ -140,8 +128,8 @@ const graph: ColorSchemeTokenGraph = {
       kind: "color",
       key: tokenKey("scheme.primary"),
       values: [
-        { mode: lightMode, value: solidColorIntent(hex("#6750a4")) },
-        { mode: darkMode, value: solidColorIntent(hex("#d0bcff")) },
+        { mode: lightMode, value: literalColor(hex("#6750a4")) },
+        { mode: darkMode, value: literalColor(hex("#d0bcff")) },
       ],
     },
     {
@@ -154,28 +142,25 @@ const graph: ColorSchemeTokenGraph = {
 
 const compiled = compileGraph(graph);
 
-if (compiled.ok) {
-  const css = exportCssVariables(compiled.value);
-  const snapshot = serializeTokenSet(compiled.value);
-}
+if (!compiled.ok) throw new Error(JSON.stringify(compiled.problems));
+
+compiled.value;
 ```
 
 The manual API is useful when an application already owns its token graph or when tests need exact graph fixtures.
 
-## Dynamic Source Details
+## Inspect A Source Graph
 
 ```ts
 import { createSchemeGraph, dynamicSchemeSource, hex } from "color-scheme-tokens";
 
 const graphResult = createSchemeGraph({
-  source: dynamicSchemeSource({
-    sourceColor: hex("#6750A4"),
-  }),
+  source: dynamicSchemeSource({ sourceColor: hex("#6750A4") }),
 });
 
-if (graphResult.ok) {
-  graphResult.value.tokens.length;
-}
+if (!graphResult.ok) throw new Error(JSON.stringify(graphResult.problems));
+
+graphResult.value.tokens;
 ```
 
 The dynamic source accepts opaque sRGB source colors in this tranche. `hex("#6750A4")` and `srgb255(103, 80, 164)` are
@@ -192,7 +177,7 @@ output. The upstream package is pinned exactly, and deterministic snapshot fixtu
 
 ## Current Scope
 
-- Token graph primitives, token keys, modes, color intents, aliases, validation, compilation, deterministic
+- Token graph primitives, token keys, modes, color token values, aliases, validation, compilation, deterministic
   serialization, and CSS export are implemented.
 - `dynamicSchemeSource()` is the first source adapter.
 - `createSchemeTokens()` provides the simple recipe path with optional aliases, reusable layers, and one advanced

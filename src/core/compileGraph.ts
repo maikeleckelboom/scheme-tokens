@@ -1,5 +1,5 @@
 import type { ColorValue } from "./colorValue";
-import { resolveColorIntent } from "./colorIntent";
+import { resolveColorTokenValue } from "./colorTokenValue";
 import type { ColorSchemeTokenGraph, ModeValues, Result, TokenNode } from "./graph";
 import type { TokenKey } from "./keys";
 import type { ModeKey } from "./modes";
@@ -144,7 +144,7 @@ function resolveTokenColor(
 ): { readonly value: ColorValue } | { readonly problem: CompileProblem } {
   if (token.kind === "color") {
     const value = readModeValue(token.values, mode);
-    if (value !== undefined) return { value: resolveColorIntent(value) };
+    if (value !== undefined) return { value: resolveColorTokenValue(value) };
 
     return {
       problem: {

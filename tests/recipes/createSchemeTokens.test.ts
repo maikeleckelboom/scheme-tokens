@@ -6,7 +6,7 @@ import {
   dynamicSchemeSource,
   hex,
   lightMode,
-  solidColorIntent,
+  literalColor,
   tokenKey,
   type ColorSchemeTokenGraphTransform,
 } from "../../src/index";
@@ -191,8 +191,8 @@ describe("createSchemeTokens", () => {
             kind: "color",
             key: tokenKey("app.staticAccent"),
             values: [
-              { mode: lightMode, value: solidColorIntent(hex("#112233")) },
-              { mode: darkMode, value: solidColorIntent(hex("#ddeeff")) },
+              { mode: lightMode, value: literalColor(hex("#112233")) },
+              { mode: darkMode, value: literalColor(hex("#ddeeff")) },
             ],
           },
         ],

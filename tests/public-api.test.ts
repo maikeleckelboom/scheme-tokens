@@ -14,12 +14,12 @@ describe("public API", () => {
         "exportCssVariables",
         "hex",
         "lightMode",
+        "literalColor",
         "modeKey",
         "parseHexColor",
         "parseModeKey",
         "parseTokenKey",
         "serializeTokenSet",
-        "solidColorIntent",
         "srgb255",
         "tokenKey",
         "validateGraph",
@@ -39,6 +39,7 @@ describe("public API", () => {
       "DynamicColorScheme",
       "PaletteStyle",
       "exportJsonTokens",
+      "solidColorIntent",
     ];
 
     for (const name of forbidden) {
