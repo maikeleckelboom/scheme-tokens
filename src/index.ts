@@ -53,6 +53,7 @@ export type { GraphValidationResult, TokenGraphProblem } from "./core/validateGr
 export type { CssVariableModeSelectors, CssVariableOptions } from "./exporters/exportCssVariables";
 export type { ColorSchemeTokenLayer } from "./layers/layer";
 export type {
+  ColorSchemeTokenAliases,
   ColorSchemeTokenGraphTransform,
   SchemeTokensRecipeOptions,
   SchemeTokensRecipeProblem,

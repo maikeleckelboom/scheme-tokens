@@ -12,7 +12,7 @@ import {
 } from "../../src/index";
 
 describe("createSchemeTokens", () => {
-  it("works with no layers", () => {
+  it("works with no aliases, no layers, and no transform", () => {
     const result = createSchemeTokens({
       source: dynamicSchemeSource({ sourceColor: hex("#6750A4") }),
       compile: {
@@ -27,6 +27,41 @@ describe("createSchemeTokens", () => {
       "scheme.primary",
     ]);
     expect(result.value.cssVariables).toContain("--theme-scheme-primary:");
+  });
+
+  it("expands aliases into compiled and exported tokens", () => {
+    const result = createSchemeTokens({
+      source: dynamicSchemeSource({ sourceColor: hex("#6750A4") }),
+      aliases: {
+        "app.action": "scheme.primary",
+        "app.canvas": "scheme.surface",
+      },
+      compile: {
+        include: [tokenKey("app.action"), tokenKey("app.canvas")],
+      },
+      css: { prefix: "theme" },
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.graph.tokens.slice(-2)).toEqual([
+      {
+        kind: "alias",
+        key: tokenKey("app.action"),
+        target: tokenKey("scheme.primary"),
+      },
+      {
+        kind: "alias",
+        key: tokenKey("app.canvas"),
+        target: tokenKey("scheme.surface"),
+      },
+    ]);
+    expect(result.value.tokenSet.tokens.map((token) => String(token.key))).toEqual([
+      "app.action",
+      "app.canvas",
+    ]);
+    expect(result.value.cssVariables).toContain("--theme-app-action:");
+    expect(result.value.cssVariables).toContain("--theme-app-canvas:");
   });
 
   it("orchestrates dynamic source, layers, compiler, CSS export, and snapshot serialization", () => {
@@ -56,25 +91,35 @@ describe("createSchemeTokens", () => {
     );
   });
 
-  it("applies transforms after layers and before compile", () => {
+  it("applies aliases after layers and before transform", () => {
     const result = createSchemeTokens({
       source: dynamicSchemeSource({ sourceColor: hex("#6750A4") }),
       layers: [appSurfaceLayer],
-      transforms: [
-        (graph) => ({
+      aliases: {
+        "app.chromeBackground": "chrome.background",
+      },
+      transform: (graph) => {
+        expect(graph.tokens.some((token) => token.key === tokenKey("chrome.background"))).toBe(
+          true,
+        );
+        expect(graph.tokens.some((token) => token.key === tokenKey("app.chromeBackground"))).toBe(
+          true,
+        );
+
+        return {
           ...graph,
           tokens: [
             ...graph.tokens,
             {
               kind: "alias",
-              key: tokenKey("app.chromeBackground"),
-              target: tokenKey("chrome.background"),
+              key: tokenKey("app.primaryAction"),
+              target: tokenKey("app.chromeBackground"),
             },
           ],
-        }),
-      ],
+        };
+      },
       compile: {
-        include: [tokenKey("app.chromeBackground")],
+        include: [tokenKey("app.primaryAction")],
       },
       css: { prefix: "theme" },
     });
@@ -82,38 +127,43 @@ describe("createSchemeTokens", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.tokenSet.tokens.map((token) => String(token.key))).toEqual([
-      "app.chromeBackground",
+      "app.primaryAction",
     ]);
-    expect(result.value.cssVariables).toContain("--theme-app-chrome-background:");
+    expect(result.value.cssVariables).toContain("--theme-app-primary-action:");
   });
 
-  it("applies multiple transforms in array order", () => {
-    const transforms: ColorSchemeTokenGraphTransform[] = [
-      (graph) => ({
-        ...graph,
-        tokens: [
-          ...graph.tokens,
-          { kind: "alias", key: tokenKey("app.first"), target: tokenKey("scheme.primary") },
-        ],
-      }),
-      (graph) => ({
+  it("applies singular transform after aliases and before compile", () => {
+    const transform: ColorSchemeTokenGraphTransform = (graph) => {
+      expect(graph.tokens.at(-1)).toEqual({
+        kind: "alias",
+        key: tokenKey("app.first"),
+        target: tokenKey("scheme.primary"),
+      });
+
+      return {
         ...graph,
         tokens: [
           ...graph.tokens,
           { kind: "alias", key: tokenKey("app.second"), target: tokenKey("app.first") },
         ],
-      }),
-    ];
+      };
+    };
     const result = createSchemeTokens({
       source: dynamicSchemeSource({ sourceColor: hex("#6750A4") }),
-      transforms,
+      aliases: {
+        "app.first": "scheme.primary",
+      },
+      transform,
       compile: {
         include: [tokenKey("app.first"), tokenKey("app.second")],
       },
     });
     const secondResult = createSchemeTokens({
       source: dynamicSchemeSource({ sourceColor: hex("#6750A4") }),
-      transforms,
+      aliases: {
+        "app.first": "scheme.primary",
+      },
+      transform,
       compile: {
         include: [tokenKey("app.first"), tokenKey("app.second")],
       },
@@ -133,22 +183,20 @@ describe("createSchemeTokens", () => {
   it("compiles and exports transform-added token nodes", () => {
     const result = createSchemeTokens({
       source: dynamicSchemeSource({ sourceColor: hex("#6750A4") }),
-      transforms: [
-        (graph) => ({
-          ...graph,
-          tokens: [
-            ...graph.tokens,
-            {
-              kind: "color",
-              key: tokenKey("app.staticAccent"),
-              values: [
-                { mode: lightMode, value: solidColorIntent(hex("#112233")) },
-                { mode: darkMode, value: solidColorIntent(hex("#ddeeff")) },
-              ],
-            },
-          ],
-        }),
-      ],
+      transform: (graph) => ({
+        ...graph,
+        tokens: [
+          ...graph.tokens,
+          {
+            kind: "color",
+            key: tokenKey("app.staticAccent"),
+            values: [
+              { mode: lightMode, value: solidColorIntent(hex("#112233")) },
+              { mode: darkMode, value: solidColorIntent(hex("#ddeeff")) },
+            ],
+          },
+        ],
+      }),
       compile: {
         include: [tokenKey("app.staticAccent")],
       },
@@ -165,19 +213,17 @@ describe("createSchemeTokens", () => {
   it("validates transform output through the compile path", () => {
     const result = createSchemeTokens({
       source: dynamicSchemeSource({ sourceColor: hex("#6750A4") }),
-      transforms: [
-        (graph) => ({
-          ...graph,
-          tokens: [
-            ...graph.tokens,
-            {
-              kind: "alias",
-              key: tokenKey("app.missing"),
-              target: tokenKey("scheme.missing"),
-            },
-          ],
-        }),
-      ],
+      transform: (graph) => ({
+        ...graph,
+        tokens: [
+          ...graph.tokens,
+          {
+            kind: "alias",
+            key: tokenKey("app.missing"),
+            target: tokenKey("scheme.missing"),
+          },
+        ],
+      }),
     });
 
     const problems = expectProblems(result);

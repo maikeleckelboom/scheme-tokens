@@ -5,7 +5,8 @@ import {
   type CompiledTokenSet,
 } from "../core/compileGraph";
 import { createSchemeGraph } from "../core/createSchemeGraph";
-import type { ColorSchemeTokenGraph, Result } from "../core/graph";
+import type { AliasTokenNode, ColorSchemeTokenGraph, Result } from "../core/graph";
+import type { TokenKey } from "../core/keys";
 import type { GraphBuildProblem, SchemeSource, SchemeSourceProblem } from "../core/schemeSource";
 import { serializeTokenSet } from "../core/serializeTokenSet";
 import { exportCssVariables, type CssVariableOptions } from "../exporters/exportCssVariables";
@@ -16,10 +17,13 @@ export type ColorSchemeTokenGraphTransform = (
   graph: ColorSchemeTokenGraph,
 ) => ColorSchemeTokenGraph;
 
+export type ColorSchemeTokenAliases = Readonly<Record<string, string>>;
+
 export interface SchemeTokensRecipeOptions {
   readonly source: SchemeSource;
   readonly layers?: readonly ColorSchemeTokenLayer[];
-  readonly transforms?: readonly ColorSchemeTokenGraphTransform[];
+  readonly aliases?: ColorSchemeTokenAliases;
+  readonly transform?: ColorSchemeTokenGraphTransform;
   readonly compile?: CompileOptions;
   readonly css?: CssVariableOptions;
 }
@@ -43,7 +47,9 @@ export function createSchemeTokens(
     options.layers === undefined
       ? graphResult.value
       : applyLayers(graphResult.value, options.layers);
-  const graph = applyTransforms(layeredGraph, options.transforms ?? []);
+  const aliasedGraph =
+    options.aliases === undefined ? layeredGraph : applyAliases(layeredGraph, options.aliases);
+  const graph = options.transform === undefined ? aliasedGraph : options.transform(aliasedGraph);
   const compiled = compileGraph(graph, options.compile);
   if (!compiled.ok) return compiled;
 
@@ -58,9 +64,18 @@ export function createSchemeTokens(
   };
 }
 
-function applyTransforms(
+function applyAliases(
   graph: ColorSchemeTokenGraph,
-  transforms: readonly ColorSchemeTokenGraphTransform[],
+  aliases: ColorSchemeTokenAliases,
 ): ColorSchemeTokenGraph {
-  return transforms.reduce((currentGraph, transform) => transform(currentGraph), graph);
+  const aliasTokens: AliasTokenNode[] = Object.entries(aliases).map(([key, target]) => ({
+    kind: "alias",
+    key: key as TokenKey,
+    target: target as TokenKey,
+  }));
+
+  return {
+    ...graph,
+    tokens: [...graph.tokens, ...aliasTokens],
+  };
 }

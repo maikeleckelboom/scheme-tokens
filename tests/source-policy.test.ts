@@ -73,6 +73,19 @@ describe("source policy", () => {
     expect(source).not.toContain("themeFromSourceColor");
     expect(source).not.toContain("applyTheme");
   });
+
+  it("keeps Material-specific imports out of generic graph, recipe, layer, and export modules", async () => {
+    const genericSource = (
+      await Promise.all(
+        ["src/core", "src/exporters", "src/layers", "src/recipes"].map((directory) =>
+          readSourceFiles(directory),
+        ),
+      )
+    ).join("\n");
+
+    expect(genericSource).not.toContain("@material/material-color-utilities");
+    expect(genericSource).not.toMatch(/\bMaterial[A-Z]/);
+  });
 });
 
 async function readSourceFiles(directory: string): Promise<string> {

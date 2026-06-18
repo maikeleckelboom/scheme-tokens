@@ -6,25 +6,28 @@ and not a product-specific theme object.
 ## Pipeline
 
 ```text
-scheme source input
-  -> scheme source graph
+source adapter
+  -> source-emitted graph
   -> optional token layers
-  -> optional graph transforms
+  -> optional aliases
+  -> optional graph transform
   -> validated/compiled token set
   -> exporter projection
 ```
 
-Scheme sources create graph nodes with stable token keys, modes, authored color intents, aliases, and provenance.
-Token layers map scheme roles into app-facing aliases and may add authored color tokens. Graph transforms provide a
-narrow programmatic customization hook before compile/export. The compiler validates the graph, resolves aliases, and
-unwraps color intents into concrete color values. Exporters consume compiled token sets only.
+Source adapters create graph nodes with stable token keys, modes, authored color intents, aliases, and provenance.
+Token layers are reusable graph additions and may add aliases or authored color tokens. Recipe `aliases` are sugar for
+simple alias nodes. The singular recipe `transform` provides a narrow programmatic graph hook after layers and aliases
+and before compile/export. The compiler validates the graph, resolves aliases, and unwraps color intents into concrete
+color values. Exporters consume compiled token sets only.
 
 ## Boundaries
 
 - Dynamic color is the first intended source, but dynamic color does not define the package identity.
-- Scheme role keys use `scheme.*`.
-- The dynamic source is backed by `@material/material-color-utilities` internally; upstream types and Material-branded
-  wrappers are not public runtime API.
+- The dynamic source emits `scheme.*` keys. That namespace is source-emitted token data, not mandatory graph structure.
+- The dynamic source is backed by `@material/material-color-utilities` internally; the backing package is a source
+  implementation detail. Upstream types and Material-branded wrappers are not public runtime API, and graph types,
+  validation, compilation, layers, the transform hook, serialization, and CSS export remain generic.
 - Token layers may add generic app aliases such as `chrome.background` and `semantic.action.background`; they must not
   introduce project-specific semantics.
 - Color token nodes store `ModeValues<ColorIntent>`. v0 supports only solid color intents, and compiled color values
