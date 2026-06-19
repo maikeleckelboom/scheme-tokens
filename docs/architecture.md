@@ -12,7 +12,7 @@ The package is split into three boundaries:
 3. Explicit source adapters, currently including the Material 3 adapter.
 
 Source adapters produce graphs. They do not define token nodes, modes, aliases, validation, compilation, layers,
-transform behavior, deterministic serialization, or CSS export.
+deterministic serialization, or CSS export.
 
 ## Pipeline
 
@@ -21,15 +21,13 @@ source adapter
   -> source-emitted graph
   -> optional token layers
   -> optional aliases
-  -> optional graph transform
   -> validated/compiled token set
   -> exporter projection
 ```
 
 Source adapters create graph nodes with stable token keys, modes, authored color token values, aliases, and provenance.
 Token layers are reusable graph additions and may add aliases or authored color tokens. Recipe `aliases` are sugar for
-simple alias nodes. The singular recipe `transform` provides a narrow programmatic graph hook after layers and aliases
-and before compile/export. The compiler validates the graph, resolves aliases, and unwraps color token values into concrete
+simple alias nodes. The compiler validates the graph, resolves aliases, and unwraps color token values into concrete
 color values. Exporters consume compiled token sets only.
 
 ## Boundaries
@@ -45,11 +43,12 @@ color values. Exporters consume compiled token sets only.
   happy path uses color constructors such as `hex()` and `srgb255()`.
 - The Material 3 adapter is backed by `@material/material-color-utilities` internally. Upstream types and Material
   utility wrappers are not public root API.
-- Graph types, validation, compilation, layers, the transform hook, serialization, and CSS export remain generic.
+- Graph types, validation, compilation, layers, serialization, and CSS export remain generic.
 - Token layers may add generic app or brand aliases; bundled layers must not quietly assume a source-emitted namespace.
 - Color token nodes store `ModeValues<ColorTokenValue>`. v0 supports only literal color values, and compiled color values
   remain concrete `ColorValue` objects.
-- `serializeTokenSet()` is the deterministic JSON/snapshot primitive. A dedicated JSON token exporter is deferred.
+- `serializeTokenSet()` is the canonical internal deterministic snapshot format. It is independent from DTCG; dedicated
+  interop exporters are deferred.
 - Material Dynamic Color algorithm changes are package-level events because upstream generation changes can alter compiled
   token output; the upstream package is pinned exactly and fixtures are expected to catch drift.
 - `tests/fixtures/material3-purple.token-set.snapshot.json` is byte-for-byte serialized Material 3 adapter output and is

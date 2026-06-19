@@ -52,7 +52,6 @@ export type { CssVariableModeSelectors, CssVariableOptions } from "./exporters/e
 export type { ColorSchemeTokenLayer } from "./layers/layer";
 export type {
   ColorSchemeTokenAliases,
-  ColorSchemeTokenGraphTransform,
   SchemeTokensRecipeOptions,
   SchemeTokensRecipeProblem,
   SchemeTokensRecipeResult,

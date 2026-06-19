@@ -27,8 +27,7 @@ it does not copy prior Git history.
 4. Add explicit source adapters that produce graphs.
 5. Keep Material 3 Dynamic Color behind the `color-scheme-tokens/sources/material3` adapter.
 6. Add plain token layer data as generic graph additions.
-7. Add a recipe that orchestrates source adapters, layers, aliases, one transform hook, compiler, serializer, and CSS
-   export.
+7. Add a recipe that orchestrates source adapters, layers, aliases, compiler, serializer, and CSS export.
 8. Add source and CSS snapshots before any public release candidate.
 
 ## Current Implementation Notes
@@ -47,6 +46,8 @@ it does not copy prior Git history.
 - Recipe `aliases` are sugar for simple alias token nodes.
 - Token layers are reusable graph additions. Public layers must be source-agnostic unless their name and docs explicitly
   state the source dependency.
-- Recipe `transform` is a single advanced graph hook that runs after layers and aliases and before compile.
-- `serializeTokenSet()` remains the deterministic snapshot path; there is no public JSON exporter.
+- The public recipe does not expose a graph transform hook for v1. Extension points are deferred until they can be
+  designed without widening the graph contract by default.
+- `serializeTokenSet()` remains the canonical internal deterministic snapshot path; there is no DTCG or public JSON
+  exporter.
 - The upstream dynamic color utility version is pinned exactly because algorithm changes can alter generated token output.

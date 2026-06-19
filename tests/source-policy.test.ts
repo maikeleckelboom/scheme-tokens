@@ -61,6 +61,15 @@ describe("source policy", () => {
     expect(rootIndex).not.toContain("./sources/material3");
     expect(genericSource).not.toMatch(/\bMaterial[A-Z]/);
   });
+
+  it("keeps the deterministic serializer independent from DTCG interop shape", async () => {
+    const serializer = await readFile("src/core/serializeTokenSet.ts", "utf8");
+
+    expect(serializer).not.toMatch(/\bDTCG\b/i);
+    expect(serializer).not.toContain("$value");
+    expect(serializer).not.toContain("$type");
+    expect(serializer).not.toContain("$extensions");
+  });
 });
 
 async function readSourceFiles(directory: string): Promise<string> {

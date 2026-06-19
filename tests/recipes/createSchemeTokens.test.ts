@@ -1,18 +1,9 @@
 import { describe, expect, it } from "vitest";
-import {
-  createSchemeTokens,
-  darkMode,
-  hex,
-  lightMode,
-  literalColor,
-  tokenKey,
-  type ColorSchemeTokenGraphTransform,
-  type ColorSchemeTokenLayer,
-} from "../../src/index";
+import { createSchemeTokens, hex, tokenKey, type ColorSchemeTokenLayer } from "../../src/index";
 import { material3Source } from "../../src/sources/material3";
 
 describe("createSchemeTokens", () => {
-  it("works with no aliases, no layers, and no transform", () => {
+  it("works with no aliases and no layers", () => {
     const result = createSchemeTokens({
       source: material3Source({ sourceColor: hex("#6750A4") }),
       compile: {
@@ -89,142 +80,31 @@ describe("createSchemeTokens", () => {
     );
   });
 
-  it("applies aliases after layers and before transform", () => {
+  it("applies aliases after layers and before compile", () => {
     const result = createSchemeTokens({
       source: material3Source({ sourceColor: hex("#6750A4") }),
       layers: [applicationLayer],
       aliases: {
         "app.chromeBackground": "app.canvas",
       },
-      transform: (graph) => {
-        expect(graph.tokens.some((token) => token.key === tokenKey("app.canvas"))).toBe(true);
-        expect(graph.tokens.some((token) => token.key === tokenKey("app.chromeBackground"))).toBe(
-          true,
-        );
-
-        return {
-          ...graph,
-          tokens: [
-            ...graph.tokens,
-            {
-              kind: "alias",
-              key: tokenKey("app.primaryAction"),
-              target: tokenKey("app.chromeBackground"),
-            },
-          ],
-        };
-      },
       compile: {
-        include: [tokenKey("app.primaryAction")],
+        include: [tokenKey("app.chromeBackground")],
       },
       css: { prefix: "theme" },
     });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
+    expect(result.value.graph.tokens.some((token) => token.key === tokenKey("app.canvas"))).toBe(
+      true,
+    );
+    expect(
+      result.value.graph.tokens.some((token) => token.key === tokenKey("app.chromeBackground")),
+    ).toBe(true);
     expect(result.value.tokenSet.tokens.map((token) => String(token.key))).toEqual([
-      "app.primaryAction",
+      "app.chromeBackground",
     ]);
-    expect(result.value.cssVariables).toContain("--theme-app-primary-action:");
-  });
-
-  it("applies singular transform after aliases and before compile", () => {
-    const transform: ColorSchemeTokenGraphTransform = (graph) => {
-      expect(graph.tokens.at(-1)).toEqual({
-        kind: "alias",
-        key: tokenKey("app.first"),
-        target: tokenKey("m3.primary"),
-      });
-
-      return {
-        ...graph,
-        tokens: [
-          ...graph.tokens,
-          { kind: "alias", key: tokenKey("app.second"), target: tokenKey("app.first") },
-        ],
-      };
-    };
-    const result = createSchemeTokens({
-      source: material3Source({ sourceColor: hex("#6750A4") }),
-      aliases: {
-        "app.first": "m3.primary",
-      },
-      transform,
-      compile: {
-        include: [tokenKey("app.first"), tokenKey("app.second")],
-      },
-    });
-    const secondResult = createSchemeTokens({
-      source: material3Source({ sourceColor: hex("#6750A4") }),
-      aliases: {
-        "app.first": "m3.primary",
-      },
-      transform,
-      compile: {
-        include: [tokenKey("app.first"), tokenKey("app.second")],
-      },
-    });
-
-    expect(result.ok).toBe(true);
-    expect(secondResult.ok).toBe(true);
-    if (!secondResult.ok) return;
-    if (!result.ok) return;
-    expect(result.value.graph.tokens.slice(-2).map((token) => String(token.key))).toEqual([
-      "app.first",
-      "app.second",
-    ]);
-    expect(result.value.snapshot).toBe(secondResult.value.snapshot);
-  });
-
-  it("compiles and exports transform-added token nodes", () => {
-    const result = createSchemeTokens({
-      source: material3Source({ sourceColor: hex("#6750A4") }),
-      transform: (graph) => ({
-        ...graph,
-        tokens: [
-          ...graph.tokens,
-          {
-            kind: "color",
-            key: tokenKey("app.staticAccent"),
-            values: [
-              { mode: lightMode, value: literalColor(hex("#112233")) },
-              { mode: darkMode, value: literalColor(hex("#ddeeff")) },
-            ],
-          },
-        ],
-      }),
-      compile: {
-        include: [tokenKey("app.staticAccent")],
-      },
-      css: { prefix: "theme" },
-    });
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.value.tokenSet.tokens[0]?.key).toBe(tokenKey("app.staticAccent"));
-    expect(result.value.cssVariables).toContain("--theme-app-static-accent: #112233;");
-    expect(result.value.snapshot).toContain('"key": "app.staticAccent"');
-  });
-
-  it("validates transform output through the compile path", () => {
-    const result = createSchemeTokens({
-      source: material3Source({ sourceColor: hex("#6750A4") }),
-      transform: (graph) => ({
-        ...graph,
-        tokens: [
-          ...graph.tokens,
-          {
-            kind: "alias",
-            key: tokenKey("app.missing"),
-            target: tokenKey("m3.missing"),
-          },
-        ],
-      }),
-    });
-
-    const problems = expectProblems(result);
-
-    expect(problems.some((problem) => problem.kind === "invalid-graph")).toBe(true);
+    expect(result.value.cssVariables).toContain("--theme-app-chrome-background:");
   });
 
   it("returns structured problems from source failures", () => {

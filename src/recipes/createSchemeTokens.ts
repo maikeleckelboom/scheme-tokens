@@ -17,17 +17,12 @@ import { exportCssVariables, type CssVariableOptions } from "../exporters/export
 import { applyLayers } from "../layers/applyLayers";
 import type { ColorSchemeTokenLayer } from "../layers/layer";
 
-export type ColorSchemeTokenGraphTransform = (
-  graph: ColorSchemeTokenGraph,
-) => ColorSchemeTokenGraph;
-
 export type ColorSchemeTokenAliases = Readonly<Record<string, string>>;
 
 export interface SchemeTokensRecipeOptions {
   readonly source: ColorSchemeTokenSource;
   readonly layers?: readonly ColorSchemeTokenLayer[];
   readonly aliases?: ColorSchemeTokenAliases;
-  readonly transform?: ColorSchemeTokenGraphTransform;
   readonly compile?: CompileOptions;
   readonly css?: CssVariableOptions;
 }
@@ -55,14 +50,13 @@ export function createSchemeTokens(
       : applyLayers(graphResult.value, options.layers);
   const aliasedGraph =
     options.aliases === undefined ? layeredGraph : applyAliases(layeredGraph, options.aliases);
-  const graph = options.transform === undefined ? aliasedGraph : options.transform(aliasedGraph);
-  const compiled = compileGraph(graph, options.compile);
+  const compiled = compileGraph(aliasedGraph, options.compile);
   if (!compiled.ok) return compiled;
 
   return {
     ok: true,
     value: {
-      graph,
+      graph: aliasedGraph,
       tokenSet: compiled.value,
       cssVariables: exportCssVariables(compiled.value, options.css),
       snapshot: serializeTokenSet(compiled.value),

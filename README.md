@@ -7,7 +7,7 @@ and exports those compiled tokens to CSS variables or stable JSON snapshots. Sou
 they do not define the graph model.
 
 Material 3 Dynamic Color is provided through the Material 3 source adapter. The token graph, recipe pipeline, compiler,
-layers, transform hook, deterministic serialization, and CSS export are not Material-specific.
+layers, deterministic serialization, and CSS export are not Material-specific.
 
 This repository is private at version `0.0.0` while the public contract is being formed. The package is ESM-only.
 
@@ -107,7 +107,7 @@ const result = createSchemeTokens({
 `algorithm` contains Material Dynamic Color knobs. These options belong to the Material 3 adapter, they are not recipe
 options and they are not part of the graph model.
 
-## Layers And Transform
+## Layers
 
 ```ts
 import { createSchemeTokens, hex, tokenKey, type ColorSchemeTokenLayer } from "color-scheme-tokens";
@@ -126,23 +126,12 @@ const result = createSchemeTokens({
     sourceColor: hex("#6750A4"),
   }),
   layers: [applicationLayer],
-  transform: (graph) => ({
-    ...graph,
-    tokens: [
-      ...graph.tokens,
-      {
-        kind: "alias",
-        key: tokenKey("brand.canvas"),
-        target: tokenKey("app.canvas"),
-      },
-    ],
-  }),
   css: { prefix: "theme" },
 });
 ```
 
-Token layers are reusable graph additions. `transform` receives the graph after layers and aliases, returns a graph, and
-then the normal validation, compile, serialization, and CSS export pipeline continues.
+Token layers are reusable graph additions. They are applied after the source graph and before recipe aliases. The normal
+validation, compile, serialization, and CSS export pipeline then continues.
 
 The recipe pipeline is:
 
@@ -150,7 +139,6 @@ The recipe pipeline is:
 source
   -> layers
   -> aliases
-  -> transform
   -> validated/compiled token set
   -> CSS variables and deterministic snapshot serialization
 ```
@@ -234,8 +222,7 @@ package is pinned exactly, and deterministic snapshot fixtures are expected to c
   serialization, and CSS export are implemented.
 - `material3Source()` is the Material 3 source adapter and is exported only from
   `color-scheme-tokens/sources/material3`.
-- `createSchemeTokens()` provides the recipe path with optional aliases, reusable layers, and one advanced transform
-  hook.
+- `createSchemeTokens()` provides the recipe path with optional aliases and reusable layers.
 - A dedicated JSON token exporter is deferred; `serializeTokenSet()` is the deterministic JSON snapshot primitive.
 - Lab proof tooling, CLI integrations, framework bindings, DTCG export, broad source color support, image extraction,
   automatic contrast repair, and editor tooling are out of scope for this package shape.

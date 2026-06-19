@@ -81,6 +81,7 @@ import {
   createSourceGraph,
   hex,
   literalColor,
+  type ColorSchemeTokenGraph,
   type ColorTokenValue,
   type ColorSchemeTokenSource,
   type ColorSchemeTokenSourceProblem,
@@ -128,6 +129,12 @@ const result = createSchemeTokens({
   },
   css: { prefix: "theme" },
 });
+type RecipeOptions = Parameters<typeof createSchemeTokens>[0];
+const legacyTransformOptions = {
+  source: material3Source({ sourceColor: hex("#6750A4") }),
+  // @ts-expect-error the public transform hook is removed from v1.
+  transform: (graph: ColorSchemeTokenGraph) => graph,
+} satisfies RecipeOptions;
 
 const typedResult: Result<SchemeTokensRecipeResult, SchemeTokensRecipeProblem> = result;
 const readProblemKind = (problem: ColorSchemeTokenSourceProblem | Material3SourceProblem) =>
@@ -144,6 +151,7 @@ if (result.ok) {
 }
 authoredColor.value.colorSpace.toUpperCase();
 graphValue.kind.toUpperCase();
+legacyTransformOptions.source.id.toUpperCase();
 if (!typedResult.ok) {
   typedResult.problems.map((problem) => problem.kind);
 }
@@ -153,6 +161,9 @@ import(${JSON.stringify(packageName)}).then((module) => module.material3Source);
 
 // @ts-expect-error Material 3 option types are intentionally not exported from root.
 type RootMaterial3SourceOptions = import(${JSON.stringify(packageName)}).Material3SourceOptions;
+
+// @ts-expect-error the public transform hook is removed from v1.
+type RootColorSchemeTokenGraphTransform = import(${JSON.stringify(packageName)}).ColorSchemeTokenGraphTransform;
 
 // @ts-expect-error source-only createSourceGraph calls are not public.
 createSourceGraph(material3Source({ sourceColor: hex("#6750A4") }));
