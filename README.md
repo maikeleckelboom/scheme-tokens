@@ -14,12 +14,12 @@ This repository is private at version `0.0.0` while the public contract is being
 ## Minimal Recipe
 
 ```ts
-import { createSchemeTokens, hex } from "color-scheme-tokens";
+import { createSchemeTokens } from "color-scheme-tokens";
 import { material3Source } from "color-scheme-tokens/sources/material3";
 
 const result = createSchemeTokens({
   source: material3Source({
-    sourceColor: hex("#6750A4"),
+    color: "#6750A4",
   }),
   css: { prefix: "theme" },
 });
@@ -38,12 +38,12 @@ exports CSS variables. The root package owns the generic graph and recipe APIs. 
 ## Simple Aliases
 
 ```ts
-import { createSchemeTokens, hex } from "color-scheme-tokens";
+import { createSchemeTokens } from "color-scheme-tokens";
 import { material3Source } from "color-scheme-tokens/sources/material3";
 
 const result = createSchemeTokens({
   source: material3Source({
-    sourceColor: hex("#6750A4"),
+    color: "#6750A4",
   }),
   aliases: {
     "app.action": "m3.primary",
@@ -61,38 +61,38 @@ tokens are application-owned names. Alias keys and targets are validated through
 ## Material 3 Key Colors
 
 ```ts
-import { createSchemeTokens, hex } from "color-scheme-tokens";
+import { createSchemeTokens } from "color-scheme-tokens";
 import { material3Source } from "color-scheme-tokens/sources/material3";
 
 const result = createSchemeTokens({
   source: material3Source({
-    sourceColor: hex("#6750A4"),
+    color: "#6750A4",
     keyColors: {
-      primary: hex("#6750A4"),
-      secondary: hex("#625B71"),
-      tertiary: hex("#7D5260"),
-      neutral: hex("#605D62"),
-      neutralVariant: hex("#605D66"),
+      primary: "#6750A4",
+      secondary: "#625B71",
+      tertiary: "#7D5260",
+      neutral: "#605D62",
+      neutralVariant: "#605D66",
     },
   }),
   css: { prefix: "theme" },
 });
 ```
 
-`sourceColor` is the source input. `keyColors` are optional Material 3 palette key colors and are not generic graph
-concepts.
+`color` is the Material source input. `keyColors` are optional Material 3 palette key colors and are not generic graph
+concepts. All color inputs are parsed and normalized during validation.
 
 ## Advanced Material 3 Algorithm
 
 ```ts
-import { createSchemeTokens, hex } from "color-scheme-tokens";
+import { createSchemeTokens } from "color-scheme-tokens";
 import { material3Source } from "color-scheme-tokens/sources/material3";
 
 const result = createSchemeTokens({
   source: material3Source({
-    sourceColor: hex("#6750A4"),
+    color: "#6750A4",
     keyColors: {
-      primary: hex("#6750A4"),
+      primary: "#6750A4",
     },
     algorithm: {
       variant: "tonalSpot",
@@ -110,7 +110,7 @@ options and they are not part of the graph model.
 ## Layers
 
 ```ts
-import { createSchemeTokens, hex, type ColorSchemeTokenLayerInput } from "color-scheme-tokens";
+import { createSchemeTokens, type ColorSchemeTokenLayerInput } from "color-scheme-tokens";
 import { material3Source } from "color-scheme-tokens/sources/material3";
 
 const applicationLayer: ColorSchemeTokenLayerInput = {
@@ -123,7 +123,7 @@ const applicationLayer: ColorSchemeTokenLayerInput = {
 
 const result = createSchemeTokens({
   source: material3Source({
-    sourceColor: hex("#6750A4"),
+    color: "#6750A4",
   }),
   layers: [applicationLayer],
   css: { prefix: "theme" },
@@ -146,12 +146,7 @@ source
 ## Manual Graph
 
 ```ts
-import {
-  type ColorSchemeTokenGraphInput,
-  compileGraph,
-  hex,
-  literalColor,
-} from "color-scheme-tokens";
+import { type ColorSchemeTokenGraphInput, compileGraph } from "color-scheme-tokens";
 
 const graph: ColorSchemeTokenGraphInput = {
   schemaVersion: "color-scheme-token-graph/v0",
@@ -161,8 +156,8 @@ const graph: ColorSchemeTokenGraphInput = {
       kind: "color",
       key: "brand.primary",
       values: [
-        { mode: "light", value: literalColor(hex("#6750a4")) },
-        { mode: "dark", value: literalColor(hex("#d0bcff")) },
+        { mode: "light", value: "#6750a4" },
+        { mode: "dark", value: "#d0bcff" },
       ],
     },
     {
@@ -189,12 +184,12 @@ plain strings; validation parses those strings and returns branded keys and mode
 ## Source Graph Inspection
 
 ```ts
-import { createSourceGraph, hex } from "color-scheme-tokens";
+import { createSourceGraph } from "color-scheme-tokens";
 import { material3Source } from "color-scheme-tokens/sources/material3";
 
 const graphResult = createSourceGraph({
   source: material3Source({
-    sourceColor: hex("#6750A4"),
+    color: "#6750A4",
   }),
 });
 
@@ -205,9 +200,10 @@ if (!graphResult.ok) {
 graphResult.value.tokens.find((token) => token.key === "m3.primary");
 ```
 
-The Material 3 source adapter accepts opaque sRGB source colors in this tranche. `hex("#6750A4")` and
-`srgb255(103, 80, 164)` are valid public inputs. The adapter converts public color values to Material ARGB values
-internally.
+The Material 3 source adapter accepts opaque sRGB source colors in this tranche. Hex strings are the normal authoring
+input. Low-level helpers such as `hex("#6750A4")`, `srgb255(103, 80, 164)`, and `literalColor(...)` remain available
+for advanced programmatic code, but validation and source adapters do not require them in authored config. The adapter
+converts parsed color values to Material ARGB values internally.
 
 The Material 3 source adapter emits `m3.*` tokens such as `m3.primary`, `m3.onPrimary`, `m3.surface`, `m3.onSurface`,
 and `m3.error`. That namespace is adapter-emitted token data, not mandatory graph structure. Dynamic color algorithm

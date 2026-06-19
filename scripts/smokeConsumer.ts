@@ -53,11 +53,11 @@ writeFileSync(
 writeFileSync(
   join(consumerDirectory, "esm.mjs"),
   `
-import { createSchemeTokens, hex } from ${JSON.stringify(packageName)};
+import { createSchemeTokens } from ${JSON.stringify(packageName)};
 import { material3Source } from ${JSON.stringify(`${packageName}/sources/material3`)};
 
 const result = createSchemeTokens({
-  source: material3Source({ sourceColor: hex("#6750A4") }),
+  source: material3Source({ color: "#6750A4" }),
   aliases: {
     "app.action": "m3.primary",
     "app.actionText": "m3.onPrimary",
@@ -81,6 +81,8 @@ import {
   createSourceGraph,
   hex,
   literalColor,
+  parseColorInput,
+  type ColorInput,
   type ColorSchemeTokenGraph,
   type ColorTokenValue,
   type ColorSchemeTokenSource,
@@ -99,10 +101,11 @@ import {
 } from ${JSON.stringify(`${packageName}/sources/material3`)};
 
 const variant: Material3AlgorithmVariant = "tonalSpot";
+const colorInput: ColorInput = "#6750A4";
 const sourceOptions: Material3SourceOptions = {
-  sourceColor: hex("#6750A4"),
+  color: colorInput,
   keyColors: {
-    primary: hex("#6750A4"),
+    primary: "#6750A4",
   },
   algorithm: {
     variant,
@@ -120,7 +123,7 @@ const graphOptions = {
 const source: ColorSchemeTokenSource<Material3SourceProblem> = graphOptions.source;
 const graphResult = createSourceGraph(graphOptions);
 const result = createSchemeTokens({
-  source: material3Source({ sourceColor: hex("#6750A4") }),
+  source: material3Source({ color: "#6750A4" }),
   aliases: {
     "app.action": "m3.primary",
     "app.actionText": "m3.onPrimary",
@@ -131,7 +134,7 @@ const result = createSchemeTokens({
 });
 type RecipeOptions = Parameters<typeof createSchemeTokens>[0];
 const legacyTransformOptions = {
-  source: material3Source({ sourceColor: hex("#6750A4") }),
+  source: material3Source({ color: "#6750A4" }),
   // @ts-expect-error the public transform hook is removed from v1.
   transform: (graph: ColorSchemeTokenGraph) => graph,
 } satisfies RecipeOptions;
@@ -149,6 +152,7 @@ if (result.ok) {
   const value: SchemeTokensRecipeResult = result.value;
   value.cssVariables.includes("--theme-app-action:");
 }
+parseColorInput(colorInput).ok.valueOf();
 authoredColor.value.colorSpace.toUpperCase();
 graphValue.kind.toUpperCase();
 legacyTransformOptions.source.id.toUpperCase();
@@ -166,10 +170,10 @@ type RootMaterial3SourceOptions = import(${JSON.stringify(packageName)}).Materia
 type RootColorSchemeTokenGraphTransform = import(${JSON.stringify(packageName)}).ColorSchemeTokenGraphTransform;
 
 // @ts-expect-error source-only createSourceGraph calls are not public.
-createSourceGraph(material3Source({ sourceColor: hex("#6750A4") }));
+createSourceGraph(material3Source({ color: "#6750A4" }));
 
 // @ts-expect-error Material algorithm knobs do not belong to generic recipe options.
-createSchemeTokens({ source: material3Source({ sourceColor: hex("#6750A4") }), specVersion: "2025" });
+createSchemeTokens({ source: material3Source({ color: "#6750A4" }), specVersion: "2025" });
 
 `,
 );

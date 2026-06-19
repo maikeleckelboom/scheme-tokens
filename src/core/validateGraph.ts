@@ -1,4 +1,5 @@
-import { validateColorTokenValue } from "./colorTokenValue";
+import { parseColorInput } from "./colorValue";
+import { literalColor } from "./colorTokenValue";
 import type {
   ColorSchemeTokenGraphInput,
   ModeValues,
@@ -28,6 +29,7 @@ export interface TokenGraphProblem {
     | "unknown-mode-value"
     | "unknown-alias-target"
     | "alias-cycle"
+    | "invalid-color-input"
     | "invalid-color-token-value"
     | "invalid-color-value";
   readonly message: string;
@@ -165,7 +167,10 @@ function validateToken(
       modes,
       problems,
       (value, path) => {
-        for (const problem of validateColorTokenValue(value, path)) {
+        const result = parseColorInput(value, path);
+        if (result.ok) return;
+
+        for (const problem of result.problems) {
           problems.push({
             kind: problem.kind,
             message: problem.message,
@@ -304,7 +309,13 @@ function normalizeTokens(
       return {
         kind: "color",
         key,
-        values: normalizeModeValues(token.values, modes, (value) => value),
+        values: normalizeModeValues(token.values, modes, (value) => {
+          const result = parseColorInput(value);
+          if (!result.ok) {
+            throw new Error("Invalid color input reached graph normalization.");
+          }
+          return literalColor(result.value);
+        }),
         ...(token.provenance === undefined ? {} : { provenance: token.provenance }),
       };
     }

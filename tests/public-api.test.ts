@@ -18,6 +18,7 @@ describe("public API", () => {
         "lightMode",
         "literalColor",
         "modeKey",
+        "parseColorInput",
         "parseHexColor",
         "parseModeKey",
         "parseTokenKey",

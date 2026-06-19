@@ -1,16 +1,15 @@
 import type { SrgbColor } from "../../core/colorValue";
 import { validateColorValue } from "../../core/colorValue";
-import { literalColor } from "../../core/colorTokenValue";
 import type { ModeValueInput, Result, TokenNodeInput } from "../../core/graph";
 import { darkMode, lightMode } from "../../core/modes";
-import type { Material3KeyColors, Material3ResolvedAlgorithmOptions } from "./material3Source";
+import type { Material3ResolvedAlgorithmOptions, Material3SrgbKeyColors } from "./material3Source";
 import { material3RoleSet } from "./material3RoleSet";
 import { argbToSrgb, srgbToArgb } from "./internal/argb";
 import { createMaterialBackedScheme, readSchemeRoleArgb } from "./internal/materialDynamicScheme";
 
 export interface Material3ValueOptions {
   readonly sourceColor: SrgbColor;
-  readonly keyColors?: Material3KeyColors;
+  readonly keyColors?: Material3SrgbKeyColors;
   readonly algorithm: Material3ResolvedAlgorithmOptions;
 }
 
@@ -18,6 +17,7 @@ export interface Material3ValueProblem {
   readonly kind:
     | "unsupported-source-color"
     | "unsupported-key-color"
+    | "invalid-color-input"
     | "unsupported-alpha"
     | "invalid-contrast-level"
     | "missing-required-role"
@@ -85,13 +85,13 @@ export function createMaterial3Values(options: Material3ValueOptions): Material3
       continue;
     }
 
-    const values: ModeValueInput<ReturnType<typeof literalColor>>[] = [
-      { mode: lightMode, value: literalColor(argbToSrgb(lightValue)) },
-      { mode: darkMode, value: literalColor(argbToSrgb(darkValue)) },
+    const values: ModeValueInput<SrgbColor>[] = [
+      { mode: lightMode, value: argbToSrgb(lightValue) },
+      { mode: darkMode, value: argbToSrgb(darkValue) },
     ];
 
     for (const entry of values) {
-      const colorProblems = validateColorValue(entry.value.value, `role.${role.sourceRole}`);
+      const colorProblems = validateColorValue(entry.value, `role.${role.sourceRole}`);
       for (const problem of colorProblems) {
         problems.push({
           kind: "invalid-generated-color",
@@ -153,7 +153,7 @@ function validateSourceInput(sourceColor: SrgbColor): readonly Material3ValuePro
 }
 
 function validateKeyColors(
-  keyColors: Material3KeyColors | undefined,
+  keyColors: Material3SrgbKeyColors | undefined,
 ): readonly Material3ValueProblem[] {
   if (keyColors === undefined) return [];
 
@@ -196,7 +196,7 @@ function validateKeyColors(
 }
 
 function createKeyColorArgbs(
-  keyColors: Material3KeyColors | undefined,
+  keyColors: Material3SrgbKeyColors | undefined,
 ): Material3KeyColorArgbs | undefined {
   if (keyColors === undefined) return undefined;
 
@@ -216,7 +216,7 @@ const material3KeyColorNames = [
   "tertiary",
   "neutral",
   "neutralVariant",
-] as const satisfies readonly (keyof Material3KeyColors)[];
+] as const satisfies readonly (keyof Material3SrgbKeyColors)[];
 
 export type Material3KeyColorArgbs = Partial<
   Record<(typeof material3KeyColorNames)[number], number>

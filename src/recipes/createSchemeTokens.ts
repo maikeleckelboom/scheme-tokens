@@ -4,6 +4,7 @@ import {
   compileValidatedGraph,
   type CompiledTokenSet,
 } from "../core/compileGraph";
+import { resolveColorTokenValue } from "../core/colorTokenValue";
 import { createSourceGraph } from "../core/createSourceGraph";
 import type {
   ColorSchemeTokenGraphInput,
@@ -117,7 +118,7 @@ function toGraphInput(graph: ValidatedColorSchemeTokenGraph): ColorSchemeTokenGr
             key: String(token.key),
             values: token.values.map((entry) => ({
               mode: String(entry.mode),
-              value: entry.value,
+              value: resolveColorTokenValue(entry.value),
             })),
           },
     ),

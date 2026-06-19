@@ -1,4 +1,5 @@
-import type { SrgbColor } from "../../core/colorValue";
+import type { ColorInput, SrgbColor } from "../../core/colorValue";
+import { parseColorInput } from "../../core/colorValue";
 import { createTokenGraph } from "../../core/createSourceGraph";
 import type { Result } from "../../core/graph";
 import type { ColorSchemeTokenSource } from "../../core/colorSchemeTokenSource";
@@ -10,6 +11,14 @@ export type Material3SpecVersion = "2021" | "2025";
 export type Material3Platform = "phone" | "watch";
 
 export interface Material3KeyColors {
+  readonly primary?: ColorInput;
+  readonly secondary?: ColorInput;
+  readonly tertiary?: ColorInput;
+  readonly neutral?: ColorInput;
+  readonly neutralVariant?: ColorInput;
+}
+
+export interface Material3SrgbKeyColors {
   readonly primary?: SrgbColor;
   readonly secondary?: SrgbColor;
   readonly tertiary?: SrgbColor;
@@ -25,7 +34,7 @@ export interface Material3AlgorithmOptions {
 }
 
 export interface Material3SourceOptions {
-  readonly sourceColor: SrgbColor;
+  readonly color: ColorInput;
   readonly keyColors?: Material3KeyColors;
   readonly algorithm?: Material3AlgorithmOptions;
 }
@@ -53,17 +62,23 @@ export type Material3SourceProblem = Material3ValueProblem | Material3OptionProb
 export function material3Source(
   options: Material3SourceOptions,
 ): ColorSchemeTokenSource<Material3SourceProblem> {
-  const resolvedAlgorithm = resolveAlgorithmOptions(options.algorithm);
-
   return {
     id: material3RoleSet.sourceId,
     roleSet: material3RoleSet,
     createGraph() {
+      const resolvedAlgorithm = resolveAlgorithmOptions(options.algorithm);
       if (!resolvedAlgorithm.ok) return resolvedAlgorithm;
+
+      const sourceColor = normalizeMaterial3Color(options.color, "color", "source");
+      if (!sourceColor.ok) return sourceColor;
+
+      const keyColors = normalizeMaterial3KeyColors(options.keyColors);
+      if (!keyColors.ok) return keyColors;
+
       const values = createMaterial3Values({
-        sourceColor: options.sourceColor,
+        sourceColor: sourceColor.value,
         algorithm: resolvedAlgorithm.value,
-        ...(options.keyColors === undefined ? {} : { keyColors: options.keyColors }),
+        ...(keyColors.value === undefined ? {} : { keyColors: keyColors.value }),
       });
 
       if (!values.ok) return values;
@@ -77,6 +92,84 @@ export function material3Source(
     },
   };
 }
+
+function normalizeMaterial3KeyColors(
+  keyColors: Material3KeyColors | undefined,
+): Result<Material3SrgbKeyColors | undefined, Material3ValueProblem> {
+  if (keyColors === undefined) return { ok: true, value: undefined };
+
+  const normalized: Partial<Record<keyof Material3KeyColors, SrgbColor>> = {};
+  const problems: Material3ValueProblem[] = [];
+
+  for (const name of material3KeyColorNames) {
+    const color = keyColors[name];
+    if (color === undefined) continue;
+
+    const result = normalizeMaterial3Color(color, `keyColors.${name}`, "key");
+    if (result.ok) {
+      normalized[name] = result.value;
+    } else {
+      problems.push(...result.problems);
+    }
+  }
+
+  return problems.length === 0 ? { ok: true, value: normalized } : { ok: false, problems };
+}
+
+function normalizeMaterial3Color(
+  input: ColorInput,
+  path: string,
+  usage: "source" | "key",
+): Result<SrgbColor, Material3ValueProblem> {
+  const result = parseColorInput(input, path);
+  if (!result.ok) {
+    return {
+      ok: false,
+      problems: result.problems.map((problem) => ({
+        kind: "invalid-color-input",
+        message: problem.message,
+        sourceId: material3RoleSet.sourceId,
+        ...(problem.path === undefined ? {} : { path: problem.path }),
+      })),
+    };
+  }
+
+  const color = result.value;
+  const problems: Material3ValueProblem[] = [];
+  if (color.colorSpace !== "srgb") {
+    problems.push({
+      kind: usage === "source" ? "unsupported-source-color" : "unsupported-key-color",
+      message:
+        usage === "source"
+          ? "material3Source currently accepts only sRGB source colors."
+          : "Material 3 key colors currently accept only sRGB colors.",
+      sourceId: material3RoleSet.sourceId,
+      path: `${path}.colorSpace`,
+    });
+  }
+
+  if (color.alpha !== 1) {
+    problems.push({
+      kind: "unsupported-alpha",
+      message:
+        usage === "source"
+          ? "material3Source requires color alpha to be 1."
+          : "Material 3 key colors must be opaque.",
+      sourceId: material3RoleSet.sourceId,
+      path: `${path}.alpha`,
+    });
+  }
+
+  return problems.length === 0 ? { ok: true, value: color as SrgbColor } : { ok: false, problems };
+}
+
+const material3KeyColorNames = [
+  "primary",
+  "secondary",
+  "tertiary",
+  "neutral",
+  "neutralVariant",
+] as const satisfies readonly (keyof Material3KeyColors)[];
 
 const material3AlgorithmDefaults: Material3ResolvedAlgorithmOptions = {
   specVersion: "2021",

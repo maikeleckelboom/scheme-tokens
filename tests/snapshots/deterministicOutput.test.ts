@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { createSchemeTokens, hex } from "../../src/index";
+import { createSchemeTokens } from "../../src/index";
 import { material3Source } from "../../src/sources/material3";
 
 describe("deterministic Material 3 output", () => {
@@ -30,7 +30,7 @@ describe("deterministic Material 3 output", () => {
 
 function generateFixtureOutput(): { readonly snapshot: string; readonly cssVariables: string } {
   const result = createSchemeTokens({
-    source: material3Source({ sourceColor: hex("#6750A4") }),
+    source: material3Source({ color: "#6750A4" }),
     css: { prefix: "theme" },
   });
 

@@ -5,7 +5,7 @@ import { material3Source } from "../../src/sources/material3";
 describe("createSchemeTokens", () => {
   it("works with no aliases and no layers", () => {
     const result = createSchemeTokens({
-      source: material3Source({ sourceColor: hex("#6750A4") }),
+      source: material3Source({ color: "#6750A4" }),
       compile: {
         include: ["m3.primary"],
       },
@@ -20,7 +20,7 @@ describe("createSchemeTokens", () => {
 
   it("expands aliases from source tokens into compiled and exported app tokens", () => {
     const result = createSchemeTokens({
-      source: material3Source({ sourceColor: hex("#6750A4") }),
+      source: material3Source({ color: "#6750A4" }),
       aliases: {
         "app.action": "m3.primary",
         "app.canvas": "m3.surface",
@@ -55,7 +55,7 @@ describe("createSchemeTokens", () => {
 
   it("orchestrates source, layers, compiler, CSS export, and snapshot serialization", () => {
     const result = createSchemeTokens({
-      source: material3Source({ sourceColor: hex("#6750A4") }),
+      source: material3Source({ color: "#6750A4" }),
       layers: [applicationLayer],
       compile: {
         include: ["app.canvas", "app.action"],
@@ -80,7 +80,7 @@ describe("createSchemeTokens", () => {
 
   it("applies aliases after layers and before compile", () => {
     const result = createSchemeTokens({
-      source: material3Source({ sourceColor: hex("#6750A4") }),
+      source: material3Source({ color: "#6750A4" }),
       layers: [applicationLayer],
       aliases: {
         "app.chromeBackground": "app.canvas",
@@ -106,7 +106,7 @@ describe("createSchemeTokens", () => {
   it("returns structured problems from source failures", () => {
     const result = createSchemeTokens({
       source: material3Source({
-        sourceColor: { ...hex("#6750A4"), alpha: 0.2 },
+        color: { ...hex("#6750A4"), alpha: 0.2 },
       }),
     });
 
@@ -117,7 +117,7 @@ describe("createSchemeTokens", () => {
 
   it("returns structured graph problems for invalid recipe aliases", () => {
     const result = createSchemeTokens({
-      source: material3Source({ sourceColor: hex("#6750A4") }),
+      source: material3Source({ color: "#6750A4" }),
       aliases: {
         app: "m3.primary",
       },

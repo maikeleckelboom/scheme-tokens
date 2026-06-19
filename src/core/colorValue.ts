@@ -1,4 +1,4 @@
-import type { ParseResult } from "./graph";
+import type { ParseResult, Result } from "./graph";
 
 export interface SrgbColor {
   readonly colorSpace: "srgb";
@@ -25,6 +25,16 @@ export interface DisplayP3Color {
 }
 
 export type ColorValue = SrgbColor | OklchColor | DisplayP3Color;
+
+export type ColorInput = string | ColorValue;
+
+export interface ColorInputProblem {
+  readonly kind: "invalid-color-input";
+  readonly code: "invalid-color-input";
+  readonly message: string;
+  readonly input: unknown;
+  readonly path?: string;
+}
 
 export interface ColorValueProblem {
   readonly kind: "invalid-color-value";
@@ -57,6 +67,54 @@ export function hex(input: string): SrgbColor {
   const result = parseHexColor(input);
   if (result.ok) return result.value;
   throw new Error(result.problem.message);
+}
+
+export function parseColorInput(
+  input: ColorInput,
+  path: string = "color",
+): Result<ColorValue, ColorInputProblem> {
+  if (typeof input === "string") {
+    const result = parseHexColor(input);
+    if (result.ok) return result;
+
+    return {
+      ok: false,
+      problems: [
+        {
+          kind: "invalid-color-input",
+          code: "invalid-color-input",
+          message: result.problem.message,
+          input,
+          path,
+        },
+      ],
+    };
+  }
+
+  if (isColorValueShape(input)) {
+    const problems = validateColorValue(input, path).map((problem) => ({
+      kind: "invalid-color-input" as const,
+      code: "invalid-color-input" as const,
+      message: problem.message,
+      input,
+      ...(problem.path === undefined ? { path } : { path: problem.path }),
+    }));
+
+    return problems.length === 0 ? { ok: true, value: input } : { ok: false, problems };
+  }
+
+  return {
+    ok: false,
+    problems: [
+      {
+        kind: "invalid-color-input",
+        code: "invalid-color-input",
+        message: "Color input must be a hex string or supported ColorValue object.",
+        input,
+        path,
+      },
+    ],
+  };
 }
 
 export function srgb255(r: number, g: number, b: number, alpha: number = 1): SrgbColor {
@@ -111,6 +169,12 @@ function assertAlpha(value: number): void {
   if (!Number.isFinite(value) || value < 0 || value > 1) {
     throw new Error("Alpha must be a finite number from 0 through 1.");
   }
+}
+
+function isColorValueShape(input: unknown): input is ColorValue {
+  if (input === null || typeof input !== "object") return false;
+  const colorSpace = (input as { readonly colorSpace?: unknown }).colorSpace;
+  return colorSpace === "srgb" || colorSpace === "oklch" || colorSpace === "display-p3";
 }
 
 function validateUnitChannel(value: number, path: string, problems: ColorValueProblem[]): void {

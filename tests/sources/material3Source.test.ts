@@ -4,7 +4,7 @@ import { material3Source } from "../../src/sources/material3";
 
 describe("material3Source", () => {
   it("generates the reconciled required Material 3 role inventory as m3 tokens", () => {
-    const source = material3Source({ sourceColor: hex("#6750A4") });
+    const source = material3Source({ color: "#6750A4" });
     const requiredRoles = source.roleSet.roles.filter((role) => role.required);
     const optionalRoles = source.roleSet.roles.filter((role) => !role.required);
     const graph = expectOk(createSourceGraph({ source }));
@@ -24,7 +24,7 @@ describe("material3Source", () => {
     const graph = expectOk(
       createSourceGraph({
         source: material3Source({
-          sourceColor: hex("#6750A4"),
+          color: "#6750A4",
           algorithm: { specVersion: "2025", platform: "phone" },
         }),
       }),
@@ -38,10 +38,10 @@ describe("material3Source", () => {
 
   it("rejects non-opaque and non-srgb source colors with structured source problems", () => {
     const alphaResult = material3Source({
-      sourceColor: { ...hex("#6750A4"), alpha: 0.5 },
+      color: { ...hex("#6750A4"), alpha: 0.5 },
     }).createGraph();
     const wideColorResult = material3Source({
-      sourceColor: {
+      color: {
         colorSpace: "display-p3",
         r: 0.4,
         g: 0.31,
@@ -60,9 +60,20 @@ describe("material3Source", () => {
     ).toBe(true);
   });
 
+  it("rejects invalid source color strings with structured source problems", () => {
+    const result = material3Source({ color: "not-a-color" }).createGraph();
+
+    expect(expectProblems(result)).toContainEqual(
+      expect.objectContaining({
+        kind: "invalid-color-input",
+        path: "color",
+      }),
+    );
+  });
+
   it("keeps algorithm options adapter-specific", () => {
     const result = material3Source({
-      sourceColor: hex("#6750A4"),
+      color: "#6750A4",
       algorithm: {
         contrastLevel: 0.25,
         variant: "tonalSpot",
@@ -76,7 +87,7 @@ describe("material3Source", () => {
 
   it("rejects invalid algorithm options before generation", () => {
     const result = material3Source({
-      sourceColor: hex("#6750A4"),
+      color: "#6750A4",
       algorithm: { contrastLevel: 1.5 },
     }).createGraph();
 
@@ -93,15 +104,15 @@ describe("material3Source", () => {
   it("uses optional key colors to override Material 3 palettes", () => {
     const defaultGraph = expectOk(
       createSourceGraph({
-        source: material3Source({ sourceColor: hex("#6750A4") }),
+        source: material3Source({ color: "#6750A4" }),
       }),
     );
     const keyedGraph = expectOk(
       createSourceGraph({
         source: material3Source({
-          sourceColor: hex("#6750A4"),
+          color: "#6750A4",
           keyColors: {
-            primary: hex("#006C4C"),
+            primary: "#006C4C",
           },
         }),
       }),
@@ -115,6 +126,21 @@ describe("material3Source", () => {
     );
 
     expect(keyedPrimary.values).not.toEqual(defaultPrimary.values);
+  });
+
+  it("accepts Material key colors as strings", () => {
+    const result = material3Source({
+      color: "#6750A4",
+      keyColors: {
+        primary: "#6750A4",
+        secondary: "#625B71",
+        tertiary: "#7D5260",
+        neutral: "#605D62",
+        neutralVariant: "#605D66",
+      },
+    }).createGraph();
+
+    expect(result.ok).toBe(true);
   });
 });
 

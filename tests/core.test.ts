@@ -4,7 +4,6 @@ import {
   compileValidatedGraph,
   exportCssVariables,
   hex,
-  literalColor,
   serializeTokenSet,
   validateGraph,
   type ColorSchemeTokenGraphInput,
@@ -20,8 +19,8 @@ describe("graph core", () => {
           kind: "color",
           key: "brand.primary",
           values: [
-            { mode: "light", value: literalColor(hex("#6750a4")) },
-            { mode: "dark", value: literalColor(hex("#d0bcff")) },
+            { mode: "light", value: "#6750a4" },
+            { mode: "dark", value: "#d0bcff" },
           ],
         },
         {
@@ -51,8 +50,8 @@ describe("graph core", () => {
             kind: "color",
             key: "brand",
             values: [
-              { mode: "light", value: literalColor(hex("#6750a4")) },
-              { mode: "dark", value: literalColor(hex("#d0bcff")) },
+              { mode: "light", value: "#6750a4" },
+              { mode: "dark", value: "#d0bcff" },
             ],
           },
         ],
@@ -80,15 +79,15 @@ describe("graph core", () => {
     );
   });
 
-  it("keeps color token values at the authored graph boundary and compiles concrete colors", () => {
+  it("accepts raw color strings at the authored graph boundary and compiles concrete colors", () => {
     const graph = testGraph({
       tokens: [
         {
           kind: "color",
           key: "brand.primary",
           values: [
-            { mode: "light", value: literalColor(hex("#6750a4")) },
-            { mode: "dark", value: literalColor(hex("#d0bcff")) },
+            { mode: "light", value: "#6750a4" },
+            { mode: "dark", value: "#d0bcff" },
           ],
         },
       ],
@@ -125,6 +124,33 @@ describe("graph core", () => {
     expect(result.problems.some((problem) => problem.kind === "alias-cycle")).toBe(true);
   });
 
+  it("returns structured problems for invalid color strings without throwing", () => {
+    const result = validateGraph(
+      testGraph({
+        tokens: [
+          {
+            kind: "color",
+            key: "brand.primary",
+            values: [
+              { mode: "light", value: "not-a-color" },
+              { mode: "dark", value: "#d0bcff" },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.problems).toContainEqual(
+      expect.objectContaining({
+        kind: "invalid-color-input",
+        key: "brand.primary",
+        path: "tokens.0.values.0.value",
+      }),
+    );
+  });
+
   it("compiles already validated graphs without validating schema again", () => {
     const validation = validateGraph(
       testGraph({
@@ -133,8 +159,8 @@ describe("graph core", () => {
             kind: "color",
             key: "brand.primary",
             values: [
-              { mode: "light", value: literalColor(hex("#6750a4")) },
-              { mode: "dark", value: literalColor(hex("#d0bcff")) },
+              { mode: "light", value: "#6750a4" },
+              { mode: "dark", value: "#d0bcff" },
             ],
           },
         ],

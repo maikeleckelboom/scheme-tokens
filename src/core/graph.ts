@@ -1,3 +1,4 @@
+import type { ColorInput } from "./colorValue";
 import type { ColorTokenValue } from "./colorTokenValue";
 import type { TokenKey, TokenKeyInput } from "./keys";
 import type { ModeKey, ModeKeyInput } from "./modes";
@@ -25,17 +26,21 @@ export interface ModeValue<Value> {
 
 export type ModeValues<Value> = readonly ModeValue<Value>[];
 
+export type ColorSchemeTokenModeValueInput = ModeValueInput<ColorInput>;
+
+export type ColorSchemeTokenModeValue = ModeValue<ColorTokenValue>;
+
 export interface ColorTokenNodeInput {
   readonly kind: "color";
   readonly key: TokenKeyInput;
-  readonly values: ModeValuesInput<ColorTokenValue>;
+  readonly values: readonly ColorSchemeTokenModeValueInput[];
   readonly provenance?: TokenProvenance;
 }
 
 export interface ColorTokenNode {
   readonly kind: "color";
   readonly key: TokenKey;
-  readonly values: ModeValues<ColorTokenValue>;
+  readonly values: readonly ColorSchemeTokenModeValue[];
   readonly provenance?: TokenProvenance;
 }
 

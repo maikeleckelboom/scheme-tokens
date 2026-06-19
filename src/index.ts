@@ -1,5 +1,5 @@
 export { literalColor } from "./core/colorTokenValue";
-export { hex, parseHexColor, srgb255 } from "./core/colorValue";
+export { hex, parseColorInput, parseHexColor, srgb255 } from "./core/colorValue";
 export { compileGraph, compileValidatedGraph } from "./core/compileGraph";
 export { createSourceGraph } from "./core/createSourceGraph";
 export { isTokenKey, tokenKey, parseTokenKey } from "./core/keys";
@@ -13,6 +13,8 @@ export type {
   AliasTokenNodeInput,
   ColorSchemeTokenGraph,
   ColorSchemeTokenGraphInput,
+  ColorSchemeTokenModeValue,
+  ColorSchemeTokenModeValueInput,
   ColorTokenNode,
   ColorTokenNodeInput,
   ModeValue,
@@ -38,6 +40,8 @@ export type {
 } from "./core/compileGraph";
 export type {
   ColorValue,
+  ColorInput,
+  ColorInputProblem,
   ColorValueProblem,
   DisplayP3Color,
   OklchColor,

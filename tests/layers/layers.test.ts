@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   compileGraph,
   hex,
-  literalColor,
   validateGraph,
   type ColorSchemeTokenGraphInput,
   type ColorSchemeTokenLayerInput,
@@ -90,7 +89,7 @@ describe("token layers", () => {
     ]);
   });
 
-  it("supports authored color tokens with color token value payloads", () => {
+  it("supports authored color tokens with raw color string payloads", () => {
     const graph = applyLayers(baseGraph(), [
       {
         name: "authored-color",
@@ -99,8 +98,8 @@ describe("token layers", () => {
             kind: "color",
             key: "app.noticeBackground",
             values: [
-              { mode: "light", value: literalColor(hex("#fff8e1")) },
-              { mode: "dark", value: literalColor(hex("#332600")) },
+              { mode: "light", value: "#fff8e1" },
+              { mode: "dark", value: "#332600" },
             ],
           },
         ],
@@ -161,8 +160,8 @@ function colorToken(key: string, light: string, dark: string) {
     kind: "color" as const,
     key,
     values: [
-      { mode: "light", value: literalColor(hex(light)) },
-      { mode: "dark", value: literalColor(hex(dark)) },
+      { mode: "light", value: light },
+      { mode: "dark", value: dark },
     ],
   };
 }

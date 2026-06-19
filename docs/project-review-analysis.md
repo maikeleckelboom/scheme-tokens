@@ -370,7 +370,7 @@ The current implementation is **Model A**. `material3RoleSet` constructs each ro
 Model B is architecturally cleaner. A source generates a **token fragment** with local roles, and the recipe mounts it into a namespace:
 
 ```ts
-recipe.source(material3Source({ sourceColor: hex("#6750A4") }), {
+recipe.source(material3Source({ color: "#6750A4" }), {
   namespace: "m3",
   visibility: "internal",
   instanceId: "brand",
@@ -438,7 +438,7 @@ compileGraph              validateGraph
 serializeTokenSet         exportCssVariables
 material3Source
 tokenKey  parseTokenKey   lightMode  darkMode  modeKey  parseModeKey
-hex  parseHexColor  srgb255
+parseColorInput  hex  parseHexColor  srgb255
 literalColor
 ```
 
@@ -476,6 +476,10 @@ The current graph authoring surface shows **validation-brand inversion**: public
 `TokenKey` / `ModeKey` values before validation has had a chance to parse user input and return structured problems.
 That imposes a **branded input tax** on manual graph and layer authors. Brands should be post-validation evidence, not
 syntax consumers manufacture inside object literals.
+
+The same boundary applies to color literals: brands and parsed values are post-validation evidence. Authored token keys,
+mode keys, and color literals should be plain declarative inputs. Helpers like `tokenKey()`, `modeKey()`, `hex()`, and
+`literalColor()` are not the normal authoring model.
 
 Provide two internal levels:
 
