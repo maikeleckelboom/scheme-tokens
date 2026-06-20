@@ -51,6 +51,93 @@ dedicated adapter boundary, or not ship yet.
 * Do not publish, tag, create a GitHub release, or change repository visibility.
 * Do not change the publication safety switch unless explicitly instructed.
 
+## Current roadmap
+
+Work proceeds in four ordered slices. Do not skip ahead unless the human explicitly changes the order.
+
+### Slice 1: Public-core API polish
+
+Goal: make the dependency-light root package feel inevitable for ordinary usage.
+
+Allowed scope:
+
+* README usage flow
+* public API docs
+* simple manual custom-color examples
+* advanced explicit graph examples
+* `defineTokenGraph()` and root API ergonomics when the change is small and does not weaken strict parsing
+* `buildTokenSet()` documentation as the adapter runner
+* docs clarifying authoring helper input versus strict wire-format input
+
+Stop rules:
+
+* Do not add Material, Texel, conversion, image, canvas, CSS parser, or other optional engines.
+* Do not create adapter packages.
+* Do not change schema contracts unless a public API bug requires it.
+* Do not add compatibility aliases.
+
+### Slice 2: Schema and wire-format hardening
+
+Goal: make schemas first-class contracts for the strict persisted format.
+
+Allowed scope:
+
+* JSON Schema accuracy
+* schema tests
+* schema export tests from packed consumers
+* parser and schema agreement tests
+* docs explaining strict wire-format data versus ergonomic authoring helper input
+
+Stop rules:
+
+* Schemas describe strict graph artifacts, not helper shorthands.
+* Do not make parser behavior looser just to satisfy examples.
+* Do not add adapters or engines.
+
+### Slice 3: Adapter package architecture
+
+Goal: define how optional capability packages plug into core without contaminating the root package.
+
+Allowed scope:
+
+* adapter package naming
+* adapter dependency ownership
+* issue-code namespace rules
+* peer dependency versus dependency decision
+* package export shape
+* docs and ADRs
+* tests or fixtures that prove core stays engine-free
+
+Stop rules:
+
+* Do not implement Material 3 yet.
+* Do not implement Texel conversion yet.
+* Do not move third-party engines into core.
+* Do not create a registry or plugin system.
+
+### Slice 4: First real adapter
+
+Goal: implement one real adapter outside core after the adapter architecture is locked.
+
+Preferred first adapter:
+
+* `@color-scheme-tokens/source-material3`
+
+Requirements:
+
+* Uses a real Material algorithm.
+* Does not approximate Material output.
+* Lives outside the root core package boundary.
+* Has reference-vector tests.
+* Exposes adapter-specific issues through `Result`.
+* Proves root import remains engine-free.
+
+Alternative first adapter:
+
+* `@color-scheme-tokens/conversion-texel`
+
+Only choose this first if the human explicitly prioritizes conversion over Material source generation.
+
 ## Implementation rules
 
 Prefer small internal primitives over duplicated parsing and validation logic.
@@ -112,6 +199,9 @@ Use current docs such as:
 * `docs/color-policy.md`
 * `docs/semver.md`
 * `docs/adr/`
+
+Do not recreate `docs/v1-migration/` unless the human explicitly asks for an archive. New work should update durable docs
+or ADRs.
 
 ## Validation
 
