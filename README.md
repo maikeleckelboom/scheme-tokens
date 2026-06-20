@@ -49,7 +49,7 @@ Omit `prefix` to emit custom properties such as `--background`, `--foreground`, 
 ## Light and Dark Values
 
 ```ts
-import { compileTokenGraph, defineTokenGraph, exportCssVars } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, exportCssVars, ref } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
@@ -76,11 +76,11 @@ const graph = defineTokenGraph({
     },
     primary: {
       visibility: "public",
-      value: "brand.primary",
+      value: ref("brand.primary"),
     },
     "primary-foreground": {
       visibility: "public",
-      value: "brand.on-primary",
+      value: ref("brand.on-primary"),
     },
   },
 });
@@ -137,7 +137,7 @@ if (!exported.ok) {
 }
 
 console.log(exported.value.css);
-console.log(exported.value.blocks[0]?.declarations["--background"]);
+console.log(exported.value.blocks[0]?.declarations[0]?.value);
 ```
 
 Omit `prefix` to emit custom properties such as `--background`, `--foreground`, `--primary`, and
@@ -401,7 +401,7 @@ composition examples.
 ## Serialize the Compiled Scheme
 
 ```ts
-import { compileTokenGraph, defineTokenGraph, serializeScheme } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, serializeCompiledScheme } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   tokens: {
@@ -415,11 +415,11 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const json = serializeScheme(compiled.value);
+const json = serializeCompiledScheme(compiled.value);
 console.log(json);
 ```
 
-`serializeScheme()` serializes the compiled output, not the authoring input. The output is deterministic and includes
+`serializeCompiledScheme()` serializes the compiled output, not the authoring input. The output is deterministic and includes
 resolved colors, modes, token visibility, origin metadata, and direct dependency metadata.
 
 ## Helper Input and Strict Input
@@ -450,7 +450,7 @@ const graph = defineTokens(
 `defineTokenGraph()` is the full graph-shaped helper for explicit graph authoring:
 
 ```ts
-import { defineTokenGraph } from "scheme-tokens";
+import { defineTokenGraph, ref } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
@@ -463,20 +463,22 @@ const graph = defineTokenGraph({
     },
     primary: {
       visibility: "public",
-      value: "brand.primary",
+      value: ref("brand.primary"),
     },
   },
 });
 ```
 
-Both helpers accept JSON-safe shorthand:
+Both helpers accept JSON-safe authoring shorthand:
 
 - a color string such as `"#6750a4"`;
-- a token-key string reference such as `"brand.primary"`;
-- a token object reference such as `{ visibility: "public", value: "brand.primary" }`;
+- an explicit reference helper such as `ref("brand.primary")`;
 - an explicit reference such as `{ ref: "brand.primary" }`;
 - metadata plus mode keys such as `{ visibility: "public", light: "#fff", dark: "#000" }`;
 - mode records such as `{ light: "#fff", dark: "#000" }` when modes are declared.
+
+Bare strings are always treated as color authoring input. If a string is not supported by the color parser, it reports an
+unsupported-color diagnostic instead of becoming a reference based on spelling.
 
 The helpers fill safe defaults and return strict graph input. `parseTokenGraph()` is the persisted wire-format boundary
 and stays explicit.
@@ -485,13 +487,28 @@ and stays explicit.
 import { parseTokenGraph } from "scheme-tokens";
 
 const strictGraph = {
+  kind: "scheme-tokens/color-token-graph",
   formatVersion: 1,
   modes: ["base"],
   defaultMode: "base",
   defaultVisibility: "public",
   tokens: {
-    "brand.primary": { value: "#6750a4" },
-    "surface.canvas": { value: "#ffffff" },
+    "brand.primary": {
+      value: {
+        colorSpace: "srgb",
+        components: [0.403921568627451, 0.3137254901960784, 0.6431372549019608],
+        alpha: 1,
+        hex: "#6750a4",
+      },
+    },
+    "surface.canvas": {
+      value: {
+        colorSpace: "srgb",
+        components: [1, 1, 1],
+        alpha: 1,
+        hex: "#ffffff",
+      },
+    },
   },
 } as const;
 
@@ -501,8 +518,9 @@ if (!parsed.ok) {
 }
 ```
 
-Strict graph input spells out `formatVersion`, `modes`, `defaultMode`, `defaultVisibility`, and token definitions with
-`value` or `valueByMode`. It does not accept helper-only shorthand.
+Strict graph input spells out `kind`, `formatVersion`, `modes`, `defaultMode`, `defaultVisibility`, and token
+definitions with `value` or `valueByMode`. Persisted colors are structured values with `colorSpace`, `components`,
+`alpha`, and optional `hex`. It does not accept helper-only shorthand.
 
 The published JSON Schemas describe this strict graph shape, strict layer input, and serialized compiled schemes.
 They do not describe `defineTokenGraph()` or `defineTokenLayer()` helper input.

@@ -49,19 +49,19 @@ Source generation, conversion projection, target export, format export, and core
 
 ## Source Adapters
 
-Source adapters generate `TokenGraphInput` from an engine or provider and may expose `TokenSource` helpers for
+Source adapters generate `ColorTokenGraphInput` from an engine or provider and may expose `ColorTokenSource` helpers for
 `buildScheme(source)` or `buildScheme({ base: source })`. Applications may add authored layers with
 `buildScheme(source, { layers })` or `buildScheme({ base: source, layers })`; those layers compose after source output
 and may override source tokens.
 
 ```ts
-interface TokenSource<I extends Issue = Issue> {
+interface ColorTokenSource<I extends Issue = Issue> {
   readonly id: string;
-  build(): Result<TokenGraphInput, I>;
+  build(): Result<ColorTokenGraphInput, I>;
 }
 ```
 
-`TokenSource` is structural. A source object may include metadata beyond `id` and `build`; core validates those two
+`ColorTokenSource` is structural. A source object may include metadata beyond `id` and `build`; core validates those two
 members and invokes `build()` with the original source object as the receiver.
 
 Source adapter factories should use plain names such as `material3(input)`. They return strict core graph input and
@@ -73,13 +73,13 @@ For a minimal fixed source, the implementation can be structural:
 import {
   defineTokenGraph,
   type Result,
-  type TokenGraphInput,
-  type TokenSource,
+  type ColorTokenGraphInput,
+  type ColorTokenSource,
 } from "scheme-tokens";
 
-const staticSource: TokenSource = {
+const staticSource: ColorTokenSource = {
   id: "static",
-  build(): Result<TokenGraphInput<"light" | "dark">> {
+  build(): Result<ColorTokenGraphInput<"light" | "dark">> {
     return {
       ok: true,
       value: defineTokenGraph({
@@ -105,7 +105,7 @@ their own packages.
 ## Conversion Adapters
 
 Conversion adapters perform explicit color conversion, gamut mapping, color math, or engine-backed transformations. They
-are separate operations, not `TokenSource` objects by default. They should export verb-based functions such as
+are separate operations, not `ColorTokenSource` objects by default. They should export verb-based functions such as
 `convertColor(input)`, `mapGamut(input)`, and `projectScheme(input)` from their package root and return `Result` with
 adapter-owned issues.
 
@@ -119,7 +119,7 @@ adapter package only. Do not use `@texel/colors`.
 High-gamut authoring is not a Texel feature. Core already supports canonical color values in `srgb`, `display-p3`, and
 `oklch`, and high gamut should be modeled as token values rather than as fake modes such as `light-p3` or `dark-p3`.
 Texel should be used later only for explicit, auditable conversion, gamut mapping, or compiled scheme projection.
-`projectScheme()` should project a `CompiledScheme`; it should not replace source or target layers. Gamut mapping must
+`projectScheme()` should project a `CompiledColorScheme`; it should not replace source or target layers. Gamut mapping must
 never be silent; default out-of-gamut RGB behavior should fail instead of mapping or clipping.
 
 ## Format Adapters
@@ -132,7 +132,7 @@ bidirectional. For example, planned DTCG support belongs in `@scheme-tokens/dtcg
 because DTCG can be both an import format and an export format.
 
 Format adapters must keep public inputs and outputs JSON-safe and return recoverable failures through `Result` with
-adapter-owned issue codes. Outputs that claim to be `TokenGraphInput`, `TokenLayerInput`, or `CompiledScheme` must
+adapter-owned issue codes. Outputs that claim to be `ColorTokenGraphInput`, `ColorTokenLayerInput`, or `CompiledColorScheme` must
 validate through the matching core parser and schema contract.
 
 External format token names do not change the core token-key language. Core token keys remain dot-separated lower-kebab
@@ -140,8 +140,8 @@ identifier segments. Format adapters own any strict mapping, preservation, or di
 they must not rely on core silently slugifying names.
 
 DTCG remains planned format adapter scope. A future `dtcgSource()` may import DTCG material as a source helper before
-`buildScheme()`, and a future `exportDtcgDocuments(compiled)` may export from a `CompiledScheme`. A `dtcgLayer()` helper
-remains deferred because `TokenLayerInput` does not own modes. External DTCG names are adapter-owned mapping concerns and
+`buildScheme()`, and a future `exportDtcgDocuments(compiled)` may export from a `CompiledColorScheme`. A `dtcgLayer()` helper
+remains deferred because `ColorTokenLayerInput` does not own modes. External DTCG names are adapter-owned mapping concerns and
 must not loosen core token-key validation.
 
 ## Target Adapters
@@ -237,7 +237,7 @@ Every adapter must prove before release:
 
 ## Current Adapters
 
-- `@scheme-tokens/material3` creates a `TokenSource` from Material 3 generation input and emits `light` / `dark` graph
+- `@scheme-tokens/material3` creates a `ColorTokenSource` from Material 3 generation input and emits `light` / `dark` graph
   tokens under a lower-kebab source id namespace.
 - `sourceColors` is the canonical public source-color input. `material3("#6750a4")` is shorthand for
   `material3({ sourceColors: "#6750a4" })`. The canonical field accepts one strict `#rrggbb` string or an array of

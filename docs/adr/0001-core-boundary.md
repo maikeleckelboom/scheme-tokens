@@ -20,7 +20,7 @@ engine-backed behavior must live in separate adapter packages. Intended future p
 - `@scheme-tokens/material3`;
 - `@scheme-tokens/texel`.
 
-The core package may expose adapter interfaces such as `TokenSource`, but it must not import adapter engines or fake their
+The core package may expose adapter interfaces such as `ColorTokenSource`, but it must not import adapter engines or fake their
 behavior.
 
 ## Consequences

@@ -1,6 +1,13 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
-import { compileTokenGraph, parseColor, parseTokenGraph, serializeScheme } from "../../src";
+import {
+  colorTokenGraphKind,
+  compileTokenGraph,
+  defineTokenGraph,
+  parseColor,
+  parseTokenGraph,
+  serializeCompiledScheme,
+} from "../../src";
 
 describe("determinism and parser safety properties", () => {
   test("parse boundaries do not throw for JSON values", () => {
@@ -14,36 +21,37 @@ describe("determinism and parser safety properties", () => {
   });
 
   test("token insertion order does not change canonical serialization", () => {
-    const left = compileTokenGraph({
-      formatVersion: 1,
-      modes: ["dark", "light"],
-      defaultMode: "light",
-      defaultVisibility: "public",
-      tokens: {
-        "b.color": { value: "#111111" },
-        "a.color": { value: "#ffffff" },
-      },
-    });
-    const right = compileTokenGraph({
-      formatVersion: 1,
-      modes: ["light", "dark"],
-      defaultMode: "light",
-      defaultVisibility: "public",
-      tokens: {
-        "a.color": { value: "#ffffff" },
-        "b.color": { value: "#111111" },
-      },
-    });
+    const left = compileTokenGraph(
+      defineTokenGraph({
+        modes: ["dark", "light"],
+        defaultMode: "light",
+        tokens: {
+          "b.color": "#111111",
+          "a.color": "#ffffff",
+        },
+      }),
+    );
+    const right = compileTokenGraph(
+      defineTokenGraph({
+        modes: ["light", "dark"],
+        defaultMode: "light",
+        tokens: {
+          "a.color": "#ffffff",
+          "b.color": "#111111",
+        },
+      }),
+    );
     expect(left.ok).toBe(true);
     expect(right.ok).toBe(true);
     if (!left.ok || !right.ok) {
       throw new Error("Expected both graphs to compile");
     }
-    expect(serializeScheme(left.value)).toBe(serializeScheme(right.value));
+    expect(serializeCompiledScheme(left.value)).toBe(serializeCompiledScheme(right.value));
   });
 
   test("token insertion order does not change diagnostic order", () => {
     const left = parseTokenGraph({
+      kind: colorTokenGraphKind,
       formatVersion: 1,
       modes: ["base"],
       defaultMode: "base",
@@ -54,6 +62,7 @@ describe("determinism and parser safety properties", () => {
       },
     });
     const right = parseTokenGraph({
+      kind: colorTokenGraphKind,
       formatVersion: 1,
       modes: ["base"],
       defaultMode: "base",
@@ -76,13 +85,7 @@ describe("determinism and parser safety properties", () => {
       };
     }
 
-    const result = compileTokenGraph({
-      formatVersion: 1,
-      modes: ["base"],
-      defaultMode: "base",
-      defaultVisibility: "public",
-      tokens,
-    });
+    const result = compileTokenGraph(defineTokenGraph({ tokens }));
     expect(result.ok).toBe(true);
     if (!result.ok) {
       throw new Error("Expected chain graph to compile");

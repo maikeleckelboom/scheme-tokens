@@ -1,12 +1,21 @@
 {
+  "kind": "scheme-tokens/color-token-graph",
   "formatVersion": 1,
   "modes": ["light", "dark"],
   "defaultMode": "light",
   "defaultVisibility": "public",
   "tokens": {
     "brand.primary": {
-      "light": "#6750a4",
-      "dark": "#d0bcff"
+      "light": {
+        "colorSpace": "srgb",
+        "components": [0.4, 0.31, 0.64],
+        "alpha": 1
+      },
+      "dark": {
+        "colorSpace": "srgb",
+        "components": [0.82, 0.74, 1],
+        "alpha": 1
+      }
     }
   }
 }

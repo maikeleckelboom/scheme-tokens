@@ -5,11 +5,13 @@ import { describe, expect, test } from "vitest";
 import {
   buildScheme,
   defineTokenLayer,
+  formatCssColor,
   parseTokenGraph,
+  ref,
   type Issue,
   type Result,
-  type TokenDefinitionInput,
-  type TokenGraphInput,
+  type ColorTokenDefinitionInput,
+  type ColorTokenGraphInput,
 } from "scheme-tokens";
 import * as adapter from "../src";
 import {
@@ -59,7 +61,7 @@ describe("material3", () => {
     expect(material3Platforms).toEqual(["phone", "watch"]);
   });
 
-  test("creates a structural TokenSource with tested defaults", () => {
+  test("creates a structural ColorTokenSource with tested defaults", () => {
     const source = material3("#6750a4");
     const graph = unwrap(source.build());
     const explicitDefaultGraph = unwrap(
@@ -485,9 +487,9 @@ describe("material3", () => {
       id: "application",
       defaultVisibility: "public",
       tokens: {
-        "app.background": "material3.surface",
-        "app.foreground": "material3.on-surface",
-        "app.action": "material3.primary",
+        "app.background": ref("material3.surface"),
+        "app.foreground": ref("material3.on-surface"),
+        "app.action": ref("material3.primary"),
       },
     });
 
@@ -879,28 +881,28 @@ describe("material3", () => {
   });
 });
 
-function extractGraphTokenValues(graph: TokenGraphInput): GraphValues {
+function extractGraphTokenValues(graph: ColorTokenGraphInput): GraphValues {
   const output: Record<string, { readonly light: string; readonly dark: string }> = {};
   for (const [key, definition] of Object.entries(graph.tokens)) {
-    const valueByMode = (definition as TokenDefinitionInput<"light" | "dark">).valueByMode;
+    const valueByMode = (definition as ColorTokenDefinitionInput<"light" | "dark">).valueByMode;
     if (valueByMode === undefined) {
       throw new Error(`Expected valueByMode for ${key}`);
     }
     output[key] = {
-      light: valueByMode.light as string,
-      dark: valueByMode.dark as string,
+      light: formatCssColor(valueByMode.light as never),
+      dark: formatCssColor(valueByMode.dark as never),
     };
   }
   return output;
 }
 
-function extractGraphTokenValuesByPrefix(graph: TokenGraphInput, prefix: string): GraphValues {
+function extractGraphTokenValuesByPrefix(graph: ColorTokenGraphInput, prefix: string): GraphValues {
   return Object.fromEntries(
     Object.entries(extractGraphTokenValues(graph)).filter(([key]) => key.startsWith(prefix)),
   );
 }
 
-function tokenKeys(graph: TokenGraphInput): readonly string[] {
+function tokenKeys(graph: ColorTokenGraphInput): readonly string[] {
   return Object.keys(graph.tokens).sort();
 }
 

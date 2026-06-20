@@ -16,7 +16,14 @@ import { SchemeRainbow } from "./vendor/material-color-utilities/scheme/scheme_r
 import { SchemeTonalSpot } from "./vendor/material-color-utilities/scheme/scheme_tonal_spot";
 import { SchemeVibrant } from "./vendor/material-color-utilities/scheme/scheme_vibrant";
 import { argbFromHex, hexFromArgb } from "./vendor/material-color-utilities/utils/string_utils";
-import type { TokenDefinitionInput, TokenGraphInput, TokenVisibility } from "scheme-tokens";
+import {
+  colorTokenGraphKind,
+  parseColor,
+  type ColorTokenDefinitionInput,
+  type ColorTokenGraphInput,
+  type ColorValue,
+  type TokenVisibility,
+} from "scheme-tokens";
 import {
   material3RoleTokenKey,
   MATERIAL3_ROLE_NAMES,
@@ -115,7 +122,7 @@ export function createMaterial3Graph(input: {
   readonly palettes: Material3PaletteOverrides;
   readonly extendedColors: readonly Material3ExtendedColor[];
   readonly paletteTones: readonly number[] | undefined;
-}): TokenGraphInput<Material3Mode> {
+}): ColorTokenGraphInput<Material3Mode> {
   const sourceColorHcts = input.sourceColors.map((color) => Hct.fromInt(argbFromHex(color)));
   const sourceArgb = sourceColorHcts[0]!.toInt();
   const light = createDynamicScheme(input, sourceColorHcts, false);
@@ -125,6 +132,7 @@ export function createMaterial3Graph(input: {
   );
 
   return {
+    kind: colorTokenGraphKind,
     formatVersion: 1,
     modes: ["light", "dark"],
     defaultMode: "light",
@@ -218,8 +226,8 @@ function createMaterial3Tokens(input: {
   readonly dark: DynamicScheme;
   readonly extendedColors: readonly Material3ExtendedColorGroup[];
   readonly paletteTones: readonly number[] | undefined;
-}): Readonly<Record<string, TokenDefinitionInput<Material3Mode>>> {
-  const entries: [string, TokenDefinitionInput<Material3Mode>][] = [];
+}): Readonly<Record<string, ColorTokenDefinitionInput<Material3Mode>>> {
+  const entries: [string, ColorTokenDefinitionInput<Material3Mode>][] = [];
 
   for (const role of MATERIAL3_ROLE_NAMES) {
     const light = readRoleHex(input.light, role);
@@ -230,7 +238,10 @@ function createMaterial3Tokens(input: {
     entries.push([
       material3RoleTokenKey(input.sourceId, role),
       {
-        valueByMode: { light, dark },
+        valueByMode: {
+          light: materialColorValue(light),
+          dark: materialColorValue(dark),
+        },
       },
     ]);
   }
@@ -244,8 +255,8 @@ function createMaterial3Tokens(input: {
             ? { description: color.description }
             : {}),
           valueByMode: {
-            light: readExtendedColorRoleHex(color.light, role),
-            dark: readExtendedColorRoleHex(color.dark, role),
+            light: materialColorValue(readExtendedColorRoleHex(color.light, role)),
+            dark: materialColorValue(readExtendedColorRoleHex(color.dark, role)),
           },
         },
       ]);
@@ -271,17 +282,17 @@ function createPaletteToneEntries(
   light: DynamicScheme,
   dark: DynamicScheme,
   tones: readonly number[],
-): [string, TokenDefinitionInput<Material3Mode>][] {
+): [string, ColorTokenDefinitionInput<Material3Mode>][] {
   const lightPalettes = readPalettes(light);
   const darkPalettes = readPalettes(dark);
 
   return PALETTE_NAMES.flatMap((paletteName) =>
-    tones.map((tone): [string, TokenDefinitionInput<Material3Mode>] => [
+    tones.map((tone): [string, ColorTokenDefinitionInput<Material3Mode>] => [
       material3PaletteToneTokenKey(sourceId, paletteName, tone),
       {
         valueByMode: {
-          light: hexFromArgb(lightPalettes[paletteName].tone(tone)),
-          dark: hexFromArgb(darkPalettes[paletteName].tone(tone)),
+          light: materialColorValue(hexFromArgb(lightPalettes[paletteName].tone(tone))),
+          dark: materialColorValue(hexFromArgb(darkPalettes[paletteName].tone(tone))),
         },
       },
     ]),
@@ -292,14 +303,14 @@ function createExtendedPaletteToneEntries(
   sourceId: string,
   color: Material3ExtendedColorGroup,
   tones: readonly number[],
-): [string, TokenDefinitionInput<Material3Mode>][] {
+): [string, ColorTokenDefinitionInput<Material3Mode>][] {
   return tones.map((tone) => [
     material3ExtendedPaletteToneTokenKey(sourceId, color.name, tone),
     {
       ...(color.description === undefined ? {} : { description: color.description }),
       valueByMode: {
-        light: hexFromArgb(color.palette.tone(tone)),
-        dark: hexFromArgb(color.palette.tone(tone)),
+        light: materialColorValue(hexFromArgb(color.palette.tone(tone))),
+        dark: materialColorValue(hexFromArgb(color.palette.tone(tone))),
       },
     },
   ]);
@@ -333,12 +344,28 @@ function readRoleHex(scheme: DynamicScheme, role: Material3RoleName): string | u
     }
     throw new Error(`Material dynamic color is unavailable: ${role}`);
   }
+  if (!isDynamicColorLike(dynamicColor)) {
+    throw new Error(`Material role did not resolve to a dynamic color: ${role}`);
+  }
 
-  const value = scheme.getArgb(dynamicColor as never);
+  const value = dynamicColor.getArgb(scheme);
   if (typeof value !== "number" || !Number.isFinite(value)) {
     throw new Error(`Material role did not resolve to a finite ARGB number: ${role}`);
   }
   return hexFromArgb(value);
+}
+
+interface DynamicColorLike {
+  readonly getArgb: (scheme: DynamicScheme) => unknown;
+}
+
+function isDynamicColorLike(input: unknown): input is DynamicColorLike {
+  return (
+    typeof input === "object" &&
+    input !== null &&
+    "getArgb" in input &&
+    typeof input.getArgb === "function"
+  );
 }
 
 interface Material3ExtendedColorGroup {
@@ -387,6 +414,14 @@ function readExtendedColorRoleHex(
     );
   }
   return hexFromArgb(value);
+}
+
+function materialColorValue(hex: string): ColorValue {
+  const parsed = parseColor(hex);
+  if (!parsed.ok) {
+    throw new Error(`Material engine emitted unsupported color output: ${hex}`);
+  }
+  return parsed.value;
 }
 
 function material3ExtendedColorTokenKey(

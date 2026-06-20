@@ -12,16 +12,16 @@ pnpm add scheme-tokens @scheme-tokens/material3
 ## Usage
 
 ```ts
-import { buildScheme, defineTokenLayer, exportCssVars } from "scheme-tokens";
+import { buildScheme, defineTokenLayer, exportCssVars, ref } from "scheme-tokens";
 import { material3 } from "@scheme-tokens/material3";
 
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
   tokens: {
-    background: "material3.surface",
-    foreground: "material3.on-surface",
-    primary: "material3.primary",
-    "primary-foreground": "material3.on-primary",
+    background: ref("material3.surface"),
+    foreground: ref("material3.on-surface"),
+    primary: ref("material3.primary"),
+    "primary-foreground": ref("material3.on-primary"),
   },
 });
 
@@ -37,7 +37,10 @@ if (!exported.ok) {
 }
 
 console.log(exported.value.css);
-console.log(exported.value.blocks[0]?.declarations["--primary"]);
+console.log(
+  exported.value.blocks[0]?.declarations.find((declaration) => declaration.tokenKey === "primary")
+    ?.value,
+);
 ```
 
 The adapter emits strict graph input with `light` and `dark` modes. Raw Material roles use adapter-owned `material3.*`

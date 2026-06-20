@@ -1,13 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json",
-  "title": "scheme-tokens token graph v1",
+  "title": "scheme-tokens color token graph v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["formatVersion", "modes", "defaultMode", "defaultVisibility", "tokens"],
+  "required": ["kind", "formatVersion", "modes", "defaultMode", "defaultVisibility", "tokens"],
   "properties": {
     "$schema": {
       "type": "string"
+    },
+    "kind": {
+      "const": "scheme-tokens/color-token-graph"
     },
     "formatVersion": {
       "const": 1
@@ -116,7 +119,7 @@
     "expression": {
       "anyOf": [
         {
-          "$ref": "#/$defs/colorInput"
+          "$ref": "#/$defs/colorValue"
         },
         {
           "$ref": "#/$defs/reference"
@@ -133,100 +136,63 @@
         }
       }
     },
-    "colorInput": {
+    "colorSpace": {
+      "enum": [
+        "srgb",
+        "srgb-linear",
+        "hsl",
+        "hwb",
+        "lab",
+        "lch",
+        "oklab",
+        "oklch",
+        "display-p3",
+        "a98-rgb",
+        "prophoto-rgb",
+        "rec2020",
+        "xyz-d65",
+        "xyz-d50"
+      ]
+    },
+    "colorComponent": {
       "anyOf": [
         {
-          "type": "string"
+          "type": "number"
         },
         {
-          "$ref": "#/$defs/srgbColor"
-        },
-        {
-          "$ref": "#/$defs/displayP3Color"
-        },
-        {
-          "$ref": "#/$defs/oklchColor"
+          "const": "none"
         }
       ]
     },
-    "srgbColor": {
+    "colorValue": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["colorSpace", "r", "g", "b"],
+      "required": ["colorSpace", "components", "alpha"],
       "properties": {
         "colorSpace": {
-          "const": "srgb"
+          "$ref": "#/$defs/colorSpace"
         },
-        "r": {
-          "type": "number"
-        },
-        "g": {
-          "type": "number"
-        },
-        "b": {
-          "type": "number"
+        "components": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/colorComponent"
+          }
         },
         "alpha": {
           "type": "number",
           "minimum": 0,
           "maximum": 1
-        }
-      }
-    },
-    "displayP3Color": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["colorSpace", "r", "g", "b"],
-      "properties": {
-        "colorSpace": {
-          "const": "display-p3"
         },
-        "r": {
-          "type": "number"
-        },
-        "g": {
-          "type": "number"
-        },
-        "b": {
-          "type": "number"
-        },
-        "alpha": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
-        }
-      }
-    },
-    "oklchColor": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["colorSpace", "l", "c", "h"],
-      "properties": {
-        "colorSpace": {
-          "const": "oklch"
-        },
-        "l": {
-          "type": "number"
-        },
-        "c": {
-          "type": "number",
-          "minimum": 0
-        },
-        "h": {
-          "type": "number"
-        },
-        "alpha": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
+        "hex": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$"
         }
       }
     },
     "extensions": {
-      "type": "object",
-      "propertyNames": {
-        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*\\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)*$"
-      }
+      "type": "object"
     }
   }
 }

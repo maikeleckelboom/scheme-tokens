@@ -1,4 +1,4 @@
-import type { TokenSource } from "scheme-tokens";
+import type { ColorTokenSource } from "scheme-tokens";
 import {
   material3,
   material3Preset,
@@ -54,7 +54,7 @@ const generationOptions: Material3GenerationOptions = {
   specVersion: "2026",
 };
 
-const source: TokenSource<Material3Issue> = material3(input, options);
+const source: ColorTokenSource<Material3Issue> = material3(input, options);
 source.id.toUpperCase();
 material3({ sourceColors: arraySourceColors });
 material3({ sourceColors: mutableArraySourceColors });
@@ -68,7 +68,7 @@ material3("#6750a4", { variant: "expressive" }, { defaultVisibility: "internal" 
 material3({ sourceColors: "#6750a4", variant: "expressive" }, { defaultVisibility: "internal" });
 
 const preset: Material3Preset = material3Preset(generationOptions, options);
-const presetSource: TokenSource<Material3Issue> = preset("#6750a4");
+const presetSource: ColorTokenSource<Material3Issue> = preset("#6750a4");
 presetSource.id.toUpperCase();
 preset(arraySourceColors);
 preset(mutableArraySourceColors);

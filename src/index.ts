@@ -1,47 +1,63 @@
-export { defineTokenGraph, defineTokenLayer, defineTokens } from "./core/graph";
-export { parseTokenGraph } from "./core/parse-token-graph";
-export { parseColor } from "./core/color";
+export {
+  colorTokenGraphKind,
+  colorTokenLayerKind,
+  compiledColorSchemeKind,
+  defineTokenGraph,
+  defineTokenLayer,
+  defineTokens,
+  ref,
+} from "./core/graph";
+export { parseTokenGraph, parseTokenLayer } from "./core/parse-token-graph";
+export { parseCompiledScheme } from "./core/parse-compiled-scheme";
+export { colorSpaces, parseColor } from "./core/color";
 export { compileTokenGraph } from "./core/compile-token-graph";
 export { buildScheme, createSchemeBuilder } from "./core/source";
 export { exportCssVars } from "./exporters/export-css-variables";
-export { serializeScheme } from "./exporters/serialize-scheme";
+export {
+  serializeCompiledScheme,
+  serializeTokenGraph,
+  serializeTokenLayer,
+} from "./exporters/serialize-scheme";
 export { formatCssColor } from "./exporters/format-css-color";
 
 export type { JsonPrimitive, JsonValue } from "./core/json";
 export type { Issue, NonEmptyIssues, Result } from "./core/result";
 export type {
   ColorInput,
+  ColorComponent,
   ColorSpace,
   ColorValue,
-  DisplayP3Color,
-  DisplayP3ColorInput,
-  OklchColor,
-  OklchColorInput,
+  ColorValueInput,
   ParseColorIssue,
-  SrgbColor,
-  SrgbColorInput,
 } from "./core/color";
 export type {
   ColorExpression,
   ColorExpressionInput,
+  ColorTokenDefinitionAuthoringInput,
+  ColorTokenDefinitionInput,
+  ColorTokenExpressionInput,
+  ColorTokenGraph,
+  ColorTokenGraphAuthoringInput,
+  ColorTokenGraphInput,
+  ColorTokenGraphIssue,
+  ColorTokenGraphKind,
+  ColorTokenGraphToken,
+  ColorTokenLayerAuthoringInput,
+  ColorTokenLayerInput,
+  ColorTokenLayerKind,
+  CompiledColorSchemeKind,
+  ModeOf,
   ReferenceInput,
-  TokenDefinitionAuthoringInput,
-  TokenDefinitionInput,
-  TokenGraph,
-  TokenGraphAuthoringInput,
-  TokenGraphInput,
-  TokenGraphIssue,
-  TokenGraphToken,
-  TokenLayerAuthoringInput,
-  TokenLayerInput,
   TokenOrigin,
+  TokenKeyOf,
   TokenVisibility,
 } from "./core/graph";
 export type {
   CompileTokenGraphIssue,
   CompileTokenGraphOptions,
-  CompiledToken,
-  CompiledScheme,
+  CompiledColorScheme,
+  CompiledColorToken,
+  ParseCompiledSchemeIssue,
   TokenSelection,
 } from "./core/compiled-types";
 export type {
@@ -51,13 +67,15 @@ export type {
   SchemeBuilder,
   SchemeBuilderBuildOptions,
   SchemeBuilderConfig,
-  TokenSource,
+  ColorTokenSource,
 } from "./core/source";
 export type {
+  CssVarDeclaration,
   CssVarBlock,
   CssVarsExport,
   CssModeSelectors,
   CssScope,
   ExportCssVarsIssue,
   ExportCssVarsOptions,
+  CssVariableNameInput,
 } from "./exporters/export-css-variables";

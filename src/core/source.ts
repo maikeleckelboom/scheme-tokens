@@ -1,14 +1,20 @@
-import type { CompileTokenGraphIssue, CompiledScheme, TokenSelection } from "./compiled-types";
+import type { CompileTokenGraphIssue, CompiledColorScheme, TokenSelection } from "./compiled-types";
 import { compileParsedTokenGraph, parseCompileSelection } from "./compile-token-graph";
-import type { TokenGraphInput, TokenGraphIssue, TokenLayerInput, TokenVisibility } from "./graph";
+import type {
+  ColorTokenGraphInput,
+  ColorTokenGraphIssue,
+  ColorTokenLayerInput,
+  TokenVisibility,
+} from "./graph";
+import { colorTokenGraphKind } from "./graph";
 import { isSingleSegmentIdentifier } from "./identifiers";
 import { defineRecordValue, escapePointerSegment, isJsonSafeIssue, readPlainRecord } from "./json";
 import { parseTokenGraphInternal } from "./parse-token-graph";
 import type { Issue, Result } from "./result";
 
-export interface TokenSource<I extends Issue = Issue> {
+export interface ColorTokenSource<I extends Issue = Issue> {
   readonly id: string;
-  build(): Result<TokenGraphInput, I>;
+  build(): Result<ColorTokenGraphInput, I>;
 }
 
 export interface BuildSchemeOptions<I extends Issue = Issue> {
@@ -19,8 +25,8 @@ export interface BuildSchemeOptions<I extends Issue = Issue> {
   readonly defaultMode?: string;
   readonly defaultVisibility?: TokenVisibility;
   readonly tokens?: never;
-  readonly base?: TokenSource<I> | readonly TokenSource<I>[];
-  readonly layers?: readonly TokenLayerInput[];
+  readonly base?: ColorTokenSource<I> | readonly ColorTokenSource<I>[];
+  readonly layers?: readonly ColorTokenLayerInput[];
   readonly selection?: TokenSelection;
 }
 
@@ -29,22 +35,24 @@ export type BuildSchemeSourceOptions<I extends Issue = Issue> = Omit<BuildScheme
 export type SchemeBuilderConfig = BuildSchemeSourceOptions;
 
 export interface SchemeBuilderBuildOptions<I extends Issue = Issue> {
-  readonly base?: TokenSource<I> | readonly TokenSource<I>[];
+  readonly base?: ColorTokenSource<I> | readonly ColorTokenSource<I>[];
 }
 
 export interface SchemeBuilder {
-  build(): Result<CompiledScheme, BuildSchemeIssue>;
-  build<I extends Issue>(source: TokenSource<I>): Result<CompiledScheme, I | BuildSchemeIssue>;
+  build(): Result<CompiledColorScheme, BuildSchemeIssue>;
   build<I extends Issue>(
-    sources: readonly [TokenSource<I>, ...TokenSource<I>[]],
-  ): Result<CompiledScheme, I | BuildSchemeIssue>;
+    source: ColorTokenSource<I>,
+  ): Result<CompiledColorScheme, I | BuildSchemeIssue>;
+  build<I extends Issue>(
+    sources: readonly [ColorTokenSource<I>, ...ColorTokenSource<I>[]],
+  ): Result<CompiledColorScheme, I | BuildSchemeIssue>;
   build<I extends Issue>(
     input: SchemeBuilderBuildOptions<I>,
-  ): Result<CompiledScheme, I | BuildSchemeIssue>;
+  ): Result<CompiledColorScheme, I | BuildSchemeIssue>;
 }
 
 export type BuildSchemeIssue =
-  | TokenGraphIssue
+  | ColorTokenGraphIssue
   | CompileTokenGraphIssue
   | (Issue<
       | "invalid-build-options"
@@ -61,25 +69,28 @@ export type BuildSchemeIssue =
 
 export function buildScheme<I extends Issue>(
   options: BuildSchemeOptions<I>,
-): Result<CompiledScheme, I | BuildSchemeIssue>;
+): Result<CompiledColorScheme, I | BuildSchemeIssue>;
 export function buildScheme<I extends Issue>(
-  source: TokenSource<I>,
-): Result<CompiledScheme, I | BuildSchemeIssue>;
+  source: ColorTokenSource<I>,
+): Result<CompiledColorScheme, I | BuildSchemeIssue>;
 export function buildScheme<I extends Issue>(
-  source: TokenSource<I>,
+  source: ColorTokenSource<I>,
   options: BuildSchemeSourceOptions<I>,
-): Result<CompiledScheme, I | BuildSchemeIssue>;
+): Result<CompiledColorScheme, I | BuildSchemeIssue>;
 export function buildScheme<I extends Issue>(
-  sources: readonly [TokenSource<I>, ...TokenSource<I>[]],
-): Result<CompiledScheme, I | BuildSchemeIssue>;
+  sources: readonly [ColorTokenSource<I>, ...ColorTokenSource<I>[]],
+): Result<CompiledColorScheme, I | BuildSchemeIssue>;
 export function buildScheme<I extends Issue>(
-  sources: readonly [TokenSource<I>, ...TokenSource<I>[]],
+  sources: readonly [ColorTokenSource<I>, ...ColorTokenSource<I>[]],
   options: BuildSchemeSourceOptions<I>,
-): Result<CompiledScheme, I | BuildSchemeIssue>;
+): Result<CompiledColorScheme, I | BuildSchemeIssue>;
 export function buildScheme<I extends Issue>(
-  input: BuildSchemeOptions<I> | TokenSource<I> | readonly [TokenSource<I>, ...TokenSource<I>[]],
+  input:
+    | BuildSchemeOptions<I>
+    | ColorTokenSource<I>
+    | readonly [ColorTokenSource<I>, ...ColorTokenSource<I>[]],
   options?: BuildSchemeSourceOptions<I>,
-): Result<CompiledScheme, I | BuildSchemeIssue> {
+): Result<CompiledColorScheme, I | BuildSchemeIssue> {
   const normalizedOptions = normalizeBuildSchemeCall(input, options);
   if (!normalizedOptions.ok) {
     return normalizedOptions as Result<never, I | BuildSchemeIssue>;
@@ -94,7 +105,7 @@ export function createSchemeBuilder(config: SchemeBuilderConfig): SchemeBuilder 
 
 function buildSchemeOptions<I extends Issue>(
   input: BuildSchemeOptions<I>,
-): Result<CompiledScheme, I | BuildSchemeIssue> {
+): Result<CompiledColorScheme, I | BuildSchemeIssue> {
   const parsedOptions = parseBuildOptions(input);
   if (!parsedOptions.ok) {
     return parsedOptions as Result<never, I | BuildSchemeIssue>;
@@ -124,16 +135,16 @@ function buildSchemeOptions<I extends Issue>(
     composed.value.layerSourceIds,
     callerLayerIds,
     parsedOptions.value.selection,
-  ) as Result<CompiledScheme, I | BuildSchemeIssue>;
+  ) as Result<CompiledColorScheme, I | BuildSchemeIssue>;
 }
 
 interface SchemeBuildKernel {
   build<I extends Issue>(
     input?:
-      | TokenSource<I>
-      | readonly [TokenSource<I>, ...TokenSource<I>[]]
+      | ColorTokenSource<I>
+      | readonly [ColorTokenSource<I>, ...ColorTokenSource<I>[]]
       | SchemeBuilderBuildOptions<I>,
-  ): Result<CompiledScheme, I | BuildSchemeIssue>;
+  ): Result<CompiledColorScheme, I | BuildSchemeIssue>;
 }
 
 function createSchemeBuildKernel(config: SchemeBuilderConfig): SchemeBuildKernel {
@@ -142,10 +153,10 @@ function createSchemeBuildKernel(config: SchemeBuilderConfig): SchemeBuildKernel
   return Object.freeze({
     build<I extends Issue>(
       input?:
-        | TokenSource<I>
-        | readonly [TokenSource<I>, ...TokenSource<I>[]]
+        | ColorTokenSource<I>
+        | readonly [ColorTokenSource<I>, ...ColorTokenSource<I>[]]
         | SchemeBuilderBuildOptions<I>,
-    ): Result<CompiledScheme, I | BuildSchemeIssue> {
+    ): Result<CompiledColorScheme, I | BuildSchemeIssue> {
       const normalizedOptions = normalizeBuilderBuildCall<I>(preparedConfig, input);
       if (!normalizedOptions.ok) {
         return normalizedOptions as Result<never, I | BuildSchemeIssue>;
@@ -158,8 +169,8 @@ function createSchemeBuildKernel(config: SchemeBuilderConfig): SchemeBuildKernel
 function normalizeBuilderBuildCall<I extends Issue>(
   preparedConfig: BuildSchemeSourceOptions,
   input:
-    | TokenSource<I>
-    | readonly [TokenSource<I>, ...TokenSource<I>[]]
+    | ColorTokenSource<I>
+    | readonly [ColorTokenSource<I>, ...ColorTokenSource<I>[]]
     | SchemeBuilderBuildOptions<I>
     | undefined,
 ): Result<BuildSchemeOptions<I>, BuildSchemeIssue> {
@@ -279,7 +290,10 @@ function copyPreparedValue(input: unknown, seen: Set<object>): unknown {
 }
 
 function normalizeBuildSchemeCall<I extends Issue>(
-  input: BuildSchemeOptions<I> | TokenSource<I> | readonly [TokenSource<I>, ...TokenSource<I>[]],
+  input:
+    | BuildSchemeOptions<I>
+    | ColorTokenSource<I>
+    | readonly [ColorTokenSource<I>, ...ColorTokenSource<I>[]],
   options: BuildSchemeSourceOptions<I> | undefined,
 ): Result<BuildSchemeOptions<I>, BuildSchemeIssue> {
   if (options !== undefined) {
@@ -291,7 +305,7 @@ function normalizeBuildSchemeCall<I extends Issue>(
       ok: true,
       value: {
         ...parsedOptions.value,
-        base: Array.isArray(input) ? input : (input as TokenSource<I>),
+        base: Array.isArray(input) ? input : (input as ColorTokenSource<I>),
       },
     };
   }
@@ -330,7 +344,7 @@ function parseBuildSourceOptions<I extends Issue>(
   return { ok: true, value: input };
 }
 
-function isSourceShorthand<I extends Issue>(input: unknown): input is TokenSource<I> {
+function isSourceShorthand<I extends Issue>(input: unknown): input is ColorTokenSource<I> {
   const entries = readPlainRecord(input, {
     code: "invalid-build-options",
     message: "source must be a plain object with id and build.",
@@ -348,7 +362,7 @@ function buildFromComposedGraph(
   layerSourceIds: ReadonlyMap<string, string>,
   callerLayerIds: ReadonlySet<string>,
   selection: TokenSelection | undefined,
-): Result<CompiledScheme, BuildSchemeIssue> {
+): Result<CompiledColorScheme, BuildSchemeIssue> {
   const parsedGraph = parseTokenGraphInternal(graphInput, {
     callerLayerIds,
     tokenSourceIds,
@@ -376,8 +390,8 @@ function buildFromComposedGraph(
 
 interface ParsedBuildOptions<I extends Issue> {
   readonly envelope: BuildSchemeEnvelope;
-  readonly sources: readonly TokenSource<I>[];
-  readonly layers?: readonly TokenLayerInput[];
+  readonly sources: readonly ColorTokenSource<I>[];
+  readonly layers?: readonly ColorTokenLayerInput[];
   readonly selection?: TokenSelection;
 }
 
@@ -459,7 +473,7 @@ function parseBuildOptions<I extends Issue>(
     value: {
       envelope: envelope.value,
       sources: sources.value,
-      ...(layers === undefined ? {} : { layers: layers as readonly TokenLayerInput[] }),
+      ...(layers === undefined ? {} : { layers: layers as readonly ColorTokenLayerInput[] }),
       ...(record.has("selection") ? { selection: record.get("selection") as TokenSelection } : {}),
     },
   };
@@ -624,7 +638,7 @@ function parseBuildModes(input: unknown): Result<readonly [string, ...string[]],
 
 function parseBase<I extends Issue>(
   input: unknown,
-): Result<readonly TokenSource<I>[], BuildSchemeIssue> {
+): Result<readonly ColorTokenSource<I>[], BuildSchemeIssue> {
   if (input === undefined) {
     return { ok: true, value: [] };
   }
@@ -645,7 +659,7 @@ function parseBase<I extends Issue>(
     };
   }
 
-  const sources: TokenSource<I>[] = [];
+  const sources: ColorTokenSource<I>[] = [];
   const sourceIdPaths = new Map<string, string>();
   for (const [sourceIndex, value] of input.entries()) {
     const source = parseSource<I>(value, sourceIndex);
@@ -679,7 +693,7 @@ function parseBase<I extends Issue>(
 function parseSource<I extends Issue>(
   input: unknown,
   sourceIndex: number,
-): Result<TokenSource<I>, BuildSchemeIssue> {
+): Result<ColorTokenSource<I>, BuildSchemeIssue> {
   const path = `/base/${sourceIndex}`;
   const entries = readPlainRecord(input, {
     code: "invalid-build-options",
@@ -732,13 +746,13 @@ function parseSource<I extends Issue>(
       ],
     };
   }
-  return { ok: true, value: input as TokenSource<I> };
+  return { ok: true, value: input as ColorTokenSource<I> };
 }
 
 function callSource<I extends Issue>(
-  source: TokenSource<I>,
+  source: ColorTokenSource<I>,
   sourceIndex: number,
-): Result<TokenGraphInput, I | BuildSchemeIssue> {
+): Result<ColorTokenGraphInput, I | BuildSchemeIssue> {
   let result: unknown;
   try {
     result = source.build();
@@ -765,7 +779,7 @@ function validateSourceResult<I extends Issue>(
   input: unknown,
   sourceId: string,
   sourceIndex: number,
-): Result<TokenGraphInput, I | BuildSchemeIssue> {
+): Result<ColorTokenGraphInput, I | BuildSchemeIssue> {
   const entries = readPlainRecord(input, {
     code: "invalid-source-result",
     message: "Source build result must be a plain Result object.",
@@ -791,7 +805,7 @@ function validateSourceResult<I extends Issue>(
         ],
       };
     }
-    return { ok: true, value: record.get("value") as TokenGraphInput };
+    return { ok: true, value: record.get("value") as ColorTokenGraphInput };
   }
   if (okValue !== false || record.size !== 2 || !record.has("issues")) {
     return {
@@ -842,8 +856,8 @@ function validateSourceResult<I extends Issue>(
 }
 
 interface BuiltSourceGraph<I extends Issue = Issue> {
-  readonly source: TokenSource<I>;
-  readonly graph: TokenGraphInput;
+  readonly source: ColorTokenSource<I>;
+  readonly graph: ColorTokenGraphInput;
   readonly sourceIndex: number;
 }
 
@@ -855,7 +869,7 @@ interface ComposedSourceGraphs {
 
 function composeSourceGraphs(
   sources: readonly BuiltSourceGraph[],
-  layers: readonly TokenLayerInput[] | undefined,
+  layers: readonly ColorTokenLayerInput[] | undefined,
   envelope: BuildSchemeEnvelope,
 ): Result<ComposedSourceGraphs, BuildSchemeIssue> {
   const sourceGraphs: SourceGraphParts[] = [];
@@ -868,6 +882,7 @@ function composeSourceGraphs(
   }
 
   const output: Record<string, unknown> = {};
+  defineRecordValue(output, "kind", colorTokenGraphKind);
   const first = sourceGraphs[0];
   if (first === undefined) {
     defineRecordValue(output, "formatVersion", 1);
@@ -1065,7 +1080,7 @@ function readSourceGraph(source: BuiltSourceGraph): Result<RawSourceGraphParts, 
 }
 
 function prefixSourceGraphIssues(
-  issues: readonly [TokenGraphIssue, ...TokenGraphIssue[]],
+  issues: readonly [ColorTokenGraphIssue, ...ColorTokenGraphIssue[]],
   source: BuiltSourceGraph,
 ): readonly [BuildSchemeIssue, ...BuildSchemeIssue[]] {
   const [first, ...rest] = issues;
@@ -1076,7 +1091,7 @@ function prefixSourceGraphIssues(
 }
 
 function prefixSourceGraphIssue(
-  issue: TokenGraphIssue,
+  issue: ColorTokenGraphIssue,
   source: BuiltSourceGraph,
 ): BuildSchemeIssue {
   const path = issue.path ?? "";
@@ -1211,7 +1226,7 @@ function readLayerId(layer: unknown): string | undefined {
 }
 
 function collectCallerLayerIds(
-  layers: readonly TokenLayerInput[] | undefined,
+  layers: readonly ColorTokenLayerInput[] | undefined,
 ): ReadonlySet<string> {
   const ids = new Set<string>();
   if (layers === undefined) {

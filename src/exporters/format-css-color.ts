@@ -1,36 +1,63 @@
-import type { ColorValue } from "../core/color";
+import type { ColorComponent, ColorSpace, ColorValue } from "../core/color";
 import { normalizeNumber } from "../core/json";
 
+const colorFunctionSpaces = new Set<ColorSpace>([
+  "srgb",
+  "srgb-linear",
+  "display-p3",
+  "a98-rgb",
+  "prophoto-rgb",
+  "rec2020",
+  "xyz-d65",
+  "xyz-d50",
+]);
+
 export function formatCssColor(color: ColorValue): string {
-  if (color.colorSpace === "srgb") {
-    if (
-      color.alpha === 1 &&
-      isByteAligned(color.r) &&
-      isByteAligned(color.g) &&
-      isByteAligned(color.b)
-    ) {
-      return `#${toHexByte(color.r)}${toHexByte(color.g)}${toHexByte(color.b)}`;
-    }
-    return formatColorFunction("srgb", [color.r, color.g, color.b], color.alpha);
+  if (color.colorSpace === "srgb" && canFormatHex(color)) {
+    return `#${toHexByte(color.components[0] as number)}${toHexByte(
+      color.components[1] as number,
+    )}${toHexByte(color.components[2] as number)}`;
   }
 
-  if (color.colorSpace === "display-p3") {
-    return formatColorFunction("display-p3", [color.r, color.g, color.b], color.alpha);
+  if (colorFunctionSpaces.has(color.colorSpace)) {
+    return formatColorFunction(color.colorSpace, color.components, color.alpha);
   }
 
-  return `oklch(${formatNumber(color.l)} ${formatNumber(color.c)} ${formatNumber(color.h)}${formatAlpha(color.alpha)})`;
+  if (color.colorSpace === "hsl" || color.colorSpace === "hwb") {
+    return `${color.colorSpace}(${formatComponents(color.components)}${formatAlpha(color.alpha)})`;
+  }
+
+  return `${color.colorSpace}(${formatComponents(color.components)}${formatAlpha(color.alpha)})`;
 }
 
 function formatColorFunction(
-  space: "srgb" | "display-p3",
-  channels: readonly number[],
+  space: ColorSpace,
+  components: readonly [ColorComponent, ColorComponent, ColorComponent],
   alpha: number,
 ): string {
-  return `color(${space} ${channels.map(formatNumber).join(" ")}${formatAlpha(alpha)})`;
+  return `color(${space} ${formatComponents(components)}${formatAlpha(alpha)})`;
+}
+
+function formatComponents(
+  components: readonly [ColorComponent, ColorComponent, ColorComponent],
+): string {
+  return components.map(formatComponent).join(" ");
 }
 
 function formatAlpha(alpha: number): string {
   return alpha === 1 ? "" : ` / ${formatNumber(alpha)}`;
+}
+
+function canFormatHex(color: ColorValue): boolean {
+  return (
+    color.alpha === 1 &&
+    typeof color.components[0] === "number" &&
+    typeof color.components[1] === "number" &&
+    typeof color.components[2] === "number" &&
+    isByteAligned(color.components[0]) &&
+    isByteAligned(color.components[1]) &&
+    isByteAligned(color.components[2])
+  );
 }
 
 function isByteAligned(value: number): boolean {
@@ -42,6 +69,10 @@ function toHexByte(value: number): string {
   return Math.round(value * 255)
     .toString(16)
     .padStart(2, "0");
+}
+
+function formatComponent(value: ColorComponent): string {
+  return value === "none" ? "none" : formatNumber(value);
 }
 
 function formatNumber(value: number): string {

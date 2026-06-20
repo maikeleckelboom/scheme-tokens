@@ -1,11 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://scheme-tokens.dev/schemas/compiled-scheme.v1.schema.json",
-  "title": "scheme-tokens compiled scheme v1",
+  "title": "scheme-tokens compiled color scheme v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["formatVersion", "modes", "defaultMode", "tokens"],
+  "required": ["kind", "formatVersion", "modes", "defaultMode", "tokens"],
   "properties": {
+    "kind": {
+      "const": "scheme-tokens/compiled-color-scheme"
+    },
     "formatVersion": {
       "const": 1
     },
@@ -32,7 +35,7 @@
         "required": ["visibility", "valueByMode", "origin", "dependenciesByMode"],
         "properties": {
           "visibility": {
-            "enum": ["public", "internal"]
+            "$ref": "token-graph.v1.schema.json#/$defs/visibility"
           },
           "valueByMode": {
             "type": "object",
@@ -41,7 +44,7 @@
               "$ref": "token-graph.v1.schema.json#/$defs/segment"
             },
             "additionalProperties": {
-              "$ref": "#/$defs/resolvedColor"
+              "$ref": "token-graph.v1.schema.json#/$defs/colorValue"
             }
           },
           "origin": {
@@ -118,94 +121,6 @@
           "extensions": {
             "$ref": "token-graph.v1.schema.json#/$defs/extensions"
           }
-        }
-      }
-    }
-  },
-  "$defs": {
-    "resolvedColor": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/resolvedSrgbColor"
-        },
-        {
-          "$ref": "#/$defs/resolvedDisplayP3Color"
-        },
-        {
-          "$ref": "#/$defs/resolvedOklchColor"
-        }
-      ]
-    },
-    "resolvedSrgbColor": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["colorSpace", "r", "g", "b", "alpha"],
-      "properties": {
-        "colorSpace": {
-          "const": "srgb"
-        },
-        "r": {
-          "type": "number"
-        },
-        "g": {
-          "type": "number"
-        },
-        "b": {
-          "type": "number"
-        },
-        "alpha": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
-        }
-      }
-    },
-    "resolvedDisplayP3Color": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["colorSpace", "r", "g", "b", "alpha"],
-      "properties": {
-        "colorSpace": {
-          "const": "display-p3"
-        },
-        "r": {
-          "type": "number"
-        },
-        "g": {
-          "type": "number"
-        },
-        "b": {
-          "type": "number"
-        },
-        "alpha": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
-        }
-      }
-    },
-    "resolvedOklchColor": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["colorSpace", "l", "c", "h", "alpha"],
-      "properties": {
-        "colorSpace": {
-          "const": "oklch"
-        },
-        "l": {
-          "type": "number"
-        },
-        "c": {
-          "type": "number",
-          "minimum": 0
-        },
-        "h": {
-          "type": "number"
-        },
-        "alpha": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
         }
       }
     }

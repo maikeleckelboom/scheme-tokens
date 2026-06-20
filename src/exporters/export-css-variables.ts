@@ -1,6 +1,7 @@
-import type { CompiledScheme } from "../core/compiled-types";
+import type { CompiledColorScheme, ParseCompiledSchemeIssue } from "../core/compiled-types";
 import { isClassPrefix, isDataAttributeName, isSingleSegmentIdentifier } from "../core/identifiers";
-import { compareCodeUnits, readPlainRecord } from "../core/json";
+import { compareCodeUnits, escapePointerSegment, readPlainRecord } from "../core/json";
+import { parseCompiledScheme } from "../core/parse-compiled-scheme";
 import type { Issue, Result } from "../core/result";
 import { describeUnknown } from "../core/unknown-description";
 import { formatCssColor } from "./format-css-color";
@@ -29,76 +30,224 @@ export type CssModeSelectors =
       readonly selectors: Readonly<Record<string, string>>;
     };
 
-export interface ExportCssVarsOptions {
+export interface CssVariableNameInput<Key extends string = string> {
+  readonly tokenKey: Key;
+  readonly segments: readonly [string, ...string[]];
+  readonly defaultName: string;
   readonly prefix?: string;
+}
+
+export interface ExportCssVarsOptions<Key extends string = string> {
+  readonly prefix?: string;
+  readonly variableName?: (input: CssVariableNameInput<Key>) => string;
   readonly scope?: CssScope;
   readonly modeSelectors?: CssModeSelectors;
   readonly format?: "pretty" | "compact";
 }
 
-export interface CssVarBlock {
+export interface CssVarDeclaration<Key extends string = string> {
+  readonly tokenKey: Key;
+  readonly property: string;
+  readonly value: string;
+}
+
+export interface CssVarBlock<Key extends string = string> {
   readonly mode: string;
   readonly selector: string;
-  readonly declarations: Readonly<Record<string, string>>;
+  readonly declarations: readonly CssVarDeclaration<Key>[];
 }
 
-export interface CssVarsExport {
+export interface CssVarsExport<Key extends string = string> {
   readonly css: string;
-  readonly blocks: readonly CssVarBlock[];
+  readonly blocks: readonly CssVarBlock<Key>[];
+  readonly variableByToken: Readonly<Record<Key, string>>;
 }
 
-export type ExportCssVarsIssue = Issue<
-  | "invalid-css-options"
-  | "invalid-css-prefix"
-  | "invalid-scope"
-  | "invalid-selector"
-  | "invalid-data-attribute"
-  | "invalid-class-prefix"
-  | "invalid-mode-selectors"
-  | "missing-mode-selector"
-  | "unknown-mode-selector"
-  | "duplicate-mode-selector"
-> & {
-  readonly mode?: string;
-  readonly selector?: string;
-};
+export type ExportCssVarsIssue =
+  | ParseCompiledSchemeIssue
+  | (Issue<
+      | "invalid-css-options"
+      | "invalid-css-prefix"
+      | "invalid-css-variable"
+      | "duplicate-css-variable"
+      | "invalid-scope"
+      | "invalid-selector"
+      | "invalid-data-attribute"
+      | "invalid-class-prefix"
+      | "invalid-mode-selectors"
+      | "missing-mode-selector"
+      | "unknown-mode-selector"
+      | "duplicate-mode-selector"
+    > & {
+      readonly key?: string;
+      readonly firstKey?: string;
+      readonly mode?: string;
+      readonly property?: string;
+      readonly selector?: string;
+    });
 
+export function exportCssVars<const Scheme extends CompiledColorScheme>(
+  scheme: Scheme,
+  options?: ExportCssVarsOptions<Extract<keyof Scheme["tokens"], string>>,
+): Result<CssVarsExport<Extract<keyof Scheme["tokens"], string>>, ExportCssVarsIssue>;
 export function exportCssVars(
-  scheme: CompiledScheme,
+  scheme: CompiledColorScheme,
+  options?: ExportCssVarsOptions,
+): Result<CssVarsExport, ExportCssVarsIssue>;
+export function exportCssVars(
+  scheme: CompiledColorScheme,
   options?: ExportCssVarsOptions,
 ): Result<CssVarsExport, ExportCssVarsIssue> {
-  const parsed = parseOptions(scheme, options);
+  const parsedScheme = parseCompiledScheme(scheme);
+  if (!parsedScheme.ok) {
+    return parsedScheme;
+  }
+
+  const parsed = parseOptions(parsedScheme.value, options);
   if (!parsed.ok) {
     return parsed;
   }
 
-  const blocks = buildCssVarBlocks(scheme, parsed.value);
+  const variables = buildVariableMap(parsedScheme.value, parsed.value);
+  if (!variables.ok) {
+    return variables;
+  }
+
+  const blocks = buildCssVarBlocks(parsedScheme.value, parsed.value, variables.value);
+  if (!blocks.ok) {
+    return blocks;
+  }
+
   return {
     ok: true,
     value: {
-      css: formatBlocks(blocks, parsed.value.compact),
-      blocks,
+      css: formatBlocks(blocks.value, parsed.value.compact),
+      blocks: blocks.value,
+      variableByToken: variables.value,
     },
   };
 }
 
-function buildCssVarBlocks(
-  scheme: CompiledScheme,
+function buildVariableMap(
+  scheme: CompiledColorScheme,
   options: ParsedCssOptions,
-): readonly CssVarBlock[] {
+): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
   const tokenKeys = Object.keys(scheme.tokens).sort(compareCodeUnits);
-  return scheme.modes.map((mode) => {
-    const declarations: Record<string, string> = {};
-    for (const key of tokenKeys) {
-      const value = scheme.tokens[key]?.valueByMode[mode];
-      declarations[cssVariableName(key, options.prefix)] = formatCssColor(value as never);
+  const variables: Record<string, string> = {};
+  const seen = new Map<string, string>();
+  for (const key of tokenKeys) {
+    const segments = key.split(".") as [string, ...string[]];
+    const defaultName = defaultCssVariableName(segments, options.prefix);
+    let property: unknown;
+    try {
+      property =
+        options.variableName?.({
+          tokenKey: key,
+          segments,
+          defaultName,
+          ...(options.prefix === undefined ? {} : { prefix: options.prefix }),
+        }) ?? defaultName;
+    } catch {
+      return {
+        ok: false,
+        issues: [
+          {
+            code: "invalid-css-variable",
+            message: "variableName must return a CSS custom property name.",
+            key,
+          },
+        ],
+      };
     }
-    return {
+    if (typeof property !== "string" || !isSafeCssCustomPropertyName(property)) {
+      return {
+        ok: false,
+        issues: [
+          {
+            code: "invalid-css-variable",
+            message: "Generated CSS variable names must be safe custom properties.",
+            key,
+            property: typeof property === "string" ? property : describeUnknown(property),
+          },
+        ],
+      };
+    }
+    const firstKey = seen.get(property);
+    if (firstKey !== undefined) {
+      return {
+        ok: false,
+        issues: [
+          {
+            code: "duplicate-css-variable",
+            message: "Generated CSS variable names must be unique.",
+            key,
+            firstKey,
+            property,
+          },
+        ],
+      };
+    }
+    seen.set(property, key);
+    variables[key] = property;
+  }
+  return { ok: true, value: variables };
+}
+
+function buildCssVarBlocks(
+  scheme: CompiledColorScheme,
+  options: ParsedCssOptions,
+  variableByToken: Readonly<Record<string, string>>,
+): Result<readonly CssVarBlock[], ExportCssVarsIssue> {
+  const tokenKeys = Object.keys(scheme.tokens).sort(compareCodeUnits);
+  const blocks: CssVarBlock[] = [];
+  for (const mode of scheme.modes) {
+    const selector = options.selectors[mode];
+    if (selector === undefined) {
+      return {
+        ok: false,
+        issues: [
+          {
+            code: "missing-mode-selector",
+            message: `Missing selector for mode: ${mode}.`,
+            mode,
+          },
+        ],
+      };
+    }
+
+    const declarations: CssVarDeclaration[] = [];
+    for (const key of tokenKeys) {
+      const token = scheme.tokens[key];
+      const property = variableByToken[key];
+      const value = token?.valueByMode[mode];
+      if (token === undefined || property === undefined || value === undefined) {
+        return {
+          ok: false,
+          issues: [
+            {
+              code: "invalid-object",
+              message: "Compiled color scheme is missing a parsed token value.",
+              path:
+                token === undefined
+                  ? `/tokens/${escapePointerSegment(key)}`
+                  : `/tokens/${escapePointerSegment(key)}/valueByMode/${escapePointerSegment(mode)}`,
+            },
+          ],
+        };
+      }
+      declarations.push({
+        tokenKey: key,
+        property,
+        value: formatCssColor(value),
+      });
+    }
+    blocks.push({
       mode,
-      selector: options.selectors[mode] as string,
+      selector,
       declarations,
-    };
-  });
+    });
+  }
+  return { ok: true, value: blocks };
 }
 
 function formatBlocks(blocks: readonly CssVarBlock[], compact: boolean): string {
@@ -108,8 +257,10 @@ function formatBlocks(blocks: readonly CssVarBlock[], compact: boolean): string 
 }
 
 function formatBlock(block: CssVarBlock, compact: boolean): string {
-  const declarations = Object.entries(block.declarations).map(([name, value]) =>
-    compact ? `${name}:${value};` : `  ${name}: ${value};`,
+  const declarations = block.declarations.map((declaration) =>
+    compact
+      ? `${declaration.property}:${declaration.value};`
+      : `  ${declaration.property}: ${declaration.value};`,
   );
   return compact
     ? `${block.selector}{${declarations.join("")}}`
@@ -118,12 +269,13 @@ function formatBlock(block: CssVarBlock, compact: boolean): string {
 
 interface ParsedCssOptions {
   readonly prefix?: string;
+  readonly variableName?: (input: CssVariableNameInput) => unknown;
   readonly selectors: Readonly<Record<string, string>>;
   readonly compact: boolean;
 }
 
 function parseOptions(
-  scheme: CompiledScheme,
+  scheme: CompiledColorScheme,
   options: ExportCssVarsOptions | undefined,
 ): Result<ParsedCssOptions, ExportCssVarsIssue> {
   const entries =
@@ -140,6 +292,7 @@ function parseOptions(
   for (const entry of entries.value) {
     if (
       entry.key !== "prefix" &&
+      entry.key !== "variableName" &&
       entry.key !== "scope" &&
       entry.key !== "modeSelectors" &&
       entry.key !== "format"
@@ -167,6 +320,17 @@ function parseOptions(
       ],
     };
   }
+  const variableNameInput = record.get("variableName");
+  if (variableNameInput !== undefined && typeof variableNameInput !== "function") {
+    return {
+      ok: false,
+      issues: [{ code: "invalid-css-options", message: "variableName must be a function." }],
+    };
+  }
+  const variableName =
+    typeof variableNameInput === "function"
+      ? (input: CssVariableNameInput) => variableNameInput(input)
+      : undefined;
   const format = record.get("format") ?? "pretty";
   if (format !== "pretty" && format !== "compact") {
     return {
@@ -186,6 +350,7 @@ function parseOptions(
     ok: true,
     value: {
       ...(typeof prefix === "string" && prefix !== "" ? { prefix } : {}),
+      ...(variableName === undefined ? {} : { variableName }),
       selectors: selectors.value,
       compact: format === "compact",
     },
@@ -193,7 +358,7 @@ function parseOptions(
 }
 
 function parseSelectors(
-  scheme: CompiledScheme,
+  scheme: CompiledColorScheme,
   scopeInput: unknown,
   modeSelectorsInput: unknown,
 ): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
@@ -304,7 +469,7 @@ function parseScope(input: unknown): Result<string, ExportCssVarsIssue> {
 }
 
 function parseExactSelectors(
-  scheme: CompiledScheme,
+  scheme: CompiledColorScheme,
   input: unknown,
 ): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
   const entries = readPlainRecord(input, {
@@ -359,7 +524,7 @@ function parseExactSelectors(
 }
 
 function generatedSelectors(
-  scheme: CompiledScheme,
+  scheme: CompiledColorScheme,
   selectorForMode: (mode: string) => string,
   defaultSelector: string,
 ): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
@@ -394,7 +559,14 @@ function rejectDuplicateSelectors(
   return { ok: true, value: selectors };
 }
 
-function cssVariableName(key: string, prefix: string | undefined): string {
-  const flattenedKey = key.split(".").join("-");
-  return prefix === undefined ? `--${flattenedKey}` : `--${prefix}-${flattenedKey}`;
+function defaultCssVariableName(
+  segments: readonly [string, ...string[]],
+  prefix: string | undefined,
+): string {
+  const encodedKey = segments.join("--");
+  return prefix === undefined ? `--${encodedKey}` : `--${prefix}-${encodedKey}`;
+}
+
+function isSafeCssCustomPropertyName(input: string): boolean {
+  return /^--[a-z][a-z0-9-]*(?:--[a-z][a-z0-9-]*)*$/.test(input);
 }

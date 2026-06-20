@@ -39,16 +39,16 @@ writeJson(join(consumerDirectory, "tsconfig.json"), {
 writeFileSync(
   join(consumerDirectory, "material3.mjs"),
   `
-import { buildScheme, createSchemeBuilder, defineTokenLayer } from "scheme-tokens";
+import { buildScheme, createSchemeBuilder, defineTokenLayer, ref } from "scheme-tokens";
 import { material3, material3Preset } from "@scheme-tokens/material3";
 
 const application = defineTokenLayer({
   id: "application",
   defaultVisibility: "public",
   tokens: {
-    "app.background": "material3.surface",
-    "app.foreground": "material3.on-surface",
-    "app.success": "material3.extended.success.color",
+    "app.background": ref("material3.surface"),
+    "app.foreground": ref("material3.on-surface"),
+    "app.success": ref("material3.extended.success.color"),
   },
 });
 
@@ -121,7 +121,7 @@ if (
 writeFileSync(
   join(consumerDirectory, "types.ts"),
   `
-import { buildScheme, createSchemeBuilder, type SchemeBuilder, type TokenSource } from "scheme-tokens";
+import { buildScheme, createSchemeBuilder, type SchemeBuilder, type ColorTokenSource } from "scheme-tokens";
 import {
   material3,
   material3Preset,
@@ -141,11 +141,11 @@ const input: Material3Input = {
   variant,
   extendedColors: [extendedColor],
 };
-const source: TokenSource<Material3Issue> = material3(input);
+const source: ColorTokenSource<Material3Issue> = material3(input);
 const generationOptions: Material3GenerationOptions = { variant };
 const integrationOptions: Material3IntegrationOptions = { defaultVisibility: "internal" };
 const preset: Material3Preset = material3Preset(generationOptions, integrationOptions);
-const presetSource: TokenSource<Material3Issue> = preset("#6750a4");
+const presetSource: ColorTokenSource<Material3Issue> = preset("#6750a4");
 const builder: SchemeBuilder = createSchemeBuilder({});
 const built = buildScheme(source);
 const preparedBuilt = builder.build(presetSource);

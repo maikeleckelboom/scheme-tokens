@@ -1,17 +1,22 @@
-import type { ColorValue } from "./color";
-import type { TokenGraphIssue, TokenOrigin, TokenVisibility } from "./graph";
-import type { Issue, Result } from "./result";
+import type { ColorValue, ParseColorIssue } from "./color";
+import type {
+  ColorTokenGraphIssue,
+  CompiledColorSchemeKind,
+  TokenOrigin,
+  TokenVisibility,
+} from "./graph";
 import type { JsonValue } from "./json";
+import type { Issue, Result } from "./result";
 
-export type TokenSelection =
+export type TokenSelection<Key extends string = string> =
   | "public"
   | "all"
   | {
-      readonly keys: readonly string[];
+      readonly keys: readonly Key[];
     };
 
-export interface CompileTokenGraphOptions {
-  readonly selection?: TokenSelection;
+export interface CompileTokenGraphOptions<Key extends string = string> {
+  readonly selection?: TokenSelection<Key>;
 }
 
 export type CompileTokenGraphIssue = Issue<
@@ -26,24 +31,52 @@ export type CompileTokenGraphIssue = Issue<
   readonly key?: string;
 };
 
-export interface CompiledToken {
+export interface CompiledColorToken<Mode extends string = string> {
   readonly visibility: TokenVisibility;
-  readonly valueByMode: Readonly<Record<string, ColorValue>>;
+  readonly valueByMode: Readonly<Record<Mode, ColorValue>>;
   readonly origin: TokenOrigin;
-  readonly dependenciesByMode: Readonly<Record<string, readonly string[]>>;
+  readonly dependenciesByMode: Readonly<Record<Mode, readonly string[]>>;
   readonly description?: string;
   readonly deprecated?: boolean | string;
   readonly extensions?: Readonly<Record<string, JsonValue>>;
 }
 
-export interface CompiledScheme {
+export interface CompiledColorScheme<Key extends string = string, Mode extends string = string> {
+  readonly kind: CompiledColorSchemeKind;
   readonly formatVersion: 1;
-  readonly modes: readonly [string, ...string[]];
-  readonly defaultMode: string;
-  readonly tokens: Readonly<Record<string, CompiledToken>>;
+  readonly modes: readonly [Mode, ...Mode[]];
+  readonly defaultMode: Mode;
+  readonly tokens: Readonly<Record<Key, CompiledColorToken<Mode>>>;
 }
 
-export type CompileTokenGraphResult = Result<
-  CompiledScheme,
-  TokenGraphIssue | CompileTokenGraphIssue
->;
+export type ParseCompiledSchemeIssue =
+  | ParseColorIssue
+  | (Issue<
+      | "invalid-object"
+      | "unknown-property"
+      | "missing-property"
+      | "invalid-artifact-kind"
+      | "invalid-format-version"
+      | "invalid-mode-key"
+      | "duplicate-mode-key"
+      | "default-mode-not-found"
+      | "invalid-token-key"
+      | "invalid-visibility"
+      | "invalid-token-definition"
+      | "missing-mode-value"
+      | "unknown-mode-value"
+      | "invalid-origin"
+      | "invalid-dependencies"
+      | "invalid-description"
+      | "invalid-deprecated"
+      | "invalid-extensions"
+      | "invalid-json-value"
+    > & {
+      readonly key?: string;
+      readonly mode?: string;
+    });
+
+export type CompileTokenGraphResult<
+  Key extends string = string,
+  Mode extends string = string,
+> = Result<CompiledColorScheme<Key, Mode>, ColorTokenGraphIssue | CompileTokenGraphIssue>;

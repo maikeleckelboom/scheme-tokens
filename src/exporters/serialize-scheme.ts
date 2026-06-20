@@ -1,13 +1,102 @@
-import type { ColorValue } from "../core/color";
-import type { CompiledScheme } from "../core/compiled-types";
+import type { ColorComponent, ColorValue } from "../core/color";
+import type { CompiledColorScheme } from "../core/compiled-types";
+import type {
+  ColorExpression,
+  ColorTokenDefinitionInput,
+  ColorTokenGraphInput,
+  ColorTokenLayerInput,
+  ReferenceInput,
+} from "../core/graph";
+import { colorTokenGraphKind, colorTokenLayerKind, compiledColorSchemeKind } from "../core/graph";
 import type { JsonValue } from "../core/json";
 import { compareCodeUnits, defineRecordValue, normalizeNumber } from "../core/json";
 
-export function serializeScheme(scheme: CompiledScheme): string {
-  return `${JSON.stringify(canonicalScheme(scheme), null, 2)}\n`;
+export function serializeTokenGraph(graph: ColorTokenGraphInput): string {
+  return `${JSON.stringify(canonicalTokenGraph(graph), null, 2)}\n`;
 }
 
-function canonicalScheme(scheme: CompiledScheme): unknown {
+export function serializeTokenLayer(layer: ColorTokenLayerInput): string {
+  return `${JSON.stringify(canonicalTokenLayer(layer), null, 2)}\n`;
+}
+
+export function serializeCompiledScheme(scheme: CompiledColorScheme): string {
+  return `${JSON.stringify(canonicalCompiledScheme(scheme), null, 2)}\n`;
+}
+
+function canonicalTokenGraph(graph: ColorTokenGraphInput): unknown {
+  const output: Record<string, unknown> = {};
+  if (graph.$schema !== undefined) {
+    defineRecordValue(output, "$schema", graph.$schema);
+  }
+  defineRecordValue(output, "kind", colorTokenGraphKind);
+  defineRecordValue(output, "formatVersion", 1);
+  defineRecordValue(output, "modes", [...graph.modes]);
+  defineRecordValue(output, "defaultMode", graph.defaultMode);
+  defineRecordValue(output, "defaultVisibility", graph.defaultVisibility);
+  defineRecordValue(output, "tokens", canonicalDefinitions(graph.tokens));
+  if (graph.layers !== undefined) {
+    defineRecordValue(output, "layers", graph.layers.map(canonicalTokenLayer));
+  }
+  return output;
+}
+
+function canonicalTokenLayer(layer: ColorTokenLayerInput): unknown {
+  const output: Record<string, unknown> = {};
+  if (layer.$schema !== undefined) {
+    defineRecordValue(output, "$schema", layer.$schema);
+  }
+  defineRecordValue(output, "kind", colorTokenLayerKind);
+  defineRecordValue(output, "formatVersion", 1);
+  defineRecordValue(output, "id", layer.id);
+  defineRecordValue(output, "defaultVisibility", layer.defaultVisibility);
+  defineRecordValue(output, "tokens", canonicalDefinitions(layer.tokens));
+  return output;
+}
+
+function canonicalDefinitions(
+  tokens: Readonly<Record<string, ColorTokenDefinitionInput>>,
+): Record<string, unknown> {
+  const output: Record<string, unknown> = {};
+  for (const key of Object.keys(tokens).sort(compareCodeUnits)) {
+    const token = tokens[key];
+    if (token !== undefined) {
+      defineRecordValue(output, key, canonicalDefinition(token));
+    }
+  }
+  return output;
+}
+
+function canonicalDefinition(token: ColorTokenDefinitionInput): unknown {
+  const output: Record<string, unknown> = {};
+  if (token.visibility !== undefined) {
+    defineRecordValue(output, "visibility", token.visibility);
+  }
+  if ("value" in token && token.value !== undefined) {
+    defineRecordValue(output, "value", canonicalExpression(token.value as ColorExpression));
+  } else if ("valueByMode" in token && token.valueByMode !== undefined) {
+    const values: Record<string, unknown> = {};
+    for (const mode of Object.keys(token.valueByMode).sort(compareCodeUnits)) {
+      defineRecordValue(
+        values,
+        mode,
+        canonicalExpression(token.valueByMode[mode] as ColorExpression),
+      );
+    }
+    defineRecordValue(output, "valueByMode", values);
+  }
+  if (token.description !== undefined) {
+    defineRecordValue(output, "description", token.description);
+  }
+  if (token.deprecated !== undefined) {
+    defineRecordValue(output, "deprecated", token.deprecated);
+  }
+  if (token.extensions !== undefined) {
+    defineRecordValue(output, "extensions", canonicalJson(token.extensions));
+  }
+  return output;
+}
+
+function canonicalCompiledScheme(scheme: CompiledColorScheme): unknown {
   const tokens: Record<string, unknown> = {};
   for (const key of Object.keys(scheme.tokens).sort(compareCodeUnits)) {
     const token = scheme.tokens[key];
@@ -43,6 +132,7 @@ function canonicalScheme(scheme: CompiledScheme): unknown {
   }
 
   const output: Record<string, unknown> = {};
+  defineRecordValue(output, "kind", compiledColorSchemeKind);
   defineRecordValue(output, "formatVersion", 1);
   defineRecordValue(output, "modes", [...scheme.modes]);
   defineRecordValue(output, "defaultMode", scheme.defaultMode);
@@ -50,7 +140,7 @@ function canonicalScheme(scheme: CompiledScheme): unknown {
   return output;
 }
 
-function canonicalOrigin(origin: CompiledScheme["tokens"][string]["origin"]): unknown {
+function canonicalOrigin(origin: CompiledColorScheme["tokens"][string]["origin"]): unknown {
   const output: Record<string, unknown> = {};
   defineRecordValue(output, "kind", origin.kind);
   if (origin.kind === "layer" || origin.kind === "source") {
@@ -62,20 +152,23 @@ function canonicalOrigin(origin: CompiledScheme["tokens"][string]["origin"]): un
   return output;
 }
 
+function canonicalExpression(expression: ColorExpression): unknown {
+  return isReferenceExpression(expression) ? { ref: expression.ref } : canonicalColor(expression);
+}
+
 function canonicalColor(color: ColorValue): unknown {
   const output: Record<string, unknown> = {};
   defineRecordValue(output, "colorSpace", color.colorSpace);
-  if (color.colorSpace === "oklch") {
-    defineRecordValue(output, "l", normalizeNumber(color.l));
-    defineRecordValue(output, "c", normalizeNumber(color.c));
-    defineRecordValue(output, "h", normalizeNumber(color.h));
-  } else {
-    defineRecordValue(output, "r", normalizeNumber(color.r));
-    defineRecordValue(output, "g", normalizeNumber(color.g));
-    defineRecordValue(output, "b", normalizeNumber(color.b));
-  }
+  defineRecordValue(output, "components", color.components.map(canonicalComponent));
   defineRecordValue(output, "alpha", normalizeNumber(color.alpha));
+  if (color.hex !== undefined) {
+    defineRecordValue(output, "hex", color.hex.toLowerCase());
+  }
   return output;
+}
+
+function canonicalComponent(component: ColorComponent): ColorComponent {
+  return component === "none" ? component : normalizeNumber(component);
 }
 
 function canonicalJson(value: JsonValue): JsonValue {
@@ -95,4 +188,8 @@ function canonicalJson(value: JsonValue): JsonValue {
     defineRecordValue(output, key, canonicalJson(record[key] as JsonValue));
   }
   return output;
+}
+
+function isReferenceExpression(expression: ColorExpression): expression is ReferenceInput {
+  return "ref" in expression;
 }

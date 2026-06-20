@@ -29,7 +29,7 @@ A format adapter may expose more than one kind of API when the external format i
 - exporters, such as a future `exportDtcgDocuments(compiled)`.
 
 That does not make a format adapter the whole pipeline. Format import can contribute source material before
-`buildScheme()`, and format export can emit documents from a `CompiledScheme` after build. Format adapters should remain
+`buildScheme()`, and format export can emit documents from a `CompiledColorScheme` after build. Format adapters should remain
 sibling exporters beside core CSS export, core serialization, target exports, and optional conversion projection.
 
 Do not create placeholder packages. A format adapter package exists only when it has a real implementation and release
@@ -43,7 +43,7 @@ as accepting a richer runtime object.
 Recoverable failures use `Result` with adapter-owned issue codes and JSON Pointer paths. Format adapters must not cast
 their issue codes into core issue unions.
 
-Outputs that claim to be `TokenGraphInput`, `TokenLayerInput`, or `CompiledScheme` must validate through the matching
+Outputs that claim to be `ColorTokenGraphInput`, `ColorTokenLayerInput`, or `CompiledColorScheme` must validate through the matching
 core parser and schema contract. Outputs that are external-format artifacts remain adapter-owned artifacts.
 
 External format key and name rules do not change the core token-key language. Core token keys remain dot-separated
@@ -56,9 +56,9 @@ names. It must not rely on core silently slugifying external names.
 
 The first DTCG import surface is expected to be `dtcgSource(input)`, returning source material that can enter
 `buildScheme()`. The first export surface is expected to be `exportDtcgDocuments(compiled)`, taking a core
-`CompiledScheme` and producing DTCG documents.
+`CompiledColorScheme` and producing DTCG documents.
 
-`dtcgLayer()` remains deferred because `TokenLayerInput` does not own modes. A layer helper cannot establish a light/dark
+`dtcgLayer()` remains deferred because `ColorTokenLayerInput` does not own modes. A layer helper cannot establish a light/dark
 graph envelope by itself; a future DTCG layer story needs adapter-owned mapping and explicit `buildScheme({ modes,
 defaultMode, layers })` composition.
 

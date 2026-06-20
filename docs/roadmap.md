@@ -18,7 +18,7 @@ Planned package names:
 
 0.1.0 includes:
 
-- strict `TokenGraphInput`, `TokenLayerInput`, and `CompiledScheme` contracts;
+- strict `ColorTokenGraphInput`, `ColorTokenLayerInput`, and `CompiledColorScheme` contracts;
 - JSON-safe helper input through `defineTokens()`, `defineTokenGraph()`, and `defineTokenLayer()`;
 - `buildScheme()` for base-only, layer-only, base-plus-layer builds, and base-first convenience calls;
 - deterministic source/layer composition;
@@ -38,7 +38,7 @@ Planned package names:
 
 ## Adapter Categories
 
-Source adapters generate `TokenGraphInput` from an engine or provider and may expose `TokenSource` helpers. Source
+Source adapters generate `ColorTokenGraphInput` from an engine or provider and may expose `ColorTokenSource` helpers. Source
 packages use `@scheme-tokens/*`; the current example is `@scheme-tokens/material3`.
 
 Conversion adapters perform explicit post-compile color conversion, gamut mapping, color math, or projection.
@@ -87,7 +87,7 @@ application layer
 ```
 
 The important part is the shape: Material source material, application-owned layer material, and target mapping layers
-compose before `buildScheme()`. Optional conversion projection operates on a `CompiledScheme`. CSS variables, shadcn CSS,
+compose before `buildScheme()`. Optional conversion projection operates on a `CompiledColorScheme`. CSS variables, shadcn CSS,
 DTCG documents, and serialized compiled JSON are sibling exports from the compiled or projected scheme.
 
 ## High-Gamut Doctrine
@@ -116,7 +116,7 @@ defineTokenGraph({
   tokens: {
     background: {
       light: "#ffffff",
-      dark: { colorSpace: "display-p3", r: 0.08, g: 0.07, b: 0.1 },
+      dark: { colorSpace: "display-p3", components: [0.08, 0.07, 0.1], alpha: 1 },
     },
   },
 });
@@ -140,13 +140,13 @@ Initial DTCG v1 scope:
 - color tokens only;
 - one DTCG document per mode;
 - `dtcgSource()` as the first import surface;
-- `exportDtcgDocuments(compiled)` as the first export surface from `CompiledScheme`;
+- `exportDtcgDocuments(compiled)` as the first export surface from `CompiledColorScheme`;
 - strict key mapping by default;
 - no silent slugification;
 - unsupported DTCG color spaces fail with `Result` issues;
 - metadata maps through `description`, `deprecated`, and `extensions`.
 
-`dtcgLayer()` is deferred. `TokenLayerInput` does not own modes, so a layer-only multi-mode DTCG import cannot establish
+`dtcgLayer()` is deferred. `ColorTokenLayerInput` does not own modes, so a layer-only multi-mode DTCG import cannot establish
 light and dark modes by itself. Layer-only multi-mode builds use the `buildScheme({ modes, defaultMode, layers })`
 envelope; DTCG import needs adapter-owned mapping before exposing a layer helper.
 
@@ -184,7 +184,7 @@ the Texel context. The likely first operations are:
 
 - `convertColor(input)` for one color;
 - `mapGamut(input)` for one explicit gamut-mapping operation;
-- `projectScheme(input)` for projecting a `CompiledScheme` into a target delivery color space or gamut.
+- `projectScheme(input)` for projecting a `CompiledColorScheme` into a target delivery color space or gamut.
 
 Unsupported spaces, non-finite output, and out-of-gamut RGB results should return adapter-owned `Result` issues rather
 than silently clipping. Default out-of-gamut RGB behavior should fail, not map or clip. Gamut mapping must never be
@@ -200,7 +200,7 @@ project a compiled scheme to display-p3 with explicit gamut mapping policy
 
 Projected output should include:
 
-- projected `CompiledScheme`;
+- projected `CompiledColorScheme`;
 - JSON-safe conversion records per token and mode;
 - from space;
 - to space;

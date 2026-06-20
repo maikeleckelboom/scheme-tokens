@@ -1,4 +1,5 @@
 {
+  "kind": "scheme-tokens/compiled-color-scheme",
   "formatVersion": 1,
   "modes": ["light", "dark"],
   "defaultMode": "light",
@@ -8,16 +9,12 @@
       "valueByMode": {
         "light": {
           "colorSpace": "srgb",
-          "r": 0.4,
-          "g": 0.31,
-          "b": 0.64,
+          "components": [0.4, 0.31, 0.64],
           "alpha": 1
         },
         "dark": {
           "colorSpace": "srgb",
-          "r": 0.82,
-          "g": 0.74,
-          "b": 1,
+          "components": [0.82, 0.74, 1],
           "alpha": 1
         }
       },
@@ -34,16 +31,12 @@
       "valueByMode": {
         "light": {
           "colorSpace": "srgb",
-          "r": 1,
-          "g": 1,
-          "b": 1,
+          "components": [1, 1, 1],
           "alpha": 1
         },
         "dark": {
           "colorSpace": "srgb",
-          "r": 0.22,
-          "g": 0.12,
-          "b": 0.45,
+          "components": [0.22, 0.12, 0.45],
           "alpha": 1
         }
       },

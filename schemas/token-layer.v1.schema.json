@@ -1,23 +1,25 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://scheme-tokens.dev/schemas/token-layer.v1.schema.json",
-  "title": "scheme-tokens token layer v1",
+  "title": "scheme-tokens color token layer v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["formatVersion", "id", "defaultVisibility", "tokens"],
+  "required": ["kind", "formatVersion", "id", "defaultVisibility", "tokens"],
   "properties": {
     "$schema": {
       "type": "string"
+    },
+    "kind": {
+      "const": "scheme-tokens/color-token-layer"
     },
     "formatVersion": {
       "const": 1
     },
     "id": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+      "$ref": "token-graph.v1.schema.json#/$defs/segment"
     },
     "defaultVisibility": {
-      "enum": ["public", "internal"]
+      "$ref": "token-graph.v1.schema.json#/$defs/visibility"
     },
     "tokens": {
       "$ref": "token-graph.v1.schema.json#/$defs/tokenRecord"

@@ -1,10 +1,12 @@
 import {
   buildScheme,
+  compileTokenGraph,
   createSchemeBuilder,
   defineTokenLayer,
   defineTokenGraph,
   defineTokens,
   exportCssVars,
+  ref,
   type BuildSchemeSourceOptions,
   type CssVarBlock,
   type CssVarsExport,
@@ -13,11 +15,19 @@ import {
   type Result,
   type SchemeBuilder,
   type SchemeBuilderConfig,
-  type TokenGraphInput,
-  type TokenLayerInput,
-  type TokenSource,
+  type ColorTokenGraphInput,
+  type ColorTokenLayerInput,
+  type ColorTokenSource,
+  type ModeOf,
+  type TokenKeyOf,
 } from "../../src";
 import type * as Root from "../../src";
+
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
+    ? true
+    : false;
+type Expect<Value extends true> = Value;
 
 type RootModule = typeof Root;
 type RemovedLayerHelperName = `defineToken${"Frag"}${"ment"}`;
@@ -33,18 +43,22 @@ export type RemovedCompiledType = RootModule[RemovedCompiledName];
 const simpleGraph = defineTokenGraph({
   tokens: {
     "app.background": "#ffffff",
-    "app.foreground": "app.background",
+    "app.foreground": ref("app.background"),
   },
 });
 
-const typedSimpleGraph = simpleGraph satisfies TokenGraphInput<"base">;
+const typedSimpleGraph = simpleGraph satisfies ColorTokenGraphInput<"base">;
 typedSimpleGraph.defaultMode.toUpperCase();
+export type SimpleGraphKeys = Expect<
+  Equal<TokenKeyOf<typeof simpleGraph>, "app.background" | "app.foreground">
+>;
+export type SimpleGraphModes = Expect<Equal<ModeOf<typeof simpleGraph>, "base">>;
 
 const simpleTokensGraph = defineTokens({
   "app.background": "#ffffff",
-  "app.foreground": "app.background",
+  "app.foreground": ref("app.background"),
 });
-const typedSimpleTokensGraph = simpleTokensGraph satisfies TokenGraphInput<"base">;
+const typedSimpleTokensGraph = simpleTokensGraph satisfies ColorTokenGraphInput<"base">;
 typedSimpleTokensGraph.defaultMode.toUpperCase();
 
 const multiModeTokensGraph = defineTokens(
@@ -59,7 +73,9 @@ const multiModeTokensGraph = defineTokens(
     defaultMode: "light",
   },
 );
-const typedMultiModeTokensGraph = multiModeTokensGraph satisfies TokenGraphInput<"light" | "dark">;
+const typedMultiModeTokensGraph = multiModeTokensGraph satisfies ColorTokenGraphInput<
+  "light" | "dark"
+>;
 typedMultiModeTokensGraph.defaultMode.toUpperCase();
 
 defineTokens(
@@ -70,9 +86,9 @@ defineTokens(
   },
 );
 
-const source: TokenSource = {
+const source: ColorTokenSource = {
   id: "brand",
-  build(): Result<TokenGraphInput, Issue> {
+  build(): Result<ColorTokenGraphInput, Issue> {
     return { ok: true, value: simpleGraph };
   },
 };
@@ -131,17 +147,30 @@ const graph = defineTokenGraph({
   },
 });
 
-const typedGraph = graph satisfies TokenGraphInput<"light" | "dark">;
+const typedGraph = graph satisfies ColorTokenGraphInput<"light" | "dark">;
 typedGraph.defaultMode.toUpperCase();
+export type MultiModeGraphKeys = Expect<Equal<TokenKeyOf<typeof graph>, "app.background">>;
+export type MultiModeGraphModes = Expect<Equal<ModeOf<typeof graph>, "light" | "dark">>;
+
+const compiledGraph = compileTokenGraph(graph);
+if (compiledGraph.ok) {
+  const tokenKey: TokenKeyOf<typeof compiledGraph.value> = "app.background";
+  const mode: ModeOf<typeof compiledGraph.value> = "light";
+  tokenKey.toUpperCase();
+  mode.toUpperCase();
+  // @ts-expect-error misspelled token key is not part of the compiled literal key union.
+  const misspelledTokenKey: TokenKeyOf<typeof compiledGraph.value> = "app.backgrond";
+  misspelledTokenKey.toUpperCase();
+}
 
 const layer = defineTokenLayer({
   id: "brand",
   tokens: {
     "brand.primary": "#6750a4",
-    "brand.on-primary": "brand.primary",
+    "brand.on-primary": ref("brand.primary"),
   },
 });
-const typedLayer = layer satisfies TokenLayerInput;
+const typedLayer = layer satisfies ColorTokenLayerInput;
 typedLayer.id.toUpperCase();
 
 const sourceAndLayerBuilt = buildScheme(source, { layers: [layer], selection: "all" });
@@ -228,7 +257,8 @@ if (cssExport.ok) {
   const firstBlock: CssVarBlock | undefined = exported.blocks[0];
   exported.css.toUpperCase();
   firstBlock?.selector.toUpperCase();
-  firstBlock?.declarations["--background"]?.toUpperCase();
+  firstBlock?.declarations[0]?.property.toUpperCase();
+  exported.variableByToken.background?.toUpperCase();
 }
 
 const legacyCssOptions: ExportCssVarsOptions = {

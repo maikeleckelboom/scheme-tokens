@@ -1,5 +1,6 @@
 {
   "$schema": "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json",
+  "kind": "scheme-tokens/color-token-graph",
   "formatVersion": 1,
   "modes": ["base"],
   "defaultMode": "base",
@@ -7,14 +8,17 @@
   "tokens": {
     "brand.primary": {
       "description": "Primary brand color.",
-      "value": "#6750a4"
+      "value": {
+        "colorSpace": "srgb",
+        "components": [0.4, 0.31, 0.64],
+        "alpha": 1
+      }
     },
     "surface.canvas": {
       "value": {
         "colorSpace": "srgb",
-        "r": 1,
-        "g": 1,
-        "b": 1
+        "components": [1, 1, 1],
+        "alpha": 1
       }
     }
   }

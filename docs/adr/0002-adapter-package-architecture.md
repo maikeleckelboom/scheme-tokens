@@ -79,7 +79,7 @@ needs a reproducible implementation at runtime.
 
 ## Source Adapter Shape
 
-A source adapter creates a `TokenSource` for `buildScheme({ base })`. Applications can compose authored token
+A source adapter creates a `ColorTokenSource` for `buildScheme({ base })`. Applications can compose authored token
 layers after source output with `buildScheme({ base, layers })`. The minimum package root surface is:
 
 - a factory named after the capability, for example `material3(input)`;
@@ -87,8 +87,8 @@ layers after source output with `buildScheme({ base, layers })`. The minimum pac
 - adapter issue types, for example `Material3Issue`;
 - optional metadata constants only when they are useful to consumers.
 
-The factory returns a structural `TokenSource<AdapterIssue>` with a stable lower-kebab `id`. Its `build()` method returns
-`Result<TokenGraphInput, AdapterIssue>` and emits strict core graph input accepted by `parseTokenGraph()`.
+The factory returns a structural `ColorTokenSource<AdapterIssue>` with a stable lower-kebab `id`. Its `build()` method returns
+`Result<ColorTokenGraphInput, AdapterIssue>` and emits strict core graph input accepted by `parseTokenGraph()`.
 
 Reference-vector fixtures are test assets by default. If an adapter intentionally publishes fixtures or metadata, it
 must do so through explicit adapter-owned exports or subpaths, not through the core package and not through a global
@@ -96,19 +96,19 @@ registry.
 
 ## Conversion Adapter Shape
 
-A conversion adapter performs a conversion operation. It is not a `TokenSource` by default. The minimum package root
+A conversion adapter performs a conversion operation. It is not a `ColorTokenSource` by default. The minimum package root
 surface is:
 
 - verb-based conversion functions exported from the adapter package, for example `convertColor(input)`;
 - JSON-safe input and output types owned by the adapter;
 - adapter issue types returned through `Result`.
 
-Conversion output may be a package-specific JSON-safe value, strict `TokenGraphInput`, strict `TokenLayerInput`, or a
+Conversion output may be a package-specific JSON-safe value, strict `ColorTokenGraphInput`, strict `ColorTokenLayerInput`, or a
 core compiled scheme artifact, depending on the package role. If conversion output is a core artifact, consumers pass
 that artifact back to core parse, compile, serialize, or export functions explicitly.
 
 Texel remains planned conversion scope. Future operations likely include `convertColor(input)`, `mapGamut(input)`, and
-`projectScheme(input)`. `projectScheme()` projects a `CompiledScheme` after build; it does not replace source or target
+`projectScheme(input)`. `projectScheme()` projects a `CompiledColorScheme` after build; it does not replace source or target
 layers. Gamut mapping must never be silent, and default out-of-gamut RGB behavior should fail rather than clipping or
 mapping. Use the upstream `@texel/color` package inside the adapter package only. Do not use `@texel/colors`.
 
@@ -167,5 +167,5 @@ Before any adapter release, prove:
 
 - The core package exports stay root plus schema subpaths only.
 - Adapter packages can live in this repository without renaming the core package.
-- Source adapters feed the core graph pipeline through `TokenSource`.
+- Source adapters feed the core graph pipeline through `ColorTokenSource`.
 - Conversion adapters stay separate operations unless they deliberately expose a source adapter too.

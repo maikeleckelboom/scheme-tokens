@@ -5,12 +5,17 @@
 - Release the dependency-light `scheme-tokens` core package with explicit token graph contracts, strict graph
   parsing, token compilation, deterministic serialization, and `Result` / `Issue` diagnostics.
 - Publish strict JSON Schema artifacts for persisted token graphs, token layers, and serialized compiled schemes.
-- Support CSS variable export through `exportCssVars(..., { prefix })`, returning both stylesheet text and structured
-  mode blocks from one `Result`; omitted or empty prefixes emit unprefixed custom properties such as `--background`.
+- Support CSS variable export through `exportCssVars(..., { prefix })`, returning stylesheet text, ordered declaration
+  lists, and `variableByToken` from one `Result`; omitted or empty prefixes emit unprefixed custom properties such as
+  `--background`.
 - Keep authoring helpers ergonomic with JSON-safe manual token graphs and token layers while preserving strict persisted
   input behavior.
-- Allow helper-only token-key string reference shorthand and metadata plus mode-key shorthand in `defineTokenGraph()` and
-  `defineTokenLayer()` while keeping strict parser and schema inputs explicit.
+- Keep references explicit through `ref("token.key")` or `{ ref: "token.key" }`; bare strings remain color authoring
+  input and never become references based on spelling.
+- Store persisted graph, layer, and compiled colors as structured `ColorValue` objects with `colorSpace`, `components`,
+  `alpha`, and optional `hex`.
+- Add artifact `kind` discriminators and public parse/serialize functions for token graphs, token layers, and compiled
+  color schemes.
 - Release `@scheme-tokens/material3` as a separate Material 3 adapter package that owns all Material behavior, uses the
   canonical `sourceColors` field, supports `material3("#6750a4")`, and runs against a real Material Color Utilities
   algorithm.
@@ -18,7 +23,7 @@
   base-only builds remain valid, and later layers override earlier layers or base tokens by token key.
 - Expose `createSchemeBuilder` for prepared reusable builds that share the same build path as `buildScheme`.
 - Add `modes`, `defaultMode`, and `defaultVisibility` to `BuildSchemeOptions` so layer-only builds can establish an
-  explicit graph mode envelope without moving mode authority onto `TokenLayerInput`.
+  explicit graph mode envelope without moving mode authority onto `ColorTokenLayerInput`.
 - Support Material generation options `variant`, `contrastLevel`, `specVersion`, `platform`, `palettes`,
   `extendedColors`, and `paletteTones`, plus integration options `id` and `defaultVisibility`.
 - Add `material3Preset` for reusable Material generation defaults and fixed integration options.

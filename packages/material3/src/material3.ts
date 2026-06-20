@@ -1,4 +1,10 @@
-import type { Issue, Result, TokenGraphInput, TokenSource, TokenVisibility } from "scheme-tokens";
+import type {
+  ColorTokenGraphInput,
+  ColorTokenSource,
+  Issue,
+  Result,
+  TokenVisibility,
+} from "scheme-tokens";
 import {
   createMaterial3Graph,
   MATERIAL3_ENGINE_PACKAGE,
@@ -67,8 +73,8 @@ export interface Material3Preset {
   (
     sourceColors: Material3SourceColorsInput,
     generationOptions?: Material3GenerationOptions,
-  ): TokenSource<Material3Issue>;
-  (input: Material3Input): TokenSource<Material3Issue>;
+  ): ColorTokenSource<Material3Issue>;
+  (input: Material3Input): ColorTokenSource<Material3Issue>;
 }
 
 type Material3ColorField =
@@ -242,17 +248,17 @@ interface NormalizedMaterial3Arguments {
 export function material3(
   input: Material3Input,
   options?: Material3IntegrationOptions,
-): TokenSource<Material3Issue>;
+): ColorTokenSource<Material3Issue>;
 export function material3(
   sourceColors: Material3SourceColorsInput,
   generationOptions?: Material3GenerationOptions,
   integrationOptions?: Material3IntegrationOptions,
-): TokenSource<Material3Issue>;
+): ColorTokenSource<Material3Issue>;
 export function material3(
   inputOrSourceColors: Material3Input | Material3SourceColorsInput,
   optionsOrGenerationOptions?: Material3IntegrationOptions | Material3GenerationOptions,
   integrationOptions?: Material3IntegrationOptions,
-): TokenSource<Material3Issue> {
+): ColorTokenSource<Material3Issue> {
   const normalized = normalizeMaterial3Arguments(
     inputOrSourceColors,
     optionsOrGenerationOptions,
@@ -263,7 +269,7 @@ export function material3(
 
   return {
     id: parsedOptions.sourceId,
-    build(): Result<TokenGraphInput, Material3Issue> {
+    build(): Result<ColorTokenGraphInput, Material3Issue> {
       const issues = [...parsedInput.issues, ...parsedOptions.issues];
       if (issues.length > 0) {
         return fail(issues);
@@ -325,7 +331,7 @@ export function material3Preset(
   const preset: Material3Preset = (
     inputOrSourceColors: Material3Input | Material3SourceColorsInput,
     generationOptions?: Material3GenerationOptions,
-  ): TokenSource<Material3Issue> => {
+  ): ColorTokenSource<Material3Issue> => {
     if (isSourceColorsShorthand(inputOrSourceColors)) {
       return material3(
         inputOrSourceColors,

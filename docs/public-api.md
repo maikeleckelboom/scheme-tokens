@@ -8,12 +8,17 @@ The root API is intentionally small and explicit.
 - `defineTokenLayer`
 - `defineTokens`
 - `parseTokenGraph`
+- `parseTokenLayer`
+- `parseCompiledScheme`
+- `serializeTokenGraph`
+- `serializeTokenLayer`
+- `ref`
 - `parseColor`
 - `compileTokenGraph`
 - `buildScheme`
 - `createSchemeBuilder`
 - `exportCssVars`
-- `serializeScheme`
+- `serializeCompiledScheme`
 - `formatCssColor`
 
 ## Package Subpaths
@@ -34,7 +39,7 @@ For manual colors:
 
 1. Use `defineTokens()` for simple token-record authoring, or `defineTokenGraph()` for full graph-shaped authoring.
 2. Use `compileTokenGraph()` to validate and resolve the selected tokens.
-3. Use `exportCssVars()` for CSS and structured declarations, or `serializeScheme()` for deterministic compiled JSON.
+3. Use `exportCssVars()` for CSS and structured declarations, or `serializeCompiledScheme()` for deterministic compiled JSON.
 
 Prefer build-time, SSR, or server-side generation for static schemes. Use `createSchemeBuilder()` for interactive
 previews, theme editors, and color controls where `sourceColors` changes repeatedly; `scheme-tokens` is not a global
@@ -43,16 +48,17 @@ mutable runtime theme engine.
 `compileTokenGraph()` defaults to `selection: "public"`. The CSS exporter emits variables for the compiled scheme it
 receives; it does not apply visibility filtering itself.
 
-`exportCssVars()` returns one `Result` whose success value contains `css` and `blocks`. `css` is the serialized
-stylesheet string. `blocks` contains one structured block per compiled mode, preserving the CSS model as
-`{ mode, selector, declarations }` for runtime application, previews, or custom renderers. The stylesheet is formatted
-from the same blocks returned in `value.blocks`.
+`exportCssVars()` returns one `Result` whose success value contains `css`, `blocks`, and `variableByToken`. `css` is the
+serialized stylesheet string. `blocks` contains one structured block per compiled mode. Each block's `declarations` is
+an ordered list of `{ tokenKey, property, value }` entries for runtime application, previews, or custom renderers. The
+stylesheet is formatted from the same blocks returned in `value.blocks`. `variableByToken` is the direct token-key to
+custom-property lookup for consumers that need one.
 
 `prefix` is optional. Omitting it, passing `undefined`, or passing `""` emits unprefixed custom properties such as
 `--background` and `--primary-foreground`. Passing `prefix: "color"` emits namespaced properties such as
-`--color-background` and `--color-brand-primary`. Dot-separated token keys flatten with hyphen separators, so
-`material3.primary` exports as `--material3-primary` without a prefix or `--color-material3-primary` with
-`prefix: "color"`.
+`--color-background` and `--color-brand--primary`. Dot-separated token key segments join with `--`, so
+`a.b-c` exports as `--a--b-c` while `a-b.c` exports as `--a-b--c`; with `prefix: "color"` those become
+`--color-a--b-c` and `--color-a-b--c`.
 
 External CSS variable contracts can be supported by authoring matching token keys and exporting without a prefix. Core
 does not hard-code framework presets or browser mutation behavior.
@@ -96,7 +102,7 @@ Valid examples include:
 - `brand.primary`
 - `material3.on-primary`
 
-Core `TokenGraphInput` and `TokenLayerInput` do not accept arbitrary camelCase, snake_case, PascalCase, spaces, or mixed
+Core `ColorTokenGraphInput` and `ColorTokenLayerInput` do not accept arbitrary camelCase, snake_case, PascalCase, spaces, or mixed
 casing in token keys. The strict parser and JSON Schemas reject those names with contractual diagnostics instead of
 normalizing them.
 
@@ -123,15 +129,15 @@ light/dark decision.
 
 Token shorthands are normalized by the helpers:
 
-- `"token.key": "#ffffff"` becomes `{ value: "#ffffff" }`;
-- `"token.key": "other.token"` becomes `{ value: { ref: "other.token" } }`;
-- `"token.key": { visibility: "public", value: "other.token" }` becomes a public reference token;
+- `"token.key": "#ffffff"` becomes a structured color value;
+- `"token.key": ref("other.token")` becomes `{ value: { ref: "other.token" } }`;
 - `"token.key": { ref: "other.token" }` becomes `{ value: { ref: "other.token" } }`;
 - metadata plus mode records such as `{ visibility: "public", light: "#fff", dark: "#000" }` become strict
   per-mode values when modes are declared.
 
-Supported color literals remain color values. Token-key-shaped non-color strings become references. This shorthand is
-helper-only and is not accepted by `parseTokenGraph()`.
+Supported color literals remain color values. Token-key-shaped non-color strings do not become references. If a string is
+not supported by the color parser, compilation reports `unsupported-color-syntax`. References are always explicit through
+`ref("other.token")` or `{ ref: "other.token" }`.
 
 Declared mode names must not be token-definition keys such as `value`, `valueByMode`, `visibility`, `description`,
 `deprecated`, or `extensions`. Those names are reserved so helper shorthand detection does not silently reinterpret token
@@ -139,8 +145,9 @@ definitions.
 
 ## Strict Wire Format
 
-`parseTokenGraph()` accepts strict persisted graph input. Strict graph input spells out `formatVersion`, `modes`,
-`defaultMode`, `defaultVisibility`, and token definitions with `value` or `valueByMode`.
+`parseTokenGraph()` accepts strict persisted graph input. `parseTokenLayer()` accepts strict persisted layer input.
+`parseCompiledScheme()` accepts strict compiled schemes before consumer APIs such as `exportCssVars()` use externally
+loaded compiled artifacts. Strict artifacts carry a `kind` discriminator and `formatVersion: 1`.
 
 Helper-only shorthand is intentionally not part of the strict wire format. Use `defineTokens()` or
 `defineTokenGraph()` at authoring boundaries and `parseTokenGraph()` at persistence or untrusted-input boundaries.
@@ -149,15 +156,28 @@ The schema subpaths validate strict persisted artifacts only: token graph input,
 compiled scheme output. They intentionally reject helper-only shorthand such as raw token color strings, raw
 `{ ref }` token definitions, and mode records without `valueByMode`.
 
+Persisted colors are structured-only:
+
+```ts
+{
+  colorSpace: "oklch",
+  components: [0.7, 0.12, 265],
+  alpha: 1
+}
+```
+
+The root package stores, validates, compares, serializes, and formats supported color-space structures. It does not
+convert colors, gamut-map, compute Delta E, generate palettes, or infer browser fallbacks.
+
 ## Compiled Schemes
 
-`compileTokenGraph()` returns a compiled scheme with resolved colors, modes, token visibility, origin metadata, and
-direct dependency metadata. `serializeScheme()` serializes this compiled output in deterministic order. Compiled JSON
-contains resolved color objects, not the original authored color strings.
+`compileTokenGraph()` returns a compiled color scheme with resolved colors, modes, token visibility, origin metadata, and
+direct dependency metadata. `serializeCompiledScheme()` serializes this compiled output in deterministic order. Compiled
+JSON contains resolved structured color objects, not the original authored color strings.
 
 ## Base Inputs
 
-`TokenSource` is structural. Core accepts a safe base input object with a valid string `id` and callable `build`,
+`ColorTokenSource` is structural. Core accepts a safe base input object with a valid string `id` and callable `build`,
 permits extra adapter metadata, and invokes `build()` with the original source object as `this`.
 
 `buildScheme()` is the adapter runner and layer composer. `buildScheme(options)` is the canonical explicit form.
@@ -310,8 +330,8 @@ The package also exports narrow UI-oriented values and types: `material3Variants
 
 `BuildSchemeOptions` accepts:
 
-- `base?: TokenSource | readonly TokenSource[]`
-- `layers?: readonly TokenLayerInput[]`
+- `base?: ColorTokenSource | readonly ColorTokenSource[]`
+- `layers?: readonly ColorTokenLayerInput[]`
 - `modes?: readonly [string, ...string[]]`
 - `defaultMode?: string`
 - `defaultVisibility?: "public" | "internal"`
@@ -332,5 +352,5 @@ create the composed graph envelope. If `modes` is omitted, the current simple la
 with `defaultMode: "base"`. If `modes` is provided, `defaultMode` is required and must belong to `modes`.
 `defaultVisibility` defaults to `public` when omitted.
 
-Layers do not own the graph mode envelope. `TokenLayerInput` remains a mode-shaped contribution to a graph; use
+Layers do not own the graph mode envelope. `ColorTokenLayerInput` remains a mode-shaped contribution to a graph; use
 `buildScheme({ modes, defaultMode, layers })` when a layer-only build needs light and dark modes.
