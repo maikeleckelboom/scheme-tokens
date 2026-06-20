@@ -207,7 +207,7 @@ describe("v1 graph and compiler", () => {
 
   test("defineTokenGraph does not accept ambiguous flat token records", () => {
     expect(() => defineTokenGraph({ background: "#ffffff" } as never)).toThrow(
-      "Cannot convert undefined or null to object",
+      "defineTokenGraph input must include tokens.",
     );
   });
 
