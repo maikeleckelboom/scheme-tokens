@@ -66,10 +66,10 @@ writeJson(join(consumerDirectory, "tsconfig.json"), {
     noEmit: true,
     types: [],
   },
-  include: ["example-*.ts", "example-*.tsx"],
+  include: ["example-*.ts"],
 });
 blocks.forEach((block, index) => {
-  writeFileSync(join(consumerDirectory, `example-${index}.${block.extension}`), block.code);
+  writeFileSync(join(consumerDirectory, `example-${index}.ts`), block.code);
 });
 
 runPnpm(["install", "--ignore-scripts"], consumerDirectory);
@@ -116,12 +116,11 @@ interface MarkdownFile {
 
 interface TypeScriptExample {
   readonly code: string;
-  readonly extension: "ts" | "tsx";
 }
 
 function extractTypeScriptExamples(files: readonly MarkdownFile[]): readonly TypeScriptExample[] {
   const examples: TypeScriptExample[] = [];
-  const supportedInfos = new Set(["ts", "typescript", "ts twoslash", "tsx", "tsx twoslash"]);
+  const supportedInfos = new Set(["ts", "typescript", "ts twoslash"]);
 
   for (const file of files) {
     for (const match of file.text.matchAll(/^```([^\r\n]*)\r?\n([\s\S]*?)^```/gm)) {
@@ -131,11 +130,13 @@ function extractTypeScriptExamples(files: readonly MarkdownFile[]): readonly Typ
         continue;
       }
       if (supportedInfos.has(info)) {
-        examples.push({
-          code,
-          extension: info.startsWith("tsx") ? "tsx" : "ts",
-        });
+        examples.push({ code });
         continue;
+      }
+      if (/^tsx\b/.test(info)) {
+        throw new Error(
+          `Unsupported docs fence info "${match[1]}" in ${file.label}: TSX fences are not supported by this checker`,
+        );
       }
       if (/^(ts|tsx|typescript)\b/.test(info)) {
         throw new Error(`Unsupported TypeScript fence info "${match[1]}" in ${file.label}`);
