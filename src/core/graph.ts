@@ -241,6 +241,49 @@ export function tokenRef<const Key extends string>(key: Key): ReferenceInput<Key
   return { ref: key };
 }
 
+export function defineAliases<const Aliases extends Readonly<Record<string, string>>>(
+  aliases: Aliases,
+): {
+  readonly [Key in keyof Aliases]: {
+    readonly value: ReferenceInput<Aliases[Key] & string>;
+  };
+} {
+  const entries = readPlainRecord(aliases, {
+    code: "invalid-token-definition",
+    message: "defineAliases input must be a plain object record.",
+  });
+  if (!entries.ok) {
+    throw new TypeError("defineAliases input must be a plain object record.");
+  }
+
+  const output: Record<string, { value: ReferenceInput }> = {};
+  for (const entry of entries.value) {
+    if (!isTokenKey(entry.key)) {
+      throw new RangeError(
+        `defineAliases token key "${entry.key}" must be a dot-separated lower-kebab token key.`,
+      );
+    }
+    if (typeof entry.value !== "string") {
+      throw new TypeError(
+        `defineAliases alias "${entry.key}" target must be a token key string, received ${describeUnknown(
+          entry.value,
+        )}.`,
+      );
+    }
+    if (!isTokenKey(entry.value)) {
+      throw new RangeError(
+        `defineAliases alias "${entry.key}" target must be a dot-separated lower-kebab token key.`,
+      );
+    }
+    defineRecordValue(output, entry.key, { value: { ref: entry.value } });
+  }
+  return output as {
+    readonly [Key in keyof Aliases]: {
+      readonly value: ReferenceInput<Aliases[Key] & string>;
+    };
+  };
+}
+
 export function defineTokenGraph<
   const Tokens extends Readonly<Record<string, ColorTokenDefinitionAuthoringInput<"base", string>>>,
   const Layers extends readonly ColorTokenLayerInput<"base", string>[],

@@ -2,6 +2,7 @@ import {
   buildScheme,
   compileTokenGraph,
   createSchemeBuilder,
+  defineAliases,
   defineTokenLayer,
   defineTokenGraph,
   defineTokens,
@@ -61,6 +62,18 @@ const simpleTokensGraph = defineTokens({
 });
 const typedSimpleTokensGraph = simpleTokensGraph satisfies ColorTokenGraphInput<"base">;
 typedSimpleTokensGraph.defaultMode.toUpperCase();
+
+const aliasTokens = defineAliases({
+  "app.foreground": "app.background",
+});
+const aliasTarget: "app.background" = aliasTokens["app.foreground"].value.ref;
+aliasTarget.toUpperCase();
+export type AliasTokenKeys = Expect<Equal<keyof typeof aliasTokens, "app.foreground">>;
+
+defineTokens({
+  "app.background": "#ffffff",
+  ...aliasTokens,
+});
 
 const multiModeTokensGraph = defineTokens(
   {

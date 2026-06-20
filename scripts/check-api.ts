@@ -90,6 +90,7 @@ const manifests: readonly ApiManifest[] = [
       "compileTokenGraph",
       "compiledColorSchemeKind",
       "createSchemeBuilder",
+      "defineAliases",
       "defineTokenGraph",
       "defineTokenLayer",
       "defineTokens",

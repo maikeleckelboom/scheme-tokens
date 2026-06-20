@@ -53,41 +53,32 @@ Omit `prefix` to emit custom properties such as `--background`, `--foreground`, 
 ## Light and Dark Values
 
 ```ts
-import { compileTokenGraph, defineTokenGraph, exportCssVars, tokenRef } from "scheme-tokens";
+import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
 
-const graph = defineTokenGraph({
-  modes: ["light", "dark"],
-  defaultMode: "light",
-  defaultVisibility: "internal",
-  tokens: {
-    "brand.primary": {
-      light: "#6750a4",
-      dark: "#d0bcff",
-    },
-    "brand.on-primary": {
-      light: "#ffffff",
-      dark: "#381e72",
-    },
+const graph = defineTokens(
+  {
     background: {
-      visibility: "public",
-      light: "#ffffff",
-      dark: "#141218",
+      light: "oklch(0.99 0.01 260)",
+      dark: "oklch(0.18 0.02 285)",
     },
     foreground: {
-      visibility: "public",
       light: "#111111",
-      dark: "#f5eff7",
+      dark: "oklch(0.94 0.02 285)",
     },
     primary: {
-      visibility: "public",
-      value: tokenRef("brand.primary"),
+      light: "color(display-p3 0.42 0.32 0.74)",
+      dark: "oklch(0.82 0.09 292)",
     },
     "primary-foreground": {
-      visibility: "public",
-      value: tokenRef("brand.on-primary"),
+      light: "#ffffff",
+      dark: "#1d1330",
     },
   },
-});
+  {
+    modes: ["light", "dark"],
+    defaultMode: "light",
+  },
+);
 
 const compiled = compileTokenGraph(graph);
 if (!compiled.ok) {
@@ -102,15 +93,17 @@ if (!css.ok) {
 console.log(css.value.css);
 ```
 
-`defaultVisibility: "internal"` keeps source tokens out of the ordinary compiled scheme unless a token opts into
-`visibility: "public"`. Public tokens may reference internal tokens. The compiler resolves those references, so the CSS
-exporter receives only the selected compiled tokens and writes variables for that compiled scheme.
+Use direct color values when your app owns the token values. Direct colors need no reference helper, and modern CSS color
+spaces such as OKLCH and Display-P3 can be authored directly.
 
 To export every token, compile with `compileTokenGraph(graph, { selection: "all" })`. To export a named subset, compile
 with `compileTokenGraph(graph, { selection: { keys: ["background"] } })`.
 
 The default CSS selectors are `:root` for the default mode and `:root[data-color-scheme="dark"]` for the dark mode. Pass
 `scope` and `modeSelectors` when your app uses classes or exact selectors instead.
+Generated `data-attribute` and `class` selectors append to the scope, so the scope must be a single append-safe selector
+such as `:root` or `.preview`. Use exact `modeSelectors: { strategy: "selectors" }` for selector lists, pseudo-elements,
+descendant selectors, or other complex scopes.
 
 ## Runtime CSS Variables
 
@@ -294,17 +287,17 @@ if (!built.ok) {
 Add an application layer when generated Material roles should feed project-owned tokens:
 
 ```ts
-import { buildScheme, defineTokenLayer, exportCssVars, tokenRef } from "scheme-tokens";
+import { buildScheme, defineAliases, defineTokenLayer, exportCssVars } from "scheme-tokens";
 import { material3 } from "@scheme-tokens/material3";
 
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
-  tokens: {
-    background: tokenRef("material3.surface"),
-    foreground: tokenRef("material3.on-surface"),
-    primary: tokenRef("material3.primary"),
-    "primary-foreground": tokenRef("material3.on-primary"),
-  },
+  tokens: defineAliases({
+    background: "material3.surface",
+    foreground: "material3.on-surface",
+    primary: "material3.primary",
+    "primary-foreground": "material3.on-primary",
+  }),
 });
 
 const built = buildScheme(
@@ -331,21 +324,25 @@ if (!css.ok) {
 console.log(css.value.css);
 ```
 
+Generated-source tokens are often internal implementation detail. Public app tokens may reference them explicitly.
+Direct color values stay simple; aliases to another token require an explicit reference marker. `defineAliases()` is
+alias-map authoring sugar that returns strict token definitions with `{ value: { ref: "other.token" } }`.
+
 Prepare a reusable builder when the same app layers are built repeatedly with changing base input:
 
 ```ts
-import { createSchemeBuilder, defineTokenLayer, exportCssVars, tokenRef } from "scheme-tokens";
+import { createSchemeBuilder, defineAliases, defineTokenLayer, exportCssVars } from "scheme-tokens";
 import { material3 } from "@scheme-tokens/material3";
 
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
   defaultVisibility: "public",
-  tokens: {
-    background: tokenRef("material3.surface"),
-    foreground: tokenRef("material3.on-surface"),
-    primary: tokenRef("material3.primary"),
-    "primary-foreground": tokenRef("material3.on-primary"),
-  },
+  tokens: defineAliases({
+    background: "material3.surface",
+    foreground: "material3.on-surface",
+    primary: "material3.primary",
+    "primary-foreground": "material3.on-primary",
+  }),
 });
 
 const builder = createSchemeBuilder({
@@ -455,7 +452,7 @@ const graph = defineTokens(
 `defineTokenGraph()` is the full graph-shaped helper for explicit graph authoring:
 
 ```ts
-import { defineTokenGraph, tokenRef } from "scheme-tokens";
+import { defineAliases, defineTokenGraph, tokenRef } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
@@ -466,25 +463,34 @@ const graph = defineTokenGraph({
       light: "#6750a4",
       dark: "#d0bcff",
     },
+    "brand.on-primary": {
+      light: "#ffffff",
+      dark: "#381e72",
+    },
     primary: {
       visibility: "public",
       value: tokenRef("brand.primary"),
     },
+    ...defineAliases({
+      "primary-foreground": "brand.on-primary",
+    }),
   },
 });
 ```
 
-Both helpers accept JSON-safe authoring shorthand:
+The authoring helpers accept JSON-safe shorthand:
 
 - a color string such as `"#6750a4"`;
 - an explicit reference helper such as `tokenRef("brand.primary")`;
 - an explicit reference such as `{ ref: "brand.primary" }`;
+- alias-map sugar such as `...defineAliases({ primary: "brand.primary" })`;
 - metadata plus mode keys such as `{ visibility: "public", light: "#fff", dark: "#000" }`;
 - mode records such as `{ light: "#fff", dark: "#000" }` when modes are declared.
 
 Bare strings are always treated as color authoring input. If a string is not supported by the color parser, it reports an
 actionable helper error instead of becoming a reference based on spelling. CSS named colors such as `"red"` are not
-currently supported by core color parsing.
+currently supported by core color parsing. Direct color values need no reference helper. Token aliases are explicit:
+use `tokenRef("brand.primary")`, `{ ref: "brand.primary" }`, or `defineAliases()` when an alias map is clearer.
 
 The helpers fill safe defaults and return strict graph input.
 

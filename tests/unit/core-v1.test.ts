@@ -5,6 +5,7 @@ import {
   createSchemeBuilder,
   colorTokenGraphKind,
   colorTokenLayerKind,
+  defineAliases,
   defineTokenLayer,
   defineTokenGraph,
   defineTokens,
@@ -74,6 +75,18 @@ function withoutProperty(
 }
 
 describe("v1 color parsing and formatting", () => {
+  const javascriptOnlyNumbers = ["0x10", "0b10", "0o10", "1_000", "Infinity", "NaN"] as const;
+  const colorFunctionNumberCases = [
+    ["rgb()", (value: string) => `rgb(${value} 0 0)`],
+    ["hsl()", (value: string) => `hsl(${value} 50% 50%)`],
+    ["hwb()", (value: string) => `hwb(270 ${value}% 10%)`],
+    ["lab()", (value: string) => `lab(${value} 20 -30)`],
+    ["lch()", (value: string) => `lch(50 ${value} 270)`],
+    ["oklab()", (value: string) => `oklab(${value} 0.1 -0.1)`],
+    ["oklch()", (value: string) => `oklch(0.7 ${value} 265)`],
+    ["color()", (value: string) => `color(display-p3 ${value} 0 0)`],
+  ] as const;
+
   test("parses concrete strings and preserves precision", () => {
     expect(parseColor("#fff8")).toEqual({
       ok: true,
@@ -94,6 +107,11 @@ describe("v1 color parsing and formatting", () => {
 
   test.each([
     ["rgb(1e2 5e1 0 / 5e-1)", "color(srgb 0.39215686274509803 0.19607843137254902 0 / 0.5)"],
+    ["hsl(-9e1 5e1% .5e2%)", "hsl(270 50% 50%)"],
+    ["hwb(+90 .5% 1e1%)", "hwb(90 0.5% 10%)"],
+    ["lab(.5 1e-3 -2)", "lab(0.5% 0.001 -2)"],
+    ["lch(+5e1 4e1 -9e1)", "lch(50% 40 270)"],
+    ["oklab(7e-1 1e-1 -1e-1)", "oklab(0.7 0.1 -0.1)"],
     ["color(display-p3 4e-1 .3 +8e-1)", "color(display-p3 0.4 0.3 0.8)"],
     ["oklch(7e-1 1.2e-1 265)", "oklch(0.7 0.12 265)"],
   ] as const)("accepts CSS decimal and exponent numeric syntax in %s", (input, output) => {
@@ -113,14 +131,25 @@ describe("v1 color parsing and formatting", () => {
     expect(parseColor(input)).toMatchObject({ ok: false });
   });
 
+  test.each(
+    colorFunctionNumberCases.flatMap(([label, createInput]) =>
+      javascriptOnlyNumbers.map((value) => [label, value, createInput(value)] as const),
+    ),
+  )("rejects JavaScript-only numeric syntax in %s: %s", (_label, _value, input) => {
+    expect(parseColor(input)).toMatchObject({ ok: false });
+  });
+
   test.each([
     ["hsl(270 50% 50%)", "hsl(270 50% 50%)"],
     ["hwb(270 20% 10%)", "hwb(270 20% 10%)"],
-    ["lab(50 20 -30)", "lab(50 20 -30)"],
-    ["lch(50 40 270)", "lch(50 40 270)"],
+    ["lab(50 20 -30)", "lab(50% 20 -30)"],
+    ["lch(50 40 270)", "lch(50% 40 270)"],
     ["oklab(0.7 0.1 -0.1)", "oklab(0.7 0.1 -0.1)"],
     ["oklch(0.7 0.12 265)", "oklch(0.7 0.12 265)"],
     ["color(display-p3 0.4 0.3 0.8)", "color(display-p3 0.4 0.3 0.8)"],
+    ["color(rec2020 0.4 0.3 0.8)", "color(rec2020 0.4 0.3 0.8)"],
+    ["transparent", "color(srgb 0 0 0 / 0)"],
+    ["rgb(255 0 0 / 50%)", "color(srgb 1 0 0 / 0.5)"],
     ["hsl(270 50% 50% / 25%)", "hsl(270 50% 50% / 0.25)"],
     ["hsl(none 50% 50%)", "hsl(none 50% 50%)"],
     ["lab(none 20 -30)", "lab(none 20 -30)"],
@@ -267,6 +296,42 @@ describe("v1 graph and compiler", () => {
     const compiled = unwrap(compileTokenGraph(graph));
     expect(compiled.tokens["app.action"]?.dependenciesByMode.base).toEqual(["brand.primary"]);
     expect(compiled.tokens["app.alias"]?.dependenciesByMode.base).toEqual(["brand.primary"]);
+  });
+
+  test("defines alias maps as strict token definitions", () => {
+    const aliases = defineAliases({
+      primary: "brand.primary",
+      "primary-foreground": "brand.on-primary",
+    });
+
+    expect(aliases).toEqual({
+      primary: { value: { ref: "brand.primary" } },
+      "primary-foreground": { value: { ref: "brand.on-primary" } },
+    });
+
+    const graph = defineTokenGraph({
+      tokens: {
+        "brand.primary": "#6750a4",
+        "brand.on-primary": "#ffffff",
+        ...aliases,
+      },
+    });
+
+    const compiled = unwrap(compileTokenGraph(graph));
+    expect(compiled.tokens.primary?.dependenciesByMode.base).toEqual(["brand.primary"]);
+    expect(compiled.tokens["primary-foreground"]?.dependenciesByMode.base).toEqual([
+      "brand.on-primary",
+    ]);
+  });
+
+  test("defineAliases rejects invalid alias keys and targets", () => {
+    expect(() => defineAliases({ "Bad Key": "brand.primary" })).toThrow("defineAliases token key");
+    expect(() => defineAliases({ primary: "Brand.Primary" })).toThrow(
+      'defineAliases alias "primary" target must be a dot-separated lower-kebab token key.',
+    );
+    expect(() => defineAliases({ primary: 123 } as never)).toThrow(
+      'defineAliases alias "primary" target must be a token key string',
+    );
   });
 
   test("reports unresolved explicit references at the reference path", () => {
@@ -744,7 +809,36 @@ describe("v1 graph and compiler", () => {
 
     expect(
       exportCssVars(compiled, {
+        modeSelectors: {
+          strategy: "data-attribute",
+          attribute: "data-theme",
+          attrbute: "oops",
+        } as never,
+      }),
+    ).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-mode-selectors" }],
+    });
+
+    expect(
+      exportCssVars(compiled, {
         modeSelectors: { strategy: "class", classPrefix: "theme-", extra: true } as never,
+      }),
+    ).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-mode-selectors" }],
+    });
+
+    expect(
+      exportCssVars(compiled, {
+        modeSelectors: {
+          strategy: "selectors",
+          selectors: {
+            light: ":root",
+            dark: ".dark",
+          },
+          extra: true,
+        } as never,
       }),
     ).toMatchObject({
       ok: false,
@@ -2181,6 +2275,123 @@ describe("public boundaries reject hostile unknown input without throwing", () =
       }),
     ).toMatchObject({ ok: false, issues: [{ code: "invalid-mode-key" }] });
 
+    let graphLayerGetterRan = false;
+    const accessorGraphLayers = [
+      defineTokenLayer({
+        id: "application",
+        tokens: {},
+      }),
+    ];
+    Object.defineProperty(accessorGraphLayers, "0", {
+      enumerable: true,
+      get() {
+        graphLayerGetterRan = true;
+        throw new Error("graph layer getter should not run");
+      },
+    });
+    expect(() =>
+      parseTokenGraph({
+        kind: colorTokenGraphKind,
+        formatVersion: 1,
+        modes: ["base"],
+        defaultMode: "base",
+        defaultVisibility: "public",
+        tokens: {},
+        layers: accessorGraphLayers,
+      }),
+    ).not.toThrow();
+    expect(graphLayerGetterRan).toBe(false);
+    expect(
+      parseTokenGraph({
+        kind: colorTokenGraphKind,
+        formatVersion: 1,
+        modes: ["base"],
+        defaultMode: "base",
+        defaultVisibility: "public",
+        tokens: {},
+        layers: accessorGraphLayers,
+      }),
+    ).toMatchObject({ ok: false, issues: [{ code: "invalid-object" }] });
+
+    const source = fixedSource(
+      "source",
+      defineTokenGraph({
+        tokens: {
+          primary: "#6750a4",
+        },
+      }),
+    );
+    const sparseBase = [source];
+    delete sparseBase[0];
+    expect(() => buildScheme({ base: sparseBase })).not.toThrow();
+    expect(buildScheme({ base: sparseBase })).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-build-options" }],
+    });
+
+    let callerLayerGetterRan = false;
+    const accessorCallerLayers = [
+      defineTokenLayer({
+        id: "application",
+        tokens: {},
+      }),
+    ];
+    Object.defineProperty(accessorCallerLayers, "0", {
+      enumerable: true,
+      get() {
+        callerLayerGetterRan = true;
+        throw new Error("caller layer getter should not run");
+      },
+    });
+    expect(() => buildScheme({ layers: accessorCallerLayers })).not.toThrow();
+    expect(callerLayerGetterRan).toBe(false);
+    expect(buildScheme({ layers: accessorCallerLayers })).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-build-options" }],
+    });
+
+    const proxySourceLayers = new Proxy(
+      [
+        defineTokenLayer({
+          id: "application",
+          tokens: {},
+        }),
+      ],
+      {
+        ownKeys() {
+          throw new Error("source graph layers trap should be contained");
+        },
+      },
+    );
+    expect(() =>
+      buildScheme({
+        base: [
+          fixedSource("source-with-layers", {
+            ...defineTokenGraph({
+              tokens: {
+                primary: "#6750a4",
+              },
+            }),
+            layers: proxySourceLayers,
+          }),
+        ],
+      }),
+    ).not.toThrow();
+    expect(
+      buildScheme({
+        base: [
+          fixedSource("source-with-layers", {
+            ...defineTokenGraph({
+              tokens: {
+                primary: "#6750a4",
+              },
+            }),
+            layers: proxySourceLayers,
+          }),
+        ],
+      }),
+    ).toMatchObject({ ok: false, issues: [{ code: "invalid-object" }] });
+
     const compiled = JSON.parse(
       serializeCompiledScheme(
         unwrap(
@@ -2194,6 +2405,7 @@ describe("public boundaries reject hostile unknown input without throwing", () =
         ),
       ),
     ) as {
+      modes: unknown;
       tokens: {
         primary: {
           dependenciesByMode: {
@@ -2202,6 +2414,24 @@ describe("public boundaries reject hostile unknown input without throwing", () =
         };
       };
     };
+    const compiledWithProxyModes = {
+      ...compiled,
+      modes: new Proxy(["base"], {
+        getOwnPropertyDescriptor() {
+          throw new Error("compiled modes trap should be contained");
+        },
+      }),
+    };
+    expect(() => parseCompiledScheme(compiledWithProxyModes)).not.toThrow();
+    const proxyModesResult = parseCompiledScheme(compiledWithProxyModes);
+    expect(proxyModesResult.ok).toBe(false);
+    if (proxyModesResult.ok) {
+      throw new Error("Expected compiled proxy modes to fail.");
+    }
+    expect(proxyModesResult.issues).toContainEqual(
+      expect.objectContaining({ code: "invalid-mode-key" }),
+    );
+
     compiled.tokens.primary.dependenciesByMode.base = new Proxy(["primary"], {
       getOwnPropertyDescriptor() {
         throw new Error("dependency trap should be contained");

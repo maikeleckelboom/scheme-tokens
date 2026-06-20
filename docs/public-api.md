@@ -13,6 +13,7 @@ The root API is intentionally small and explicit.
 - `serializeTokenGraph`
 - `serializeTokenLayer`
 - `tokenRef`
+- `defineAliases`
 - `parseColor`
 - `compileTokenGraph`
 - `buildScheme`
@@ -63,6 +64,10 @@ should use `variableByToken`.
 
 External CSS variable contracts can be supported by authoring matching token keys and exporting without a prefix. Core
 does not hard-code framework presets or browser mutation behavior.
+
+Generated mode selectors append to the configured scope for `data-attribute` and `class` strategies. The scope must be a
+single append-safe selector such as `:root` or `.preview`; selector lists, pseudo-elements, descendant selectors, and
+other complex scopes should use exact `modeSelectors: { strategy: "selectors" }` instead.
 
 ## Tailwind v4 Boundary
 
@@ -115,8 +120,10 @@ contracts. Core does not silently slugify external names.
 ## Authoring Helpers
 
 `defineTokens()`, `defineTokenGraph()`, and `defineTokenLayer()` are ergonomic authoring helpers. They default
-`formatVersion` to `1` and `defaultVisibility` to `public`. Graph helpers also default to one `base` mode when `modes`
-is omitted.
+`formatVersion` to `1` and `defaultVisibility` to `public`. Graph helpers also default to one `base` mode when
+`modes` is omitted.
+
+`defineAliases()` is helper-only alias-map sugar for token records.
 
 `defineTokens(tokens, options?)` is the simple token-record helper. It returns the same strict graph shape as
 `defineTokenGraph({ ...options, tokens })`, while keeping token keys separate from graph-level fields such as `modes`,
@@ -128,18 +135,24 @@ top-level token records.
 `base` is the single ordinary mode for simple graphs. It is not a generated scheme, Material role set, or hidden
 light/dark decision.
 
+Direct color values need no reference helper. Token aliases are explicit: use `tokenRef("other.token")`,
+`{ ref: "other.token" }`, or `defineAliases()` when an alias map is the clearest authoring shape. `defineAliases()`
+returns ordinary strict token definitions such as `{ value: { ref: "other.token" } }`; it is not a second persisted
+representation.
+
 Token shorthands are normalized by the helpers:
 
 - `"token.key": "#ffffff"` becomes a structured color value;
 - `"token.key": tokenRef("other.token")` becomes `{ value: { ref: "other.token" } }`;
 - `"token.key": { ref: "other.token" }` becomes `{ value: { ref: "other.token" } }`;
+- `...defineAliases({ "token.key": "other.token" })` becomes `"token.key": { value: { ref: "other.token" } }`;
 - metadata plus mode records such as `{ visibility: "public", light: "#fff", dark: "#000" }` become strict
   per-mode values when modes are declared.
 
 Supported color literals remain color values. Token-key-shaped non-color strings do not become references. If a helper
 string is not supported by the color parser, the helper throws an actionable authoring error before returning a strict
 artifact. CSS named colors such as `"red"` are not currently supported. References are always explicit through
-`tokenRef("other.token")` or `{ ref: "other.token" }`.
+`tokenRef("other.token")`, `{ ref: "other.token" }`, or `defineAliases()`.
 
 Declared mode names must not be token-definition keys such as `value`, `valueByMode`, `visibility`, `description`,
 `deprecated`, or `extensions`. Those names are reserved so helper shorthand detection does not silently reinterpret token

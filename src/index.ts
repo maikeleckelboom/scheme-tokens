@@ -2,6 +2,7 @@ export {
   colorTokenGraphKind,
   colorTokenLayerKind,
   compiledColorSchemeKind,
+  defineAliases,
   defineTokenGraph,
   defineTokenLayer,
   defineTokens,

@@ -30,6 +30,13 @@ export function formatCssColor(color: ColorValue): string {
     )}${formatAlpha(color.alpha)})`;
   }
 
+  if (color.colorSpace === "lab" || color.colorSpace === "lch") {
+    return `${color.colorSpace}(${formatPercentComponents(
+      color.components,
+      [0],
+    )}${formatAlpha(color.alpha)})`;
+  }
+
   return `${color.colorSpace}(${formatComponents(color.components)}${formatAlpha(color.alpha)})`;
 }
 
