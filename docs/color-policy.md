@@ -25,6 +25,6 @@ High-gamut color is native token value capability, not a mode strategy. Do not m
 - OKLCH values serialize with `oklch(...)`.
 
 Any conversion, gamut mapping, perceptual difference, contrast repair, or dynamic palette generation belongs in a future
-adapter or optional package. Future Texel behavior belongs in `@color-scheme-tokens/conversion-texel`, using the upstream
+adapter or optional package. Future Texel behavior belongs in `@scheme-tokens/conversion-texel`, using the upstream
 engine package `@texel/color` inside that adapter package only. Core must remain free of `@texel/color`, and gamut
 mapping must never be silent.

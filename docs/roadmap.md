@@ -1,6 +1,6 @@
 # Roadmap
 
-`color-scheme-tokens` 0.1.0 is focused on the dependency-light core package, ordered token layers, CSS variable export,
+`scheme-tokens` 0.1.0 is focused on the dependency-light core package, ordered token layers, CSS variable export,
 deterministic serialization, strict schemas, and the real Material 3 source adapter.
 
 Standards and ecosystem interoperability are planned, but DTCG support is not part of 0.1.0. Texel-backed color
@@ -10,23 +10,23 @@ Target framework output is planned, but shadcn runtime support is not part of 0.
 
 Planned package names:
 
-- DTCG format adapter: `@color-scheme-tokens/format-dtcg`;
-- Texel conversion adapter: `@color-scheme-tokens/conversion-texel`;
-- shadcn target adapter: `@color-scheme-tokens/target-shadcn`.
+- DTCG format adapter: `@scheme-tokens/format-dtcg`;
+- Texel conversion adapter: `@scheme-tokens/conversion-texel`;
+- shadcn target adapter: `@scheme-tokens/target-shadcn`.
 
 ## 0.1.0 Scope
 
 0.1.0 includes:
 
-- strict `TokenGraphInput`, `TokenLayerInput`, and `CompiledTokenSet` contracts;
+- strict `TokenGraphInput`, `TokenLayerInput`, and `CompiledScheme` contracts;
 - JSON-safe helper input through `defineTokenGraph()` and `defineTokenLayer()`;
-- `buildTokenSet()` for source-only, layer-only, and source-plus-layer builds;
+- `buildScheme()` for source-only, layer-only, and source-plus-layer builds;
 - deterministic source/layer composition;
 - unprefixed CSS variable export by default;
 - structured CSS variable blocks through `exportCssVariableBlocks()`;
-- deterministic compiled-set serialization;
+- deterministic compiled-scheme serialization;
 - strict schema artifacts for core wire formats;
-- `@color-scheme-tokens/source-material3` as the first real source adapter.
+- `@scheme-tokens/source-material3` as the first real source adapter.
 
 ## 0.1.0 Exclusions
 
@@ -54,7 +54,7 @@ or Material 3 features.
 High-gamut is native token value capability. Texel is explicit conversion and projection capability.
 
 Core already supports canonical color values in `srgb`, `display-p3`, and `oklch`. Texel is not required for high-gamut
-authoring. Texel is useful later for explicit conversion, gamut mapping, and compiled token-set projection.
+authoring. Texel is useful later for explicit conversion, gamut mapping, and compiled scheme projection.
 
 Do not model high gamut as modes. This is the wrong shape:
 
@@ -92,29 +92,29 @@ its token-key validation and should not silently slugify external names.
 
 ## Planned DTCG v1 Adapter
 
-The planned DTCG adapter package is `@color-scheme-tokens/format-dtcg`.
+The planned DTCG adapter package is `@scheme-tokens/format-dtcg`.
 
 Initial DTCG v1 scope:
 
 - color tokens only;
 - one DTCG document per mode;
 - `dtcgSource()` as the first import surface;
-- `exportDtcgDocuments(compiled)` as the first export surface from `CompiledTokenSet`;
+- `exportDtcgDocuments(compiled)` as the first export surface from `CompiledScheme`;
 - strict key mapping by default;
 - no silent slugification;
 - unsupported DTCG color spaces fail with `Result` issues;
 - metadata maps through `description`, `deprecated`, and `extensions`.
 
 `dtcgLayer()` is deferred. `TokenLayerInput` does not own modes, so a layer-only multi-mode DTCG import cannot establish
-light and dark modes by itself. Layer-only multi-mode builds use the `buildTokenSet({ modes, defaultMode, layers })`
+light and dark modes by itself. Layer-only multi-mode builds use the `buildScheme({ modes, defaultMode, layers })`
 envelope; DTCG import needs adapter-owned mapping before exposing a layer helper.
 
-`exportDtcgDocuments(compiled)` should export resolved values from compiled sets. Alias-preserving graph export is
-deferred because compiled sets do not preserve the original authored expression as the primary artifact.
+`exportDtcgDocuments(compiled)` should export resolved values from compiled schemes. Alias-preserving graph export is
+deferred because compiled schemes do not preserve the original authored expression as the primary artifact.
 
 ## Deferred Standards Work
 
-Deferred until after `@color-scheme-tokens/format-dtcg` exists:
+Deferred until after `@scheme-tokens/format-dtcg` exists:
 
 - DTCG Resolver support;
 - non-color DTCG token types;
@@ -128,18 +128,18 @@ then, unsupported spaces should fail through adapter-owned `Result` issues inste
 
 ## Planned Texel Conversion Adapter
 
-`@color-scheme-tokens/conversion-texel` is planned, not implemented.
+`@scheme-tokens/conversion-texel` is planned, not implemented.
 
 It should depend on the upstream engine package `@texel/color` inside the adapter package only. Do not use
-`@texel/colors`. The root `color-scheme-tokens` package must remain free of `@texel/color`.
+`@texel/colors`. The root `scheme-tokens` package must remain free of `@texel/color`.
 
 Conversion and gamut mapping should be explicit operations, never silent behavior in core compilation or CSS export.
-`@color-scheme-tokens/conversion-texel` should export scoped function names because the package import path already owns
+`@scheme-tokens/conversion-texel` should export scoped function names because the package import path already owns
 the Texel context. The likely first operations are:
 
 - `convertColor(input)` for one color;
 - `mapGamut(input)` for one explicit gamut-mapping operation;
-- `projectTokenSet(input)` for projecting a compiled token set into a target delivery color space or gamut.
+- `projectScheme(input)` for projecting a compiled scheme into a target delivery color space or gamut.
 
 Unsupported spaces, non-finite output, and out-of-gamut RGB results should return adapter-owned `Result` issues rather
 than silently clipping. Default out-of-gamut RGB behavior should fail, not map or clip. Gamut mapping must never be
@@ -147,11 +147,11 @@ silent.
 
 Core `ColorValue` remains limited to the core-supported color spaces until a deliberate core API change is made.
 
-Planned token-set projection should be explicit and auditable:
+Planned scheme projection should be explicit and auditable:
 
 ```ts
-const projected = projectTokenSet({
-  tokenSet: built.value.compiled,
+const projected = projectScheme({
+  scheme: built.value.compiled,
   to: "display-p3",
   gamut: {
     behavior: "map",
@@ -163,7 +163,7 @@ const projected = projectTokenSet({
 
 Projected output should include:
 
-- projected `CompiledTokenSet`;
+- projected `CompiledScheme`;
 - JSON-safe conversion records per token and mode;
 - from space;
 - to space;
@@ -184,10 +184,10 @@ Deferred Texel-adjacent work:
 
 ## Planned shadcn Target Adapter
 
-`@color-scheme-tokens/target-shadcn` is planned, not implemented.
+`@scheme-tokens/target-shadcn` is planned, not implemented.
 
 It is a target adapter. It should map compiled or core token material into shadcn's fixed CSS-variable contract. Do not
-use `color-scheme-tokens/targets/shadcn`, do not add a root subpath export, and do not expose shadcn helpers from the root
+use `scheme-tokens/targets/shadcn`, do not add a root subpath export, and do not expose shadcn helpers from the root
 package.
 
 The shadcn target graph namespace must use core-valid lower-kebab token keys, such as:
@@ -214,7 +214,7 @@ Material role keys in docs.
 `exportShadcnCss()` may emit target-specific scaffold pieces such as `@theme inline`, `:root`, `.dark`, and radius
 variables. Scaffold pieces must be configurable because many shadcn projects already own parts of their global CSS.
 
-Radius is not a color token in this package. If `@color-scheme-tokens/target-shadcn` later emits radius, it should be an
+Radius is not a color token in this package. If `@scheme-tokens/target-shadcn` later emits radius, it should be an
 `exportShadcnCss()` option such as `radius: "0.625rem"`. Do not add radius to the core color token graph.
 
 `validateShadcnTarget()` should report missing required shadcn tokens and risky mappings before any automatic repair is

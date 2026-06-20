@@ -5,7 +5,7 @@ import { basename, join, relative } from "node:path";
 
 const repoRoot = process.cwd();
 const adapterRoot = join(repoRoot, "packages", "source-material3");
-const workspace = mkdtempSync(join(tmpdir(), "color-scheme-tokens-material3-smoke-"));
+const workspace = mkdtempSync(join(tmpdir(), "scheme-tokens-material3-smoke-"));
 const packDirectory = join(workspace, "pack");
 const consumerDirectory = join(workspace, "consumer");
 mkdirSync(packDirectory, { recursive: true });
@@ -20,8 +20,8 @@ writeJson(join(consumerDirectory, "package.json"), {
   private: true,
   type: "module",
   dependencies: {
-    "color-scheme-tokens": coreSpec,
-    "@color-scheme-tokens/source-material3": adapterSpec,
+    "scheme-tokens": coreSpec,
+    "@scheme-tokens/source-material3": adapterSpec,
   },
 });
 writeJson(join(consumerDirectory, "tsconfig.json"), {
@@ -39,8 +39,8 @@ writeJson(join(consumerDirectory, "tsconfig.json"), {
 writeFileSync(
   join(consumerDirectory, "material3.mjs"),
   `
-import { buildTokenSet, defineTokenLayer } from "color-scheme-tokens";
-import { material3Source } from "@color-scheme-tokens/source-material3";
+import { buildScheme, defineTokenLayer } from "scheme-tokens";
+import { material3Source } from "@scheme-tokens/source-material3";
 
 const application = defineTokenLayer({
   id: "application",
@@ -52,7 +52,7 @@ const application = defineTokenLayer({
   },
 });
 
-const built = buildTokenSet({
+const built = buildScheme({
   sources: [
     material3Source({
       sourceColor: "#6750a4",
@@ -86,18 +86,18 @@ if (consumer.dependencies["@material/material-color-utilities"] !== undefined) {
   throw new Error("consumer directly depends on the Material engine");
 }
 
-const adapterPackagePath = require.resolve("@color-scheme-tokens/source-material3/package.json");
+const adapterPackagePath = require.resolve("@scheme-tokens/source-material3/package.json");
 const adapter = JSON.parse(readFileSync(adapterPackagePath, "utf8"));
 if (adapter.dependencies?.["@material/material-color-utilities"] !== "0.4.0") {
   throw new Error("adapter does not own the exact Material engine dependency");
 }
-if (adapter.peerDependencies?.["color-scheme-tokens"] !== "^0.1.0") {
+if (adapter.peerDependencies?.["scheme-tokens"] !== "^0.1.0") {
   throw new Error("adapter does not declare the release-compatible core peer dependency");
 }
 if (JSON.stringify(adapter.dependencies ?? {}).includes("workspace:")) {
   throw new Error("adapter runtime dependencies leak a workspace protocol");
 }
-const adapterEntryUrl = await import.meta.resolve("@color-scheme-tokens/source-material3");
+const adapterEntryUrl = await import.meta.resolve("@scheme-tokens/source-material3");
 const adapterBundle = readFileSync(new URL(adapterEntryUrl), "utf8");
 if (!adapterBundle.includes("@material+material-color-utilities")) {
   throw new Error("adapter did not bundle the Material engine for runtime compatibility");
@@ -107,18 +107,18 @@ if (!adapterBundle.includes("@material+material-color-utilities")) {
 writeFileSync(
   join(consumerDirectory, "types.ts"),
   `
-import { buildTokenSet, type TokenSource } from "color-scheme-tokens";
+import { buildScheme, type TokenSource } from "scheme-tokens";
 import {
   material3Source,
   type Material3ExtendedColorInput,
   type Material3SourceInput,
   type Material3SourceIssue,
-} from "@color-scheme-tokens/source-material3";
+} from "@scheme-tokens/source-material3";
 
 const extendedColor: Material3ExtendedColorInput = { name: "success", color: "#2e7d32" };
 const input: Material3SourceInput = { sourceColor: "#6750a4", extendedColors: [extendedColor] };
 const source: TokenSource<Material3SourceIssue> = material3Source(input);
-const built = buildTokenSet({ sources: [source] });
+const built = buildScheme({ sources: [source] });
 if (built.ok) built.value.compiled.defaultMode.toUpperCase();
 `,
 );

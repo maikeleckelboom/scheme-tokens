@@ -1,22 +1,22 @@
 {
-  "name": "@color-scheme-tokens/source-material3",
+  "name": "@scheme-tokens/source-material3",
   "version": "0.1.0",
-  "description": "Material 3 source adapter for color-scheme-tokens.",
+  "description": "Material 3 source adapter for scheme-tokens.",
   "keywords": [
     "color-scheme",
     "design-tokens",
     "material-3",
     "token-graph"
   ],
-  "homepage": "https://github.com/maikeleckelboom/color-scheme-tokens/tree/main/packages/source-material3#readme",
+  "homepage": "https://github.com/maikeleckelboom/scheme-tokens/tree/main/packages/source-material3#readme",
   "bugs": {
-    "url": "https://github.com/maikeleckelboom/color-scheme-tokens/issues"
+    "url": "https://github.com/maikeleckelboom/scheme-tokens/issues"
   },
   "license": "MIT",
   "author": "Maikel Eckelboom",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/maikeleckelboom/color-scheme-tokens.git",
+    "url": "git+https://github.com/maikeleckelboom/scheme-tokens.git",
     "directory": "packages/source-material3"
   },
   "files": [
@@ -56,10 +56,10 @@
     "@material/material-color-utilities": "0.4.0"
   },
   "devDependencies": {
-    "color-scheme-tokens": "workspace:*"
+    "scheme-tokens": "workspace:*"
   },
   "peerDependencies": {
-    "color-scheme-tokens": "^0.1.0"
+    "scheme-tokens": "^0.1.0"
   },
   "engines": {
     "node": ">=22"

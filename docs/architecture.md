@@ -1,7 +1,7 @@
 # Architecture
 
-`color-scheme-tokens` is a dependency-light color-token graph core. The graph is the system of record; manual authoring
-helpers and source adapters feed it, validation and compilation resolve it, and exporters project compiled sets into
+`scheme-tokens` is a dependency-light color-token graph core. The graph is the system of record; manual authoring
+helpers and source adapters feed it, validation and compilation resolve it, and exporters project compiled schemes into
 deterministic CSS or JSON artifacts.
 
 ## Core Ownership
@@ -34,10 +34,10 @@ helper input or strict graph input
 defaults and normalize JSON-safe shorthand. `parseTokenGraph()` remains the strict boundary for persisted wire-format
 data.
 
-Compiled token sets are output artifacts. They contain resolved colors, selected tokens, origin metadata, and direct
-dependencies. Exporters consume compiled token sets only.
+Compiled schemes are output artifacts. They contain resolved colors, selected tokens, origin metadata, and direct
+dependencies. Exporters consume compiled schemes only.
 
-The published JSON Schemas cover strict persisted graph input, strict layer input, and serialized compiled token set
+The published JSON Schemas cover strict persisted graph input, strict layer input, and serialized compiled scheme
 output. They are not authoring-helper schemas and do not accept helper shorthand.
 
 ## Compilation
@@ -50,8 +50,8 @@ token; it can be added later as an on-demand analyzer without bloating the defau
 
 ## Exporters
 
-Exporters consume compiled token sets only. They do not validate graphs, resolve references, load engines, mutate token
-sets, or patch browser DOM state.
+Exporters consume compiled schemes only. They do not validate graphs, resolve references, load engines, mutate compiled
+schemes, or patch browser DOM state.
 
 The CSS exporter is dependency-free and uses a conservative selector validator. It can return either a stylesheet string
 or structured `{ mode, selector, declarations }` blocks for runtime preview surfaces and custom renderers. It supports
@@ -60,7 +60,7 @@ core dependency graph.
 
 ## Sources
 
-`buildTokenSet()` composes source and layer graph contributors before compilation. Sources are generated or external
+`buildScheme()` composes source and layer graph contributors before compilation. Sources are generated or external
 graph-material providers. Layers are ordered named authored token overlays.
 
 Sources compose first in array order. Duplicate token keys across sources are invalid. Layers compose after sources in
@@ -73,9 +73,9 @@ implicit CSS `@layer` behavior, no DOM behavior, and no runtime style injection 
 
 Adapter packages may depend on engines, external format tooling, or target framework policy. Core exposes the interface
 but does not provide Material 3, Texel, conversion, DTCG, shadcn, or image-backed behavior. The first source adapter is
-`@color-scheme-tokens/source-material3`; it lives outside the root package and owns the Material engine dependency.
+`@scheme-tokens/source-material3`; it lives outside the root package and owns the Material engine dependency.
 
-Source adapters produce graph input for `buildTokenSet()`. Conversion adapters perform separate conversion operations and
+Source adapters produce graph input for `buildScheme()`. Conversion adapters perform separate conversion operations and
 return `Result` values with adapter-owned issues. Format adapters import or export external file and wire formats, and
 may expose source helpers, conversion functions, or exporters when the external format is bidirectional. Target adapters
 map compiled or core token material into a target framework or design-system contract and may export target-specific

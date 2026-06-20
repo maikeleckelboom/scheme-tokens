@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
-  buildTokenSet,
+  buildScheme,
   compileTokenGraph,
   defineTokenLayer,
   defineTokenGraph,
@@ -9,7 +9,7 @@ import {
   formatCssColor,
   parseColor,
   parseTokenGraph,
-  serializeTokenSet,
+  serializeScheme,
   type Issue,
   type Result,
   type TokenGraphInput,
@@ -299,8 +299,8 @@ describe("v1 graph and compiler", () => {
         "}\n",
     });
 
-    expect(serializeTokenSet(compiled)).toContain('"formatVersion": 1');
-    expect(serializeTokenSet(compiled).endsWith("\n")).toBe(true);
+    expect(serializeScheme(compiled)).toContain('"formatVersion": 1');
+    expect(serializeScheme(compiled).endsWith("\n")).toBe(true);
   });
 
   test("exports unprefixed CSS custom properties by default and with an empty prefix", () => {
@@ -343,7 +343,7 @@ describe("v1 graph and compiler", () => {
     });
   });
 
-  test("exports structured CSS variable blocks for single-mode token sets", () => {
+  test("exports structured CSS variable blocks for single-mode schemes", () => {
     const compiled = unwrap(
       compileTokenGraph(
         defineTokenGraph({
@@ -386,7 +386,7 @@ describe("v1 graph and compiler", () => {
     });
   });
 
-  test("exports structured CSS variable blocks for light and dark token sets", () => {
+  test("exports structured CSS variable blocks for light and dark schemes", () => {
     const compiled = unwrap(compileTokenGraph(makeGraph()));
 
     expect(
@@ -730,7 +730,7 @@ describe("v1 graph and compiler", () => {
 });
 
 describe("v1 sources", () => {
-  test("buildTokenSet accepts layer-only token overlays without sources", () => {
+  test("buildScheme accepts layer-only token overlays without sources", () => {
     const base = defineTokenLayer({
       id: "base",
       tokens: {
@@ -746,7 +746,7 @@ describe("v1 sources", () => {
       },
     });
 
-    const value = unwrap(buildTokenSet({ layers: [base, brand] }));
+    const value = unwrap(buildScheme({ layers: [base, brand] }));
 
     expect(value.graph.modes).toEqual(["base"]);
     expect(value.graph.defaultMode).toBe("base");
@@ -761,7 +761,7 @@ describe("v1 sources", () => {
     });
   });
 
-  test("buildTokenSet accepts explicit modes for layer-only multi-mode overlays", () => {
+  test("buildScheme accepts explicit modes for layer-only multi-mode overlays", () => {
     const base = defineTokenLayer<"light" | "dark">({
       id: "base",
       modes: ["light", "dark"],
@@ -788,7 +788,7 @@ describe("v1 sources", () => {
     });
 
     const value = unwrap(
-      buildTokenSet({
+      buildScheme({
         modes: ["light", "dark"],
         defaultMode: "light",
         layers: [base, brand],
@@ -821,7 +821,7 @@ describe("v1 sources", () => {
     });
   });
 
-  test("buildTokenSet rejects invalid layer-only mode envelopes", () => {
+  test("buildScheme rejects invalid layer-only mode envelopes", () => {
     const layer = defineTokenLayer({
       id: "brand",
       tokens: {
@@ -830,7 +830,7 @@ describe("v1 sources", () => {
     });
 
     expect(
-      buildTokenSet({
+      buildScheme({
         modes: ["light", "dark"],
         defaultMode: "sepia",
         layers: [layer],
@@ -840,7 +840,7 @@ describe("v1 sources", () => {
       issues: [{ code: "invalid-build-options", path: "/defaultMode" }],
     });
     expect(
-      buildTokenSet({
+      buildScheme({
         modes: ["light", "dark"],
         layers: [layer],
       } as never),
@@ -850,7 +850,7 @@ describe("v1 sources", () => {
     });
   });
 
-  test("buildTokenSet accepts source-only usage without layers", () => {
+  test("buildScheme accepts source-only usage without layers", () => {
     const source = fixedSource(
       "brand",
       defineTokenGraph({
@@ -860,13 +860,13 @@ describe("v1 sources", () => {
       }),
     );
 
-    const value = unwrap(buildTokenSet({ sources: [source] }));
+    const value = unwrap(buildScheme({ sources: [source] }));
 
     expect(Object.keys(value.compiled.tokens)).toEqual(["primary"]);
     expect(value.graph.tokens.primary?.origin).toEqual({ kind: "source", id: "brand" });
   });
 
-  test("buildTokenSet accepts one source through sources and composes caller layers", () => {
+  test("buildScheme accepts one source through sources and composes caller layers", () => {
     let calls = 0;
     interface CompanyIssue extends Issue<"missing-company-primary"> {}
     const source: TokenSource<CompanyIssue> = {
@@ -902,7 +902,7 @@ describe("v1 sources", () => {
       },
     });
 
-    const value = unwrap(buildTokenSet({ sources: [source], layers: [app] }));
+    const value = unwrap(buildScheme({ sources: [source], layers: [app] }));
     expect(calls).toBe(1);
     expect(Object.keys(value.compiled.tokens)).toEqual(["app.action"]);
     expect(value.graph.tokens["company.primary"]?.origin).toEqual({
@@ -915,7 +915,7 @@ describe("v1 sources", () => {
     });
   });
 
-  test("buildTokenSet lets layers override source tokens", () => {
+  test("buildScheme lets layers override source tokens", () => {
     const source = fixedSource(
       "material",
       defineTokenGraph({
@@ -932,7 +932,7 @@ describe("v1 sources", () => {
       },
     });
 
-    const value = unwrap(buildTokenSet({ sources: [source], layers: [layer] }));
+    const value = unwrap(buildScheme({ sources: [source], layers: [layer] }));
 
     expect(value.graph.tokens.primary?.origin).toEqual({ kind: "layer", id: "brand" });
     expect(value.compiled.tokens.background?.valueByMode.base).toEqual({
@@ -944,7 +944,7 @@ describe("v1 sources", () => {
     });
   });
 
-  test("buildTokenSet composes multiple sources in array order", () => {
+  test("buildScheme composes multiple sources in array order", () => {
     const palette: TokenSource = {
       id: "palette",
       build(): Result<TokenGraphInput, Issue> {
@@ -973,7 +973,7 @@ describe("v1 sources", () => {
       },
     };
 
-    const value = unwrap(buildTokenSet({ sources: [palette, semantic] }));
+    const value = unwrap(buildScheme({ sources: [palette, semantic] }));
 
     expect(Object.keys(value.compiled.tokens)).toEqual(["semantic.action"]);
     expect(value.graph.tokens["palette.primary"]?.origin).toEqual({
@@ -991,7 +991,7 @@ describe("v1 sources", () => {
     ]);
   });
 
-  test("buildTokenSet validates every source graph strict envelope before composition", () => {
+  test("buildScheme validates every source graph strict envelope before composition", () => {
     const valid = fixedSource("valid", strictSourceGraph("valid.token"));
     const invalidModes = strictSourceGraph("bad.modes", { modes: "base" });
     const missingModes = withoutProperty(strictSourceGraph("bad.missing-modes"), "modes");
@@ -1065,16 +1065,14 @@ describe("v1 sources", () => {
     ] as const;
 
     for (const scenario of scenarios) {
-      expect(buildTokenSet({ sources: [valid, fixedSource("bad", scenario.graph)] })).toMatchObject(
-        {
-          ok: false,
-          issues: [scenario.issue],
-        },
-      );
+      expect(buildScheme({ sources: [valid, fixedSource("bad", scenario.graph)] })).toMatchObject({
+        ok: false,
+        issues: [scenario.issue],
+      });
     }
   });
 
-  test("buildTokenSet compares source modes by canonical semantics", () => {
+  test("buildScheme compares source modes by canonical semantics", () => {
     const first = fixedSource("first", {
       formatVersion: 1,
       modes: ["dark", "light"],
@@ -1104,7 +1102,7 @@ describe("v1 sources", () => {
       },
     });
 
-    const value = unwrap(buildTokenSet({ sources: [first, second] }));
+    const value = unwrap(buildScheme({ sources: [first, second] }));
 
     expect(value.graph.modes).toEqual(["light", "dark"]);
     expect(Object.keys(value.compiled.tokens)).toEqual(["first.token", "second.token"]);
@@ -1113,7 +1111,7 @@ describe("v1 sources", () => {
     ]);
   });
 
-  test("buildTokenSet rejects incompatible source mode sets and default modes", () => {
+  test("buildScheme rejects incompatible source mode sets and default modes", () => {
     const first = fixedSource("first", {
       formatVersion: 1,
       modes: ["light", "dark"],
@@ -1157,17 +1155,17 @@ describe("v1 sources", () => {
       },
     });
 
-    expect(buildTokenSet({ sources: [first, differentModeSet] })).toMatchObject({
+    expect(buildScheme({ sources: [first, differentModeSet] })).toMatchObject({
       ok: false,
       issues: [{ code: "invalid-source-result", path: "/sources/1/modes" }],
     });
-    expect(buildTokenSet({ sources: [first, differentDefaultMode] })).toMatchObject({
+    expect(buildScheme({ sources: [first, differentDefaultMode] })).toMatchObject({
       ok: false,
       issues: [{ code: "invalid-source-result", path: "/sources/1/defaultMode" }],
     });
   });
 
-  test("buildTokenSet validates explicit build envelopes against the first source graph", () => {
+  test("buildScheme validates explicit build envelopes against the first source graph", () => {
     const source = fixedSource("first", {
       formatVersion: 1,
       modes: ["dark", "light"],
@@ -1185,7 +1183,7 @@ describe("v1 sources", () => {
     });
 
     const value = unwrap(
-      buildTokenSet({
+      buildScheme({
         modes: ["light", "dark"],
         defaultMode: "light",
         defaultVisibility: "internal",
@@ -1196,7 +1194,7 @@ describe("v1 sources", () => {
     expect(Object.keys(value.compiled.tokens)).toEqual(["first.token"]);
 
     expect(
-      buildTokenSet({
+      buildScheme({
         modes: ["light", "dim"],
         defaultMode: "light",
         sources: [source],
@@ -1206,7 +1204,7 @@ describe("v1 sources", () => {
       issues: [{ code: "invalid-build-options", path: "/modes" }],
     });
     expect(
-      buildTokenSet({
+      buildScheme({
         modes: ["light", "dark"],
         defaultMode: "dark",
         sources: [source],
@@ -1215,13 +1213,13 @@ describe("v1 sources", () => {
       ok: false,
       issues: [{ code: "invalid-build-options", path: "/defaultMode" }],
     });
-    expect(buildTokenSet({ defaultVisibility: "public", sources: [source] })).toMatchObject({
+    expect(buildScheme({ defaultVisibility: "public", sources: [source] })).toMatchObject({
       ok: false,
       issues: [{ code: "invalid-build-options", path: "/defaultVisibility" }],
     });
   });
 
-  test("buildTokenSet preserves source-local defaultVisibility and explicit visibility", () => {
+  test("buildScheme preserves source-local defaultVisibility and explicit visibility", () => {
     const palette = fixedSource("palette", {
       formatVersion: 1,
       modes: ["base"],
@@ -1242,7 +1240,7 @@ describe("v1 sources", () => {
       },
     });
 
-    const value = unwrap(buildTokenSet({ sources: [palette, semantic] }));
+    const value = unwrap(buildScheme({ sources: [palette, semantic] }));
 
     expect(value.graph.tokens["palette.primary"]?.visibility).toBe("internal");
     expect(value.graph.tokens["semantic.action"]?.visibility).toBe("public");
@@ -1258,7 +1256,7 @@ describe("v1 sources", () => {
     expect(Object.keys(value.compiled.tokens)).toEqual(["semantic.action"]);
   });
 
-  test("buildTokenSet composes caller layers after all sources", () => {
+  test("buildScheme composes caller layers after all sources", () => {
     const palette: TokenSource = {
       id: "palette",
       build(): Result<TokenGraphInput, Issue> {
@@ -1295,7 +1293,7 @@ describe("v1 sources", () => {
       },
     });
 
-    const value = unwrap(buildTokenSet({ sources: [palette, semantic], layers: [app] }));
+    const value = unwrap(buildScheme({ sources: [palette, semantic], layers: [app] }));
 
     expect(Object.keys(value.compiled.tokens)).toEqual(["app.action"]);
     expect(value.graph.tokens["app.action"]?.origin).toEqual({
@@ -1304,7 +1302,7 @@ describe("v1 sources", () => {
     });
   });
 
-  test("buildTokenSet accepts structural source metadata and preserves build receiver", () => {
+  test("buildScheme accepts structural source metadata and preserves build receiver", () => {
     const source = {
       id: "brand",
       primary: "#1455d9",
@@ -1320,7 +1318,7 @@ describe("v1 sources", () => {
       },
     };
 
-    const built = unwrap(buildTokenSet({ sources: [source] }));
+    const built = unwrap(buildScheme({ sources: [source] }));
 
     expect(built.graph.tokens["brand.primary"]?.valueByMode.base).toEqual({
       colorSpace: "srgb",
@@ -1331,36 +1329,36 @@ describe("v1 sources", () => {
     });
   });
 
-  test("buildTokenSet rejects missing, empty, and singular contributor options", () => {
-    expect(buildTokenSet({} as never)).toMatchObject({
+  test("buildScheme rejects missing, empty, and singular contributor options", () => {
+    expect(buildScheme({} as never)).toMatchObject({
       ok: false,
       issues: [
         {
           code: "invalid-build-options",
-          message: "buildTokenSet requires at least one source or layer.",
+          message: "buildScheme requires at least one source or layer.",
         },
       ],
     });
-    expect(buildTokenSet({ sources: [] } as never)).toMatchObject({
+    expect(buildScheme({ sources: [] } as never)).toMatchObject({
       ok: false,
       issues: [
         {
           code: "invalid-build-options",
-          message: "buildTokenSet requires at least one source or layer.",
+          message: "buildScheme requires at least one source or layer.",
         },
       ],
     });
-    expect(buildTokenSet({ sources: [], layers: [] } as never)).toMatchObject({
+    expect(buildScheme({ sources: [], layers: [] } as never)).toMatchObject({
       ok: false,
       issues: [
         {
           code: "invalid-build-options",
-          message: "buildTokenSet requires at least one source or layer.",
+          message: "buildScheme requires at least one source or layer.",
         },
       ],
     });
     expect(
-      buildTokenSet({
+      buildScheme({
         source: {
           id: "brand",
           build: () => ({ ok: true, value: defineTokenGraph({ tokens: {} }) }),
@@ -1371,7 +1369,7 @@ describe("v1 sources", () => {
       issues: [{ code: "invalid-build-options", message: "Unknown build option: source." }],
     });
     const oldContributorOption = `frag${"ments"}`;
-    expect(buildTokenSet({ [oldContributorOption]: [] } as never)).toMatchObject({
+    expect(buildScheme({ [oldContributorOption]: [] } as never)).toMatchObject({
       ok: false,
       issues: [
         {
@@ -1382,13 +1380,13 @@ describe("v1 sources", () => {
     });
   });
 
-  test("buildTokenSet rejects duplicate source ids", () => {
+  test("buildScheme rejects duplicate source ids", () => {
     const source = {
       id: "brand",
       build: () => ({ ok: true as const, value: defineTokenGraph({ tokens: {} }) }),
     };
 
-    expect(buildTokenSet({ sources: [source, source] })).toMatchObject({
+    expect(buildScheme({ sources: [source, source] })).toMatchObject({
       ok: false,
       issues: [
         {
@@ -1401,7 +1399,7 @@ describe("v1 sources", () => {
     });
   });
 
-  test("buildTokenSet rejects duplicate token keys across sources", () => {
+  test("buildScheme rejects duplicate token keys across sources", () => {
     const first = {
       id: "first",
       build: () =>
@@ -1419,7 +1417,7 @@ describe("v1 sources", () => {
         }) as const,
     };
 
-    expect(buildTokenSet({ sources: [first, second] })).toMatchObject({
+    expect(buildScheme({ sources: [first, second] })).toMatchObject({
       ok: false,
       issues: [
         {

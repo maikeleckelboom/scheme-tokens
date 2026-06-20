@@ -12,7 +12,7 @@ const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const manifest = JSON.parse(
   readFileSync(join(repoRoot, "package.json"), "utf8"),
 ) as PackageManifest;
-const workspace = mkdtempSync(join(tmpdir(), "color-scheme-tokens-smoke-"));
+const workspace = mkdtempSync(join(tmpdir(), "scheme-tokens-smoke-"));
 const packDirectory = join(workspace, "pack");
 const consumerDirectory = join(workspace, "consumer");
 mkdirSync(packDirectory, { recursive: true });
@@ -41,7 +41,7 @@ writeJson(join(consumerDirectory, "tsconfig.json"), {
 writeFileSync(
   join(consumerDirectory, "root.mjs"),
   `
-import { buildTokenSet, compileTokenGraph, defineTokenGraph, defineTokenLayer, exportCssVariableBlocks, exportCssVariables } from ${JSON.stringify(manifest.name)};
+import { buildScheme, compileTokenGraph, defineTokenGraph, defineTokenLayer, exportCssVariableBlocks, exportCssVariables } from ${JSON.stringify(manifest.name)};
 
 const graph = defineTokenGraph({
   tokens: {
@@ -64,7 +64,7 @@ if (Object.keys(declarations ?? {}).some((name) => name.startsWith("--undefined-
 }
 const base = defineTokenLayer({ id: "base", tokens: { primary: "#6750a4" } });
 const brand = defineTokenLayer({ id: "brand", tokens: { primary: "#ff3b30" } });
-const built = buildTokenSet({ layers: [base, brand] });
+const built = buildScheme({ layers: [base, brand] });
 if (!built.ok) throw new Error(JSON.stringify(built.issues));
 if (built.value.graph.tokens.primary?.origin?.kind !== "layer") throw new Error("layer-only origin failed");
 const lightDarkLayer = defineTokenLayer({
@@ -77,7 +77,7 @@ const lightDarkLayer = defineTokenLayer({
     },
   },
 });
-const lightDarkBuilt = buildTokenSet({
+const lightDarkBuilt = buildScheme({
   modes: ["light", "dark"],
   defaultMode: "light",
   layers: [lightDarkLayer],
@@ -116,9 +116,9 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const expectedSchemas = new Map([
-  ["schemas/token-graph.v1.schema.json", "color-scheme-tokens token graph v1"],
-  ["schemas/token-layer.v1.schema.json", "color-scheme-tokens token layer v1"],
-  ["schemas/compiled-token-set.v1.schema.json", "color-scheme-tokens compiled token set v1"],
+  ["schemas/token-graph.v1.schema.json", "scheme-tokens token graph v1"],
+  ["schemas/token-layer.v1.schema.json", "scheme-tokens token layer v1"],
+  ["schemas/compiled-scheme.v1.schema.json", "scheme-tokens compiled scheme v1"],
 ]);
 
 for (const [subpath, title] of expectedSchemas) {
@@ -141,14 +141,14 @@ writeFileSync(
   join(consumerDirectory, "types.ts"),
   `
 import {
-  buildTokenSet,
+  buildScheme,
   compileTokenGraph,
   defineTokenLayer,
   defineTokenGraph,
   exportCssVariableBlocks,
   type CssVariableBlock,
   type ColorValue,
-  type CompiledTokenSet,
+  type CompiledScheme,
   type ExportCssVariablesOptions,
   type Issue,
   type Result,
@@ -163,7 +163,7 @@ const layer: TokenLayerInput = defineTokenLayer({
   id: "brand",
   tokens: { "brand.primary": "#6750a4" },
 });
-const compiled: Result<CompiledTokenSet, Issue> = compileTokenGraph(graph);
+const compiled: Result<CompiledScheme, Issue> = compileTokenGraph(graph);
 const cssOptions: ExportCssVariablesOptions = { prefix: "theme" };
 const legacyCssOptions: ExportCssVariablesOptions = {
   // @ts-expect-error variablePrefix is not part of the public CSS export options.
@@ -178,14 +178,14 @@ const source = {
     return { ok: true as const, value: graph };
   },
 };
-const built = buildTokenSet({ sources: [source] });
-const layerBuilt = buildTokenSet({ layers: [layer] });
+const built = buildScheme({ sources: [source] });
+const layerBuilt = buildScheme({ layers: [layer] });
 const lightDarkLayer = defineTokenLayer<"light" | "dark">({
   id: "application",
   modes: ["light", "dark"],
   tokens: { background: { light: "#ffffff", dark: "#141218" } },
 });
-const lightDarkBuilt = buildTokenSet({
+const lightDarkBuilt = buildScheme({
   modes: ["light", "dark"],
   defaultMode: "light",
   layers: [lightDarkLayer],
@@ -212,9 +212,7 @@ run(
 );
 
 const installedRoot = join(consumerDirectory, "node_modules", manifest.name);
-if (
-  existsSync(join(consumerDirectory, "node_modules", "@color-scheme-tokens", "source-material3"))
-) {
+if (existsSync(join(consumerDirectory, "node_modules", "@scheme-tokens", "source-material3"))) {
   throw new Error("core-only consumer unexpectedly installed the Material adapter");
 }
 if (existsSync(join(consumerDirectory, "node_modules", "@material", "material-color-utilities"))) {

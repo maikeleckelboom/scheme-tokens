@@ -2,14 +2,14 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import Ajv2020 from "ajv/dist/2020";
 import { describe, expect, test } from "vitest";
-import { compileTokenGraph, parseTokenGraph, serializeTokenSet, type TokenGraph } from "../../src";
+import { compileTokenGraph, parseTokenGraph, serializeScheme, type TokenGraph } from "../../src";
 
 const schemaDirectory = join(process.cwd(), "schemas");
 const fixtureDirectory = join(process.cwd(), "tests", "schemas", "fixtures");
 
 const graphSchema = readJsonObject(join(schemaDirectory, "token-graph.v1.schema.json"));
 const layerSchema = readJsonObject(join(schemaDirectory, "token-layer.v1.schema.json"));
-const compiledSchema = readJsonObject(join(schemaDirectory, "compiled-token-set.v1.schema.json"));
+const compiledSchema = readJsonObject(join(schemaDirectory, "compiled-scheme.v1.schema.json"));
 
 const strictGraphFixtureFiles = [
   "single-mode-strict-graph.json",
@@ -71,10 +71,10 @@ describe("JSON Schemas", () => {
     });
   });
 
-  test("compiled token set fixture is produced by compileTokenGraph and validates", () => {
+  test("compiled scheme fixture is produced by compileTokenGraph and validates", () => {
     const ajv = createAjv();
     const graph = readFixtureObject("valid", "multi-mode-strict-graph.json");
-    const compiledFixture = readFixtureObject("valid", "compiled-token-set.json");
+    const compiledFixture = readFixtureObject("valid", "compiled-scheme.json");
     const compiled = compileTokenGraph(graph);
 
     expect(compiled.ok).toBe(true);
@@ -82,7 +82,7 @@ describe("JSON Schemas", () => {
       throw new Error(JSON.stringify(compiled.issues));
     }
 
-    const serialized = JSON.parse(serializeTokenSet(compiled.value)) as unknown;
+    const serialized = JSON.parse(serializeScheme(compiled.value)) as unknown;
     expect(serialized).toEqual(compiledFixture);
     expectSchemaValid(ajv, compiledSchema, serialized, "compiled output");
   });
@@ -120,11 +120,11 @@ describe("JSON Schemas", () => {
     },
   );
 
-  test("compiled token set schema rejects unresolved authoring color strings", () => {
+  test("compiled scheme schema rejects unresolved authoring color strings", () => {
     expect.hasAssertions();
 
     const ajv = createAjv();
-    const compiledFixture = readFixtureObject("valid", "compiled-token-set.json");
+    const compiledFixture = readFixtureObject("valid", "compiled-scheme.json");
     const unresolvedCompiled = {
       ...compiledFixture,
       tokens: {

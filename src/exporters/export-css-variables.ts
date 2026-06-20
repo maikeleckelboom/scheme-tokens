@@ -1,4 +1,4 @@
-import type { CompiledTokenSet } from "../core/compiled-types";
+import type { CompiledScheme } from "../core/compiled-types";
 import { isClassPrefix, isDataAttributeName, isSingleSegmentIdentifier } from "../core/identifiers";
 import { compareCodeUnits, readPlainRecord } from "../core/json";
 import type { Issue, Result } from "../core/result";
@@ -59,15 +59,15 @@ export type ExportCssVariablesIssue = Issue<
 };
 
 export function exportCssVariables(
-  tokenSet: CompiledTokenSet,
+  scheme: CompiledScheme,
   options?: ExportCssVariablesOptions,
 ): Result<string, ExportCssVariablesIssue> {
-  const parsed = parseOptions(tokenSet, options);
+  const parsed = parseOptions(scheme, options);
   if (!parsed.ok) {
     return parsed;
   }
 
-  const blocks = buildCssVariableBlocks(tokenSet, parsed.value);
+  const blocks = buildCssVariableBlocks(scheme, parsed.value);
   return {
     ok: true,
     value: parsed.value.compact
@@ -77,29 +77,29 @@ export function exportCssVariables(
 }
 
 export function exportCssVariableBlocks(
-  tokenSet: CompiledTokenSet,
+  scheme: CompiledScheme,
   options?: ExportCssVariablesOptions,
 ): Result<readonly CssVariableBlock[], ExportCssVariablesIssue> {
-  const parsed = parseOptions(tokenSet, options);
+  const parsed = parseOptions(scheme, options);
   if (!parsed.ok) {
     return parsed;
   }
 
   return {
     ok: true,
-    value: buildCssVariableBlocks(tokenSet, parsed.value),
+    value: buildCssVariableBlocks(scheme, parsed.value),
   };
 }
 
 function buildCssVariableBlocks(
-  tokenSet: CompiledTokenSet,
+  scheme: CompiledScheme,
   options: ParsedCssOptions,
 ): readonly CssVariableBlock[] {
-  const tokenKeys = Object.keys(tokenSet.tokens).sort(compareCodeUnits);
-  return tokenSet.modes.map((mode) => {
+  const tokenKeys = Object.keys(scheme.tokens).sort(compareCodeUnits);
+  return scheme.modes.map((mode) => {
     const declarations: Record<string, string> = {};
     for (const key of tokenKeys) {
-      const value = tokenSet.tokens[key]?.valueByMode[mode];
+      const value = scheme.tokens[key]?.valueByMode[mode];
       declarations[cssVariableName(key, options.prefix)] = formatCssColor(value as never);
     }
     return {
@@ -126,7 +126,7 @@ interface ParsedCssOptions {
 }
 
 function parseOptions(
-  tokenSet: CompiledTokenSet,
+  scheme: CompiledScheme,
   options: ExportCssVariablesOptions | undefined,
 ): Result<ParsedCssOptions, ExportCssVariablesIssue> {
   const entries =
@@ -180,7 +180,7 @@ function parseOptions(
 
   const modeSelectors = record.get("modeSelectors");
   const scope = record.get("scope");
-  const selectors = parseSelectors(tokenSet, scope, modeSelectors);
+  const selectors = parseSelectors(scheme, scope, modeSelectors);
   if (!selectors.ok) {
     return selectors;
   }
@@ -196,7 +196,7 @@ function parseOptions(
 }
 
 function parseSelectors(
-  tokenSet: CompiledTokenSet,
+  scheme: CompiledScheme,
   scopeInput: unknown,
   modeSelectorsInput: unknown,
 ): Result<Readonly<Record<string, string>>, ExportCssVariablesIssue> {
@@ -221,7 +221,7 @@ function parseSelectors(
         issues: [{ code: "invalid-scope", message: "scope must be omitted with exact selectors." }],
       };
     }
-    return parseExactSelectors(tokenSet, strategyRecord.get("selectors"));
+    return parseExactSelectors(scheme, strategyRecord.get("selectors"));
   }
 
   const scope = parseScope(scopeInput);
@@ -243,7 +243,7 @@ function parseSelectors(
       };
     }
     return generatedSelectors(
-      tokenSet,
+      scheme,
       (mode) => `${scope.value}[${attribute}="${mode}"]`,
       scope.value,
     );
@@ -263,7 +263,7 @@ function parseSelectors(
       };
     }
     return generatedSelectors(
-      tokenSet,
+      scheme,
       (mode) => `${scope.value}.${classPrefix}${mode}`,
       scope.value,
     );
@@ -307,7 +307,7 @@ function parseScope(input: unknown): Result<string, ExportCssVariablesIssue> {
 }
 
 function parseExactSelectors(
-  tokenSet: CompiledTokenSet,
+  scheme: CompiledScheme,
   input: unknown,
 ): Result<Readonly<Record<string, string>>, ExportCssVariablesIssue> {
   const entries = readPlainRecord(input, {
@@ -318,7 +318,7 @@ function parseExactSelectors(
     return entries as Result<never, ExportCssVariablesIssue>;
   }
 
-  const modeSet = new Set(tokenSet.modes);
+  const modeSet = new Set(scheme.modes);
   const selectors: Record<string, string> = {};
   for (const entry of entries.value) {
     if (!modeSet.has(entry.key)) {
@@ -348,7 +348,7 @@ function parseExactSelectors(
     }
     selectors[entry.key] = entry.value;
   }
-  for (const mode of tokenSet.modes) {
+  for (const mode of scheme.modes) {
     if (selectors[mode] === undefined) {
       return {
         ok: false,
@@ -362,13 +362,13 @@ function parseExactSelectors(
 }
 
 function generatedSelectors(
-  tokenSet: CompiledTokenSet,
+  scheme: CompiledScheme,
   selectorForMode: (mode: string) => string,
   defaultSelector: string,
 ): Result<Readonly<Record<string, string>>, ExportCssVariablesIssue> {
   const selectors: Record<string, string> = {};
-  for (const mode of tokenSet.modes) {
-    selectors[mode] = mode === tokenSet.defaultMode ? defaultSelector : selectorForMode(mode);
+  for (const mode of scheme.modes) {
+    selectors[mode] = mode === scheme.defaultMode ? defaultSelector : selectorForMode(mode);
   }
   return rejectDuplicateSelectors(selectors);
 }

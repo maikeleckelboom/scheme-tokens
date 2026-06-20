@@ -3,14 +3,14 @@ import { join } from "node:path";
 import Ajv2020 from "ajv/dist/2020";
 import { describe, expect, test } from "vitest";
 import {
-  buildTokenSet,
+  buildScheme,
   defineTokenLayer,
   parseTokenGraph,
   type Issue,
   type Result,
   type TokenDefinitionInput,
   type TokenGraphInput,
-} from "color-scheme-tokens";
+} from "scheme-tokens";
 import * as adapter from "../src";
 import { material3Source, type Material3SourceInput, type Material3SourceIssue } from "../src";
 import {
@@ -47,8 +47,8 @@ describe("material3Source", () => {
     expect(parseTokenGraph(graph).ok).toBe(true);
   });
 
-  test("builds a public token set through core buildTokenSet", () => {
-    const built = unwrap(buildTokenSet({ sources: [material3Source({ sourceColor: "#6750a4" })] }));
+  test("builds a public scheme through core buildScheme", () => {
+    const built = unwrap(buildScheme({ sources: [material3Source({ sourceColor: "#6750a4" })] }));
 
     expect(built.graph.tokens["material3.primary"]?.origin).toEqual({
       kind: "source",
@@ -125,7 +125,7 @@ describe("material3Source", () => {
       },
     });
     const built = unwrap(
-      buildTokenSet({
+      buildScheme({
         sources: [
           material3Source({
             sourceColor: "#6750a4",
@@ -154,7 +154,7 @@ describe("material3Source", () => {
     });
 
     const built = unwrap(
-      buildTokenSet({
+      buildScheme({
         sources: [
           material3Source({
             sourceColor: "#6750a4",
@@ -439,7 +439,7 @@ describe("material3Source", () => {
     const graph = unwrap(material3Source({ sourceColor: "#6750a4" }).build());
     const ajv = createAjv();
     const validateGraph = ajv.getSchema(
-      "https://color-scheme-tokens.dev/schemas/token-graph.v1.schema.json",
+      "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json",
     );
     if (validateGraph === undefined) {
       throw new Error("Expected root token graph schema to be registered.");
@@ -465,10 +465,10 @@ describe("material3Source", () => {
       "@material/material-color-utilities": "0.4.0",
     });
     expect(manifest.peerDependencies).toEqual({
-      "color-scheme-tokens": "^0.1.0",
+      "scheme-tokens": "^0.1.0",
     });
     expect(manifest.devDependencies).toEqual({
-      "color-scheme-tokens": "workspace:*",
+      "scheme-tokens": "workspace:*",
     });
     expect(JSON.stringify(manifest.devDependencies)).not.toContain(
       "@material/material-color-utilities",
@@ -508,7 +508,7 @@ function createAjv(): Ajv2020 {
     schemas: [
       readRootSchema("token-graph.v1.schema.json"),
       readRootSchema("token-layer.v1.schema.json"),
-      readRootSchema("compiled-token-set.v1.schema.json"),
+      readRootSchema("compiled-scheme.v1.schema.json"),
     ],
   });
 }

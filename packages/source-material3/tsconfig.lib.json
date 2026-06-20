@@ -3,7 +3,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "color-scheme-tokens": ["../../src/index.ts"]
+      "scheme-tokens": ["../../src/index.ts"]
     },
     "types": []
   },

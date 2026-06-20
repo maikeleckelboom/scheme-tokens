@@ -1,5 +1,5 @@
 import {
-  buildTokenSet,
+  buildScheme,
   defineTokenLayer,
   defineTokenGraph,
   exportCssVariableBlocks,
@@ -34,29 +34,29 @@ const source: TokenSource = {
   },
 };
 
-const built = buildTokenSet({ sources: [source] });
+const built = buildScheme({ sources: [source] });
 if (built.ok) {
   built.value.compiled.defaultMode.toUpperCase();
-  // @ts-expect-error buildTokenSet returns compiled, not tokenSet.
-  built.value["tokenSet"].defaultMode.toUpperCase();
+  // @ts-expect-error buildScheme returns compiled, not scheme.
+  built.value["scheme"].defaultMode.toUpperCase();
 }
 
-// @ts-expect-error source is not a buildTokenSet option.
-buildTokenSet({ source });
+// @ts-expect-error source is not a buildScheme option.
+buildScheme({ source });
 
-const emptyBuild = buildTokenSet({});
+const emptyBuild = buildScheme({});
 if (!emptyBuild.ok) {
   emptyBuild.issues[0]?.code.toUpperCase();
 }
 
-const emptyContributorBuild = buildTokenSet({ sources: [], layers: [] });
+const emptyContributorBuild = buildScheme({ sources: [], layers: [] });
 if (!emptyContributorBuild.ok) {
   emptyContributorBuild.issues[0]?.code.toUpperCase();
 }
 
 const oldContributorOption = `frag${"ments"}`;
 // @ts-expect-error old contributor option is not accepted.
-buildTokenSet({ [oldContributorOption]: [] });
+buildScheme({ [oldContributorOption]: [] });
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
@@ -82,7 +82,7 @@ const layer = defineTokenLayer({
 const typedLayer = layer satisfies TokenLayerInput;
 typedLayer.id.toUpperCase();
 
-const layerBuilt = buildTokenSet({ layers: [layer] });
+const layerBuilt = buildScheme({ layers: [layer] });
 if (layerBuilt.ok) {
   layerBuilt.value.compiled.defaultMode.toUpperCase();
 }
@@ -97,7 +97,7 @@ const multiModeLayer = defineTokenLayer<"light" | "dark">({
     },
   },
 });
-const multiModeLayerBuilt = buildTokenSet({
+const multiModeLayerBuilt = buildScheme({
   modes: ["light", "dark"],
   defaultMode: "light",
   layers: [multiModeLayer],

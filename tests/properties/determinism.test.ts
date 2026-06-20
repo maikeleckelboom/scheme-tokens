@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
-import { compileTokenGraph, parseColor, parseTokenGraph, serializeTokenSet } from "../../src";
+import { compileTokenGraph, parseColor, parseTokenGraph, serializeScheme } from "../../src";
 
 describe("determinism and parser safety properties", () => {
   test("parse boundaries do not throw for JSON values", () => {
@@ -39,7 +39,7 @@ describe("determinism and parser safety properties", () => {
     if (!left.ok || !right.ok) {
       throw new Error("Expected both graphs to compile");
     }
-    expect(serializeTokenSet(left.value)).toBe(serializeTokenSet(right.value));
+    expect(serializeScheme(left.value)).toBe(serializeScheme(right.value));
   });
 
   test("token insertion order does not change diagnostic order", () => {

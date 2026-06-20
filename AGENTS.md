@@ -10,7 +10,7 @@ reused or deleted.
 
 ## Package boundary
 
-`color-scheme-tokens` is the dependency-light core package.
+`scheme-tokens` is the dependency-light core package.
 
 The core package owns:
 
@@ -28,8 +28,8 @@ browser canvas, CSS color engines, or other optional capability engines from the
 
 Supported engines belong behind explicit adapter package boundaries, for example:
 
-* `@color-scheme-tokens/source-material3`
-* `@color-scheme-tokens/conversion-texel`
+* `@scheme-tokens/source-material3`
+* `@scheme-tokens/conversion-texel`
 * future source or conversion adapters
 
 If an adapter package does not exist yet, document it as future scope. Do not fake the behavior inside core.
@@ -66,7 +66,7 @@ Allowed scope:
 * simple manual custom-color examples
 * advanced explicit graph examples
 * `defineTokenGraph()` and root API ergonomics when the change is small and does not weaken strict parsing
-* `buildTokenSet()` documentation as the adapter runner
+* `buildScheme()` documentation as the adapter runner
 * docs clarifying authoring helper input versus strict wire-format input
 
 Stop rules:
@@ -121,7 +121,7 @@ Goal: implement one real adapter outside core after the adapter architecture is 
 
 Preferred first adapter:
 
-* `@color-scheme-tokens/source-material3`
+* `@scheme-tokens/source-material3`
 
 Requirements:
 
@@ -134,7 +134,7 @@ Requirements:
 
 Alternative first adapter:
 
-* `@color-scheme-tokens/conversion-texel`
+* `@scheme-tokens/conversion-texel`
 
 Only choose this first if the human explicitly prioritizes conversion over Material source generation.
 

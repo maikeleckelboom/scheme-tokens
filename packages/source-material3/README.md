@@ -1,19 +1,19 @@
-# @color-scheme-tokens/source-material3
+# @scheme-tokens/source-material3
 
-Material 3 source adapter for `color-scheme-tokens`.
+Material 3 source adapter for `scheme-tokens`.
 
-Manual token graphs only need the root `color-scheme-tokens` package. Install this adapter only when a project
+Manual token graphs only need the root `scheme-tokens` package. Install this adapter only when a project
 wants Material 3 Dynamic Color output from the official Material color utility engine.
 
 ```bash
-pnpm add color-scheme-tokens @color-scheme-tokens/source-material3
+pnpm add scheme-tokens @scheme-tokens/source-material3
 ```
 
 ## Usage
 
 ```ts
-import { buildTokenSet, defineTokenLayer, exportCssVariableBlocks } from "color-scheme-tokens";
-import { material3Source } from "@color-scheme-tokens/source-material3";
+import { buildScheme, defineTokenLayer, exportCssVariableBlocks } from "scheme-tokens";
+import { material3Source } from "@scheme-tokens/source-material3";
 
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
@@ -25,7 +25,7 @@ const application = defineTokenLayer<"light" | "dark">({
   },
 });
 
-const built = buildTokenSet({
+const built = buildScheme({
   sources: [
     material3Source({
       sourceColor: "#6750a4",
@@ -67,10 +67,10 @@ Material extended colors are exposed through this adapter as `extendedColors`, u
 the engine's own option names.
 
 ```ts
-import { buildTokenSet } from "color-scheme-tokens";
-import { material3Source } from "@color-scheme-tokens/source-material3";
+import { buildScheme } from "scheme-tokens";
+import { material3Source } from "@scheme-tokens/source-material3";
 
-const built = buildTokenSet({
+const built = buildScheme({
   sources: [
     material3Source({
       sourceColor: "#6750a4",
@@ -106,8 +106,8 @@ Advanced key-color-driven scheme input remains future scope; this adapter does n
 Use `exportCssVariables()` when you want a stylesheet string instead of structured blocks.
 
 ```ts
-import { buildTokenSet, defineTokenLayer, exportCssVariables } from "color-scheme-tokens";
-import { material3Source } from "@color-scheme-tokens/source-material3";
+import { buildScheme, defineTokenLayer, exportCssVariables } from "scheme-tokens";
+import { material3Source } from "@scheme-tokens/source-material3";
 
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
@@ -119,7 +119,7 @@ const application = defineTokenLayer<"light" | "dark">({
   },
 });
 
-const built = buildTokenSet({
+const built = buildScheme({
   sources: [
     material3Source({
       sourceColor: "#6750a4",

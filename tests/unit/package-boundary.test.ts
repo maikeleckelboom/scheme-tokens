@@ -16,7 +16,7 @@ describe("package boundary", () => {
 
   test("root runtime exports are exact", () => {
     expect(Object.keys(root).sort()).toEqual([
-      "buildTokenSet",
+      "buildScheme",
       "compileTokenGraph",
       "defineTokenGraph",
       "defineTokenLayer",
@@ -25,7 +25,7 @@ describe("package boundary", () => {
       "formatCssColor",
       "parseColor",
       "parseTokenGraph",
-      "serializeTokenSet",
+      "serializeScheme",
     ]);
     expect(root).not.toHaveProperty(`defineToken${"Frag"}${"ment"}`);
   });
@@ -35,7 +35,7 @@ describe("package boundary", () => {
     expect(Object.keys(manifest.exports).sort()).toEqual([
       ".",
       "./package.json",
-      "./schemas/compiled-token-set.v1.schema.json",
+      "./schemas/compiled-scheme.v1.schema.json",
       "./schemas/token-graph.v1.schema.json",
       "./schemas/token-layer.v1.schema.json",
     ]);
@@ -59,7 +59,7 @@ describe("package boundary", () => {
       .map((path) => readFileSync(path, "utf8"))
       .join("\n");
     expect(sourceText).not.toContain("@material/material-color-utilities");
-    expect(sourceText).not.toContain("@color-scheme-tokens/source-material3");
+    expect(sourceText).not.toContain("@scheme-tokens/source-material3");
     expect(sourceText).not.toContain("material3Source");
     expect(sourceText).not.toContain("Material3SourceInput");
     expect(sourceText).not.toContain("MATERIAL3_ROLE");

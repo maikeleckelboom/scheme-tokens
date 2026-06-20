@@ -36,7 +36,7 @@ export interface CompiledToken {
   readonly extensions?: Readonly<Record<string, JsonValue>>;
 }
 
-export interface CompiledTokenSet {
+export interface CompiledScheme {
   readonly formatVersion: 1;
   readonly modes: readonly [string, ...string[]];
   readonly defaultMode: string;
@@ -44,6 +44,6 @@ export interface CompiledTokenSet {
 }
 
 export type CompileTokenGraphResult = import("./result").Result<
-  CompiledTokenSet,
+  CompiledScheme,
   TokenGraphIssue | CompileTokenGraphIssue
 >;

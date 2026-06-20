@@ -21,4 +21,4 @@ Message text, internal file layout, and implementation strategy are not public c
 documented as such.
 
 Adapter packages version their own root exports, input types, issue codes, optional schemas, and engine dependency
-behavior. Core semver does not cover optional engine behavior that lives outside `color-scheme-tokens`.
+behavior. Core semver does not cover optional engine behavior that lives outside `scheme-tokens`.

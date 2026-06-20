@@ -15,7 +15,7 @@ interface PackageManifest {
 }
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const workspace = mkdtempSync(join(tmpdir(), "color-scheme-tokens-material3-tarball-"));
+const workspace = mkdtempSync(join(tmpdir(), "scheme-tokens-material3-tarball-"));
 const packDirectory = join(workspace, "pack");
 mkdirSync(packDirectory, { recursive: true });
 
@@ -88,11 +88,11 @@ if (manifest.dependencies?.["@material/material-color-utilities"] !== "0.4.0") {
 if (manifest.devDependencies?.["@material/material-color-utilities"] !== undefined) {
   throw new Error("adapter package must not duplicate the Material engine in devDependencies");
 }
-if (manifest.peerDependencies?.["color-scheme-tokens"] !== "^0.1.0") {
-  throw new Error("adapter package must peer-depend on color-scheme-tokens");
+if (manifest.peerDependencies?.["scheme-tokens"] !== "^0.1.0") {
+  throw new Error("adapter package must peer-depend on scheme-tokens");
 }
-if (manifest.devDependencies?.["color-scheme-tokens"] !== "workspace:*") {
-  throw new Error("adapter package must use color-scheme-tokens as a workspace dev dependency");
+if (manifest.devDependencies?.["scheme-tokens"] !== "workspace:*") {
+  throw new Error("adapter package must use scheme-tokens as a workspace dev dependency");
 }
 if (
   JSON.stringify(manifest.dependencies ?? {}).includes("workspace:") ||

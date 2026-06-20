@@ -1,10 +1,4 @@
-import type {
-  Issue,
-  Result,
-  TokenGraphInput,
-  TokenSource,
-  TokenVisibility,
-} from "color-scheme-tokens";
+import type { Issue, Result, TokenGraphInput, TokenSource, TokenVisibility } from "scheme-tokens";
 import {
   createMaterial3Graph,
   MATERIAL3_ENGINE_PACKAGE,

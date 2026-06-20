@@ -9,10 +9,10 @@ The root API is intentionally small and explicit.
 - `parseTokenGraph`
 - `parseColor`
 - `compileTokenGraph`
-- `buildTokenSet`
+- `buildScheme`
 - `exportCssVariables`
 - `exportCssVariableBlocks`
-- `serializeTokenSet`
+- `serializeScheme`
 - `formatCssColor`
 
 ## Package Subpaths
@@ -22,7 +22,7 @@ The package exports only:
 - `.`
 - `./schemas/token-graph.v1.schema.json`
 - `./schemas/token-layer.v1.schema.json`
-- `./schemas/compiled-token-set.v1.schema.json`
+- `./schemas/compiled-scheme.v1.schema.json`
 - `./package.json`
 
 There are no core conversion, Material, source adapter, or engine subpaths.
@@ -34,9 +34,9 @@ For manual colors:
 1. Use `defineTokenGraph()` to author a graph.
 2. Use `compileTokenGraph()` to validate and resolve the selected tokens.
 3. Use `exportCssVariables()` for CSS, `exportCssVariableBlocks()` for structured declarations, or
-   `serializeTokenSet()` for deterministic compiled JSON.
+   `serializeScheme()` for deterministic compiled JSON.
 
-`compileTokenGraph()` defaults to `selection: "public"`. The CSS exporter emits variables for the compiled token set it
+`compileTokenGraph()` defaults to `selection: "public"`. The CSS exporter emits variables for the compiled scheme it
 receives; it does not apply visibility filtering itself.
 
 `exportCssVariables()` returns a CSS stylesheet string. `exportCssVariableBlocks()` returns one structured block per
@@ -69,7 +69,7 @@ normalizing them.
 
 External file formats may have different token-name rules. Those external names are adapter-owned format concerns, not a
 reason to loosen the core token-key language. Format adapters such as the planned
-`@color-scheme-tokens/format-dtcg` should preserve external names or report mapping diagnostics through their own
+`@scheme-tokens/format-dtcg` should preserve external names or report mapping diagnostics through their own
 contracts. Core does not silently slugify external names.
 
 ## Authoring Helpers
@@ -105,13 +105,13 @@ Helper-only shorthand is intentionally not part of the strict wire format. Use `
 boundaries and `parseTokenGraph()` at persistence or untrusted-input boundaries.
 
 The schema subpaths validate strict persisted artifacts only: token graph input, token layer input, and serialized
-compiled token set output. They intentionally reject helper-only shorthand such as raw token color strings, raw
+compiled scheme output. They intentionally reject helper-only shorthand such as raw token color strings, raw
 `{ ref }` token definitions, and mode records without `valueByMode`.
 
-## Compiled Token Sets
+## Compiled Schemes
 
-`compileTokenGraph()` returns a compiled token set with resolved colors, modes, token visibility, origin metadata, and
-direct dependency metadata. `serializeTokenSet()` serializes this compiled output in deterministic order. Compiled JSON
+`compileTokenGraph()` returns a compiled scheme with resolved colors, modes, token visibility, origin metadata, and
+direct dependency metadata. `serializeScheme()` serializes this compiled output in deterministic order. Compiled JSON
 contains resolved color objects, not the original authored color strings.
 
 ## Adapter Sources
@@ -119,7 +119,7 @@ contains resolved color objects, not the original authored color strings.
 `TokenSource` is structural. Core accepts a safe source object with a valid string `id` and callable `build`, permits
 extra adapter metadata, and invokes `build()` with the original source object as `this`.
 
-`buildTokenSet()` is the adapter runner and layer composer. It accepts source-only, layer-only, and source-plus-layer
+`buildScheme()` is the adapter runner and layer composer. It accepts source-only, layer-only, and source-plus-layer
 input. `sources` and `layers` are both optional fields, but at least one of them must be present and non-empty.
 
 Sources compose first in array order. Duplicate token keys across sources are invalid. Layers compose after sources as
@@ -131,11 +131,11 @@ Layer composition is not CSS cascade behavior. Core does not implement selector 
 DOM mutation, or runtime style injection.
 
 The root package does not implement Material 3, Texel, conversion, image, or CSS parser engines. Material 3 support lives
-in `@color-scheme-tokens/source-material3`, which imports core only through the generic source contract.
+in `@scheme-tokens/source-material3`, which imports core only through the generic source contract.
 
-## BuildTokenSetOptions
+## BuildSchemeOptions
 
-`BuildTokenSetOptions` accepts:
+`BuildSchemeOptions` accepts:
 
 - `sources?: readonly TokenSource[]`
 - `layers?: readonly TokenLayerInput[]`
@@ -147,14 +147,14 @@ in `@color-scheme-tokens/source-material3`, which imports core only through the 
 At least one source or layer is required.
 
 When sources are present, the first source graph establishes the composed graph envelope. If `modes`, `defaultMode`, or
-`defaultVisibility` are also provided to `buildTokenSet()`, they must match that first source graph or the call returns an
+`defaultVisibility` are also provided to `buildScheme()`, they must match that first source graph or the call returns an
 `invalid-build-options` issue. Explicit build options validate the expected source envelope; they do not override source
 authority.
 
-When no sources are present, `buildTokenSet()` uses `modes`, `defaultMode`, and `defaultVisibility` from the options to
+When no sources are present, `buildScheme()` uses `modes`, `defaultMode`, and `defaultVisibility` from the options to
 create the composed graph envelope. If `modes` is omitted, the current simple layer-only behavior remains one `base` mode
 with `defaultMode: "base"`. If `modes` is provided, `defaultMode` is required and must belong to `modes`.
 `defaultVisibility` defaults to `public` when omitted.
 
 Layers do not own the graph mode envelope. `TokenLayerInput` remains a mode-shaped contribution to a graph; use
-`buildTokenSet({ modes, defaultMode, layers })` when a layer-only build needs light and dark modes.
+`buildScheme({ modes, defaultMode, layers })` when a layer-only build needs light and dark modes.

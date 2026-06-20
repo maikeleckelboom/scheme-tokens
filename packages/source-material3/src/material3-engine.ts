@@ -7,7 +7,7 @@ import {
   type CustomColorGroup,
   type DynamicScheme,
 } from "@material/material-color-utilities";
-import type { TokenDefinitionInput, TokenGraphInput, TokenVisibility } from "color-scheme-tokens";
+import type { TokenDefinitionInput, TokenGraphInput, TokenVisibility } from "scheme-tokens";
 import {
   material3RoleTokenKey,
   MATERIAL3_ROLE_NAMES,

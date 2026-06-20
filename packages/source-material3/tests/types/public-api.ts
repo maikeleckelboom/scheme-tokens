@@ -1,4 +1,4 @@
-import type { TokenSource } from "color-scheme-tokens";
+import type { TokenSource } from "scheme-tokens";
 import {
   material3Source,
   type Material3ExtendedColorInput,

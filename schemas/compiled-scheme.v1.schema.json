@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://color-scheme-tokens.dev/schemas/compiled-token-set.v1.schema.json",
-  "title": "color-scheme-tokens compiled token set v1",
+  "$id": "https://scheme-tokens.dev/schemas/compiled-scheme.v1.schema.json",
+  "title": "scheme-tokens compiled scheme v1",
   "type": "object",
   "additionalProperties": false,
   "required": ["formatVersion", "modes", "defaultMode", "tokens"],

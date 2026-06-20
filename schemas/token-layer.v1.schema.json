@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://color-scheme-tokens.dev/schemas/token-layer.v1.schema.json",
-  "title": "color-scheme-tokens token layer v1",
+  "$id": "https://scheme-tokens.dev/schemas/token-layer.v1.schema.json",
+  "title": "scheme-tokens token layer v1",
   "type": "object",
   "additionalProperties": false,
   "required": ["formatVersion", "id", "defaultVisibility", "tokens"],

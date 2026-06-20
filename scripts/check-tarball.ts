@@ -13,7 +13,7 @@ interface PackageManifest {
 }
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const workspace = mkdtempSync(join(tmpdir(), "color-scheme-tokens-tarball-"));
+const workspace = mkdtempSync(join(tmpdir(), "scheme-tokens-tarball-"));
 const packDirectory = join(workspace, "pack");
 mkdirSync(packDirectory, { recursive: true });
 const output = runPnpm(["pack", "--pack-destination", packDirectory], repoRoot)
@@ -26,7 +26,7 @@ if (output === undefined) {
 const tarball = join(packDirectory, basename(output));
 const files = execFileSync("tar", ["-tf", tarball], { encoding: "utf8" }).trim().split(/\r?\n/);
 const requiredSchemaFiles = new Set([
-  "package/schemas/compiled-token-set.v1.schema.json",
+  "package/schemas/compiled-scheme.v1.schema.json",
   "package/schemas/token-graph.v1.schema.json",
   "package/schemas/token-layer.v1.schema.json",
 ]);
@@ -88,7 +88,7 @@ const dependencyText = JSON.stringify(packageJson);
 if (
   dependencyText.includes("@texel/color") ||
   dependencyText.includes("@material/material-color-utilities") ||
-  dependencyText.includes("@color-scheme-tokens/source-material3") ||
+  dependencyText.includes("@scheme-tokens/source-material3") ||
   dependencyText.includes("css-tree")
 ) {
   throw new Error("core package manifest leaks optional engine dependencies");

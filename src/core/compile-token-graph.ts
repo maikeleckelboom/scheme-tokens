@@ -3,7 +3,7 @@ import type { ColorExpression, TokenGraph, TokenGraphIssue, TokenGraphToken } fr
 import type {
   CompileTokenGraphIssue,
   CompiledToken,
-  CompiledTokenSet,
+  CompiledScheme,
   TokenSelection,
 } from "./compiled-types";
 import { isTokenKey } from "./identifiers";
@@ -15,7 +15,7 @@ export type {
   CompileTokenGraphIssue,
   CompileTokenGraphOptions,
   CompiledToken,
-  CompiledTokenSet,
+  CompiledScheme,
   TokenSelection,
 } from "./compiled-types";
 
@@ -26,7 +26,7 @@ interface ResolvedNode {
 export function compileTokenGraph(
   input: unknown,
   options?: import("./compiled-types").CompileTokenGraphOptions,
-): Result<CompiledTokenSet, TokenGraphIssue | CompileTokenGraphIssue> {
+): Result<CompiledScheme, TokenGraphIssue | CompileTokenGraphIssue> {
   const parsed = parseTokenGraphInternal(input, {});
   if (!parsed.ok) {
     return parsed;
@@ -43,7 +43,7 @@ export function compileTokenGraph(
 export function compileParsedTokenGraph(
   graph: TokenGraph,
   selection: TokenSelection = "public",
-): Result<CompiledTokenSet, CompileTokenGraphIssue> {
+): Result<CompiledScheme, CompileTokenGraphIssue> {
   const selectedKeys = selectTokenKeys(graph, selection);
   if (!selectedKeys.ok) {
     return selectedKeys;

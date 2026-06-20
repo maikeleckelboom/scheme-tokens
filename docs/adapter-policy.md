@@ -4,15 +4,15 @@ Adapters are separate packages. The full package architecture is defined in
 [`docs/adr/0002-adapter-package-architecture.md`](./adr/0002-adapter-package-architecture.md), with format adapter
 rules in [`docs/adr/0003-format-adapter-packages.md`](./adr/0003-format-adapter-packages.md).
 
-The repository ships `color-scheme-tokens`, the dependency-light core, and optional adapter packages under `packages/`.
+The repository ships `scheme-tokens`, the dependency-light core, and optional adapter packages under `packages/`.
 The core package exports root runtime helpers and strict core schema subpaths only. Adapter packages are added only when
 a real engine-backed capability is ready.
 
 ## Source Adapters
 
 Source adapters generate `TokenGraphInput` from an engine or provider and may expose `TokenSource` helpers for
-`buildTokenSet({ sources })`. Applications may add authored layers with
-`buildTokenSet({ sources, layers })`; those layers compose after source output and may override source tokens.
+`buildScheme({ sources })`. Applications may add authored layers with
+`buildScheme({ sources, layers })`; those layers compose after source output and may override source tokens.
 
 ```ts
 interface TokenSource<I extends Issue = Issue> {
@@ -35,7 +35,7 @@ import {
   type Result,
   type TokenGraphInput,
   type TokenSource,
-} from "color-scheme-tokens";
+} from "scheme-tokens";
 
 const staticSource: TokenSource = {
   id: "static",
@@ -66,19 +66,19 @@ their own packages.
 
 Conversion adapters perform explicit color conversion, gamut mapping, color math, or engine-backed transformations. They
 are separate operations, not `TokenSource` objects by default. They should export verb-based functions such as
-`convertColor(input)`, `mapGamut(input)`, and `projectTokenSet(input)` from their package root and return `Result` with
+`convertColor(input)`, `mapGamut(input)`, and `projectScheme(input)` from their package root and return `Result` with
 adapter-owned issues.
 
 Conversion output may be package-specific JSON-safe data or an explicit core artifact. If it claims to be a core graph,
-layer, or compiled token set, it must satisfy the matching core parser and schema contract.
+layer, or compiled scheme, it must satisfy the matching core parser and schema contract.
 
 Texel belongs to conversion adapters, not source adapters or format adapters. Future Texel support belongs in
-`@color-scheme-tokens/conversion-texel` and should depend on the upstream engine package `@texel/color` inside that
+`@scheme-tokens/conversion-texel` and should depend on the upstream engine package `@texel/color` inside that
 adapter package only. Do not use `@texel/colors`.
 
 High-gamut authoring is not a Texel feature. Core already supports canonical color values in `srgb`, `display-p3`, and
 `oklch`, and high gamut should be modeled as token values rather than as fake modes such as `light-p3` or `dark-p3`.
-Texel should be used later only for explicit, auditable conversion, gamut mapping, or compiled token-set projection.
+Texel should be used later only for explicit, auditable conversion, gamut mapping, or compiled scheme projection.
 Gamut mapping must never be silent; default out-of-gamut RGB behavior should fail instead of mapping or clipping.
 
 ## Format Adapters
@@ -87,11 +87,11 @@ Format adapters import or export external file and wire formats, such as DTCG. T
 external format rules, naming, metadata, aliases, and validation diagnostics are not core graph behavior.
 
 A format adapter may expose source helpers, conversion functions, and exporters when the external format is
-bidirectional. For example, planned DTCG support belongs in `@color-scheme-tokens/format-dtcg`, not in the root package,
+bidirectional. For example, planned DTCG support belongs in `@scheme-tokens/format-dtcg`, not in the root package,
 because DTCG can be both an import format and an export format.
 
 Format adapters must keep public inputs and outputs JSON-safe and return recoverable failures through `Result` with
-adapter-owned issue codes. Outputs that claim to be `TokenGraphInput`, `TokenLayerInput`, or `CompiledTokenSet` must
+adapter-owned issue codes. Outputs that claim to be `TokenGraphInput`, `TokenLayerInput`, or `CompiledScheme` must
 validate through the matching core parser and schema contract.
 
 External format token names do not change the core token-key language. Core token keys remain dot-separated lower-kebab
@@ -103,8 +103,8 @@ they must not rely on core silently slugifying names.
 Target adapters map compiled or core token material into a target framework or design-system contract. They may export
 target-specific scaffolds when the target owns more than a plain token map.
 
-The planned shadcn target adapter belongs in `@color-scheme-tokens/target-shadcn`. Do not use
-`color-scheme-tokens/targets/shadcn`, do not add a root subpath export, and do not expose shadcn helpers from the root
+The planned shadcn target adapter belongs in `@scheme-tokens/target-shadcn`. Do not use
+`scheme-tokens/targets/shadcn`, do not add a root subpath export, and do not expose shadcn helpers from the root
 package.
 
 Target adapters must keep mapping explicit and overridable. They must not pretend that Material 3 roles, or any other
@@ -122,14 +122,14 @@ Target diagnostics should report missing required target tokens and risky mappin
 
 - Adapter packages may depend on engines.
 - The root package must not depend on Material 3, Texel, image, canvas, CSS parser, or conversion engines.
-- Adapters should depend on `color-scheme-tokens` as a peer dependency and dev dependency, not as a normal runtime
+- Adapters should depend on `scheme-tokens` as a peer dependency and dev dependency, not as a normal runtime
   dependency.
 - Core must not import adapter packages.
 
-Material 3 dependencies belong to `@color-scheme-tokens/source-material3`. Texel dependencies belong to future
-`@color-scheme-tokens/conversion-texel`. DTCG format behavior belongs to future
-`@color-scheme-tokens/format-dtcg`. shadcn target behavior belongs to future
-`@color-scheme-tokens/target-shadcn`.
+Material 3 dependencies belong to `@scheme-tokens/source-material3`. Texel dependencies belong to future
+`@scheme-tokens/conversion-texel`. DTCG format behavior belongs to future
+`@scheme-tokens/format-dtcg`. shadcn target behavior belongs to future
+`@scheme-tokens/target-shadcn`.
 
 ## Issue and Schema Rules
 
@@ -152,7 +152,7 @@ Every adapter must prove before release:
 
 ## Current Adapters
 
-- `@color-scheme-tokens/source-material3` creates a `TokenSource` from a strict hex Material `sourceColor` and emits
+- `@scheme-tokens/source-material3` creates a `TokenSource` from a strict hex Material `sourceColor` and emits
   `light` / `dark` graph tokens under a lower-kebab source id namespace. Some Material tooling calls that input a seed
   color; the adapter public field remains `sourceColor`.
 - Material extended colors are adapter-owned behavior exposed as `extendedColors`, with entries shaped as

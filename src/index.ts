@@ -2,9 +2,9 @@ export { defineTokenGraph, defineTokenLayer } from "./core/graph";
 export { parseTokenGraph } from "./core/parse-token-graph";
 export { parseColor } from "./core/color";
 export { compileTokenGraph } from "./core/compile-token-graph";
-export { buildTokenSet } from "./core/source";
+export { buildScheme } from "./core/source";
 export { exportCssVariableBlocks, exportCssVariables } from "./exporters/export-css-variables";
-export { serializeTokenSet } from "./exporters/serialize-token-set";
+export { serializeScheme } from "./exporters/serialize-scheme";
 export { formatCssColor } from "./exporters/format-css-color";
 
 export type { JsonPrimitive, JsonValue } from "./core/json";
@@ -41,13 +41,13 @@ export type {
   CompileTokenGraphIssue,
   CompileTokenGraphOptions,
   CompiledToken,
-  CompiledTokenSet,
+  CompiledScheme,
   TokenSelection,
 } from "./core/compiled-types";
 export type {
-  BuildTokenSetIssue,
-  BuildTokenSetOptions,
-  BuildTokenSetValue,
+  BuildSchemeIssue,
+  BuildSchemeOptions,
+  BuildSchemeValue,
   TokenSource,
 } from "./core/source";
 export type {

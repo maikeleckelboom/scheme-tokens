@@ -1,21 +1,21 @@
-# color-scheme-tokens
+# scheme-tokens
 
 Dependency-light color token graphs for TypeScript and JavaScript applications.
 
-Use the root package when you want to author color tokens, compile a selected token set, serialize deterministic JSON, or
+Use the root package when you want to author color tokens, compile a selected scheme, serialize deterministic JSON, or
 export CSS custom properties. Optional engines such as Material 3 live in adapter packages; hand-authored tokens do not
 load those dependencies.
 
 ## Install
 
 ```bash
-pnpm add color-scheme-tokens
+pnpm add scheme-tokens
 ```
 
 ## Quick Start
 
 ```ts
-import { compileTokenGraph, defineTokenGraph, exportCssVariables } from "color-scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, exportCssVariables } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   tokens: {
@@ -51,7 +51,7 @@ Omit `prefix` to emit custom properties such as `--background`, `--foreground`, 
 ## Light and Dark Values
 
 ```ts
-import { compileTokenGraph, defineTokenGraph, exportCssVariables } from "color-scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, exportCssVariables } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
@@ -100,9 +100,9 @@ if (!css.ok) {
 console.log(css.value);
 ```
 
-`defaultVisibility: "internal"` keeps source tokens out of the ordinary compiled set unless a token opts into
+`defaultVisibility: "internal"` keeps source tokens out of the ordinary compiled scheme unless a token opts into
 `visibility: "public"`. Public tokens may reference internal tokens. The compiler resolves those references, so the CSS
-exporter receives only the selected compiled tokens and writes variables for that set.
+exporter receives only the selected compiled tokens and writes variables for that compiled scheme.
 
 To export every token, compile with `compileTokenGraph(graph, { selection: "all" })`. To export a named subset, compile
 with `compileTokenGraph(graph, { selection: { keys: ["background"] } })`.
@@ -121,7 +121,7 @@ import {
   defineTokenGraph,
   exportCssVariableBlocks,
   exportCssVariables,
-} from "color-scheme-tokens";
+} from "scheme-tokens";
 
 const graph = defineTokenGraph({
   tokens: {
@@ -150,13 +150,13 @@ console.log(blocks.value[0]?.declarations["--background"]);
 Omit `prefix` to emit custom properties such as `--background`, `--foreground`, `--primary`, and
 `--primary-foreground`. Pass `prefix: "color"` to emit names such as `--color-background`.
 
-## Layered Token Sets
+## Layered Schemes
 
 Use layers when a product needs ordered authored overlays. Sources are optional; a layer-only build does not need an
 empty sources array.
 
 ```ts
-import { buildTokenSet, defineTokenLayer } from "color-scheme-tokens";
+import { buildScheme, defineTokenLayer } from "scheme-tokens";
 
 const base = defineTokenLayer({
   id: "base",
@@ -174,7 +174,7 @@ const brand = defineTokenLayer({
   },
 });
 
-const built = buildTokenSet({
+const built = buildScheme({
   layers: [base, brand],
 });
 
@@ -187,10 +187,10 @@ Layers are ordered token overlays. Sources compose first, layers compose after s
 key. This is deterministic token composition, not CSS cascade behavior: there is no selector specificity, `!important`,
 CSS `@layer`, DOM mutation, or style injection.
 
-For layer-only light and dark builds, pass the graph mode envelope to `buildTokenSet()`:
+For layer-only light and dark builds, pass the graph mode envelope to `buildScheme()`:
 
 ```ts
-import { buildTokenSet, defineTokenLayer } from "color-scheme-tokens";
+import { buildScheme, defineTokenLayer } from "scheme-tokens";
 
 const base = defineTokenLayer({
   id: "base",
@@ -207,7 +207,7 @@ const base = defineTokenLayer({
   },
 });
 
-const built = buildTokenSet({
+const built = buildScheme({
   modes: ["light", "dark"],
   defaultMode: "light",
   layers: [base],
@@ -220,15 +220,15 @@ if (!built.ok) {
 
 ## Optional Material 3
 
-Material 3 output is provided by `@color-scheme-tokens/source-material3`, not by the root package.
+Material 3 output is provided by `@scheme-tokens/source-material3`, not by the root package.
 
 ```bash
-pnpm add color-scheme-tokens @color-scheme-tokens/source-material3
+pnpm add scheme-tokens @scheme-tokens/source-material3
 ```
 
 ```ts
-import { buildTokenSet, defineTokenLayer, exportCssVariables } from "color-scheme-tokens";
-import { material3Source } from "@color-scheme-tokens/source-material3";
+import { buildScheme, defineTokenLayer, exportCssVariables } from "scheme-tokens";
+import { material3Source } from "@scheme-tokens/source-material3";
 
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
@@ -240,7 +240,7 @@ const application = defineTokenLayer<"light" | "dark">({
   },
 });
 
-const built = buildTokenSet({
+const built = buildScheme({
   sources: [
     material3Source({
       sourceColor: "#6750a4",
@@ -262,7 +262,7 @@ if (!css.ok) {
 console.log(css.value);
 ```
 
-`buildTokenSet()` is the runner that composes sources and layers, validates the composed graph material, and produces
+`buildScheme()` is the runner that composes sources and layers, validates the composed graph material, and produces
 `built.value.compiled`. At least one source or layer is required. Source-only, layer-only, and source-plus-layer builds
 are all valid. The Material adapter supplies a real Material source; the root package stays engine-free.
 
@@ -272,13 +272,13 @@ are all valid. The Material adapter supplies a real Material source; the root pa
 The adapter emits strict `light` and `dark` graph tokens with adapter-owned keys such as `material3.primary`,
 `material3.on-primary`, and `material3.primary-container`.
 
-See [`@color-scheme-tokens/source-material3`](./packages/source-material3/README.md) for adapter-specific options and
+See [`@scheme-tokens/source-material3`](./packages/source-material3/README.md) for adapter-specific options and
 composition examples.
 
-## Serialize the Compiled Set
+## Serialize the Compiled Scheme
 
 ```ts
-import { compileTokenGraph, defineTokenGraph, serializeTokenSet } from "color-scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, serializeScheme } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   tokens: {
@@ -292,11 +292,11 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const json = serializeTokenSet(compiled.value);
+const json = serializeScheme(compiled.value);
 console.log(json);
 ```
 
-`serializeTokenSet()` serializes the compiled output, not the authoring input. The output is deterministic and includes
+`serializeScheme()` serializes the compiled output, not the authoring input. The output is deterministic and includes
 resolved colors, modes, token visibility, origin metadata, and direct dependency metadata.
 
 ## Helper Input and Strict Input
@@ -314,7 +314,7 @@ The helper fills safe defaults and returns strict graph input. `parseTokenGraph(
 and stays explicit.
 
 ```ts
-import { parseTokenGraph } from "color-scheme-tokens";
+import { parseTokenGraph } from "scheme-tokens";
 
 const strictGraph = {
   formatVersion: 1,
@@ -336,10 +336,10 @@ if (!parsed.ok) {
 Strict graph input spells out `formatVersion`, `modes`, `defaultMode`, `defaultVisibility`, and token definitions with
 `value` or `valueByMode`. It does not accept helper-only shorthand.
 
-The published JSON Schemas describe this strict graph shape, strict layer input, and serialized compiled token sets.
+The published JSON Schemas describe this strict graph shape, strict layer input, and serialized compiled schemes.
 They do not describe `defineTokenGraph()` or `defineTokenLayer()` helper input.
 
-Compiled token sets are a third shape. They are produced by `compileTokenGraph()` or `buildTokenSet()` and contain
+Compiled schemes are a third shape. They are produced by `compileTokenGraph()` or `buildScheme()` and contain
 resolved color values plus dependency and origin metadata for the selected tokens.
 
 ## More Docs

@@ -1,22 +1,22 @@
 import type { ColorValue } from "../core/color";
-import type { CompiledTokenSet } from "../core/compiled-types";
+import type { CompiledScheme } from "../core/compiled-types";
 import type { JsonValue } from "../core/json";
 import { compareCodeUnits, defineRecordValue, normalizeNumber } from "../core/json";
 
-export function serializeTokenSet(tokenSet: CompiledTokenSet): string {
-  return `${JSON.stringify(canonicalTokenSet(tokenSet), null, 2)}\n`;
+export function serializeScheme(scheme: CompiledScheme): string {
+  return `${JSON.stringify(canonicalScheme(scheme), null, 2)}\n`;
 }
 
-function canonicalTokenSet(tokenSet: CompiledTokenSet): unknown {
+function canonicalScheme(scheme: CompiledScheme): unknown {
   const tokens: Record<string, unknown> = {};
-  for (const key of Object.keys(tokenSet.tokens).sort(compareCodeUnits)) {
-    const token = tokenSet.tokens[key];
+  for (const key of Object.keys(scheme.tokens).sort(compareCodeUnits)) {
+    const token = scheme.tokens[key];
     if (token === undefined) {
       continue;
     }
     const valueByMode: Record<string, unknown> = {};
     const dependenciesByMode: Record<string, readonly string[]> = {};
-    for (const mode of tokenSet.modes) {
+    for (const mode of scheme.modes) {
       defineRecordValue(valueByMode, mode, canonicalColor(token.valueByMode[mode] as ColorValue));
       defineRecordValue(
         dependenciesByMode,
@@ -44,13 +44,13 @@ function canonicalTokenSet(tokenSet: CompiledTokenSet): unknown {
 
   const output: Record<string, unknown> = {};
   defineRecordValue(output, "formatVersion", 1);
-  defineRecordValue(output, "modes", [...tokenSet.modes]);
-  defineRecordValue(output, "defaultMode", tokenSet.defaultMode);
+  defineRecordValue(output, "modes", [...scheme.modes]);
+  defineRecordValue(output, "defaultMode", scheme.defaultMode);
   defineRecordValue(output, "tokens", tokens);
   return output;
 }
 
-function canonicalOrigin(origin: CompiledTokenSet["tokens"][string]["origin"]): unknown {
+function canonicalOrigin(origin: CompiledScheme["tokens"][string]["origin"]): unknown {
   const output: Record<string, unknown> = {};
   defineRecordValue(output, "kind", origin.kind);
   if (origin.kind === "layer" || origin.kind === "source") {

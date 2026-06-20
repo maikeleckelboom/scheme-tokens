@@ -12,13 +12,13 @@ optional capability engines.
 
 ## Decision
 
-`color-scheme-tokens` is the dependency-light core package. It exposes the root API and JSON Schema subpaths only.
+`scheme-tokens` is the dependency-light core package. It exposes the root API and JSON Schema subpaths only.
 
 Material 3 support, Texel-backed conversion, image extraction, browser canvas behavior, rich CSS parsing, and other
 engine-backed behavior must live in separate adapter packages. Intended future package names include:
 
-- `@color-scheme-tokens/source-material3`;
-- `@color-scheme-tokens/conversion-texel`.
+- `@scheme-tokens/source-material3`;
+- `@scheme-tokens/conversion-texel`.
 
 The core package may expose adapter interfaces such as `TokenSource`, but it must not import adapter engines or fake their
 behavior.

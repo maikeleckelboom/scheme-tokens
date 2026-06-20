@@ -25,7 +25,7 @@ assertEqual(
   [
     ".",
     "./package.json",
-    "./schemas/compiled-token-set.v1.schema.json",
+    "./schemas/compiled-scheme.v1.schema.json",
     "./schemas/token-graph.v1.schema.json",
     "./schemas/token-layer.v1.schema.json",
   ],
@@ -34,6 +34,24 @@ assertEqual(
 
 if ("dependencies" in packageJson && Object.keys(packageJson.dependencies).length > 0) {
   throw new Error("The core package must not declare runtime dependencies");
+}
+
+const removedRootPackageName = `color-${"scheme"}-tokens`;
+const removedAdapterScope = `@color-${"scheme"}-tokens`;
+const removedPublicNames = [
+  `build${"Token"}${"Set"}`,
+  `serialize${"Token"}${"Set"}`,
+  `Compiled${"Token"}${"Set"}`,
+  `Build${"Token"}${"Set"}Options`,
+  `Build${"Token"}${"Set"}Value`,
+  `Build${"Token"}${"Set"}Issue`,
+] as const;
+
+if (JSON.stringify(packageJson).includes(removedRootPackageName)) {
+  throw new Error("The core package manifest exposes the removed package name");
+}
+if (JSON.stringify(packageJson).includes(removedAdapterScope)) {
+  throw new Error("The core package manifest exposes the removed adapter scope");
 }
 
 assertEqual(
@@ -49,7 +67,7 @@ const manifests: readonly ApiManifest[] = [
     modulePath: "dist/index.js",
     dtsPath: "dist/index.d.ts",
     runtime: [
-      "buildTokenSet",
+      "buildScheme",
       "compileTokenGraph",
       "defineTokenGraph",
       "defineTokenLayer",
@@ -58,7 +76,7 @@ const manifests: readonly ApiManifest[] = [
       "formatCssColor",
       "parseColor",
       "parseTokenGraph",
-      "serializeTokenSet",
+      "serializeScheme",
     ],
     types: [
       "JsonPrimitive",
@@ -94,11 +112,11 @@ const manifests: readonly ApiManifest[] = [
       "CompileTokenGraphOptions",
       "CompileTokenGraphIssue",
       "CompiledToken",
-      "CompiledTokenSet",
+      "CompiledScheme",
       "TokenSource",
-      "BuildTokenSetOptions",
-      "BuildTokenSetValue",
-      "BuildTokenSetIssue",
+      "BuildSchemeOptions",
+      "BuildSchemeValue",
+      "BuildSchemeIssue",
       "CssVariableBlock",
       "CssScope",
       "CssModeSelectors",
@@ -115,6 +133,11 @@ for (const manifest of manifests) {
   >;
   const runtime = Object.keys(module).sort();
   assertEqual(runtime, manifest.runtime, `${manifest.name} runtime exports`);
+  for (const removedName of removedPublicNames) {
+    if (runtime.includes(removedName)) {
+      throw new Error(`${manifest.name} runtime exposes removed public name: ${removedName}`);
+    }
+  }
 
   const dts = readFileSync(join(root, manifest.dtsPath), "utf8");
   for (const typeName of manifest.types) {
@@ -122,10 +145,15 @@ for (const manifest of manifests) {
       throw new Error(`${manifest.name} declaration is missing ${typeName}`);
     }
   }
+  for (const removedName of removedPublicNames) {
+    if (new RegExp(`\\b${removedName}\\b`).test(dts)) {
+      throw new Error(`${manifest.name} declaration exposes removed public name: ${removedName}`);
+    }
+  }
   if (
     dts.includes("@texel/color") ||
     dts.includes("@material/material-color-utilities") ||
-    dts.includes("@color-scheme-tokens/source-material3") ||
+    dts.includes("@scheme-tokens/source-material3") ||
     dts.includes("material3Source") ||
     dts.includes("Material3") ||
     dts.includes("css-tree")
@@ -141,7 +169,7 @@ const rootBundle = readFileSync(join(root, "dist/index.js"), "utf8");
 if (
   rootBundle.includes("@texel/color") ||
   rootBundle.includes("@material/material-color-utilities") ||
-  rootBundle.includes("@color-scheme-tokens/source-material3") ||
+  rootBundle.includes("@scheme-tokens/source-material3") ||
   rootBundle.includes("material3Source") ||
   rootBundle.includes("Material3") ||
   rootBundle.includes("css-tree")

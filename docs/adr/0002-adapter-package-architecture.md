@@ -6,8 +6,8 @@ Accepted. Implemented by the first source adapter package in Slice 4.
 
 ## Context
 
-ADR 0001 keeps `color-scheme-tokens` as the dependency-light core package. Slice 2 made the JSON Schemas strict core
-artifacts for persisted graph input, layer input, and compiled token-set output.
+ADR 0001 keeps `scheme-tokens` as the dependency-light core package. Slice 2 made the JSON Schemas strict core
+artifacts for persisted graph input, layer input, and compiled scheme output.
 
 Future optional capabilities need real engines without moving those engines into core. The first likely capabilities are
 Material 3 source generation and Texel-backed conversion, but this decision must hold for future source and conversion
@@ -15,15 +15,15 @@ adapters too.
 
 ## Decision
 
-Adapters are separate npm packages. The root package remains named `color-scheme-tokens` and remains the core package.
-There is no `color-scheme-tokens/sources/*`, `color-scheme-tokens/conversion/*`, or ambient adapter registry.
+Adapters are separate npm packages. The root package remains named `scheme-tokens` and remains the core package.
+There is no `scheme-tokens/sources/*`, `scheme-tokens/conversion/*`, or ambient adapter registry.
 
 The repository keeps the core package at the repository root and adapter packages under `packages/`:
 
 ```text
-package.json                            # color-scheme-tokens
-packages/source-material3/package.json  # @color-scheme-tokens/source-material3
-packages/conversion-texel/package.json  # @color-scheme-tokens/conversion-texel
+package.json                            # scheme-tokens
+packages/source-material3/package.json  # @scheme-tokens/source-material3
+packages/conversion-texel/package.json  # @scheme-tokens/conversion-texel
 packages/source-*/package.json          # future source adapters
 packages/conversion-*/package.json      # future conversion adapters
 ```
@@ -34,19 +34,19 @@ Do not move core to `packages/core` unless a separate decision proves that churn
 
 Use role-first package names:
 
-- `@color-scheme-tokens/source-material3`;
-- `@color-scheme-tokens/conversion-texel`;
-- `@color-scheme-tokens/source-*` for future source adapters;
-- `@color-scheme-tokens/conversion-*` for future conversion adapters.
+- `@scheme-tokens/source-material3`;
+- `@scheme-tokens/conversion-texel`;
+- `@scheme-tokens/source-*` for future source adapters;
+- `@scheme-tokens/conversion-*` for future conversion adapters.
 
 ## Dependency Ownership
 
 The root package must not depend on optional engines. Material 3 dependencies belong to
-`@color-scheme-tokens/source-material3`. Texel dependencies belong to `@color-scheme-tokens/conversion-texel`.
+`@scheme-tokens/source-material3`. Texel dependencies belong to `@scheme-tokens/conversion-texel`.
 
-Adapters depend on `color-scheme-tokens` as a peer dependency and dev dependency, not as a normal runtime dependency.
+Adapters depend on `scheme-tokens` as a peer dependency and dev dependency, not as a normal runtime dependency.
 The peer dependency keeps one core contract in the consuming app; the dev dependency lets the adapter build and test
-locally. Adapter code may import root types and runtime helpers from `color-scheme-tokens`, but core must never import an
+locally. Adapter code may import root types and runtime helpers from `scheme-tokens`, but core must never import an
 adapter package.
 
 Engine packages are owned by the adapter that uses them. They should be normal adapter dependencies when the adapter
@@ -54,8 +54,8 @@ needs a reproducible implementation at runtime.
 
 ## Source Adapter Shape
 
-A source adapter creates a `TokenSource` for `buildTokenSet({ sources })`. Applications can compose authored token
-layers after source output with `buildTokenSet({ sources, layers })`. The minimum package root surface is:
+A source adapter creates a `TokenSource` for `buildScheme({ sources })`. Applications can compose authored token
+layers after source output with `buildScheme({ sources, layers })`. The minimum package root surface is:
 
 - a factory named after the capability, for example `material3Source(input)`;
 - JSON-safe public input types, for example `Material3SourceInput`;
@@ -79,7 +79,7 @@ surface is:
 - adapter issue types returned through `Result`.
 
 Conversion output may be a package-specific JSON-safe value, strict `TokenGraphInput`, strict `TokenLayerInput`, or a
-core compiled token-set artifact, depending on the package role. If conversion output is a core artifact, consumers pass
+core compiled scheme artifact, depending on the package role. If conversion output is a core artifact, consumers pass
 that artifact back to core parse, compile, serialize, or export functions explicitly.
 
 ## Issue Codes
@@ -103,7 +103,7 @@ the matching core schema and parser behavior.
 
 Before any adapter release, prove:
 
-- importing `color-scheme-tokens` remains engine-free;
+- importing `scheme-tokens` remains engine-free;
 - importing the adapter may load its engine dependencies, but never through the root package;
 - a packed consumer can install and use core plus the adapter;
 - adapter issue types and runtime issues stay JSON-safe and package-owned;
