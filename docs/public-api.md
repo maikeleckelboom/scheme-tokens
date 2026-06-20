@@ -36,6 +36,10 @@ For manual colors:
 2. Use `compileTokenGraph()` to validate and resolve the selected tokens.
 3. Use `exportCssVars()` for CSS and structured declarations, or `serializeScheme()` for deterministic compiled JSON.
 
+Prefer build-time, SSR, or server-side generation for static schemes. Use `createSchemeBuilder()` for interactive
+previews, theme editors, and color controls where `sourceColors` changes repeatedly; `scheme-tokens` is not a global
+mutable runtime theme engine.
+
 `compileTokenGraph()` defaults to `selection: "public"`. The CSS exporter emits variables for the compiled scheme it
 receives; it does not apply visibility filtering itself.
 

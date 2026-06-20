@@ -18,7 +18,9 @@ import {
   material3Platforms,
   material3SpecVersions,
   material3Variants,
+  type Material3GenerationOptions,
   type Material3Input,
+  type Material3IntegrationOptions,
   type Material3Issue,
 } from "../src";
 
@@ -156,6 +158,247 @@ describe("material3", () => {
     expect(Object.keys(runtimeGraph.tokens)).not.toContain("material3.extended.success.color");
     expect(Object.keys(runtimeGraph.tokens)).toContain("material3.extended.warning.color");
     expect(runtimeInput.extendedColors[0]?.name).toBe("warning");
+  });
+
+  test("treats undefined optional Material generation fields as omitted", () => {
+    const defaultGraph = unwrap(material3("#6750a4").build());
+    const preset = material3Preset({ variant: "expressive", specVersion: "2026" });
+    const presetGraph = unwrap(
+      preset("#6750a4", { variant: undefined } as unknown as Material3GenerationOptions).build(),
+    );
+    const expressiveGraph = unwrap(
+      material3("#6750a4", { variant: "expressive", specVersion: "2026" }).build(),
+    );
+    const shorthandGraph = unwrap(
+      material3("#6750a4", {
+        variant: undefined,
+      } as unknown as Material3GenerationOptions).build(),
+    );
+    const objectGraph = unwrap(
+      material3({
+        sourceColors: "#6750a4",
+        variant: undefined,
+      } as unknown as Material3Input).build(),
+    );
+
+    expect(extractGraphTokenValues(presetGraph)).toEqual(extractGraphTokenValues(expressiveGraph));
+    expect(extractGraphTokenValues(shorthandGraph)).toEqual(extractGraphTokenValues(defaultGraph));
+    expect(extractGraphTokenValues(objectGraph)).toEqual(extractGraphTokenValues(defaultGraph));
+  });
+
+  test("keeps preset array defaults only when runtime arrays are undefined", () => {
+    const preset = material3Preset({
+      extendedColors: [{ name: "success", color: "#2e7d32", harmonize: true }],
+    });
+    const preservedGraph = unwrap(
+      preset({
+        sourceColors: "#6750a4",
+        extendedColors: undefined,
+      } as unknown as Material3Input).build(),
+    );
+    const replacedGraph = unwrap(
+      preset({
+        sourceColors: "#6750a4",
+        extendedColors: [{ name: "warning", color: "#f9a825", harmonize: true }],
+      }).build(),
+    );
+
+    expect(Object.keys(preservedGraph.tokens)).toContain("material3.extended.success.color");
+    expect(Object.keys(replacedGraph.tokens)).not.toContain("material3.extended.success.color");
+    expect(Object.keys(replacedGraph.tokens)).toContain("material3.extended.warning.color");
+  });
+
+  test("omits undefined optional nested Material fields", () => {
+    const palettesGraph = unwrap(
+      material3({
+        sourceColors: "#6750a4",
+        palettes: { primary: undefined, secondary: "#006a60" },
+      } as unknown as Material3Input).build(),
+    );
+    const explicitPalettesGraph = unwrap(
+      material3({
+        sourceColors: "#6750a4",
+        palettes: { secondary: "#006a60" },
+      }).build(),
+    );
+    const extendedGraph = unwrap(
+      material3({
+        sourceColors: "#6750a4",
+        extendedColors: [
+          {
+            name: "success",
+            color: "#2e7d32",
+            harmonize: undefined,
+            description: undefined,
+          },
+        ],
+      } as unknown as Material3Input).build(),
+    );
+
+    expect(extractGraphTokenValues(palettesGraph)).toEqual(
+      extractGraphTokenValues(explicitPalettesGraph),
+    );
+    expect(Object.keys(extendedGraph.tokens)).toContain("material3.extended.success.color");
+    expect(extendedGraph.tokens["material3.extended.success.color"]?.description).toBeUndefined();
+  });
+
+  test("treats undefined optional integration options as omitted", () => {
+    const source = material3("#6750a4", {}, {
+      id: undefined,
+      defaultVisibility: undefined,
+    } as unknown as Material3IntegrationOptions);
+    const graph = unwrap(source.build());
+
+    expect(source.id).toBe("material3");
+    expect(graph.defaultVisibility).toBe("public");
+  });
+
+  test("rejects null for optional Material and integration fields", () => {
+    expect.hasAssertions();
+
+    const cases: readonly [Result<unknown, Material3Issue>, readonly Material3Issue["code"][]][] = [
+      [
+        material3("#6750a4", { variant: null } as unknown as Material3GenerationOptions).build(),
+        ["material3-invalid-variant"],
+      ],
+      [
+        material3("#6750a4", {
+          contrastLevel: null,
+        } as unknown as Material3GenerationOptions).build(),
+        ["material3-invalid-contrast-level"],
+      ],
+      [
+        material3("#6750a4", {
+          specVersion: null,
+        } as unknown as Material3GenerationOptions).build(),
+        ["material3-invalid-spec-version"],
+      ],
+      [
+        material3("#6750a4", { platform: null } as unknown as Material3GenerationOptions).build(),
+        ["material3-invalid-platform"],
+      ],
+      [
+        material3("#6750a4", { palettes: null } as unknown as Material3GenerationOptions).build(),
+        ["material3-invalid-palettes"],
+      ],
+      [
+        material3({
+          sourceColors: "#6750a4",
+          palettes: { primary: null },
+        } as unknown as Material3Input).build(),
+        ["material3-unsupported-color-input"],
+      ],
+      [
+        material3("#6750a4", {
+          extendedColors: null,
+        } as unknown as Material3GenerationOptions).build(),
+        ["material3-invalid-extended-colors"],
+      ],
+      [
+        material3({
+          sourceColors: "#6750a4",
+          extendedColors: [{ name: "success", color: "#2e7d32", harmonize: null }],
+        } as unknown as Material3Input).build(),
+        ["material3-invalid-extended-color-harmonize"],
+      ],
+      [
+        material3({
+          sourceColors: "#6750a4",
+          extendedColors: [{ name: "success", color: "#2e7d32", description: null }],
+        } as unknown as Material3Input).build(),
+        ["material3-invalid-extended-color-description"],
+      ],
+      [
+        material3("#6750a4", {
+          paletteTones: null,
+        } as unknown as Material3GenerationOptions).build(),
+        ["material3-invalid-palette-tones"],
+      ],
+      [
+        material3("#6750a4", {}, { id: null } as unknown as Material3IntegrationOptions).build(),
+        ["material3-invalid-id"],
+      ],
+      [
+        material3("#6750a4", {}, {
+          defaultVisibility: null,
+        } as unknown as Material3IntegrationOptions).build(),
+        ["material3-invalid-default-visibility"],
+      ],
+    ];
+
+    for (const [result, expectedCodes] of cases) {
+      expectIssueCodes(result, expectedCodes);
+    }
+  });
+
+  test("keeps required fields and undefined unknown fields invalid", () => {
+    expect.hasAssertions();
+
+    expectIssueCodes(material3({ sourceColors: undefined } as unknown as Material3Input).build(), [
+      "material3-invalid-source-colors",
+    ]);
+    expectIssueCodes(
+      material3({
+        sourceColors: "#6750a4",
+        extendedColors: [{ name: undefined, color: "#2e7d32" }],
+      } as unknown as Material3Input).build(),
+      ["material3-invalid-extended-color-name"],
+    );
+    expectIssueCodes(
+      material3({
+        sourceColors: "#6750a4",
+        extendedColors: [{ name: "success", color: undefined }],
+      } as unknown as Material3Input).build(),
+      ["material3-unsupported-color-input"],
+    );
+
+    const staleTopLevelFields = [
+      "sourceColor",
+      "color",
+      "seedColor",
+      "customColors",
+      "style",
+      "source",
+      "material3Source",
+    ] as const;
+    for (const field of staleTopLevelFields) {
+      const result = material3({
+        sourceColors: "#6750a4",
+        [field]: undefined,
+      } as unknown as Material3Input).build();
+      expectIssueCodes(result, ["material3-invalid-input"]);
+      expect(expectIssuePaths(result)).toContain(`/${jsonPointerSegment(field)}`);
+    }
+
+    const unknownResults = [
+      material3({
+        sourceColors: "#6750a4",
+        futureOption: undefined,
+      } as unknown as Material3Input).build(),
+      material3({
+        sourceColors: "#6750a4",
+        palettes: { futurePalette: undefined },
+      } as unknown as Material3Input).build(),
+      material3({
+        sourceColors: "#6750a4",
+        extendedColors: [{ name: "success", color: "#2e7d32", futureField: undefined }],
+      } as unknown as Material3Input).build(),
+      material3("#6750a4", {}, {
+        futureOption: undefined,
+      } as unknown as Material3IntegrationOptions).build(),
+    ];
+
+    for (const result of unknownResults) {
+      expectIssueCodes(result, ["material3-invalid-input"]);
+    }
+
+    expectIssueCodes(
+      material3({
+        sourceColors: "#6750a4",
+        extendedColors: [{ name: "success", value: undefined, blend: undefined }],
+      } as unknown as Material3Input).build(),
+      ["material3-unsupported-extended-color-input", "material3-invalid-input"],
+    );
   });
 
   test("material3Preset keeps sourceColors validation runtime-owned", () => {

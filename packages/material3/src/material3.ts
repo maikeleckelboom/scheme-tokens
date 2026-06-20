@@ -213,6 +213,16 @@ const material3InputKeys = new Set([
   "paletteTones",
 ]);
 
+const material3OptionalGenerationOptionKeys = new Set([
+  "variant",
+  "contrastLevel",
+  "specVersion",
+  "platform",
+  "palettes",
+  "extendedColors",
+  "paletteTones",
+]);
+
 const material3IntegrationOptionKeys = new Set(["id", "defaultVisibility"]);
 
 const paletteKeys = new Set<Material3PaletteName>([
@@ -340,20 +350,47 @@ function mergeMaterial3GenerationOptions(
   if (runtimeOptions === undefined) {
     return copyMaterial3InputValue(defaults) as Material3GenerationOptions;
   }
-  return {
-    ...(copyMaterial3InputValue(defaults) as Material3GenerationOptions),
-    ...(copyMaterial3InputValue(runtimeOptions) as Material3GenerationOptions),
-  };
+  return mergeDefinedMaterial3RuntimeOptions(
+    defaults,
+    runtimeOptions,
+  ) as Material3GenerationOptions;
 }
 
 function mergeMaterial3Input(
   defaults: Material3GenerationOptions,
   input: Material3Input,
 ): Material3Input {
-  return {
+  return mergeDefinedMaterial3RuntimeOptions(defaults, input) as Material3Input;
+}
+
+function mergeDefinedMaterial3RuntimeOptions(
+  defaults: Material3GenerationOptions,
+  runtimeInput: Material3GenerationOptions | Material3Input,
+): Material3GenerationOptions | Material3Input {
+  const merged: Record<string, unknown> = {
     ...(copyMaterial3InputValue(defaults) as Material3GenerationOptions),
-    ...(copyMaterial3InputValue(input) as Material3Input),
   };
+  const copiedRuntimeInput = copyMaterial3InputValue(runtimeInput);
+  const runtimeEntries = readPlainRecord(copiedRuntimeInput);
+  if (!runtimeEntries.ok) {
+    return {
+      ...merged,
+      ...(copiedRuntimeInput as Material3GenerationOptions | Material3Input),
+    };
+  }
+
+  for (const entry of runtimeEntries.value) {
+    if (material3OptionalGenerationOptionKeys.has(entry.key) && entry.value === undefined) {
+      continue;
+    }
+    Object.defineProperty(merged, entry.key, {
+      value: entry.value,
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+  }
+  return merged;
 }
 
 function copyMaterial3InputValue(input: unknown): unknown {
@@ -455,27 +492,39 @@ function parseMaterial3Input(input: unknown): ParsedMaterial3Input {
     record.has("sourceColors"),
     issues,
   );
-  const variant = parseVariant(record.get("variant"), record.has("variant"), issues);
+  const variant = parseVariant(
+    record.get("variant"),
+    hasDefinedRecordValue(record, "variant"),
+    issues,
+  );
   const contrastLevel = parseContrastLevel(
     record.get("contrastLevel"),
-    record.has("contrastLevel"),
+    hasDefinedRecordValue(record, "contrastLevel"),
     issues,
   );
   const specVersion = parseSpecVersion(
     record.get("specVersion"),
-    record.has("specVersion"),
+    hasDefinedRecordValue(record, "specVersion"),
     issues,
   );
-  const platform = parsePlatform(record.get("platform"), record.has("platform"), issues);
-  const palettes = parsePalettes(record.get("palettes"), record.has("palettes"), issues);
+  const platform = parsePlatform(
+    record.get("platform"),
+    hasDefinedRecordValue(record, "platform"),
+    issues,
+  );
+  const palettes = parsePalettes(
+    record.get("palettes"),
+    hasDefinedRecordValue(record, "palettes"),
+    issues,
+  );
   const extendedColors = parseExtendedColors(
     record.get("extendedColors"),
-    record.has("extendedColors"),
+    hasDefinedRecordValue(record, "extendedColors"),
     issues,
   );
   const paletteTones = parsePaletteTones(
     record.get("paletteTones"),
-    record.has("paletteTones"),
+    hasDefinedRecordValue(record, "paletteTones"),
     issues,
   );
 
@@ -532,10 +581,10 @@ function parseMaterial3IntegrationOptions(options: unknown): ParsedMaterial3Inte
 
   const record = new Map(entries.value.map((entry) => [entry.key, entry.value]));
   const issues: Material3Issue[] = [];
-  const sourceId = parseSourceId(record.get("id"), record.has("id"), issues);
+  const sourceId = parseSourceId(record.get("id"), hasDefinedRecordValue(record, "id"), issues);
   const visibility = parseDefaultVisibility(
     record.get("defaultVisibility"),
-    record.has("defaultVisibility"),
+    hasDefinedRecordValue(record, "defaultVisibility"),
     issues,
   );
 
@@ -769,6 +818,9 @@ function parsePalettes(
       continue;
     }
     const paletteName = entry.key as Material3PaletteName;
+    if (entry.value === undefined) {
+      continue;
+    }
     const color = parseHexColor(
       entry.value,
       `/palettes/${jsonPointerSegment(entry.key)}`,
@@ -858,13 +910,13 @@ function parseExtendedColor(
   const color = parseExtendedColorValue(record.get("color"), record.has("color"), path, issues);
   const harmonize = parseExtendedColorHarmonize(
     record.get("harmonize"),
-    record.has("harmonize"),
+    hasDefinedRecordValue(record, "harmonize"),
     path,
     issues,
   );
   const description = parseExtendedColorDescription(
     record.get("description"),
-    record.has("description"),
+    hasDefinedRecordValue(record, "description"),
     path,
     issues,
   );
@@ -1089,6 +1141,10 @@ function parseHexColor(
 
 function jsonPointerSegment(segment: string): string {
   return segment.replaceAll("~", "~0").replaceAll("/", "~1");
+}
+
+function hasDefinedRecordValue(record: ReadonlyMap<string, unknown>, key: string): boolean {
+  return record.has(key) && record.get(key) !== undefined;
 }
 
 function describeCaughtCause(cause: unknown): { readonly causeMessage?: string } {

@@ -368,6 +368,10 @@ options without a base. Its `build()` method accepts a base shorthand such as `m
 object such as `{ base: material3("#6750a4") }`. Material-specific fields stay inside `material3()` calls. The Material
 adapter supplies a real Material 3 base scheme input; the root package stays engine-free.
 
+Prefer build-time, SSR, or server-side generation for static schemes. Use `createSchemeBuilder()` for interactive
+previews, theme editors, and color controls where `sourceColors` changes repeatedly; `scheme-tokens` is not a global
+mutable runtime theme engine.
+
 `sourceColors` is the canonical Material source-color field. `material3("#6750a4")` is shorthand for
 `material3({ sourceColors: "#6750a4" })`. The canonical field accepts a single `#rrggbb` string for the ordinary
 one-brand-color case or an array for official multi-source paths such as CMF; empty arrays fail at runtime validation.
