@@ -48,7 +48,7 @@ describe("material3Source", () => {
   });
 
   test("builds a public scheme through core buildScheme", () => {
-    const built = unwrap(buildScheme({ sources: [material3Source({ sourceColor: "#6750a4" })] }));
+    const built = unwrap(buildScheme(material3Source({ sourceColor: "#6750a4" })));
 
     expect(built.graph.tokens["material3.primary"]?.origin).toEqual({
       kind: "source",

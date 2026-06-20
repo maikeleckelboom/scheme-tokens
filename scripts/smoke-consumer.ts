@@ -41,15 +41,13 @@ writeJson(join(consumerDirectory, "tsconfig.json"), {
 writeFileSync(
   join(consumerDirectory, "root.mjs"),
   `
-import { buildScheme, compileTokenGraph, defineTokenGraph, defineTokenLayer, exportCssVariableBlocks, exportCssVariables } from ${JSON.stringify(manifest.name)};
+import { buildScheme, compileTokenGraph, defineTokenGraph, defineTokenLayer, defineTokens, exportCssVariableBlocks, exportCssVariables } from ${JSON.stringify(manifest.name)};
 
-const graph = defineTokenGraph({
-  tokens: {
-    background: "#ffffff",
-    foreground: "#111111",
-    primary: "#6750a4",
-    "primary-foreground": "#ffffff",
-  },
+const graph = defineTokens({
+  background: "#ffffff",
+  foreground: "#111111",
+  primary: "#6750a4",
+  "primary-foreground": "#ffffff",
 });
 const compiled = compileTokenGraph(graph);
 if (!compiled.ok) throw new Error(JSON.stringify(compiled.issues));
@@ -145,7 +143,9 @@ import {
   compileTokenGraph,
   defineTokenLayer,
   defineTokenGraph,
+  defineTokens,
   exportCssVariableBlocks,
+  type BuildSchemeSourceOptions,
   type CssVariableBlock,
   type ColorValue,
   type CompiledScheme,
@@ -158,6 +158,10 @@ import {
 
 const graph: TokenGraphInput<"base"> = defineTokenGraph({
   tokens: { "app.background": "#ffffff", "app.foreground": "app.background" },
+});
+const tokenGraph: TokenGraphInput<"base"> = defineTokens({
+  "app.background": "#ffffff",
+  "app.foreground": "app.background",
 });
 const layer: TokenLayerInput = defineTokenLayer({
   id: "brand",
@@ -179,6 +183,7 @@ const source = {
   },
 };
 const built = buildScheme({ sources: [source] });
+const shorthandBuilt = buildScheme(source, { selection: "all" } satisfies BuildSchemeSourceOptions);
 const layerBuilt = buildScheme({ layers: [layer] });
 const lightDarkLayer = defineTokenLayer<"light" | "dark">({
   id: "application",
@@ -195,7 +200,9 @@ legacyCssOptions.prefix?.toUpperCase();
 cssBlock?.declarations["--background"]?.toUpperCase();
 color.colorSpace.toUpperCase();
 if (compiled.ok) compiled.value.defaultMode.toUpperCase();
+tokenGraph.defaultMode.toUpperCase();
 if (built.ok) built.value.compiled.defaultMode.toUpperCase();
+if (shorthandBuilt.ok) shorthandBuilt.value.compiled.defaultMode.toUpperCase();
 if (layerBuilt.ok) layerBuilt.value.compiled.defaultMode.toUpperCase();
 if (lightDarkBuilt.ok) lightDarkBuilt.value.compiled.defaultMode.toUpperCase();
 `,

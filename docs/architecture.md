@@ -30,9 +30,10 @@ helper input or strict graph input
   -> serialize compiled JSON or export CSS
 ```
 
-`defineTokenGraph()` and `defineTokenLayer()` are authoring helpers for ordinary package use. They may fill safe
-defaults and normalize JSON-safe shorthand. `parseTokenGraph()` remains the strict boundary for persisted wire-format
-data.
+`defineTokens()`, `defineTokenGraph()`, and `defineTokenLayer()` are authoring helpers for ordinary package use. They may
+fill safe defaults and normalize JSON-safe shorthand. `defineTokens()` is the simple token-record graph helper;
+`defineTokenGraph()` remains the full graph-shaped helper. `parseTokenGraph()` remains the strict boundary for persisted
+wire-format data.
 
 Compiled schemes are output artifacts. They contain resolved colors, selected tokens, origin metadata, and direct
 dependencies. Exporters consume compiled schemes only.

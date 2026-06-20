@@ -188,6 +188,10 @@ export function defineTokenGraph<
   readonly layers?: readonly TokenLayerInput<NoInfer<Modes[number]>>[];
 }): TokenGraphInput<Modes[number]>;
 export function defineTokenGraph(input: TokenGraphAuthoringInput): TokenGraphInput {
+  return defineTokenGraphFromInput(input);
+}
+
+function defineTokenGraphFromInput(input: TokenGraphAuthoringInput): TokenGraphInput {
   const modes = "modes" in input && input.modes !== undefined ? input.modes : ["base"];
   assertHelperModesCanUseShorthand(modes, "defineTokenGraph");
   const defaultMode =
@@ -201,6 +205,45 @@ export function defineTokenGraph(input: TokenGraphAuthoringInput): TokenGraphInp
     tokens: normalizeTokenRecord(input.tokens, modes),
     ...(input.layers === undefined ? {} : { layers: input.layers }),
   };
+}
+
+export function defineTokens<
+  const Tokens extends Readonly<Record<string, TokenDefinitionAuthoringInput<"base">>>,
+>(
+  tokens: Tokens,
+  options?: {
+    readonly $schema?: string;
+    readonly formatVersion?: 1;
+    readonly modes?: never;
+    readonly defaultMode?: never;
+    readonly defaultVisibility?: TokenVisibility;
+    readonly layers?: readonly TokenLayerInput<"base">[];
+    readonly tokens?: never;
+  },
+): TokenGraphInput<"base">;
+export function defineTokens<
+  const Modes extends readonly [string, ...string[]],
+  const Tokens extends Readonly<
+    Record<string, TokenDefinitionAuthoringInput<NoInfer<Modes[number]>>>
+  >,
+>(
+  tokens: Tokens,
+  options: {
+    readonly $schema?: string;
+    readonly formatVersion?: 1;
+    readonly modes: Modes;
+    readonly defaultMode: Modes[number];
+    readonly defaultVisibility?: TokenVisibility;
+    readonly layers?: readonly TokenLayerInput<NoInfer<Modes[number]>>[];
+    readonly tokens?: never;
+  },
+): TokenGraphInput<Modes[number]>;
+export function defineTokens(
+  tokens: Readonly<Record<string, TokenDefinitionAuthoringInput>>,
+  options: Omit<TokenGraphAuthoringInput, "tokens"> & { readonly tokens?: never } = {},
+): TokenGraphInput {
+  assertDefineTokensOptions(options);
+  return defineTokenGraphFromInput({ ...options, tokens } as TokenGraphAuthoringInput);
 }
 
 export function defineTokenLayer<const Mode extends string = string>(
@@ -364,5 +407,18 @@ function assertHelperModesCanUseShorthand(modes: readonly string[], helperName: 
     throw new RangeError(
       `${helperName} mode names cannot use token-definition keys: ${reserved.join(", ")}.`,
     );
+  }
+}
+
+function assertDefineTokensOptions(options: unknown): void {
+  const entries = readPlainRecord(options, {
+    code: "invalid-token-definition",
+    message: "defineTokens options must be a plain object.",
+  });
+  if (!entries.ok) {
+    throw new TypeError("defineTokens options must be a plain object.");
+  }
+  if (entries.value.some((entry) => entry.key === "tokens")) {
+    throw new RangeError("defineTokens options cannot include tokens.");
   }
 }

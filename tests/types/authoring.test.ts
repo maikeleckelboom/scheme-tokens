@@ -2,7 +2,9 @@ import {
   buildScheme,
   defineTokenLayer,
   defineTokenGraph,
+  defineTokens,
   exportCssVariableBlocks,
+  type BuildSchemeSourceOptions,
   type CssVariableBlock,
   type ExportCssVariablesOptions,
   type Issue,
@@ -16,6 +18,12 @@ type RootModule = typeof import("../../src");
 type RemovedLayerHelperName = `defineToken${"Frag"}${"ment"}`;
 // @ts-expect-error old token layer helper is not exported.
 export type RemovedLayerHelper = RootModule[RemovedLayerHelperName];
+type RemovedBuildName = `build${"Token"}${"Set"}`;
+// @ts-expect-error old build helper is not exported.
+export type RemovedBuildHelper = RootModule[RemovedBuildName];
+type RemovedCompiledName = `Compiled${"Token"}${"Set"}`;
+// @ts-expect-error old compiled type is not exported.
+export type RemovedCompiledType = RootModule[RemovedCompiledName];
 
 const simpleGraph = defineTokenGraph({
   tokens: {
@@ -26,6 +34,36 @@ const simpleGraph = defineTokenGraph({
 
 const typedSimpleGraph = simpleGraph satisfies TokenGraphInput<"base">;
 typedSimpleGraph.defaultMode.toUpperCase();
+
+const simpleTokensGraph = defineTokens({
+  "app.background": "#ffffff",
+  "app.foreground": "app.background",
+});
+const typedSimpleTokensGraph = simpleTokensGraph satisfies TokenGraphInput<"base">;
+typedSimpleTokensGraph.defaultMode.toUpperCase();
+
+const multiModeTokensGraph = defineTokens(
+  {
+    "app.background": {
+      light: "#ffffff",
+      dark: "#141218",
+    },
+  },
+  {
+    modes: ["light", "dark"],
+    defaultMode: "light",
+  },
+);
+const typedMultiModeTokensGraph = multiModeTokensGraph satisfies TokenGraphInput<"light" | "dark">;
+typedMultiModeTokensGraph.defaultMode.toUpperCase();
+
+defineTokens(
+  { background: "#ffffff" },
+  {
+    // @ts-expect-error defineTokens options cannot include tokens.
+    tokens: {},
+  },
+);
 
 const source: TokenSource = {
   id: "brand",
@@ -41,8 +79,27 @@ if (built.ok) {
   built.value["scheme"].defaultMode.toUpperCase();
 }
 
+const sourceBuilt = buildScheme(source);
+if (sourceBuilt.ok) {
+  sourceBuilt.value.compiled.defaultMode.toUpperCase();
+}
+
+const sourceOptions: BuildSchemeSourceOptions = { selection: "all" };
+const sourceOptionsBuilt = buildScheme(source, sourceOptions);
+if (sourceOptionsBuilt.ok) {
+  sourceOptionsBuilt.value.compiled.defaultMode.toUpperCase();
+}
+
+const sourceArrayBuilt = buildScheme([source, source]);
+if (sourceArrayBuilt.ok) {
+  sourceArrayBuilt.value.compiled.defaultMode.toUpperCase();
+}
+
 // @ts-expect-error source is not a buildScheme option.
 buildScheme({ source });
+
+// @ts-expect-error source shorthand options cannot include sources.
+buildScheme(source, { sources: [source] });
 
 const emptyBuild = buildScheme({});
 if (!emptyBuild.ok) {
@@ -81,6 +138,28 @@ const layer = defineTokenLayer({
 });
 const typedLayer = layer satisfies TokenLayerInput;
 typedLayer.id.toUpperCase();
+
+const sourceAndLayerBuilt = buildScheme(source, { layers: [layer], selection: "all" });
+if (sourceAndLayerBuilt.ok) {
+  sourceAndLayerBuilt.value.compiled.defaultMode.toUpperCase();
+}
+
+const sourceArrayAndLayerBuilt = buildScheme([source, source], {
+  layers: [layer],
+  selection: "all",
+});
+if (sourceArrayAndLayerBuilt.ok) {
+  sourceArrayAndLayerBuilt.value.compiled.defaultMode.toUpperCase();
+}
+
+// @ts-expect-error layers are not positional buildScheme contributors.
+buildScheme(layer);
+
+// @ts-expect-error layer arrays are not positional buildScheme contributors.
+buildScheme([layer, layer]);
+
+// @ts-expect-error mixed positional source/layer arrays are not supported.
+buildScheme([source, layer]);
 
 const layerBuilt = buildScheme({ layers: [layer] });
 if (layerBuilt.ok) {

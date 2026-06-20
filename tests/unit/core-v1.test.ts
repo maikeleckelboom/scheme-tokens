@@ -4,6 +4,7 @@ import {
   compileTokenGraph,
   defineTokenLayer,
   defineTokenGraph,
+  defineTokens,
   exportCssVariableBlocks,
   exportCssVariables,
   formatCssColor,
@@ -140,6 +141,74 @@ describe("v1 graph and compiler", () => {
     const compiled = unwrap(compileTokenGraph(graph));
     expect(Object.keys(compiled.tokens)).toEqual(["app.background", "app.foreground"]);
     expect(compiled.tokens["app.foreground"]?.dependenciesByMode.base).toEqual(["app.background"]);
+  });
+
+  test("defines simple token records through defineTokens", () => {
+    const tokens = {
+      background: "#ffffff",
+      foreground: "background",
+    } as const;
+
+    expect(defineTokens(tokens)).toEqual(defineTokenGraph({ tokens }));
+
+    const compiled = unwrap(compileTokenGraph(defineTokens(tokens)));
+    expect(compiled.tokens.foreground?.dependenciesByMode.base).toEqual(["background"]);
+  });
+
+  test("defineTokens accepts graph helper options for mode-aware authoring", () => {
+    const graph = defineTokens(
+      {
+        background: {
+          light: "#ffffff",
+          dark: "#141218",
+        },
+        foreground: {
+          light: "#111111",
+          dark: "#f5eff7",
+        },
+      },
+      {
+        modes: ["light", "dark"],
+        defaultMode: "light",
+      },
+    );
+
+    expect(graph).toEqual(
+      defineTokenGraph({
+        modes: ["light", "dark"],
+        defaultMode: "light",
+        tokens: {
+          background: {
+            light: "#ffffff",
+            dark: "#141218",
+          },
+          foreground: {
+            light: "#111111",
+            dark: "#f5eff7",
+          },
+        },
+      }),
+    );
+    expect(unwrap(compileTokenGraph(graph)).defaultMode).toBe("light");
+  });
+
+  test("defineTokens rejects options that contain tokens", () => {
+    expect(() => defineTokens({ background: "#ffffff" }, { tokens: {} } as never)).toThrow(
+      "defineTokens options cannot include tokens.",
+    );
+  });
+
+  test("defineTokens malformed records fail through the strict graph validation path", () => {
+    expect(parseTokenGraph(defineTokens({ "bad key": "#ffffff" }))).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-token-key", path: "/tokens/bad key" }],
+    });
+  });
+
+  test("defineTokenGraph does not accept ambiguous flat token records", () => {
+    expect(() => defineTokenGraph({ background: "#ffffff" } as never)).toThrow(
+      "Cannot convert undefined or null to object",
+    );
   });
 
   test("defines layers with reference and metadata mode-key shorthands", () => {
@@ -866,6 +935,22 @@ describe("v1 sources", () => {
     expect(value.graph.tokens.primary?.origin).toEqual({ kind: "source", id: "brand" });
   });
 
+  test("buildScheme accepts a single source shorthand", () => {
+    const source = fixedSource(
+      "brand",
+      defineTokenGraph({
+        tokens: {
+          primary: "#6750a4",
+        },
+      }),
+    );
+
+    const value = unwrap(buildScheme(source));
+
+    expect(Object.keys(value.compiled.tokens)).toEqual(["primary"]);
+    expect(value.graph.tokens.primary?.origin).toEqual({ kind: "source", id: "brand" });
+  });
+
   test("buildScheme accepts one source through sources and composes caller layers", () => {
     let calls = 0;
     interface CompanyIssue extends Issue<"missing-company-primary"> {}
@@ -909,6 +994,32 @@ describe("v1 sources", () => {
       kind: "source",
       id: "company",
     });
+    expect(value.graph.tokens["app.action"]?.origin).toEqual({
+      kind: "layer",
+      id: "application",
+    });
+  });
+
+  test("buildScheme accepts a source shorthand with caller layers", () => {
+    const source = fixedSource(
+      "company",
+      defineTokenGraph({
+        defaultVisibility: "internal",
+        tokens: {
+          "company.primary": "#1455d9",
+        },
+      }),
+    );
+    const app = defineTokenLayer({
+      id: "application",
+      tokens: {
+        "app.action": "company.primary",
+      },
+    });
+
+    const value = unwrap(buildScheme(source, { layers: [app] }));
+
+    expect(Object.keys(value.compiled.tokens)).toEqual(["app.action"]);
     expect(value.graph.tokens["app.action"]?.origin).toEqual({
       kind: "layer",
       id: "application",
@@ -989,6 +1100,69 @@ describe("v1 sources", () => {
     expect(value.compiled.tokens["semantic.action"]?.dependenciesByMode.base).toEqual([
       "palette.primary",
     ]);
+  });
+
+  test("buildScheme accepts source array shorthand", () => {
+    const palette = fixedSource(
+      "palette",
+      defineTokenGraph({
+        defaultVisibility: "internal",
+        tokens: {
+          "palette.primary": "#1455d9",
+        },
+      }),
+    );
+    const semantic = fixedSource(
+      "semantic",
+      defineTokenGraph({
+        tokens: {
+          "semantic.action": "palette.primary",
+        },
+      }),
+    );
+
+    const value = unwrap(buildScheme([palette, semantic]));
+
+    expect(Object.keys(value.compiled.tokens)).toEqual(["semantic.action"]);
+    expect(value.graph.tokens["palette.primary"]?.origin).toEqual({
+      kind: "source",
+      id: "palette",
+    });
+  });
+
+  test("buildScheme accepts source array shorthand with caller layers", () => {
+    const palette = fixedSource(
+      "palette",
+      defineTokenGraph({
+        defaultVisibility: "internal",
+        tokens: {
+          "palette.primary": "#1455d9",
+        },
+      }),
+    );
+    const semantic = fixedSource(
+      "semantic",
+      defineTokenGraph({
+        defaultVisibility: "internal",
+        tokens: {
+          "semantic.action": "palette.primary",
+        },
+      }),
+    );
+    const app = defineTokenLayer({
+      id: "application",
+      tokens: {
+        "app.action": "semantic.action",
+      },
+    });
+
+    const value = unwrap(buildScheme([palette, semantic], { layers: [app] }));
+
+    expect(Object.keys(value.compiled.tokens)).toEqual(["app.action"]);
+    expect(value.graph.tokens["app.action"]?.origin).toEqual({
+      kind: "layer",
+      id: "application",
+    });
   });
 
   test("buildScheme validates every source graph strict envelope before composition", () => {
@@ -1339,6 +1513,15 @@ describe("v1 sources", () => {
         },
       ],
     });
+    expect(buildScheme([] as never)).toMatchObject({
+      ok: false,
+      issues: [
+        {
+          code: "invalid-build-options",
+          message: "buildScheme requires at least one source or layer.",
+        },
+      ],
+    });
     expect(buildScheme({ sources: [] } as never)).toMatchObject({
       ok: false,
       issues: [
@@ -1356,6 +1539,22 @@ describe("v1 sources", () => {
           message: "buildScheme requires at least one source or layer.",
         },
       ],
+    });
+    expect(buildScheme([defineTokenLayer({ id: "brand", tokens: {} })] as never)).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-build-options", path: "/sources/0" }],
+    });
+    expect(buildScheme(defineTokenLayer({ id: "brand", tokens: {} }) as never, {})).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-build-options", path: "/sources/0" }],
+    });
+    expect(
+      buildScheme(fixedSource("brand", defineTokenGraph({ tokens: {} })), {
+        sources: [fixedSource("other", defineTokenGraph({ tokens: {} }))],
+      } as never),
+    ).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-build-options", path: "/sources" }],
     });
     expect(
       buildScheme({

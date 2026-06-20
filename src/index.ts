@@ -1,4 +1,4 @@
-export { defineTokenGraph, defineTokenLayer } from "./core/graph";
+export { defineTokenGraph, defineTokenLayer, defineTokens } from "./core/graph";
 export { parseTokenGraph } from "./core/parse-token-graph";
 export { parseColor } from "./core/color";
 export { compileTokenGraph } from "./core/compile-token-graph";
@@ -47,6 +47,7 @@ export type {
 export type {
   BuildSchemeIssue,
   BuildSchemeOptions,
+  BuildSchemeSourceOptions,
   BuildSchemeValue,
   TokenSource,
 } from "./core/source";

@@ -11,8 +11,9 @@ a real engine-backed capability is ready.
 ## Source Adapters
 
 Source adapters generate `TokenGraphInput` from an engine or provider and may expose `TokenSource` helpers for
-`buildScheme({ sources })`. Applications may add authored layers with
-`buildScheme({ sources, layers })`; those layers compose after source output and may override source tokens.
+`buildScheme(source)` or `buildScheme({ sources })`. Applications may add authored layers with
+`buildScheme(source, { layers })` or `buildScheme({ sources, layers })`; those layers compose after source output and
+may override source tokens.
 
 ```ts
 interface TokenSource<I extends Issue = Issue> {

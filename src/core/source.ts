@@ -18,13 +18,22 @@ export interface TokenSource<I extends Issue = Issue> {
 }
 
 export interface BuildSchemeOptions<I extends Issue = Issue> {
+  readonly $schema?: never;
+  readonly formatVersion?: never;
+  readonly id?: never;
   readonly modes?: readonly [string, ...string[]];
   readonly defaultMode?: string;
   readonly defaultVisibility?: TokenVisibility;
+  readonly tokens?: never;
   readonly sources?: readonly TokenSource<I>[];
   readonly layers?: readonly TokenLayerInput[];
   readonly selection?: TokenSelection;
 }
+
+export type BuildSchemeSourceOptions<I extends Issue = Issue> = Omit<
+  BuildSchemeOptions<I>,
+  "sources"
+>;
 
 export interface BuildSchemeValue {
   readonly graph: TokenGraph;
@@ -49,8 +58,31 @@ export type BuildSchemeIssue =
 
 export function buildScheme<I extends Issue>(
   options: BuildSchemeOptions<I>,
+): Result<BuildSchemeValue, I | BuildSchemeIssue>;
+export function buildScheme<I extends Issue>(
+  source: TokenSource<I>,
+): Result<BuildSchemeValue, I | BuildSchemeIssue>;
+export function buildScheme<I extends Issue>(
+  source: TokenSource<I>,
+  options: BuildSchemeSourceOptions<I>,
+): Result<BuildSchemeValue, I | BuildSchemeIssue>;
+export function buildScheme<I extends Issue>(
+  sources: readonly [TokenSource<I>, ...TokenSource<I>[]],
+): Result<BuildSchemeValue, I | BuildSchemeIssue>;
+export function buildScheme<I extends Issue>(
+  sources: readonly [TokenSource<I>, ...TokenSource<I>[]],
+  options: BuildSchemeSourceOptions<I>,
+): Result<BuildSchemeValue, I | BuildSchemeIssue>;
+export function buildScheme<I extends Issue>(
+  input: BuildSchemeOptions<I> | TokenSource<I> | readonly [TokenSource<I>, ...TokenSource<I>[]],
+  options?: BuildSchemeSourceOptions<I>,
 ): Result<BuildSchemeValue, I | BuildSchemeIssue> {
-  const parsedOptions = parseBuildOptions(options);
+  const normalizedOptions = normalizeBuildSchemeCall(input, options);
+  if (!normalizedOptions.ok) {
+    return normalizedOptions as Result<never, I | BuildSchemeIssue>;
+  }
+
+  const parsedOptions = parseBuildOptions(normalizedOptions.value);
   if (!parsedOptions.ok) {
     return parsedOptions as Result<never, I | BuildSchemeIssue>;
   }
@@ -80,6 +112,70 @@ export function buildScheme<I extends Issue>(
     callerLayerIds,
     parsedOptions.value.selection,
   ) as Result<BuildSchemeValue, I | BuildSchemeIssue>;
+}
+
+function normalizeBuildSchemeCall<I extends Issue>(
+  input: BuildSchemeOptions<I> | TokenSource<I> | readonly [TokenSource<I>, ...TokenSource<I>[]],
+  options: BuildSchemeSourceOptions<I> | undefined,
+): Result<BuildSchemeOptions<I>, BuildSchemeIssue> {
+  if (options !== undefined) {
+    const parsedOptions = parseBuildSourceOptions(options);
+    if (!parsedOptions.ok) {
+      return parsedOptions;
+    }
+    return {
+      ok: true,
+      value: {
+        ...parsedOptions.value,
+        sources: Array.isArray(input) ? input : [input as TokenSource<I>],
+      },
+    };
+  }
+
+  if (Array.isArray(input)) {
+    return { ok: true, value: { sources: input } };
+  }
+
+  return isSourceShorthand(input)
+    ? { ok: true, value: { sources: [input] } }
+    : { ok: true, value: input as BuildSchemeOptions<I> };
+}
+
+function parseBuildSourceOptions<I extends Issue>(
+  input: BuildSchemeSourceOptions<I>,
+): Result<BuildSchemeSourceOptions<I>, BuildSchemeIssue> {
+  const entries = readPlainRecord(input, {
+    code: "invalid-build-options",
+    message: "buildScheme source options must be a plain object.",
+  });
+  if (!entries.ok) {
+    return entries as Result<never, BuildSchemeIssue>;
+  }
+  if (entries.value.some((entry) => entry.key === "sources")) {
+    return {
+      ok: false,
+      issues: [
+        {
+          code: "invalid-build-options",
+          message: "buildScheme source options cannot include sources.",
+          path: "/sources",
+        },
+      ],
+    };
+  }
+  return { ok: true, value: input };
+}
+
+function isSourceShorthand<I extends Issue>(input: unknown): input is TokenSource<I> {
+  const entries = readPlainRecord(input, {
+    code: "invalid-build-options",
+    message: "source must be a plain object with id and build.",
+  });
+  if (!entries.ok) {
+    return false;
+  }
+  const record = new Map(entries.value.map((entry) => [entry.key, entry.value]));
+  return typeof record.get("id") === "string" && typeof record.get("build") === "function";
 }
 
 function buildFromComposedGraph(

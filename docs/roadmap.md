@@ -19,8 +19,8 @@ Planned package names:
 0.1.0 includes:
 
 - strict `TokenGraphInput`, `TokenLayerInput`, and `CompiledScheme` contracts;
-- JSON-safe helper input through `defineTokenGraph()` and `defineTokenLayer()`;
-- `buildScheme()` for source-only, layer-only, and source-plus-layer builds;
+- JSON-safe helper input through `defineTokens()`, `defineTokenGraph()`, and `defineTokenLayer()`;
+- `buildScheme()` for source-only, layer-only, source-plus-layer builds, and source-first convenience calls;
 - deterministic source/layer composition;
 - unprefixed CSS variable export by default;
 - structured CSS variable blocks through `exportCssVariableBlocks()`;

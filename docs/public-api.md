@@ -6,6 +6,7 @@ The root API is intentionally small and explicit.
 
 - `defineTokenGraph`
 - `defineTokenLayer`
+- `defineTokens`
 - `parseTokenGraph`
 - `parseColor`
 - `compileTokenGraph`
@@ -31,7 +32,7 @@ There are no core conversion, Material, source adapter, or engine subpaths.
 
 For manual colors:
 
-1. Use `defineTokenGraph()` to author a graph.
+1. Use `defineTokens()` for simple token-record authoring, or `defineTokenGraph()` for full graph-shaped authoring.
 2. Use `compileTokenGraph()` to validate and resolve the selected tokens.
 3. Use `exportCssVariables()` for CSS, `exportCssVariableBlocks()` for structured declarations, or
    `serializeScheme()` for deterministic compiled JSON.
@@ -74,8 +75,16 @@ contracts. Core does not silently slugify external names.
 
 ## Authoring Helpers
 
-`defineTokenGraph()` and `defineTokenLayer()` are ergonomic authoring helpers. They default `formatVersion` to `1` and
-`defaultVisibility` to `public`. `defineTokenGraph()` also defaults to one `base` mode when `modes` is omitted.
+`defineTokens()`, `defineTokenGraph()`, and `defineTokenLayer()` are ergonomic authoring helpers. They default
+`formatVersion` to `1` and `defaultVisibility` to `public`. Graph helpers also default to one `base` mode when `modes`
+is omitted.
+
+`defineTokens(tokens, options?)` is the simple token-record helper. It returns the same strict graph shape as
+`defineTokenGraph({ ...options, tokens })`, while keeping token keys separate from graph-level fields such as `modes`,
+`defaultMode`, `defaultVisibility`, `tokens`, `formatVersion`, and `$schema`.
+
+`defineTokenGraph(input)` is the full graph helper. Its input remains graph-shaped and does not accept ambiguous flat
+top-level token records.
 
 `base` is the single ordinary mode for simple graphs. It is not a generated scheme, Material role set, or hidden
 light/dark decision.
@@ -101,8 +110,8 @@ definitions.
 `parseTokenGraph()` accepts strict persisted graph input. Strict graph input spells out `formatVersion`, `modes`,
 `defaultMode`, `defaultVisibility`, and token definitions with `value` or `valueByMode`.
 
-Helper-only shorthand is intentionally not part of the strict wire format. Use `defineTokenGraph()` at authoring
-boundaries and `parseTokenGraph()` at persistence or untrusted-input boundaries.
+Helper-only shorthand is intentionally not part of the strict wire format. Use `defineTokens()` or
+`defineTokenGraph()` at authoring boundaries and `parseTokenGraph()` at persistence or untrusted-input boundaries.
 
 The schema subpaths validate strict persisted artifacts only: token graph input, token layer input, and serialized
 compiled scheme output. They intentionally reject helper-only shorthand such as raw token color strings, raw
@@ -119,8 +128,15 @@ contains resolved color objects, not the original authored color strings.
 `TokenSource` is structural. Core accepts a safe source object with a valid string `id` and callable `build`, permits
 extra adapter metadata, and invokes `build()` with the original source object as `this`.
 
-`buildScheme()` is the adapter runner and layer composer. It accepts source-only, layer-only, and source-plus-layer
-input. `sources` and `layers` are both optional fields, but at least one of them must be present and non-empty.
+`buildScheme()` is the adapter runner and layer composer. `buildScheme(options)` is the canonical explicit form.
+`buildScheme(source)` and `buildScheme([sourceA, sourceB])` are source-only convenience forms. A second options argument
+may provide build options except `sources`, for example `buildScheme(source, { layers, selection })`.
+
+Layers and build-envelope fields belong in the options object. Mixed source/layer positional arrays are intentionally
+unsupported; use `buildScheme({ sources, layers })` or `buildScheme(source, { layers })` instead.
+
+The canonical options object accepts source-only, layer-only, and source-plus-layer input. `sources` and `layers` are
+both optional fields, but at least one of them must be present and non-empty.
 
 Sources compose first in array order. Duplicate token keys across sources are invalid. Layers compose after sources as
 ordered authored token overlays. Later layers win by token key, and a layer may override a source token. References,
@@ -145,6 +161,9 @@ in `@scheme-tokens/source-material3`, which imports core only through the generi
 - `selection?: TokenSelection`
 
 At least one source or layer is required.
+
+`BuildSchemeSourceOptions` is `BuildSchemeOptions` without `sources`. It is the second-argument type for source shorthand
+calls.
 
 When sources are present, the first source graph establishes the composed graph envelope. If `modes`, `defaultMode`, or
 `defaultVisibility` are also provided to `buildScheme()`, they must match that first source graph or the call returns an

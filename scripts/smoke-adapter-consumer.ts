@@ -52,16 +52,14 @@ const application = defineTokenLayer({
   },
 });
 
-const built = buildScheme({
-  sources: [
-    material3Source({
-      sourceColor: "#6750a4",
-      defaultVisibility: "internal",
-      extendedColors: [{ name: "success", color: "#2e7d32" }],
-    }),
-  ],
-  layers: [application],
-});
+const built = buildScheme(
+  material3Source({
+    sourceColor: "#6750a4",
+    defaultVisibility: "internal",
+    extendedColors: [{ name: "success", color: "#2e7d32" }],
+  }),
+  { layers: [application] },
+);
 
 if (!built.ok) throw new Error(JSON.stringify(built.issues));
 if (!("app.background" in built.value.compiled.tokens)) throw new Error("adapter layer composition failed");
@@ -118,7 +116,7 @@ import {
 const extendedColor: Material3ExtendedColorInput = { name: "success", color: "#2e7d32" };
 const input: Material3SourceInput = { sourceColor: "#6750a4", extendedColors: [extendedColor] };
 const source: TokenSource<Material3SourceIssue> = material3Source(input);
-const built = buildScheme({ sources: [source] });
+const built = buildScheme(source);
 if (built.ok) built.value.compiled.defaultMode.toUpperCase();
 `,
 );

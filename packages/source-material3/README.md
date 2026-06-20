@@ -25,15 +25,13 @@ const application = defineTokenLayer<"light" | "dark">({
   },
 });
 
-const built = buildScheme({
-  sources: [
-    material3Source({
-      sourceColor: "#6750a4",
-      defaultVisibility: "internal",
-    }),
-  ],
-  layers: [application],
-});
+const built = buildScheme(
+  material3Source({
+    sourceColor: "#6750a4",
+    defaultVisibility: "internal",
+  }),
+  { layers: [application] },
+);
 
 if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
@@ -70,14 +68,12 @@ the engine's own option names.
 import { buildScheme } from "scheme-tokens";
 import { material3Source } from "@scheme-tokens/source-material3";
 
-const built = buildScheme({
-  sources: [
-    material3Source({
-      sourceColor: "#6750a4",
-      extendedColors: [{ name: "success", color: "#2e7d32" }],
-    }),
-  ],
-});
+const built = buildScheme(
+  material3Source({
+    sourceColor: "#6750a4",
+    extendedColors: [{ name: "success", color: "#2e7d32" }],
+  }),
+);
 
 if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
@@ -119,15 +115,13 @@ const application = defineTokenLayer<"light" | "dark">({
   },
 });
 
-const built = buildScheme({
-  sources: [
-    material3Source({
-      sourceColor: "#6750a4",
-      defaultVisibility: "internal",
-    }),
-  ],
-  layers: [application],
-});
+const built = buildScheme(
+  material3Source({
+    sourceColor: "#6750a4",
+    defaultVisibility: "internal",
+  }),
+  { layers: [application] },
+);
 
 if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));

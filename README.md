@@ -15,15 +15,13 @@ pnpm add scheme-tokens
 ## Quick Start
 
 ```ts
-import { compileTokenGraph, defineTokenGraph, exportCssVariables } from "scheme-tokens";
+import { compileTokenGraph, defineTokens, exportCssVariables } from "scheme-tokens";
 
-const graph = defineTokenGraph({
-  tokens: {
-    background: "#ffffff",
-    foreground: "#111111",
-    primary: "#6750a4",
-    "primary-foreground": "#ffffff",
-  },
+const graph = defineTokens({
+  background: "#ffffff",
+  foreground: "#111111",
+  primary: "#6750a4",
+  "primary-foreground": "#ffffff",
 });
 
 const compiled = compileTokenGraph(graph);
@@ -39,7 +37,7 @@ if (!css.ok) {
 console.log(css.value);
 ```
 
-With no `modes` field, `defineTokenGraph()` creates one mode named `base`. In a single-mode graph, `base` means "the one
+With no `modes` field, `defineTokens()` creates one mode named `base`. In a single-mode graph, `base` means "the one
 ordinary value for this token." It is not a Material role, generated palette, light mode, or dark mode.
 
 The default CSS export uses `:root` for the default mode. Directly authored tokens default to `public`, and compilation
@@ -227,6 +225,18 @@ pnpm add scheme-tokens @scheme-tokens/source-material3
 ```
 
 ```ts
+import { buildScheme } from "scheme-tokens";
+import { material3Source } from "@scheme-tokens/source-material3";
+
+const built = buildScheme(material3Source({ sourceColor: "#6750a4" }));
+if (!built.ok) {
+  throw new Error(JSON.stringify(built.issues, null, 2));
+}
+```
+
+Add an application layer when generated Material roles should feed project-owned tokens:
+
+```ts
 import { buildScheme, defineTokenLayer, exportCssVariables } from "scheme-tokens";
 import { material3Source } from "@scheme-tokens/source-material3";
 
@@ -240,15 +250,13 @@ const application = defineTokenLayer<"light" | "dark">({
   },
 });
 
-const built = buildScheme({
-  sources: [
-    material3Source({
-      sourceColor: "#6750a4",
-      defaultVisibility: "internal",
-    }),
-  ],
-  layers: [application],
-});
+const built = buildScheme(
+  material3Source({
+    sourceColor: "#6750a4",
+    defaultVisibility: "internal",
+  }),
+  { layers: [application] },
+);
 
 if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
@@ -263,8 +271,9 @@ console.log(css.value);
 ```
 
 `buildScheme()` is the runner that composes sources and layers, validates the composed graph material, and produces
-`built.value.compiled`. At least one source or layer is required. Source-only, layer-only, and source-plus-layer builds
-are all valid. The Material adapter supplies a real Material source; the root package stays engine-free.
+`built.value.compiled`. At least one source or layer is required. `buildScheme(source)` is the source-only convenience
+form, `buildScheme(source, { layers })` composes source output with application layers, and layer-only builds use the
+canonical options object. The Material adapter supplies a real Material source; the root package stays engine-free.
 
 `sourceColor` is the required Material source color used to generate the scheme. Material extended colors are exposed as
 `extendedColors`, with entries shaped as `{ name, color, harmonize? }`.
@@ -301,7 +310,52 @@ resolved colors, modes, token visibility, origin metadata, and direct dependency
 
 ## Helper Input and Strict Input
 
-`defineTokenGraph()` is an ergonomic authoring helper. It accepts JSON-safe shorthand:
+`defineTokens()` is the smallest manual-token helper. It accepts a token record plus optional graph-level helper options:
+
+```ts
+import { defineTokens } from "scheme-tokens";
+
+const graph = defineTokens(
+  {
+    background: {
+      light: "#ffffff",
+      dark: "#141218",
+    },
+    foreground: {
+      light: "#111111",
+      dark: "#f5eff7",
+    },
+  },
+  {
+    modes: ["light", "dark"],
+    defaultMode: "light",
+  },
+);
+```
+
+`defineTokenGraph()` is the full graph-shaped helper for explicit graph authoring:
+
+```ts
+import { defineTokenGraph } from "scheme-tokens";
+
+const graph = defineTokenGraph({
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  defaultVisibility: "internal",
+  tokens: {
+    "brand.primary": {
+      light: "#6750a4",
+      dark: "#d0bcff",
+    },
+    primary: {
+      visibility: "public",
+      value: "brand.primary",
+    },
+  },
+});
+```
+
+Both helpers accept JSON-safe shorthand:
 
 - a color string such as `"#6750a4"`;
 - a token-key string reference such as `"brand.primary"`;
@@ -310,7 +364,7 @@ resolved colors, modes, token visibility, origin metadata, and direct dependency
 - metadata plus mode keys such as `{ visibility: "public", light: "#fff", dark: "#000" }`;
 - mode records such as `{ light: "#fff", dark: "#000" }` when modes are declared.
 
-The helper fills safe defaults and returns strict graph input. `parseTokenGraph()` is the persisted wire-format boundary
+The helpers fill safe defaults and return strict graph input. `parseTokenGraph()` is the persisted wire-format boundary
 and stays explicit.
 
 ```ts
@@ -338,6 +392,7 @@ Strict graph input spells out `formatVersion`, `modes`, `defaultMode`, `defaultV
 
 The published JSON Schemas describe this strict graph shape, strict layer input, and serialized compiled schemes.
 They do not describe `defineTokenGraph()` or `defineTokenLayer()` helper input.
+They do not describe `defineTokens()` helper input either.
 
 Compiled schemes are a third shape. They are produced by `compileTokenGraph()` or `buildScheme()` and contain
 resolved color values plus dependency and origin metadata for the selected tokens.
