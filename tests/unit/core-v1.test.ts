@@ -4,6 +4,7 @@ import {
   compileTokenGraph,
   defineTokenFragment,
   defineTokenGraph,
+  exportCssVariableBlocks,
   exportCssVariables,
   formatCssColor,
   parseColor,
@@ -121,7 +122,7 @@ describe("v1 graph and compiler", () => {
     const graph = defineTokenGraph({
       tokens: {
         "app.background": "#ffffff",
-        "app.foreground": { ref: "app.background" },
+        "app.foreground": "app.background",
       },
     });
 
@@ -139,6 +140,48 @@ describe("v1 graph and compiler", () => {
     const compiled = unwrap(compileTokenGraph(graph));
     expect(Object.keys(compiled.tokens)).toEqual(["app.background", "app.foreground"]);
     expect(compiled.tokens["app.foreground"]?.dependenciesByMode.base).toEqual(["app.background"]);
+  });
+
+  test("defines fragments with token-key string reference shorthand", () => {
+    const fragment = defineTokenFragment<"light" | "dark">({
+      id: "application",
+      tokens: {
+        "app.background": "material3.surface",
+        "app.foreground": {
+          valueByMode: {
+            light: "material3.on-surface",
+            dark: "#ffffff",
+          },
+        },
+      },
+    });
+
+    expect(fragment.tokens).toEqual({
+      "app.background": { value: { ref: "material3.surface" } },
+      "app.foreground": {
+        valueByMode: {
+          light: { ref: "material3.on-surface" },
+          dark: "#ffffff",
+        },
+      },
+    });
+  });
+
+  test("strict parser rejects helper-only token-key string shorthand", () => {
+    expect(
+      parseTokenGraph({
+        formatVersion: 1,
+        modes: ["base"],
+        defaultMode: "base",
+        defaultVisibility: "public",
+        tokens: {
+          "app.background": "brand.surface",
+        },
+      }),
+    ).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-token-definition", path: "/tokens/app.background" }],
+    });
   });
 
   test("rejects authoring-helper mode names that collide with token definition keys", () => {
@@ -187,17 +230,161 @@ describe("v1 graph and compiler", () => {
       ok: true,
       value:
         ":root {\n" +
-        "  --theme--app--action: #6750a4;\n" +
-        "  --theme--app--action-text: #ffffff;\n" +
+        "  --theme-app-action: #6750a4;\n" +
+        "  --theme-app-action-text: #ffffff;\n" +
         "}\n\n" +
         ':root[data-color-scheme="dark"] {\n' +
-        "  --theme--app--action: #d0bcff;\n" +
-        "  --theme--app--action-text: #381e72;\n" +
+        "  --theme-app-action: #d0bcff;\n" +
+        "  --theme-app-action-text: #381e72;\n" +
         "}\n",
     });
 
     expect(serializeTokenSet(compiled)).toContain('"formatVersion": 1');
     expect(serializeTokenSet(compiled).endsWith("\n")).toBe(true);
+  });
+
+  test("exports unprefixed CSS custom properties by default and with an empty prefix", () => {
+    const compiled = unwrap(
+      compileTokenGraph(
+        defineTokenGraph({
+          tokens: {
+            background: "#ffffff",
+            foreground: "#111111",
+            primary: "#6750a4",
+            "primary-foreground": "#ffffff",
+            "material3.primary": "#6750a4",
+          },
+        }),
+      ),
+    );
+
+    expect(exportCssVariables(compiled)).toEqual({
+      ok: true,
+      value:
+        ":root {\n" +
+        "  --background: #ffffff;\n" +
+        "  --foreground: #111111;\n" +
+        "  --material3-primary: #6750a4;\n" +
+        "  --primary: #6750a4;\n" +
+        "  --primary-foreground: #ffffff;\n" +
+        "}\n",
+    });
+    expect(exportCssVariables(compiled, { prefix: "" })).toEqual(exportCssVariables(compiled));
+    expect(exportCssVariables(compiled, { prefix: "color" })).toEqual({
+      ok: true,
+      value:
+        ":root {\n" +
+        "  --color-background: #ffffff;\n" +
+        "  --color-foreground: #111111;\n" +
+        "  --color-material3-primary: #6750a4;\n" +
+        "  --color-primary: #6750a4;\n" +
+        "  --color-primary-foreground: #ffffff;\n" +
+        "}\n",
+    });
+  });
+
+  test("exports structured CSS variable blocks for single-mode token sets", () => {
+    const compiled = unwrap(
+      compileTokenGraph(
+        defineTokenGraph({
+          tokens: {
+            background: "#ffffff",
+            foreground: "#111111",
+          },
+        }),
+      ),
+    );
+
+    expect(exportCssVariableBlocks(compiled)).toEqual({
+      ok: true,
+      value: [
+        {
+          mode: "base",
+          selector: ":root",
+          declarations: {
+            "--background": "#ffffff",
+            "--foreground": "#111111",
+          },
+        },
+      ],
+    });
+    expect(exportCssVariableBlocks(compiled, { prefix: "" })).toEqual(
+      exportCssVariableBlocks(compiled),
+    );
+    expect(exportCssVariableBlocks(compiled, { prefix: "color" })).toEqual({
+      ok: true,
+      value: [
+        {
+          mode: "base",
+          selector: ":root",
+          declarations: {
+            "--color-background": "#ffffff",
+            "--color-foreground": "#111111",
+          },
+        },
+      ],
+    });
+  });
+
+  test("exports structured CSS variable blocks for light and dark token sets", () => {
+    const compiled = unwrap(compileTokenGraph(makeGraph()));
+
+    expect(
+      exportCssVariableBlocks(compiled, {
+        prefix: "color",
+        scope: { strategy: "selector", selector: ".preview" },
+        modeSelectors: { strategy: "class", classPrefix: "theme-" },
+      }),
+    ).toEqual({
+      ok: true,
+      value: [
+        {
+          mode: "light",
+          selector: ".preview",
+          declarations: {
+            "--color-app-action": "#6750a4",
+            "--color-app-action-text": "#ffffff",
+          },
+        },
+        {
+          mode: "dark",
+          selector: ".preview.theme-dark",
+          declarations: {
+            "--color-app-action": "#d0bcff",
+            "--color-app-action-text": "#381e72",
+          },
+        },
+      ],
+    });
+  });
+
+  test("CSS string output is formatted from the same block model", () => {
+    const compiled = unwrap(compileTokenGraph(makeGraph()));
+    const options = {
+      modeSelectors: {
+        strategy: "selectors",
+        selectors: {
+          light: ":root",
+          dark: ".dark",
+        },
+      },
+    } as const;
+
+    const blocks = unwrap(exportCssVariableBlocks(compiled, options));
+    const css = unwrap(exportCssVariables(compiled, options));
+
+    expect(blocks.map((block) => block.selector)).toEqual([":root", ".dark"]);
+    expect(css).toBe(
+      ":root {\n" +
+        "  --app-action: #6750a4;\n" +
+        "  --app-action-text: #ffffff;\n" +
+        "}\n\n" +
+        ".dark {\n" +
+        "  --app-action: #d0bcff;\n" +
+        "  --app-action-text: #381e72;\n" +
+        "}\n",
+    );
+    expect(css).toContain(`${Object.keys(blocks[0]?.declarations ?? {})[0]}:`);
   });
 
   test("rejects the removed CSS variablePrefix option at runtime", () => {
@@ -208,12 +395,16 @@ describe("v1 graph and compiler", () => {
       ok: false,
       issues: [{ code: "invalid-css-options", message: "Unknown CSS option: variablePrefix." }],
     });
+    expect(exportCssVariableBlocks(compiled, oldOptions as never)).toEqual({
+      ok: false,
+      issues: [{ code: "invalid-css-options", message: "Unknown CSS option: variablePrefix." }],
+    });
   });
 
   test("rejects invalid CSS prefixes with the release-safe issue code", () => {
     const compiled = unwrap(compileTokenGraph(makeGraph()));
 
-    expect(exportCssVariables(compiled, { prefix: "Theme" })).toEqual({
+    const expected = {
       ok: false,
       issues: [
         {
@@ -221,7 +412,9 @@ describe("v1 graph and compiler", () => {
           message: "prefix must be a lower-kebab single segment.",
         },
       ],
-    });
+    } as const;
+    expect(exportCssVariables(compiled, { prefix: "Theme" })).toEqual(expected);
+    expect(exportCssVariableBlocks(compiled, { prefix: "Theme" })).toEqual(expected);
   });
 
   test("stores direct dependencies without expanding transitive chains", () => {
@@ -353,7 +546,7 @@ describe("v1 sources", () => {
 
     const value = unwrap(buildTokenSet({ sources: [source], fragments: [app] }));
     expect(calls).toBe(1);
-    expect(Object.keys(value.tokenSet.tokens)).toEqual(["app.action"]);
+    expect(Object.keys(value.compiled.tokens)).toEqual(["app.action"]);
     expect(value.graph.tokens["company.primary"]?.origin).toEqual({
       kind: "source",
       id: "company",
@@ -395,7 +588,7 @@ describe("v1 sources", () => {
 
     const value = unwrap(buildTokenSet({ sources: [palette, semantic] }));
 
-    expect(Object.keys(value.tokenSet.tokens)).toEqual(["semantic.action"]);
+    expect(Object.keys(value.compiled.tokens)).toEqual(["semantic.action"]);
     expect(value.graph.tokens["palette.primary"]?.origin).toEqual({
       kind: "source",
       id: "palette",
@@ -406,7 +599,7 @@ describe("v1 sources", () => {
     });
     expect(value.graph.tokens["palette.primary"]?.visibility).toBe("internal");
     expect(value.graph.tokens["semantic.action"]?.visibility).toBe("public");
-    expect(value.tokenSet.tokens["semantic.action"]?.dependenciesByMode.base).toEqual([
+    expect(value.compiled.tokens["semantic.action"]?.dependenciesByMode.base).toEqual([
       "palette.primary",
     ]);
   });
@@ -527,8 +720,8 @@ describe("v1 sources", () => {
     const value = unwrap(buildTokenSet({ sources: [first, second] }));
 
     expect(value.graph.modes).toEqual(["light", "dark"]);
-    expect(Object.keys(value.tokenSet.tokens)).toEqual(["first.token", "second.token"]);
-    expect(value.tokenSet.tokens["second.token"]?.dependenciesByMode.light).toEqual([
+    expect(Object.keys(value.compiled.tokens)).toEqual(["first.token", "second.token"]);
+    expect(value.compiled.tokens["second.token"]?.dependenciesByMode.light).toEqual([
       "first.token",
     ]);
   });
@@ -621,7 +814,7 @@ describe("v1 sources", () => {
       kind: "source",
       id: "semantic",
     });
-    expect(Object.keys(value.tokenSet.tokens)).toEqual(["semantic.action"]);
+    expect(Object.keys(value.compiled.tokens)).toEqual(["semantic.action"]);
   });
 
   test("buildTokenSet composes caller fragments after all sources", () => {
@@ -663,7 +856,7 @@ describe("v1 sources", () => {
 
     const value = unwrap(buildTokenSet({ sources: [palette, semantic], fragments: [app] }));
 
-    expect(Object.keys(value.tokenSet.tokens)).toEqual(["app.action"]);
+    expect(Object.keys(value.compiled.tokens)).toEqual(["app.action"]);
     expect(value.graph.tokens["app.action"]?.origin).toEqual({
       kind: "fragment",
       id: "application",

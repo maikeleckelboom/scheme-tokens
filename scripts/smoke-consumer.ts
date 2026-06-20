@@ -41,17 +41,27 @@ writeJson(join(consumerDirectory, "tsconfig.json"), {
 writeFileSync(
   join(consumerDirectory, "root.mjs"),
   `
-import { compileTokenGraph, defineTokenGraph, exportCssVariables } from ${JSON.stringify(manifest.name)};
+import { compileTokenGraph, defineTokenGraph, exportCssVariableBlocks, exportCssVariables } from ${JSON.stringify(manifest.name)};
 
 const graph = defineTokenGraph({
   tokens: {
-    "app.background": { value: "#ffffff" },
+    background: { value: "#ffffff" },
+    foreground: { value: "#111111" },
+    primary: { value: "#6750a4" },
+    "primary-foreground": { value: "#ffffff" },
   },
 });
 const compiled = compileTokenGraph(graph);
 if (!compiled.ok) throw new Error(JSON.stringify(compiled.issues));
 const css = exportCssVariables(compiled.value);
-if (!css.ok || !css.value.includes("--app--background")) throw new Error("root workflow failed");
+if (!css.ok || !css.value.includes("--background: #ffffff;")) throw new Error("root workflow failed");
+const blocks = exportCssVariableBlocks(compiled.value);
+if (!blocks.ok) throw new Error(JSON.stringify(blocks.issues));
+const declarations = blocks.value[0]?.declarations;
+if (declarations?.["--background"] !== "#ffffff") throw new Error("structured CSS export failed");
+if (Object.keys(declarations ?? {}).some((name) => name.startsWith("--undefined-") || name.startsWith("---"))) {
+  throw new Error("unprefixed export produced a malformed custom property");
+}
 `,
 );
 writeFileSync(
@@ -110,6 +120,8 @@ import {
   buildTokenSet,
   compileTokenGraph,
   defineTokenGraph,
+  exportCssVariableBlocks,
+  type CssVariableBlock,
   type ColorValue,
   type CompiledTokenSet,
   type ExportCssVariablesOptions,
@@ -119,7 +131,7 @@ import {
 } from ${JSON.stringify(manifest.name)};
 
 const graph: TokenGraphInput<"base"> = defineTokenGraph({
-  tokens: { "app.background": { value: "#ffffff" } },
+  tokens: { "app.background": "#ffffff", "app.foreground": "app.background" },
 });
 const compiled: Result<CompiledTokenSet, Issue> = compileTokenGraph(graph);
 const cssOptions: ExportCssVariablesOptions = { prefix: "theme" };
@@ -128,17 +140,21 @@ const legacyCssOptions: ExportCssVariablesOptions = {
   variablePrefix: "theme",
 };
 const color: ColorValue = { colorSpace: "srgb", r: 1, g: 1, b: 1, alpha: 1 };
+const blocks = exportCssVariableBlocks({} as never);
+const cssBlock: CssVariableBlock | undefined = blocks.ok ? blocks.value[0] : undefined;
 const source = {
   id: "brand",
   build() {
     return { ok: true as const, value: graph };
   },
 };
-buildTokenSet({ sources: [source] });
+const built = buildTokenSet({ sources: [source] });
 cssOptions.prefix?.toUpperCase();
 legacyCssOptions.prefix?.toUpperCase();
+cssBlock?.declarations["--background"]?.toUpperCase();
 color.colorSpace.toUpperCase();
 if (compiled.ok) compiled.value.defaultMode.toUpperCase();
+if (built.ok) built.value.compiled.defaultMode.toUpperCase();
 `,
 );
 

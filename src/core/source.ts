@@ -27,7 +27,7 @@ export interface BuildTokenSetOptions<I extends Issue = Issue> {
 
 export interface BuildTokenSetValue {
   readonly graph: TokenGraph;
-  readonly tokenSet: CompiledTokenSet;
+  readonly compiled: CompiledTokenSet;
 }
 
 export type BuildTokenSetIssue =
@@ -113,7 +113,7 @@ function buildFromComposedGraph(
     ok: true,
     value: {
       graph: parsedGraph.value,
-      tokenSet: compiled.value,
+      compiled: compiled.value,
     },
   };
 }

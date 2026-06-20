@@ -1,7 +1,8 @@
 # Architecture
 
 `color-scheme-tokens` is a dependency-light color-token graph core. The graph is the system of record; manual authoring
-helpers and source adapters feed it, validation and compilation resolve it, and exporters project compiled sets.
+helpers and source adapters feed it, validation and compilation resolve it, and exporters project compiled sets into
+deterministic CSS or JSON artifacts.
 
 ## Core Ownership
 
@@ -48,11 +49,13 @@ token; it can be added later as an on-demand analyzer without bloating the defau
 
 ## Exporters
 
-Exporters consume compiled token sets only. They do not validate graphs, resolve references, load engines, or mutate token
-sets.
+Exporters consume compiled token sets only. They do not validate graphs, resolve references, load engines, mutate token
+sets, or patch browser DOM state.
 
-The CSS exporter is dependency-free and uses a conservative selector validator. It supports the generated root,
-data-attribute, class, and simple exact-selector workflows without making a CSS parser part of the core dependency graph.
+The CSS exporter is dependency-free and uses a conservative selector validator. It can return either a stylesheet string
+or structured `{ mode, selector, declarations }` blocks for runtime preview surfaces and custom renderers. It supports
+the generated root, data-attribute, class, and simple exact-selector workflows without making a CSS parser part of the
+core dependency graph.
 
 ## Sources
 

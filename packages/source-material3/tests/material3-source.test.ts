@@ -54,7 +54,7 @@ describe("material3Source", () => {
       kind: "source",
       id: "material3",
     });
-    expect(built.tokenSet.tokens["material3.primary"]?.valueByMode.light).toEqual({
+    expect(built.compiled.tokens["material3.primary"]?.valueByMode.light).toEqual({
       colorSpace: "srgb",
       r: 0.396078431372549,
       g: 0.3333333333333333,
@@ -121,7 +121,7 @@ describe("material3Source", () => {
       id: "application",
       defaultVisibility: "public",
       tokens: {
-        "app.success": { ref: "material3.extended.success.color" },
+        "app.success": "material3.extended.success.color",
       },
     });
     const built = unwrap(
@@ -138,8 +138,8 @@ describe("material3Source", () => {
     );
 
     expect(built.graph.tokens["material3.extended.success.color"]?.visibility).toBe("internal");
-    expect(built.tokenSet.tokens["material3.extended.success.color"]).toBeUndefined();
-    expect(built.tokenSet.tokens["app.success"]).toBeDefined();
+    expect(built.compiled.tokens["material3.extended.success.color"]).toBeUndefined();
+    expect(built.compiled.tokens["app.success"]).toBeDefined();
   });
 
   test("composes adapter output with caller fragments", () => {
@@ -147,9 +147,9 @@ describe("material3Source", () => {
       id: "application",
       defaultVisibility: "public",
       tokens: {
-        "app.background": { ref: "material3.surface" },
-        "app.foreground": { ref: "material3.on-surface" },
-        "app.action": { ref: "material3.primary" },
+        "app.background": "material3.surface",
+        "app.foreground": "material3.on-surface",
+        "app.action": "material3.primary",
       },
     });
 
@@ -165,7 +165,7 @@ describe("material3Source", () => {
       }),
     );
 
-    expect(Object.keys(built.tokenSet.tokens)).toEqual([
+    expect(Object.keys(built.compiled.tokens)).toEqual([
       "app.action",
       "app.background",
       "app.foreground",

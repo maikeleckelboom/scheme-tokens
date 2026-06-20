@@ -20,6 +20,7 @@ describe("package boundary", () => {
       "compileTokenGraph",
       "defineTokenFragment",
       "defineTokenGraph",
+      "exportCssVariableBlocks",
       "exportCssVariables",
       "formatCssColor",
       "parseColor",

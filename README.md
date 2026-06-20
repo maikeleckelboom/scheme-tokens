@@ -96,6 +96,46 @@ with `compileTokenGraph(graph, { selection: { keys: ["button.background"] } })`.
 The default CSS selectors are `:root` for the default mode and `:root[data-color-scheme="dark"]` for the dark mode. Pass
 `scope` and `modeSelectors` when your app uses classes or exact selectors instead.
 
+## Runtime CSS Variables
+
+`exportCssVariables()` returns a stylesheet string. `exportCssVariableBlocks()` returns structured blocks for runtime
+application, previews, or custom renderers that should not parse CSS text.
+
+```ts
+import {
+  compileTokenGraph,
+  defineTokenGraph,
+  exportCssVariableBlocks,
+  exportCssVariables,
+} from "color-scheme-tokens";
+
+const graph = defineTokenGraph({
+  tokens: {
+    background: "#ffffff",
+    foreground: "#111111",
+    primary: "#6750a4",
+    "primary-foreground": "#ffffff",
+  },
+});
+
+const compiled = compileTokenGraph(graph);
+if (!compiled.ok) {
+  throw new Error(JSON.stringify(compiled.issues, null, 2));
+}
+
+const css = exportCssVariables(compiled.value);
+const blocks = exportCssVariableBlocks(compiled.value);
+if (!css.ok || !blocks.ok) {
+  throw new Error("CSS export failed");
+}
+
+console.log(css.value);
+console.log(blocks.value[0]?.declarations["--background"]);
+```
+
+Omit `prefix` to emit custom properties such as `--background`, `--foreground`, `--primary`, and
+`--primary-foreground`. Pass `prefix: "color"` to emit names such as `--color-background`.
+
 ## Optional Material 3
 
 Material 3 output is provided by `@color-scheme-tokens/source-material3`, not by the root package.
@@ -112,9 +152,9 @@ const application = defineTokenFragment<"light" | "dark">({
   id: "application",
   defaultVisibility: "public",
   tokens: {
-    "app.background": { ref: "material3.surface" },
-    "app.foreground": { ref: "material3.on-surface" },
-    "app.action": { ref: "material3.primary" },
+    "app.background": "material3.surface",
+    "app.foreground": "material3.on-surface",
+    "app.action": "material3.primary",
   },
 });
 
@@ -132,14 +172,14 @@ if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
 
-const css = exportCssVariables(built.value.tokenSet, { prefix: "color" });
+const css = exportCssVariables(built.value.compiled, { prefix: "color" });
 if (!css.ok) {
   throw new Error(JSON.stringify(css.issues, null, 2));
 }
 ```
 
 `buildTokenSet()` is the runner that composes one or more sources plus fragments, validates the returned graph material,
-and produces a compiled `TokenSet`. The Material adapter supplies a real Material source; the root package stays
+and produces `built.value.compiled`. The Material adapter supplies a real Material source; the root package stays
 engine-free.
 
 `sourceColor` is the required Material source color used to generate the scheme. Material extended colors are exposed as
@@ -180,7 +220,8 @@ resolved colors, modes, token visibility, origin metadata, and direct dependency
 `defineTokenGraph()` is an ergonomic authoring helper. It accepts JSON-safe shorthand:
 
 - a color string such as `"#6750a4"`;
-- a reference such as `{ ref: "brand.primary" }`;
+- a token-key string reference such as `"brand.primary"`;
+- an explicit reference such as `{ ref: "brand.primary" }`;
 - mode records such as `{ light: "#fff", dark: "#000" }` when modes are declared.
 
 The helper fills safe defaults and returns strict graph input. `parseTokenGraph()` is the persisted wire-format boundary

@@ -2,6 +2,8 @@ import {
   buildTokenSet,
   defineTokenFragment,
   defineTokenGraph,
+  exportCssVariableBlocks,
+  type CssVariableBlock,
   type ExportCssVariablesOptions,
   type Issue,
   type Result,
@@ -12,7 +14,7 @@ import {
 const simpleGraph = defineTokenGraph({
   tokens: {
     "app.background": "#ffffff",
-    "app.foreground": { ref: "app.background" },
+    "app.foreground": "app.background",
   },
 });
 
@@ -26,7 +28,12 @@ const source: TokenSource = {
   },
 };
 
-buildTokenSet({ sources: [source] });
+const built = buildTokenSet({ sources: [source] });
+if (built.ok) {
+  built.value.compiled.defaultMode.toUpperCase();
+  // @ts-expect-error buildTokenSet returns compiled, not tokenSet.
+  built.value.tokenSet.defaultMode.toUpperCase();
+}
 
 // @ts-expect-error source is not a buildTokenSet option.
 buildTokenSet({ source });
@@ -55,11 +62,18 @@ defineTokenFragment({
   id: "brand",
   tokens: {
     "brand.primary": "#6750a4",
+    "brand.on-primary": "brand.primary",
   },
 });
 
 const cssOptions: ExportCssVariablesOptions = { prefix: "theme" };
 cssOptions.prefix?.toUpperCase();
+const cssBlocks = exportCssVariableBlocks({} as never);
+if (cssBlocks.ok) {
+  const firstBlock: CssVariableBlock | undefined = cssBlocks.value[0];
+  firstBlock?.selector.toUpperCase();
+  firstBlock?.declarations["--background"]?.toUpperCase();
+}
 
 const legacyCssOptions: ExportCssVariablesOptions = {
   // @ts-expect-error variablePrefix is not part of the public CSS export options.

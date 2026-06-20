@@ -36,6 +36,12 @@ export interface ExportCssVariablesOptions {
   readonly format?: "pretty" | "compact";
 }
 
+export interface CssVariableBlock {
+  readonly mode: string;
+  readonly selector: string;
+  readonly declarations: Readonly<Record<string, string>>;
+}
+
 export type ExportCssVariablesIssue = Issue<
   | "invalid-css-options"
   | "invalid-css-prefix"
@@ -61,25 +67,56 @@ export function exportCssVariables(
     return parsed;
   }
 
-  const tokenKeys = Object.keys(tokenSet.tokens).sort(compareCodeUnits);
-  const blocks = tokenSet.modes.map((mode) => {
-    const declarations = tokenKeys.map((key) => {
-      const value = tokenSet.tokens[key]?.valueByMode[mode];
-      return `${cssVariableName(key, parsed.value.prefix)}:${parsed.value.compact ? "" : " "}${formatCssColor(value as never)};`;
-    });
-    return parsed.value.compact
-      ? `${parsed.value.selectors[mode]}{${declarations.join("")}}`
-      : [
-          `${parsed.value.selectors[mode]} {`,
-          ...declarations.map((declaration) => `  ${declaration}`),
-          "}",
-        ].join("\n");
-  });
+  const blocks = buildCssVariableBlocks(tokenSet, parsed.value);
+  return {
+    ok: true,
+    value: parsed.value.compact
+      ? blocks.map((block) => formatBlock(block, true)).join("")
+      : `${blocks.map((block) => formatBlock(block, false)).join("\n\n")}\n`,
+  };
+}
+
+export function exportCssVariableBlocks(
+  tokenSet: CompiledTokenSet,
+  options?: ExportCssVariablesOptions,
+): Result<readonly CssVariableBlock[], ExportCssVariablesIssue> {
+  const parsed = parseOptions(tokenSet, options);
+  if (!parsed.ok) {
+    return parsed;
+  }
 
   return {
     ok: true,
-    value: parsed.value.compact ? blocks.join("") : `${blocks.join("\n\n")}\n`,
+    value: buildCssVariableBlocks(tokenSet, parsed.value),
   };
+}
+
+function buildCssVariableBlocks(
+  tokenSet: CompiledTokenSet,
+  options: ParsedCssOptions,
+): readonly CssVariableBlock[] {
+  const tokenKeys = Object.keys(tokenSet.tokens).sort(compareCodeUnits);
+  return tokenSet.modes.map((mode) => {
+    const declarations: Record<string, string> = {};
+    for (const key of tokenKeys) {
+      const value = tokenSet.tokens[key]?.valueByMode[mode];
+      declarations[cssVariableName(key, options.prefix)] = formatCssColor(value as never);
+    }
+    return {
+      mode,
+      selector: options.selectors[mode] as string,
+      declarations,
+    };
+  });
+}
+
+function formatBlock(block: CssVariableBlock, compact: boolean): string {
+  const declarations = Object.entries(block.declarations).map(([name, value]) =>
+    compact ? `${name}:${value};` : `  ${name}: ${value};`,
+  );
+  return compact
+    ? `${block.selector}{${declarations.join("")}}`
+    : [`${block.selector} {`, ...declarations, "}"].join("\n");
 }
 
 interface ParsedCssOptions {
@@ -119,7 +156,10 @@ function parseOptions(
 
   const record = new Map(entries.value.map((entry) => [entry.key, entry.value]));
   const prefix = record.get("prefix");
-  if (prefix !== undefined && (typeof prefix !== "string" || !isSingleSegmentIdentifier(prefix))) {
+  if (
+    prefix !== undefined &&
+    (typeof prefix !== "string" || (prefix !== "" && !isSingleSegmentIdentifier(prefix)))
+  ) {
     return {
       ok: false,
       issues: [
@@ -148,7 +188,7 @@ function parseOptions(
   return {
     ok: true,
     value: {
-      ...(typeof prefix === "string" ? { prefix } : {}),
+      ...(typeof prefix === "string" && prefix !== "" ? { prefix } : {}),
       selectors: selectors.value,
       compact: format === "compact",
     },
@@ -358,5 +398,6 @@ function rejectDuplicateSelectors(
 }
 
 function cssVariableName(key: string, prefix: string | undefined): string {
-  return `--${[...(prefix === undefined ? [] : [prefix]), ...key.split(".")].join("--")}`;
+  const flattenedKey = key.split(".").join("-");
+  return prefix === undefined ? `--${flattenedKey}` : `--${prefix}-${flattenedKey}`;
 }

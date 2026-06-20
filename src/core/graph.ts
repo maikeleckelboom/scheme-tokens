@@ -1,4 +1,5 @@
-import type { ColorInput, ColorValue, ParseColorIssue } from "./color";
+import { parseColor, type ColorInput, type ColorValue, type ParseColorIssue } from "./color";
+import { isTokenKey } from "./identifiers";
 import type { JsonValue } from "./json";
 import { defineRecordValue, readPlainRecord } from "./json";
 import type { Issue, Result } from "./result";
@@ -242,14 +243,45 @@ function normalizeTokenDefinition(
   modes: readonly string[] | undefined,
 ): TokenDefinitionInput {
   if (isTokenDefinitionInput(input)) {
-    return input;
+    return normalizeExplicitTokenDefinition(input);
   }
 
   if (modes !== undefined && isModeValueRecord(input, modes)) {
-    return { valueByMode: input };
+    return { valueByMode: normalizeModeValues(input) };
   }
 
-  return { value: input as ColorExpressionInput };
+  return { value: normalizeColorExpression(input as ColorExpressionInput) };
+}
+
+function normalizeExplicitTokenDefinition(input: TokenDefinitionInput): TokenDefinitionInput {
+  if ("value" in input && input.value !== undefined) {
+    return { ...input, value: normalizeColorExpression(input.value) };
+  }
+  const valueByMode = "valueByMode" in input ? input.valueByMode : undefined;
+  if (valueByMode === undefined) {
+    return input;
+  }
+  return { ...input, valueByMode: normalizeModeValues(valueByMode) };
+}
+
+function normalizeModeValues(
+  input: Readonly<Record<string, ColorExpressionInput>>,
+): Readonly<Record<string, ColorExpressionInput>> {
+  const output: Record<string, ColorExpressionInput> = {};
+  for (const mode of Object.keys(input)) {
+    defineRecordValue(output, mode, normalizeColorExpression(input[mode] as ColorExpressionInput));
+  }
+  return output;
+}
+
+function normalizeColorExpression(input: ColorExpressionInput): ColorExpressionInput {
+  if (typeof input !== "string") {
+    return input;
+  }
+  if (parseColor(input).ok || !isTokenKey(input)) {
+    return input;
+  }
+  return { ref: input };
 }
 
 function isTokenDefinitionInput(input: unknown): input is TokenDefinitionInput {

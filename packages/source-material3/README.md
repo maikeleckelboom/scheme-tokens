@@ -27,7 +27,7 @@ if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
 
-console.log(built.value.tokenSet.tokens["material3.primary"]);
+console.log(built.value.compiled.tokens["material3.primary"]);
 ```
 
 The adapter emits strict graph input with `light` and `dark` modes. Token keys are namespaced under the source id:
@@ -96,9 +96,9 @@ const application = defineTokenFragment<"light" | "dark">({
   id: "application",
   defaultVisibility: "public",
   tokens: {
-    "app.background": { ref: "material3.surface" },
-    "app.foreground": { ref: "material3.on-surface" },
-    "app.action": { ref: "material3.primary" },
+    "app.background": "material3.surface",
+    "app.foreground": "material3.on-surface",
+    "app.action": "material3.primary",
   },
 });
 
