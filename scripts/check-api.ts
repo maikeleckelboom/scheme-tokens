@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -21,6 +21,13 @@ assertEqual(
 if ("dependencies" in packageJson && Object.keys(packageJson.dependencies).length > 0) {
   throw new Error("The core package must not declare runtime dependencies");
 }
+
+assertEqual(
+  listFiles(join(root, "dist")),
+  ["index.d.ts", "index.js", "index.js.map"],
+  "dist files",
+);
+assertExportTargetsExist(packageJson.exports);
 
 const manifests = [
   {
@@ -121,4 +128,38 @@ function assertEqual(actual, expected, label) {
       `${label} mismatch\nactual: ${actual.join(", ")}\nexpected: ${expectedSorted.join(", ")}`,
     );
   }
+}
+
+function assertExportTargetsExist(exports) {
+  for (const [subpath, target] of Object.entries(exports)) {
+    if (typeof target === "string") {
+      assertPackagePathExists(target, subpath);
+      continue;
+    }
+    if (target !== null && typeof target === "object") {
+      for (const [condition, conditionTarget] of Object.entries(target)) {
+        if (typeof conditionTarget === "string") {
+          assertPackagePathExists(conditionTarget, `${subpath} ${condition}`);
+        }
+      }
+    }
+  }
+}
+
+function assertPackagePathExists(packagePath, label) {
+  if (!packagePath.startsWith("./")) {
+    throw new Error(`${label} points outside the package: ${packagePath}`);
+  }
+  if (!existsSync(join(root, packagePath))) {
+    throw new Error(`${label} points to a missing file: ${packagePath}`);
+  }
+}
+
+function listFiles(directory) {
+  return readdirSync(directory).flatMap((entry) => {
+    const path = join(directory, entry);
+    return statSync(path).isDirectory()
+      ? listFiles(path).map((child) => `${entry}/${child}`)
+      : [entry];
+  });
 }

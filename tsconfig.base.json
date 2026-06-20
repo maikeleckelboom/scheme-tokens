@@ -14,7 +14,6 @@
     "ignoreDeprecations": "6.0",
     "skipLibCheck": false,
     "declaration": true,
-    "declarationMap": true,
     "noEmit": true
   }
 }
