@@ -54,6 +54,7 @@
     "package:check": "pnpm build && publint --strict && attw --pack . --profile esm-only",
     "smoke:consumer": "node --experimental-strip-types scripts/smoke-consumer.ts",
     "smoke:adapter-consumer": "node --experimental-strip-types scripts/smoke-adapter-consumer.ts",
+    "audit:external-consumer": "node --experimental-strip-types scripts/audit-external-consumer.ts",
     "check:tarball": "node --experimental-strip-types scripts/check-tarball.ts",
     "format": "oxfmt --check --ignore-path .gitignore --ignore-path .oxfmtignore . \"!packages/material3/src/vendor/material-color-utilities/**\"",
     "format:fix": "oxfmt --write --ignore-path .gitignore --ignore-path .oxfmtignore . \"!packages/material3/src/vendor/material-color-utilities/**\"",
@@ -61,7 +62,7 @@
     "validate": "pnpm validate:core && pnpm -r --if-present --filter=!scheme-tokens validate",
     "check": "pnpm validate",
     "release:core": "pnpm validate:core && pnpm package:check && pnpm test:docs && pnpm smoke:consumer && pnpm check:tarball",
-    "release:check": "pnpm release:core && pnpm -r --if-present --filter=!scheme-tokens release:check && pnpm smoke:adapter-consumer",
+    "release:check": "pnpm release:core && pnpm -r --if-present --filter=!scheme-tokens release:check && pnpm audit:external-consumer && pnpm smoke:adapter-consumer",
     "prepack": "pnpm build"
   },
   "devDependencies": {
