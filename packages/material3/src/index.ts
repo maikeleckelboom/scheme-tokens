@@ -1,5 +1,6 @@
 export {
   material3,
+  material3Preset,
   material3Platforms,
   material3SpecVersions,
   material3Variants,
@@ -13,6 +14,7 @@ export type {
   Material3Issue,
   Material3PaletteOverridesInput,
   Material3Platform,
+  Material3Preset,
   Material3SourceColorsInput,
   Material3SpecVersion,
   Material3Variant,

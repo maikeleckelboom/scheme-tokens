@@ -326,11 +326,47 @@ if (!css.ok) {
 console.log(css.value.css);
 ```
 
+Prepare a reusable builder when the same app layers are built repeatedly with changing base input:
+
+```ts
+import { createSchemeBuilder, defineTokenLayer, exportCssVars } from "scheme-tokens";
+import { material3 } from "@scheme-tokens/material3";
+
+const application = defineTokenLayer<"light" | "dark">({
+  id: "application",
+  defaultVisibility: "public",
+  tokens: {
+    background: "material3.surface",
+    foreground: "material3.on-surface",
+    primary: "material3.primary",
+    "primary-foreground": "material3.on-primary",
+  },
+});
+
+const builder = createSchemeBuilder({
+  layers: [application],
+});
+
+const built = builder.build(material3("#6750a4"));
+if (!built.ok) {
+  throw new Error(JSON.stringify(built.issues, null, 2));
+}
+
+const exported = exportCssVars(built.value);
+if (!exported.ok) {
+  throw new Error(JSON.stringify(exported.issues, null, 2));
+}
+
+console.log(exported.value.css);
+```
+
 `buildScheme()` is the runner that composes base inputs and layers, validates the composed graph material, and produces
 `built.value`. At least one base input or layer is required. `buildScheme(material3(...))` is the generated-base
 convenience form, `buildScheme(material3(...), { layers })` resolves the Material 3 base before application layers, and
-layer-only builds use the canonical options object. The Material adapter supplies a real Material 3 base scheme input;
-the root package stays engine-free.
+layer-only builds use the canonical options object. `createSchemeBuilder({ layers })` prepares the same reusable build
+options without a base. Its `build()` method accepts a base shorthand such as `material3("#6750a4")` or an explicit
+object such as `{ base: material3("#6750a4") }`. Material-specific fields stay inside `material3()` calls. The Material
+adapter supplies a real Material 3 base scheme input; the root package stays engine-free.
 
 `sourceColors` is the canonical Material source-color field. `material3("#6750a4")` is shorthand for
 `material3({ sourceColors: "#6750a4" })`. The canonical field accepts a single `#rrggbb` string for the ordinary
@@ -338,6 +374,19 @@ one-brand-color case or an array for official multi-source paths such as CMF; em
 Material controls such as `variant`, `contrastLevel`, `specVersion`, `platform`, `palettes`, `extendedColors`, and
 `paletteTones` belong with Material generation input. Integration policy such as `id` and `defaultVisibility` belongs in
 integration options, not in Material generation input.
+
+Use `material3Preset()` when repeated Material builds share generation defaults or integration policy:
+
+```ts
+import { material3Preset } from "@scheme-tokens/material3";
+
+const material = material3Preset({ variant: "tonal-spot" }, { defaultVisibility: "internal" });
+
+const base = material("#6750a4");
+```
+
+Runtime generation input wins over preset defaults, and arrays such as `extendedColors` replace preset arrays. Create a
+separate preset when `id` or `defaultVisibility` should differ.
 
 The adapter emits strict `light` and `dark` graph tokens with adapter-owned keys such as `material3.primary`,
 `material3.on-primary`, and `material3.primary-container`.

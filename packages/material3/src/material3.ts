@@ -63,6 +63,14 @@ export interface Material3IntegrationOptions {
   readonly defaultVisibility?: TokenVisibility;
 }
 
+export interface Material3Preset {
+  (
+    sourceColors: Material3SourceColorsInput,
+    generationOptions?: Material3GenerationOptions,
+  ): TokenSource<Material3Issue>;
+  (input: Material3Input): TokenSource<Material3Issue>;
+}
+
 type Material3ColorField =
   | "sourceColors"
   | "extendedColors.color"
@@ -290,6 +298,113 @@ export function material3(
       }
     },
   };
+}
+
+export function material3Preset(
+  generationDefaults: Material3GenerationOptions = {},
+  integrationOptions?: Material3IntegrationOptions,
+): Material3Preset {
+  const preparedDefaults = copyMaterial3InputValue(
+    generationDefaults,
+  ) as Material3GenerationOptions;
+  const preparedIntegrationOptions =
+    integrationOptions === undefined
+      ? undefined
+      : (copyMaterial3InputValue(integrationOptions) as Material3IntegrationOptions);
+
+  const preset: Material3Preset = (
+    inputOrSourceColors: Material3Input | Material3SourceColorsInput,
+    generationOptions?: Material3GenerationOptions,
+  ): TokenSource<Material3Issue> => {
+    if (isSourceColorsShorthand(inputOrSourceColors)) {
+      return material3(
+        inputOrSourceColors,
+        mergeMaterial3GenerationOptions(preparedDefaults, generationOptions),
+        preparedIntegrationOptions,
+      );
+    }
+
+    return material3(
+      mergeMaterial3Input(preparedDefaults, inputOrSourceColors),
+      preparedIntegrationOptions,
+    );
+  };
+
+  return Object.freeze(preset);
+}
+
+function mergeMaterial3GenerationOptions(
+  defaults: Material3GenerationOptions,
+  runtimeOptions: Material3GenerationOptions | undefined,
+): Material3GenerationOptions {
+  if (runtimeOptions === undefined) {
+    return copyMaterial3InputValue(defaults) as Material3GenerationOptions;
+  }
+  return {
+    ...(copyMaterial3InputValue(defaults) as Material3GenerationOptions),
+    ...(copyMaterial3InputValue(runtimeOptions) as Material3GenerationOptions),
+  };
+}
+
+function mergeMaterial3Input(
+  defaults: Material3GenerationOptions,
+  input: Material3Input,
+): Material3Input {
+  return {
+    ...(copyMaterial3InputValue(defaults) as Material3GenerationOptions),
+    ...(copyMaterial3InputValue(input) as Material3Input),
+  };
+}
+
+function copyMaterial3InputValue(input: unknown): unknown {
+  return copyMaterial3InputValueInternal(input, new Set());
+}
+
+function copyMaterial3InputValueInternal(input: unknown, seen: Set<object>): unknown {
+  if (
+    input === null ||
+    typeof input === "string" ||
+    typeof input === "number" ||
+    typeof input === "boolean"
+  ) {
+    return input;
+  }
+
+  if (Array.isArray(input)) {
+    if (seen.has(input)) {
+      return input;
+    }
+    seen.add(input);
+    const output = input.map((value) => copyMaterial3InputValueInternal(value, seen));
+    seen.delete(input);
+    return Object.freeze(output);
+  }
+
+  if (input !== null && typeof input === "object") {
+    if (seen.has(input)) {
+      return input;
+    }
+
+    const entries = readPlainRecord(input);
+    if (!entries.ok) {
+      return input;
+    }
+
+    seen.add(input);
+    const output: Record<string, unknown> = {};
+    for (const entry of entries.value) {
+      Object.defineProperty(output, entry.key, {
+        value: copyMaterial3InputValueInternal(entry.value, seen),
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
+    }
+    seen.delete(input);
+    return Object.freeze(output);
+  }
+
+  return input;
 }
 
 function normalizeMaterial3Arguments(

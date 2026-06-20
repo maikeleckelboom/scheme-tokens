@@ -1,5 +1,6 @@
 import {
   buildScheme,
+  createSchemeBuilder,
   defineTokenLayer,
   defineTokenGraph,
   defineTokens,
@@ -10,6 +11,8 @@ import {
   type ExportCssVarsOptions,
   type Issue,
   type Result,
+  type SchemeBuilder,
+  type SchemeBuilderConfig,
   type TokenGraphInput,
   type TokenLayerInput,
   type TokenSource,
@@ -148,6 +151,36 @@ const sourceAndLayerBuilt = buildScheme(source, { layers: [layer], selection: "a
 if (sourceAndLayerBuilt.ok) {
   sourceAndLayerBuilt.value.defaultMode.toUpperCase();
 }
+
+const builderConfig: SchemeBuilderConfig = { layers: [layer], selection: "all" };
+const builder: SchemeBuilder = createSchemeBuilder(builderConfig);
+const builderSourceBuilt = builder.build(source);
+if (builderSourceBuilt.ok) {
+  builderSourceBuilt.value.defaultMode.toUpperCase();
+}
+const builderObjectBuilt = builder.build({ base: source });
+if (builderObjectBuilt.ok) {
+  builderObjectBuilt.value.defaultMode.toUpperCase();
+}
+const builderLayerBuilt = builder.build();
+if (builderLayerBuilt.ok) {
+  builderLayerBuilt.value.defaultMode.toUpperCase();
+}
+
+// @ts-expect-error source is not a createSchemeBuilder config option.
+createSchemeBuilder({ source });
+
+// @ts-expect-error base is supplied to builder.build, not createSchemeBuilder.
+createSchemeBuilder({ base: source });
+
+// @ts-expect-error source is not a scheme builder build input property.
+builder.build({ source });
+
+// @ts-expect-error sourceColors is Material-specific and belongs inside material3().
+builder.build({ sourceColors: "#6750a4" });
+
+// @ts-expect-error variant is Material-specific and belongs inside material3().
+builder.build({ variant: "expressive" });
 
 const sourceArrayAndLayerBuilt = buildScheme([source, source], {
   layers: [layer],

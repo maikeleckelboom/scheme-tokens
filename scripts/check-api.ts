@@ -73,6 +73,7 @@ const manifests: readonly ApiManifest[] = [
     runtime: [
       "buildScheme",
       "compileTokenGraph",
+      "createSchemeBuilder",
       "defineTokenGraph",
       "defineTokenLayer",
       "defineTokens",
@@ -121,6 +122,9 @@ const manifests: readonly ApiManifest[] = [
       "BuildSchemeOptions",
       "BuildSchemeSourceOptions",
       "BuildSchemeIssue",
+      "SchemeBuilder",
+      "SchemeBuilderBuildOptions",
+      "SchemeBuilderConfig",
       "CssVarBlock",
       "CssVarsExport",
       "CssScope",

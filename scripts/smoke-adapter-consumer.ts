@@ -39,8 +39,8 @@ writeJson(join(consumerDirectory, "tsconfig.json"), {
 writeFileSync(
   join(consumerDirectory, "material3.mjs"),
   `
-import { buildScheme, defineTokenLayer } from "scheme-tokens";
-import { material3 } from "@scheme-tokens/material3";
+import { buildScheme, createSchemeBuilder, defineTokenLayer } from "scheme-tokens";
+import { material3, material3Preset } from "@scheme-tokens/material3";
 
 const application = defineTokenLayer({
   id: "application",
@@ -69,6 +69,19 @@ if (built.value.tokens["material3.primary"]?.origin?.kind !== "source") {
 }
 if (built.value.tokens["material3.extended.success.color"]?.origin?.kind !== "source") {
   throw new Error("adapter extended color source origin was not preserved");
+}
+const builder = createSchemeBuilder({ layers: [application], selection: "all" });
+const material = material3Preset(
+  {
+    variant: "tonal-spot",
+    extendedColors: [{ name: "success", color: "#2e7d32" }],
+  },
+  { defaultVisibility: "internal" },
+);
+const preparedBuilt = builder.build(material("#6750a4"));
+if (!preparedBuilt.ok) throw new Error(JSON.stringify(preparedBuilt.issues));
+if (!("app.background" in preparedBuilt.value.tokens)) {
+  throw new Error("adapter prepared build composition failed");
 }
 `,
 );
@@ -108,12 +121,16 @@ if (
 writeFileSync(
   join(consumerDirectory, "types.ts"),
   `
-import { buildScheme, type TokenSource } from "scheme-tokens";
+import { buildScheme, createSchemeBuilder, type SchemeBuilder, type TokenSource } from "scheme-tokens";
 import {
   material3,
+  material3Preset,
   type Material3ExtendedColorInput,
+  type Material3GenerationOptions,
   type Material3Input,
+  type Material3IntegrationOptions,
   type Material3Issue,
+  type Material3Preset,
   type Material3Variant,
 } from "@scheme-tokens/material3";
 
@@ -125,8 +142,15 @@ const input: Material3Input = {
   extendedColors: [extendedColor],
 };
 const source: TokenSource<Material3Issue> = material3(input);
+const generationOptions: Material3GenerationOptions = { variant };
+const integrationOptions: Material3IntegrationOptions = { defaultVisibility: "internal" };
+const preset: Material3Preset = material3Preset(generationOptions, integrationOptions);
+const presetSource: TokenSource<Material3Issue> = preset("#6750a4");
+const builder: SchemeBuilder = createSchemeBuilder({});
 const built = buildScheme(source);
+const preparedBuilt = builder.build(presetSource);
 if (built.ok) built.value.defaultMode.toUpperCase();
+if (preparedBuilt.ok) preparedBuilt.value.defaultMode.toUpperCase();
 `,
 );
 

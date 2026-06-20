@@ -41,7 +41,7 @@ writeJson(join(consumerDirectory, "tsconfig.json"), {
 writeFileSync(
   join(consumerDirectory, "root.mjs"),
   `
-import { buildScheme, compileTokenGraph, defineTokenGraph, defineTokenLayer, defineTokens, exportCssVars } from ${JSON.stringify(manifest.name)};
+import { buildScheme, compileTokenGraph, createSchemeBuilder, defineTokenGraph, defineTokenLayer, defineTokens, exportCssVars } from ${JSON.stringify(manifest.name)};
 
 const graph = defineTokens({
   background: "#ffffff",
@@ -73,6 +73,10 @@ const brand = defineTokenLayer({ id: "brand", tokens: { primary: "#ff3b30" } });
 const built = buildScheme({ layers: [base, brand] });
 if (!built.ok) throw new Error(JSON.stringify(built.issues));
 if (built.value.tokens.primary?.origin?.kind !== "layer") throw new Error("layer-only origin failed");
+const builder = createSchemeBuilder({ layers: [base, brand] });
+const preparedBuilt = builder.build();
+if (!preparedBuilt.ok) throw new Error(JSON.stringify(preparedBuilt.issues));
+if (preparedBuilt.value.tokens.primary?.origin?.kind !== "layer") throw new Error("prepared layer-only origin failed");
 const lightDarkLayer = defineTokenLayer({
   id: "application",
   modes: ["light", "dark"],
@@ -149,6 +153,7 @@ writeFileSync(
 import {
   buildScheme,
   compileTokenGraph,
+  createSchemeBuilder,
   defineTokenLayer,
   defineTokenGraph,
   defineTokens,
@@ -161,6 +166,8 @@ import {
   type ExportCssVarsOptions,
   type Issue,
   type Result,
+  type SchemeBuilder,
+  type SchemeBuilderConfig,
   type TokenGraphInput,
   type TokenLayerInput,
 } from ${JSON.stringify(manifest.name)};
@@ -195,6 +202,9 @@ const source = {
 const built = buildScheme({ base: [source] });
 const shorthandBuilt = buildScheme(source, { selection: "all" } satisfies BuildSchemeSourceOptions);
 const layerBuilt = buildScheme({ layers: [layer] });
+const builderConfig: SchemeBuilderConfig = { layers: [layer] };
+const builder: SchemeBuilder = createSchemeBuilder(builderConfig);
+const preparedBuilt = builder.build(source);
 const lightDarkLayer = defineTokenLayer<"light" | "dark">({
   id: "application",
   modes: ["light", "dark"],
@@ -215,6 +225,7 @@ tokenGraph.defaultMode.toUpperCase();
 if (built.ok) built.value.defaultMode.toUpperCase();
 if (shorthandBuilt.ok) shorthandBuilt.value.defaultMode.toUpperCase();
 if (layerBuilt.ok) layerBuilt.value.defaultMode.toUpperCase();
+if (preparedBuilt.ok) preparedBuilt.value.defaultMode.toUpperCase();
 if (lightDarkBuilt.ok) lightDarkBuilt.value.defaultMode.toUpperCase();
 `,
 );

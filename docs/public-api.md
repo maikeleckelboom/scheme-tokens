@@ -11,6 +11,7 @@ The root API is intentionally small and explicit.
 - `parseColor`
 - `compileTokenGraph`
 - `buildScheme`
+- `createSchemeBuilder`
 - `exportCssVars`
 - `serializeScheme`
 - `formatCssColor`
@@ -159,6 +160,18 @@ permits extra adapter metadata, and invokes `build()` with the original source o
 `buildScheme(source)` and `buildScheme([sourceA, sourceB])` are base-only convenience forms. A second options argument
 may provide build options except `base`, for example `buildScheme(source, { layers, selection })`.
 
+`createSchemeBuilder(config)` prepares reusable build options except `base`. It is synchronous and immutable from the
+caller's perspective: mutating the config object or layer array after creation does not change future builds. The
+returned builder accepts:
+
+- `builder.build()` for the same layer-only build behavior as `buildScheme(config)`;
+- `builder.build(base)` for a source shorthand;
+- `builder.build({ base })` for the explicit object form.
+
+The builder is source-agnostic. Generic builder input uses the `base` property only. Material-specific fields such as
+`sourceColors`, `variant`, `contrastLevel`, `specVersion`, `platform`, `palettes`, `extendedColors`, and `paletteTones`
+belong inside `material3()` or another adapter helper, not on `builder.build()`.
+
 Layers and build-envelope fields belong in the options object. Mixed source/layer positional arrays are intentionally
 unsupported; use `buildScheme({ base, layers })` or `buildScheme(source, { layers })` instead.
 
@@ -237,6 +250,41 @@ const internalExpressiveBase = material3(
   { defaultVisibility: "internal" },
 );
 ```
+
+`material3Preset(generationDefaults, integrationOptions?)` prepares repeated Material generation settings and returns a
+source helper. Runtime calls still provide `sourceColors`:
+
+```ts
+import { material3Preset } from "@scheme-tokens/material3";
+
+const material = material3Preset({ variant: "tonal-spot" }, { defaultVisibility: "internal" });
+
+const base = material("#6750a4");
+```
+
+The returned preset helper also accepts runtime generation overrides and object input:
+
+```ts
+import { material3Preset } from "@scheme-tokens/material3";
+
+const material = material3Preset({ variant: "tonal-spot" });
+
+const expressiveBase = material("#6750a4", { variant: "expressive" });
+
+const cmfBase = material(["#6750a4", "#00a88f"], {
+  variant: "cmf",
+  specVersion: "2026",
+});
+
+const objectBase = material({
+  sourceColors: "#6750a4",
+  variant: "expressive",
+});
+```
+
+Runtime generation input wins over preset defaults. Arrays replace arrays; `extendedColors` entries are not concatenated
+or deep-merged. Integration options are fixed at preset creation. Use a second preset or `material3()` directly when
+`id` or `defaultVisibility` should differ.
 
 `id` and `defaultVisibility` are integration options, not Material 3 generation input. `variant`, `contrastLevel`,
 `specVersion`, `platform`, `palettes`, `extendedColors`, and `paletteTones` are Material 3 generation options, not

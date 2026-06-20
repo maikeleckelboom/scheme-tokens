@@ -14,6 +14,7 @@ import {
 import * as adapter from "../src";
 import {
   material3,
+  material3Preset,
   material3Platforms,
   material3SpecVersions,
   material3Variants,
@@ -36,6 +37,7 @@ describe("material3", () => {
     expect(Object.keys(adapter).sort()).toEqual([
       "material3",
       "material3Platforms",
+      "material3Preset",
       "material3SpecVersions",
       "material3Variants",
     ]);
@@ -88,6 +90,80 @@ describe("material3", () => {
     const object = unwrap(material3({ sourceColors: "#6750a4" }).build());
 
     expect(extractGraphTokenValues(shorthand)).toEqual(extractGraphTokenValues(object));
+  });
+
+  test("material3Preset delegates defaults and integration options to material3", () => {
+    const defaults = {
+      variant: "tonal-spot",
+      contrastLevel: 0,
+      specVersion: "2026",
+      platform: "phone",
+      extendedColors: [{ name: "success", color: "#2e7d32", harmonize: true }],
+    } as const;
+    const options = { defaultVisibility: "internal" } as const;
+    const preset = material3Preset(defaults, options);
+    const presetGraph = unwrap(preset("#6750a4").build());
+    const directGraph = unwrap(material3("#6750a4", defaults, options).build());
+
+    expect(extractGraphTokenValues(presetGraph)).toEqual(extractGraphTokenValues(directGraph));
+    expect(presetGraph.defaultVisibility).toBe("internal");
+  });
+
+  test("material3Preset accepts runtime generation overrides and object input", () => {
+    const preset = material3Preset({ variant: "tonal-spot", specVersion: "2026" });
+    const shorthandGraph = unwrap(
+      preset(["#6750a4", "#00a88f"], { variant: "cmf", specVersion: "2026" }).build(),
+    );
+    const directGraph = unwrap(
+      material3(["#6750a4", "#00a88f"], { variant: "cmf", specVersion: "2026" }).build(),
+    );
+    const objectGraph = unwrap(
+      preset({ sourceColors: "#6750a4", variant: "expressive", specVersion: "2026" }).build(),
+    );
+    const expressiveGraph = unwrap(
+      material3({ sourceColors: "#6750a4", variant: "expressive", specVersion: "2026" }).build(),
+    );
+
+    expect(extractGraphTokenValues(shorthandGraph)).toEqual(extractGraphTokenValues(directGraph));
+    expect(extractGraphTokenValues(objectGraph)).toEqual(extractGraphTokenValues(expressiveGraph));
+    expect(extractGraphTokenValues(objectGraph)).not.toEqual(
+      extractGraphTokenValues(unwrap(preset("#6750a4").build())),
+    );
+  });
+
+  test("material3Preset replaces array defaults and isolates caller mutation", () => {
+    const defaults = {
+      extendedColors: [{ name: "success", color: "#2e7d32", harmonize: true }],
+      paletteTones: [40],
+    };
+    const preset = material3Preset(defaults);
+
+    defaults.extendedColors.push({ name: "warning", color: "#f9a825", harmonize: true });
+    defaults.paletteTones.push(90);
+
+    const defaultGraph = unwrap(preset("#6750a4").build());
+    expect(Object.keys(defaultGraph.tokens)).toContain("material3.extended.success.color");
+    expect(Object.keys(defaultGraph.tokens)).not.toContain("material3.extended.warning.color");
+    expect(Object.keys(defaultGraph.tokens)).toContain("material3.palette.primary.tone-40");
+    expect(Object.keys(defaultGraph.tokens)).not.toContain("material3.palette.primary.tone-90");
+
+    const runtimeInput = {
+      sourceColors: "#6750a4",
+      extendedColors: [{ name: "warning", color: "#f9a825", harmonize: true }],
+    } as const;
+    const runtimeGraph = unwrap(preset(runtimeInput).build());
+
+    expect(Object.keys(runtimeGraph.tokens)).not.toContain("material3.extended.success.color");
+    expect(Object.keys(runtimeGraph.tokens)).toContain("material3.extended.warning.color");
+    expect(runtimeInput.extendedColors[0]?.name).toBe("warning");
+  });
+
+  test("material3Preset keeps sourceColors validation runtime-owned", () => {
+    expect.hasAssertions();
+
+    const preset = material3Preset({ variant: "tonal-spot" });
+
+    expectIssueCodes(preset([]).build(), ["material3-invalid-source-colors"]);
   });
 
   test("matches one-item sourceColors array shorthand to scalar shorthand", () => {
@@ -209,8 +285,8 @@ describe("material3", () => {
       "primary",
       "style",
       "customColors",
-      "material3Source",
-      "@scheme-tokens/source-material3",
+      `material${"3"}Source`,
+      `@scheme-tokens/${"source"}-material3`,
       "isDark",
       "dark",
       "brightnessVariants",

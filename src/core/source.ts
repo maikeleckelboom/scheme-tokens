@@ -26,6 +26,23 @@ export interface BuildSchemeOptions<I extends Issue = Issue> {
 
 export type BuildSchemeSourceOptions<I extends Issue = Issue> = Omit<BuildSchemeOptions<I>, "base">;
 
+export type SchemeBuilderConfig = BuildSchemeSourceOptions;
+
+export interface SchemeBuilderBuildOptions<I extends Issue = Issue> {
+  readonly base?: TokenSource<I> | readonly TokenSource<I>[];
+}
+
+export interface SchemeBuilder {
+  build(): Result<CompiledScheme, BuildSchemeIssue>;
+  build<I extends Issue>(source: TokenSource<I>): Result<CompiledScheme, I | BuildSchemeIssue>;
+  build<I extends Issue>(
+    sources: readonly [TokenSource<I>, ...TokenSource<I>[]],
+  ): Result<CompiledScheme, I | BuildSchemeIssue>;
+  build<I extends Issue>(
+    input: SchemeBuilderBuildOptions<I>,
+  ): Result<CompiledScheme, I | BuildSchemeIssue>;
+}
+
 export type BuildSchemeIssue =
   | TokenGraphIssue
   | CompileTokenGraphIssue
@@ -68,7 +85,17 @@ export function buildScheme<I extends Issue>(
     return normalizedOptions as Result<never, I | BuildSchemeIssue>;
   }
 
-  const parsedOptions = parseBuildOptions(normalizedOptions.value);
+  return buildSchemeOptions(normalizedOptions.value);
+}
+
+export function createSchemeBuilder(config: SchemeBuilderConfig): SchemeBuilder {
+  return createSchemeBuildKernel(config);
+}
+
+function buildSchemeOptions<I extends Issue>(
+  input: BuildSchemeOptions<I>,
+): Result<CompiledScheme, I | BuildSchemeIssue> {
+  const parsedOptions = parseBuildOptions(input);
   if (!parsedOptions.ok) {
     return parsedOptions as Result<never, I | BuildSchemeIssue>;
   }
@@ -98,6 +125,157 @@ export function buildScheme<I extends Issue>(
     callerLayerIds,
     parsedOptions.value.selection,
   ) as Result<CompiledScheme, I | BuildSchemeIssue>;
+}
+
+interface SchemeBuildKernel {
+  build<I extends Issue>(
+    input?:
+      | TokenSource<I>
+      | readonly [TokenSource<I>, ...TokenSource<I>[]]
+      | SchemeBuilderBuildOptions<I>,
+  ): Result<CompiledScheme, I | BuildSchemeIssue>;
+}
+
+function createSchemeBuildKernel(config: SchemeBuilderConfig): SchemeBuildKernel {
+  const preparedConfig = copyPreparedBuildOptions(config);
+
+  return Object.freeze({
+    build<I extends Issue>(
+      input?:
+        | TokenSource<I>
+        | readonly [TokenSource<I>, ...TokenSource<I>[]]
+        | SchemeBuilderBuildOptions<I>,
+    ): Result<CompiledScheme, I | BuildSchemeIssue> {
+      const normalizedOptions = normalizeBuilderBuildCall<I>(preparedConfig, input);
+      if (!normalizedOptions.ok) {
+        return normalizedOptions as Result<never, I | BuildSchemeIssue>;
+      }
+      return buildSchemeOptions(normalizedOptions.value);
+    },
+  });
+}
+
+function normalizeBuilderBuildCall<I extends Issue>(
+  preparedConfig: BuildSchemeSourceOptions,
+  input:
+    | TokenSource<I>
+    | readonly [TokenSource<I>, ...TokenSource<I>[]]
+    | SchemeBuilderBuildOptions<I>
+    | undefined,
+): Result<BuildSchemeOptions<I>, BuildSchemeIssue> {
+  const parsedConfig = parseBuildSourceOptions(preparedConfig);
+  if (!parsedConfig.ok) {
+    return parsedConfig;
+  }
+
+  if (input === undefined) {
+    return { ok: true, value: parsedConfig.value as BuildSchemeOptions<I> };
+  }
+  if (Array.isArray(input)) {
+    return {
+      ok: true,
+      value: {
+        ...parsedConfig.value,
+        base: input,
+      },
+    };
+  }
+  if (isSourceShorthand(input)) {
+    return {
+      ok: true,
+      value: {
+        ...parsedConfig.value,
+        base: input,
+      },
+    };
+  }
+
+  const entries = readPlainRecord(input, {
+    code: "invalid-build-options",
+    message: "scheme builder build input must be a plain object.",
+  });
+  if (!entries.ok) {
+    return entries as Result<never, BuildSchemeIssue>;
+  }
+
+  const merged: Record<string, unknown> = {};
+  const configEntries = readPlainRecord(parsedConfig.value, {
+    code: "invalid-build-options",
+    message: "scheme builder config must be a plain object.",
+  });
+  if (!configEntries.ok) {
+    return configEntries as Result<never, BuildSchemeIssue>;
+  }
+
+  for (const entry of configEntries.value) {
+    defineRecordValue(merged, entry.key, entry.value);
+  }
+  for (const entry of entries.value) {
+    defineRecordValue(merged, entry.key, entry.value);
+  }
+
+  return { ok: true, value: merged as BuildSchemeOptions<I> };
+}
+
+function copyPreparedBuildOptions(input: SchemeBuilderConfig): BuildSchemeSourceOptions {
+  const entries = readPlainRecord(input, {
+    code: "invalid-build-options",
+    message: "scheme builder config must be a plain object.",
+  });
+  if (!entries.ok) {
+    return input;
+  }
+
+  const output: Record<string, unknown> = {};
+  for (const entry of entries.value) {
+    defineRecordValue(output, entry.key, copyPreparedValue(entry.value, new Set()));
+  }
+  return Object.freeze(output) as BuildSchemeSourceOptions;
+}
+
+function copyPreparedValue(input: unknown, seen: Set<object>): unknown {
+  if (
+    input === null ||
+    typeof input === "string" ||
+    typeof input === "number" ||
+    typeof input === "boolean"
+  ) {
+    return input;
+  }
+
+  if (Array.isArray(input)) {
+    if (seen.has(input)) {
+      return input;
+    }
+    seen.add(input);
+    const output = input.map((value) => copyPreparedValue(value, seen));
+    seen.delete(input);
+    return Object.freeze(output);
+  }
+
+  if (input !== null && typeof input === "object") {
+    if (seen.has(input)) {
+      return input;
+    }
+
+    const entries = readPlainRecord(input, {
+      code: "invalid-build-options",
+      message: "scheme builder config values must be plain objects.",
+    });
+    if (!entries.ok) {
+      return input;
+    }
+
+    seen.add(input);
+    const output: Record<string, unknown> = {};
+    for (const entry of entries.value) {
+      defineRecordValue(output, entry.key, copyPreparedValue(entry.value, seen));
+    }
+    seen.delete(input);
+    return Object.freeze(output);
+  }
+
+  return input;
 }
 
 function normalizeBuildSchemeCall<I extends Issue>(

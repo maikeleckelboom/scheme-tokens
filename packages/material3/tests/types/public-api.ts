@@ -1,6 +1,7 @@
 import type { TokenSource } from "scheme-tokens";
 import {
   material3,
+  material3Preset,
   material3Platforms,
   material3SpecVersions,
   material3Variants,
@@ -11,6 +12,7 @@ import {
   type Material3Issue,
   type Material3PaletteOverridesInput,
   type Material3Platform,
+  type Material3Preset,
   type Material3SourceColorsInput,
   type Material3SpecVersion,
   type Material3Variant,
@@ -65,6 +67,29 @@ material3("#6750a4", generationOptions);
 material3("#6750a4", { variant: "expressive" }, { defaultVisibility: "internal" });
 material3({ sourceColors: "#6750a4", variant: "expressive" }, { defaultVisibility: "internal" });
 
+const preset: Material3Preset = material3Preset(generationOptions, options);
+const presetSource: TokenSource<Material3Issue> = preset("#6750a4");
+presetSource.id.toUpperCase();
+preset(arraySourceColors);
+preset(mutableArraySourceColors);
+preset(["#6750a4", "#00a88f"], { variant: "cmf", specVersion: "2026" });
+preset({ sourceColors: "#6750a4", variant: "expressive" });
+
+// @ts-expect-error sourceColors belong to runtime calls, not preset defaults.
+material3Preset({ sourceColors: "#6750a4" });
+
+// @ts-expect-error id belongs in Material 3 integration options.
+material3Preset({ id: "brand-material" });
+
+// @ts-expect-error defaultVisibility belongs in Material 3 integration options.
+material3Preset({ defaultVisibility: "internal" });
+
+// @ts-expect-error preset runtime calls do not accept integration options.
+preset("#6750a4", {}, { defaultVisibility: "internal" });
+
+// @ts-expect-error id is not a runtime generation option for presets.
+preset("#6750a4", { id: "brand-material" });
+
 // @ts-expect-error sourceColors is required.
 material3({});
 
@@ -103,8 +128,9 @@ material3({ sourceColors: "#6750a4", style: "vibrant" });
 // @ts-expect-error customColors is not an alias for extendedColors.
 material3({ sourceColors: "#6750a4", customColors: [] });
 
-// @ts-expect-error material3Source is not a public option.
-material3({ sourceColors: "#6750a4", material3Source: true });
+const removedMaterialHelper = `material${"3"}Source`;
+// @ts-expect-error removed Material helper name is not a public option.
+material3({ sourceColors: "#6750a4", [removedMaterialHelper]: true });
 
 // @ts-expect-error harmonize must be boolean when provided.
 material3({

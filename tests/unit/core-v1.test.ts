@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   buildScheme,
   compileTokenGraph,
+  createSchemeBuilder,
   defineTokenLayer,
   defineTokenGraph,
   defineTokens,
@@ -999,6 +1000,95 @@ describe("v1 sources", () => {
     ).toMatchObject({
       ok: false,
       issues: [{ code: "invalid-build-options", path: "/defaultMode" }],
+    });
+  });
+
+  test("createSchemeBuilder reuses buildScheme behavior for prepared layers", () => {
+    const source = fixedSource(
+      "material",
+      defineTokenGraph({
+        defaultVisibility: "internal",
+        tokens: {
+          "material3.surface": "#ffffff",
+          "material3.on-surface": "#111111",
+          "material3.primary": "#6750a4",
+          "material3.on-primary": "#ffffff",
+        },
+      }),
+    );
+    const application = defineTokenLayer({
+      id: "application",
+      tokens: {
+        background: "material3.surface",
+        foreground: "material3.on-surface",
+        primary: "material3.primary",
+        "primary-foreground": "material3.on-primary",
+      },
+    });
+
+    const builder = createSchemeBuilder({ layers: [application] });
+    const shorthandBuilt = builder.build(source);
+    const objectBuilt = builder.build({ base: source });
+    const oneShotBuilt = buildScheme(source, { layers: [application] });
+
+    expect(shorthandBuilt).toEqual(oneShotBuilt);
+    expect(objectBuilt).toEqual(shorthandBuilt);
+  });
+
+  test("createSchemeBuilder supports layer-only builds and empty-build diagnostics", () => {
+    const layer = defineTokenLayer({
+      id: "brand",
+      tokens: {
+        primary: "#6750a4",
+      },
+    });
+
+    expect(createSchemeBuilder({ layers: [layer] }).build()).toEqual(
+      buildScheme({ layers: [layer] }),
+    );
+    expect(createSchemeBuilder({}).build()).toEqual(buildScheme({}));
+  });
+
+  test("createSchemeBuilder rejects generic build input aliases", () => {
+    const builder = createSchemeBuilder({});
+
+    for (const key of ["source", "sourceColors", "variant", "color"] as const) {
+      expect(builder.build({ [key]: "#6750a4" } as never)).toMatchObject({
+        ok: false,
+        issues: [{ code: "invalid-build-options", message: `Unknown build option: ${key}.` }],
+      });
+    }
+  });
+
+  test("createSchemeBuilder prepared config is isolated from caller mutation", () => {
+    const layer = defineTokenLayer({
+      id: "application",
+      tokens: {
+        primary: "#6750a4",
+      },
+    });
+    const layers = [layer];
+    const builder = createSchemeBuilder({ layers });
+
+    layers.push(
+      defineTokenLayer({
+        id: "brand",
+        tokens: {
+          primary: "#ff3b30",
+        },
+      }),
+    );
+    (layer.tokens.primary as { value: string }).value = "#000000";
+
+    const value = unwrap(builder.build());
+
+    expect(value.tokens.primary?.origin).toEqual({ kind: "layer", id: "application" });
+    expect(value.tokens.primary?.valueByMode.base).toEqual({
+      colorSpace: "srgb",
+      r: 0.403921568627451,
+      g: 0.3137254901960784,
+      b: 0.6431372549019608,
+      alpha: 1,
     });
   });
 

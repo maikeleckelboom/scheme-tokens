@@ -2,7 +2,7 @@ export { defineTokenGraph, defineTokenLayer, defineTokens } from "./core/graph";
 export { parseTokenGraph } from "./core/parse-token-graph";
 export { parseColor } from "./core/color";
 export { compileTokenGraph } from "./core/compile-token-graph";
-export { buildScheme } from "./core/source";
+export { buildScheme, createSchemeBuilder } from "./core/source";
 export { exportCssVars } from "./exporters/export-css-variables";
 export { serializeScheme } from "./exporters/serialize-scheme";
 export { formatCssColor } from "./exporters/format-css-color";
@@ -48,6 +48,9 @@ export type {
   BuildSchemeIssue,
   BuildSchemeOptions,
   BuildSchemeSourceOptions,
+  SchemeBuilder,
+  SchemeBuilderBuildOptions,
+  SchemeBuilderConfig,
   TokenSource,
 } from "./core/source";
 export type {

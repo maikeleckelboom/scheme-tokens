@@ -101,6 +101,42 @@ material3("#6750a4", { variant: "expressive" }, { defaultVisibility: "internal" 
 `id` and `defaultVisibility` are integration options, not Material generation input. They are rejected in object input
 and in the shorthand generation-options position.
 
+Use `material3Preset()` when repeated builds share Material generation defaults or integration policy:
+
+```ts
+import { material3Preset } from "@scheme-tokens/material3";
+
+const material = material3Preset({ variant: "tonal-spot" }, { defaultVisibility: "internal" });
+
+const base = material("#6750a4");
+```
+
+Runtime generation input overrides preset defaults:
+
+```ts
+import { material3Preset } from "@scheme-tokens/material3";
+
+const material = material3Preset({ variant: "tonal-spot" });
+
+const expressiveBase = material("#6750a4", {
+  variant: "expressive",
+});
+
+const cmfBase = material(["#6750a4", "#00a88f"], {
+  variant: "cmf",
+  specVersion: "2026",
+});
+
+const objectBase = material({
+  sourceColors: "#6750a4",
+  variant: "expressive",
+});
+```
+
+Preset defaults do not include `sourceColors`; runtime calls provide source colors through shorthand or object input.
+Arrays such as `extendedColors` replace preset arrays. Integration options are fixed at preset creation, so create a
+separate preset or call `material3()` directly when `id` or `defaultVisibility` differs.
+
 ## Dynamic Controls
 
 The adapter supports the official engine controls available in the vendored Material Color Utilities snapshot:

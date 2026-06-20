@@ -18,6 +18,7 @@ describe("package boundary", () => {
     expect(Object.keys(root).sort()).toEqual([
       "buildScheme",
       "compileTokenGraph",
+      "createSchemeBuilder",
       "defineTokenGraph",
       "defineTokenLayer",
       "defineTokens",
