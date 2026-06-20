@@ -19,9 +19,10 @@ import { compileTokenGraph, defineTokenGraph, exportCssVariables } from "color-s
 
 const graph = defineTokenGraph({
   tokens: {
-    "brand.primary": "#6750a4",
-    "brand.on-primary": "#ffffff",
-    "surface.canvas": "#ffffff",
+    background: "#ffffff",
+    foreground: "#111111",
+    primary: "#6750a4",
+    "primary-foreground": "#ffffff",
   },
 });
 
@@ -30,7 +31,7 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const css = exportCssVariables(compiled.value, { prefix: "color" });
+const css = exportCssVariables(compiled.value);
 if (!css.ok) {
   throw new Error(JSON.stringify(css.issues, null, 2));
 }
@@ -43,6 +44,9 @@ ordinary value for this token." It is not a Material role, generated palette, li
 
 The default CSS export uses `:root` for the default mode. Directly authored tokens default to `public`, and compilation
 defaults to `selection: "public"`.
+
+Omit `prefix` to emit custom properties such as `--background`, `--foreground`, `--primary`, and
+`--primary-foreground`. Pass `prefix: "color"` when you want namespaced variables such as `--color-background`.
 
 ## Light and Dark Values
 
@@ -62,11 +66,25 @@ const graph = defineTokenGraph({
       light: "#ffffff",
       dark: "#381e72",
     },
-    "button.background": {
+    background: {
+      visibility: "public",
+      valueByMode: {
+        light: "#ffffff",
+        dark: "#141218",
+      },
+    },
+    foreground: {
+      visibility: "public",
+      valueByMode: {
+        light: "#111111",
+        dark: "#f5eff7",
+      },
+    },
+    primary: {
       visibility: "public",
       value: { ref: "brand.primary" },
     },
-    "button.foreground": {
+    "primary-foreground": {
       visibility: "public",
       value: { ref: "brand.on-primary" },
     },
@@ -78,7 +96,7 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const css = exportCssVariables(compiled.value, { prefix: "color" });
+const css = exportCssVariables(compiled.value);
 if (!css.ok) {
   throw new Error(JSON.stringify(css.issues, null, 2));
 }
@@ -91,7 +109,7 @@ console.log(css.value);
 exporter receives only the selected compiled tokens and writes variables for that set.
 
 To export every token, compile with `compileTokenGraph(graph, { selection: "all" })`. To export a named subset, compile
-with `compileTokenGraph(graph, { selection: { keys: ["button.background"] } })`.
+with `compileTokenGraph(graph, { selection: { keys: ["background"] } })`.
 
 The default CSS selectors are `:root` for the default mode and `:root[data-color-scheme="dark"]` for the dark mode. Pass
 `scope` and `modeSelectors` when your app uses classes or exact selectors instead.
@@ -152,9 +170,10 @@ const application = defineTokenFragment<"light" | "dark">({
   id: "application",
   defaultVisibility: "public",
   tokens: {
-    "app.background": "material3.surface",
-    "app.foreground": "material3.on-surface",
-    "app.action": "material3.primary",
+    background: "material3.surface",
+    foreground: "material3.on-surface",
+    primary: "material3.primary",
+    "primary-foreground": "material3.on-primary",
   },
 });
 
@@ -172,10 +191,12 @@ if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
 
-const css = exportCssVariables(built.value.compiled, { prefix: "color" });
+const css = exportCssVariables(built.value.compiled);
 if (!css.ok) {
   throw new Error(JSON.stringify(css.issues, null, 2));
 }
+
+console.log(css.value);
 ```
 
 `buildTokenSet()` is the runner that composes one or more sources plus fragments, validates the returned graph material,
@@ -185,8 +206,8 @@ engine-free.
 `sourceColor` is the required Material source color used to generate the scheme. Material extended colors are exposed as
 `extendedColors`, with entries shaped as `{ name, color, harmonize? }`.
 
-The adapter emits strict `light` and `dark` graph tokens under the `material3` namespace by default, such as
-`material3.primary`, `material3.on-primary`, and `material3.primary-container`.
+The adapter emits strict `light` and `dark` graph tokens with adapter-owned keys such as `material3.primary`,
+`material3.on-primary`, and `material3.primary-container`.
 
 See [`@color-scheme-tokens/source-material3`](./packages/source-material3/README.md) for adapter-specific options and
 composition examples.

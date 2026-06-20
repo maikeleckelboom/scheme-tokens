@@ -12,25 +12,44 @@ pnpm add color-scheme-tokens @color-scheme-tokens/source-material3
 ## Usage
 
 ```ts
-import { buildTokenSet } from "color-scheme-tokens";
+import { buildTokenSet, defineTokenFragment, exportCssVariableBlocks } from "color-scheme-tokens";
 import { material3Source } from "@color-scheme-tokens/source-material3";
+
+const application = defineTokenFragment<"light" | "dark">({
+  id: "application",
+  defaultVisibility: "public",
+  tokens: {
+    background: "material3.surface",
+    foreground: "material3.on-surface",
+    primary: "material3.primary",
+    "primary-foreground": "material3.on-primary",
+  },
+});
 
 const built = buildTokenSet({
   sources: [
     material3Source({
       sourceColor: "#6750a4",
+      defaultVisibility: "internal",
     }),
   ],
+  fragments: [application],
 });
 
 if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
 
-console.log(built.value.compiled.tokens["material3.primary"]);
+const blocks = exportCssVariableBlocks(built.value.compiled);
+if (!blocks.ok) {
+  throw new Error(JSON.stringify(blocks.issues, null, 2));
+}
+
+console.log(blocks.value[0]?.declarations["--primary"]);
 ```
 
-The adapter emits strict graph input with `light` and `dark` modes. Token keys are namespaced under the source id:
+The adapter emits strict graph input with `light` and `dark` modes. Raw Material roles use adapter-owned `material3.*`
+token keys and can be exported when selected:
 
 ```text
 material3.primary
@@ -70,7 +89,7 @@ Each entry is shaped as `{ name, color, harmonize? }`. `name` is a lower-kebab t
 strict `#rrggbb` input as `sourceColor`, and `harmonize` maps to Material custom color harmonization behavior. When
 omitted, `harmonize` defaults to `true`.
 
-Extended color tokens are emitted under the source id namespace:
+Extended color tokens are emitted as adapter-owned keys:
 
 ```text
 material3.extended.success.color
@@ -85,20 +104,20 @@ Advanced key-color-driven scheme input remains future scope; this adapter does n
 
 ## Composition
 
-Use `defaultVisibility: "internal"` when the Material roles should feed public application tokens without being exported
-as public tokens themselves.
+Use `exportCssVariables()` when you want a stylesheet string instead of structured blocks.
 
 ```ts
-import { buildTokenSet, defineTokenFragment } from "color-scheme-tokens";
+import { buildTokenSet, defineTokenFragment, exportCssVariables } from "color-scheme-tokens";
 import { material3Source } from "@color-scheme-tokens/source-material3";
 
 const application = defineTokenFragment<"light" | "dark">({
   id: "application",
   defaultVisibility: "public",
   tokens: {
-    "app.background": "material3.surface",
-    "app.foreground": "material3.on-surface",
-    "app.action": "material3.primary",
+    background: "material3.surface",
+    foreground: "material3.on-surface",
+    primary: "material3.primary",
+    "primary-foreground": "material3.on-primary",
   },
 });
 
@@ -115,7 +134,15 @@ const built = buildTokenSet({
 if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
+
+const css = exportCssVariables(built.value.compiled);
+if (!css.ok) {
+  throw new Error(JSON.stringify(css.issues, null, 2));
+}
 ```
+
+Use `defaultVisibility: "internal"` when the Material roles should feed public application tokens without being exported
+as public tokens themselves.
 
 Material 3 support lives in this adapter package. The root package does not import, export, document as required, or
 depend on the Material engine for manual token graphs.
