@@ -49,13 +49,13 @@ Prefer build-time, SSR, or server-side generation for static schemes. Use `creat
 previews, theme editors, and color controls where `sourceColors` changes repeatedly; `scheme-tokens` is not a global
 mutable runtime theme engine.
 
-`compileTokenGraph()` defaults to `selection: "public"`. The CSS exporter emits variables for the compiled scheme it
-receives; it does not apply visibility filtering itself.
+`compileTokenGraph()` defaults to `selection: "public"`. The CSS exporter emits CSS custom properties for the compiled
+scheme it receives; it does not apply visibility filtering itself.
 
 `exportCssVars()` returns one `Result` whose success value contains `css`, `blocks`, and `variableByToken`. `css` is the
 serialized stylesheet string. `blocks` contains one structured block per compiled mode. Each block's `declarations` is
 an ordered list of `{ tokenKey, property, value }` entries for runtime application, previews, or custom renderers. The
-stylesheet is formatted from the same blocks returned in `value.blocks`. `variableByToken` is the direct token-key to
+stylesheet is formatted from the same blocks returned in `value.blocks`. `variableByToken` is the direct token-key to CSS
 custom-property lookup for consumers that need one. Declaration arrays are ordered renderer/exporter data; token lookup
 should use `variableByToken`.
 
@@ -65,11 +65,12 @@ should use `variableByToken`.
 `a.b-c` exports as `--a--b-c` while `a-b.c` exports as `--a-b--c`; with `prefix: "color"` those become
 `--color-a--b-c` and `--color-a-b--c`.
 
-External CSS variable contracts can be supported by authoring matching token keys and exporting without a prefix. Core
-does not hard-code framework presets or browser mutation behavior.
+External CSS custom-property contracts can be supported by authoring matching token keys and exporting without a prefix.
+Core does not hard-code framework presets or browser mutation behavior.
 
-`exports` is reserved for package subpaths and output/export behavior such as CSS variable naming, filtering, prefixing,
-target formats, or future export profiles. It is not a graph or layer lane for mapping one token key to another.
+`exports` is reserved for package subpaths and output/export behavior such as CSS custom-property naming, filtering,
+prefixing, target formats, or future export profiles. It is not a graph or layer lane for mapping one token key to
+another.
 
 Generated mode selectors append to the configured scope for `data-attribute` and `class` strategies. The scope must be a
 single append-safe selector such as `:root` or `.preview`; selector lists, pseudo-elements, descendant selectors, and
@@ -78,7 +79,7 @@ other complex scopes should use exact `modeSelectors: { strategy: "selectors" }`
 ## Tailwind v4 Boundary
 
 Tailwind v4 integration is a CSS mapping step, not a root-package target exporter. `scheme-tokens` emits authored
-runtime variables by default:
+runtime CSS custom properties by default:
 
 ```css
 :root {

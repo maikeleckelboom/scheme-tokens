@@ -1,6 +1,6 @@
 # Roadmap
 
-`scheme-tokens` 0.1.0 is focused on the dependency-light core package, ordered token layers, CSS variable export,
+`scheme-tokens` 0.1.0 is focused on the dependency-light core package, ordered token layers, CSS custom-property export,
 deterministic serialization, strict schemas, and the real Material 3 base scheme adapter.
 
 Standards and ecosystem interoperability are planned, but DTCG support is not part of 0.1.0. Texel-backed color
@@ -22,8 +22,8 @@ Planned package names:
 - JSON-safe helper input through `defineTokens()`, `defineTokenGraph()`, and `defineTokenLayer()`;
 - `buildScheme()` for base-only, layer-only, base-plus-layer builds, and base-first convenience calls;
 - deterministic source/layer composition;
-- unprefixed CSS variable export by default;
-- structured CSS variable blocks through `exportCssVars().value.blocks`;
+- unprefixed CSS custom-property export by default;
+- structured CSS custom-property blocks through `exportCssVars()`;
 - deterministic compiled-scheme serialization;
 - strict schema artifacts for core wire formats;
 - `@scheme-tokens/material3` as the first real Material 3 base scheme adapter.

@@ -84,9 +84,9 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const exported = exportCssVars(compiled.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(compiled.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
 const color = parseColor("#6750a4");
@@ -102,5 +102,5 @@ const parsedCompiled = parseCompiledScheme(JSON.parse(compiledJson));
 const parsedGraph = parseTokenGraph(JSON.parse(graphJson));
 const parsedLayer = parseTokenLayer(JSON.parse(layerJson));
 
-export { cssColor, exported, parsedCompiled, parsedGraph, parsedLayer };
+export { cssColor, cssExport, parsedCompiled, parsedGraph, parsedLayer };
 ```

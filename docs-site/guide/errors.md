@@ -80,9 +80,9 @@ const missingReference = compiled.ok
 export { missingReference };
 ```
 
-## Duplicate CSS Variable
+## Duplicate CSS Custom Property
 
-Custom variable naming must produce unique CSS custom properties.
+Custom CSS custom-property naming must produce unique CSS custom properties.
 
 ```ts
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
@@ -97,13 +97,13 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const exported = exportCssVars(compiled.value, {
+const cssExport = exportCssVars(compiled.value, {
   variableName: () => "--app-color",
 });
 
-const duplicateVariable = exported.ok
+const duplicateCustomProperty = cssExport.ok
   ? undefined
-  : exported.issues.find((issue) => issue.code === "duplicate-css-variable");
+  : cssExport.issues.find((issue) => issue.code === "duplicate-css-variable");
 
-export { duplicateVariable };
+export { duplicateCustomProperty };
 ```

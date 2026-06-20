@@ -37,12 +37,12 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const exported = exportCssVars(compiled.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(compiled.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const stylesheet = exported.value.css;
+const stylesheet = cssExport.value.css;
 export { stylesheet };
 ```
 
@@ -68,7 +68,7 @@ Use exact selectors when your app already owns classes, selector lists, or desce
 import { exportCssVars, type CompiledColorScheme } from "scheme-tokens";
 
 export function exportThemeCss(compiled: CompiledColorScheme): string {
-  const exported = exportCssVars(compiled, {
+  const cssExport = exportCssVars(compiled, {
     modeSelectors: {
       strategy: "selectors",
       selectors: {
@@ -78,11 +78,11 @@ export function exportThemeCss(compiled: CompiledColorScheme): string {
     },
   });
 
-  if (!exported.ok) {
-    throw new Error(JSON.stringify(exported.issues, null, 2));
+  if (!cssExport.ok) {
+    throw new Error(JSON.stringify(cssExport.issues, null, 2));
   }
 
-  return exported.value.css;
+  return cssExport.value.css;
 }
 ```
 

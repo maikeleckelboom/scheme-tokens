@@ -53,8 +53,8 @@ direct dependency metadata. Exporters consume compiled schemes.
 
 ## CSS Export
 
-`exportCssVars()` converts a compiled scheme into a stylesheet string, ordered declaration blocks, and a token-to-variable
-map. It does not mutate the DOM or act as a runtime theme manager.
+`exportCssVars()` converts a compiled scheme into a stylesheet string, ordered declaration blocks, and a token-key to CSS
+custom-property map. It does not mutate the DOM or act as a runtime theme manager.
 
 ## Persisted Artifacts
 

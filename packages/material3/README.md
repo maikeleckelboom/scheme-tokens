@@ -31,15 +31,14 @@ if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
 
-const exported = exportCssVars(built.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(built.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const stylesheet = exported.value.css;
-const primaryVariable = exported.value.variableByToken.primary;
+const stylesheet = cssExport.value.css;
 
-export { primaryVariable, stylesheet };
+export { stylesheet };
 ```
 
 The adapter emits strict graph input with `light` and `dark` modes. Raw Material roles use adapter-owned `material3.*`
@@ -306,12 +305,12 @@ if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
 
-const exported = exportCssVars(built.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(built.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const stylesheet = exported.value.css;
+const stylesheet = cssExport.value.css;
 
 export { stylesheet };
 ```

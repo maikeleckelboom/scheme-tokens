@@ -51,13 +51,13 @@ const graph = defineTokens({
 });
 const compiled = compileTokenGraph(graph);
 if (!compiled.ok) throw new Error(JSON.stringify(compiled.issues));
-const css = exportCssVars(compiled.value);
-if (!css.ok || !css.value.css.includes("--background: #ffffff;")) throw new Error("root workflow failed");
-if (css.value.css.includes("--color-background") || css.value.css.includes("--scheme-background")) {
+const cssExport = exportCssVars(compiled.value);
+if (!cssExport.ok || !cssExport.value.css.includes("--background: #ffffff;")) throw new Error("root workflow failed");
+if (cssExport.value.css.includes("--color-background") || cssExport.value.css.includes("--scheme-background")) {
   throw new Error("default CSS export must use authored runtime token names");
 }
-const prefixedCss = exportCssVars(compiled.value, { prefix: "color" });
-if (!prefixedCss.ok || !prefixedCss.value.css.includes("--color-background: #ffffff;")) {
+const prefixedCssExport = exportCssVars(compiled.value, { prefix: "color" });
+if (!prefixedCssExport.ok || !prefixedCssExport.value.css.includes("--color-background: #ffffff;")) {
   throw new Error("explicit CSS prefix export failed");
 }
 const semanticGraph = defineTokenGraph({
@@ -74,7 +74,7 @@ if (!semanticCompiled.ok) throw new Error(JSON.stringify(semanticCompiled.issues
 if (!("primary" in semanticCompiled.value.tokens) || "brand.primary" in semanticCompiled.value.tokens) {
   throw new Error("semantic token public selection failed");
 }
-const declarations = css.value.blocks[0]?.declarations;
+const declarations = cssExport.value.blocks[0]?.declarations;
 if (declarations?.[0]?.property !== "--background" || declarations?.[0]?.value !== "#ffffff") {
   throw new Error("structured CSS export failed");
 }
@@ -84,7 +84,7 @@ if (declarations?.some((declaration) => declaration.property === "--color-backgr
 if (declarations?.some((declaration) => declaration.property.startsWith("--undefined-") || declaration.property.startsWith("---"))) {
   throw new Error("unprefixed export produced a malformed custom property");
 }
-if (css.value.variableByToken.background !== "--background") throw new Error("variable lookup failed");
+if (cssExport.value.variableByToken.background !== "--background") throw new Error("CSS custom-property lookup failed");
 if (!parseCompiledScheme(compiled.value).ok) throw new Error("compiled parse boundary failed");
 const base = defineTokenLayer({ id: "base", tokens: { primary: "#6750a4" } });
 const brand = defineTokenLayer({ id: "brand", tokens: { primary: "#ff3b30" } });
@@ -215,8 +215,8 @@ const color: ColorValue = { colorSpace: "srgb", components: [1, 1, 1], alpha: 1 
 const tokenKey: TokenKeyOf<typeof graph> = "app.background";
 const mode: ModeOf<typeof graph> = "base";
 const cssExport = exportCssVars({} as never);
-const exportedCss: CssVarsExport | undefined = cssExport.ok ? cssExport.value : undefined;
-const cssBlock: CssVarBlock | undefined = exportedCss?.blocks[0];
+const cssVarsExport: CssVarsExport | undefined = cssExport.ok ? cssExport.value : undefined;
+const cssBlock: CssVarBlock | undefined = cssVarsExport?.blocks[0];
 const source = {
   id: "brand",
   build() {
@@ -241,10 +241,10 @@ const lightDarkBuilt = buildScheme({
 });
 cssOptions.prefix?.toUpperCase();
 legacyCssOptions.prefix?.toUpperCase();
-exportedCss?.css.toUpperCase();
+cssVarsExport?.css.toUpperCase();
 cssBlock?.declarations[0]?.property.toUpperCase();
 cssBlock?.declarations[0]?.value.toUpperCase();
-exportedCss?.variableByToken["app.background"]?.toUpperCase();
+cssVarsExport?.variableByToken["app.background"]?.toUpperCase();
 color.colorSpace.toUpperCase();
 tokenKey.toUpperCase();
 mode.toUpperCase();

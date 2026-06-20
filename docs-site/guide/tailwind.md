@@ -2,10 +2,10 @@
 
 Tailwind integration is an explicit mapping recipe.
 
-`scheme-tokens` owns authored runtime variables. Tailwind owns the `--color-*` variables it uses to generate utilities.
-Keep those contracts separate.
+`scheme-tokens` owns authored runtime CSS custom properties. Tailwind owns the `--color-*` custom properties it uses to
+generate utilities. Keep those contracts separate.
 
-## Build Runtime Variables
+## Build Runtime Custom Properties
 
 ```ts
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
@@ -23,12 +23,12 @@ export function buildRuntimeCss(): string {
     throw new Error(JSON.stringify(compiled.issues, null, 2));
   }
 
-  const exported = exportCssVars(compiled.value);
-  if (!exported.ok) {
-    throw new Error(JSON.stringify(exported.issues, null, 2));
+  const cssExport = exportCssVars(compiled.value);
+  if (!cssExport.ok) {
+    throw new Error(JSON.stringify(cssExport.issues, null, 2));
   }
 
-  return exported.value.css;
+  return cssExport.value.css;
 }
 ```
 
@@ -60,4 +60,4 @@ Add Tailwind's theme mapping in your app CSS:
 ```
 
 Do not make Tailwind's `--color-*` namespace the `scheme-tokens` default. Map the color tokens your Tailwind contract
-needs, and leave other runtime variables alone.
+needs, and leave other runtime CSS custom properties alone.

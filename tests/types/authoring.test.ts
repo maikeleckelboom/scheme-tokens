@@ -286,12 +286,12 @@ const cssOptions: ExportCssVarsOptions = { prefix: "theme" };
 cssOptions.prefix?.toUpperCase();
 const cssExport = exportCssVars({} as never);
 if (cssExport.ok) {
-  const exported: CssVarsExport = cssExport.value;
-  const firstBlock: CssVarBlock | undefined = exported.blocks[0];
-  exported.css.toUpperCase();
+  const cssVarsExport: CssVarsExport = cssExport.value;
+  const firstBlock: CssVarBlock | undefined = cssVarsExport.blocks[0];
+  cssVarsExport.css.toUpperCase();
   firstBlock?.selector.toUpperCase();
   firstBlock?.declarations[0]?.property.toUpperCase();
-  exported.variableByToken.background?.toUpperCase();
+  cssVarsExport.variableByToken.background?.toUpperCase();
 }
 
 const legacyCssOptions: ExportCssVarsOptions = {

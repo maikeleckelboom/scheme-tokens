@@ -1,6 +1,6 @@
 # scheme-tokens
 
-Own your color token names. Compile the selected scheme. Export deterministic CSS variables.
+Own your color token names. Compile the selected scheme. Export deterministic CSS custom properties.
 
 For apps that want stable color contracts without adopting a runtime theme engine. Start with manual colors, then add
 Material only when a real generator is needed.
@@ -28,15 +28,14 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const exported = exportCssVars(compiled.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(compiled.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const stylesheet = exported.value.css;
-const primaryVariable = exported.value.variableByToken.primary;
+const stylesheet = cssExport.value.css;
 
-export { primaryVariable, stylesheet };
+export { stylesheet };
 ```
 
 ## Why It Fits
@@ -54,9 +53,14 @@ Use the stylesheet artifact in a build step, SSR response, or app CSS import:
   background: var(--primary);
   color: var(--primary-foreground);
 }
+
+.surface {
+  background: var(--background);
+  color: var(--foreground);
+}
 ```
 
-The default export uses authored runtime variable names:
+The default export uses authored runtime custom-property names:
 
 ```css
 :root {
@@ -72,7 +76,7 @@ The default export uses authored runtime variable names:
 - [Getting Started](./guide/getting-started.md) keeps the direct-token path short.
 - [Light and Dark](./guide/light-dark.md) adds modes and selector control.
 - [Material 3](./guide/material-3.md) uses the optional adapter without making it the default path.
-- [Tailwind](./guide/tailwind.md) maps runtime variables into Tailwind's `@theme` contract.
+- [Tailwind](./guide/tailwind.md) maps runtime custom properties into Tailwind's `@theme` contract.
 - [Recipes](./recipes/index.md) gives compact copy-paste snippets.
 - [API Reference](./reference/api.md) lists the root exports.
 - [Schema Reference](./reference/schemas.md) covers strict persisted artifacts.
@@ -80,5 +84,5 @@ The default export uses authored runtime variable names:
 ## What It Owns
 
 The root package gives you the core color-token path: strict graph contracts, validation, compilation, deterministic
-serialization, and CSS variable export. It does not load Material 3, Texel, browser canvas, image extraction, or
+serialization, and CSS custom-property export. It does not load Material 3, Texel, browser canvas, image extraction, or
 conversion engines. Optional capabilities live in adapter packages such as `@scheme-tokens/material3`.

@@ -1,6 +1,6 @@
 # Getting Started
 
-This page builds one useful artifact: CSS variables from direct color tokens.
+This page builds one useful artifact: CSS custom properties from direct color tokens.
 
 ## Install
 
@@ -26,15 +26,27 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const exported = exportCssVars(compiled.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(compiled.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-await writeFile("src/styles/tokens.css", exported.value.css);
+const stylesheet = cssExport.value.css;
+await writeFile("src/styles/tokens.css", stylesheet);
+```
 
-const primaryVariable = exported.value.variableByToken.primary;
-export { primaryVariable };
+Use the generated CSS custom properties in app CSS:
+
+```css
+.page {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.button {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
 ```
 
 `defineTokens()` is the smallest authoring helper. With no mode options it creates one mode named `base`.
@@ -42,11 +54,8 @@ export { primaryVariable };
 `compileTokenGraph()` validates token keys, colors, references, modes, and the selected tokens. The default selection
 is public tokens.
 
-`exportCssVars()` returns:
-
-- `css`: the stylesheet artifact;
-- `blocks`: ordered structured declaration blocks;
-- `variableByToken`: a token-key to CSS custom-property map.
+`exportCssVars()` returns a `Result`. In this first path, use the success value's `css` field as the stylesheet
+artifact.
 
 ## Return CSS From a Build Function
 
@@ -65,12 +74,12 @@ export function buildTokenCss(): string {
     throw new Error(JSON.stringify(compiled.issues, null, 2));
   }
 
-  const exported = exportCssVars(compiled.value);
-  if (!exported.ok) {
-    throw new Error(JSON.stringify(exported.issues, null, 2));
+  const cssExport = exportCssVars(compiled.value);
+  if (!cssExport.ok) {
+    throw new Error(JSON.stringify(cssExport.issues, null, 2));
   }
 
-  return exported.value.css;
+  return cssExport.value.css;
 }
 ```
 

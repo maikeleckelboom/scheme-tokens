@@ -18,13 +18,13 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const exported = exportCssVars(compiled.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(compiled.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const css = exported.value.css;
-export { css };
+const stylesheet = cssExport.value.css;
+export { stylesheet };
 ```
 
 ## Light and Dark Modes
@@ -45,13 +45,13 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const exported = exportCssVars(compiled.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(compiled.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const css = exported.value.css;
-export { css };
+const stylesheet = cssExport.value.css;
+export { stylesheet };
 ```
 
 ## OKLCH
@@ -125,16 +125,16 @@ if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
 
-const exported = exportCssVars(built.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(built.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const css = exported.value.css;
-export { css };
+const appStylesheet = cssExport.value.css;
+export { appStylesheet };
 ```
 
-## Custom CSS Variable Names
+## Custom CSS Custom-Property Names
 
 ```ts
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
@@ -149,16 +149,16 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const exported = exportCssVars(compiled.value, {
+const cssExport = exportCssVars(compiled.value, {
   variableName: ({ tokenKey }) => `--theme-${tokenKey.replaceAll(".", "-")}`,
 });
 
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const variableByToken = exported.value.variableByToken;
-export { variableByToken };
+const customPropertyByToken = cssExport.value.variableByToken;
+export { customPropertyByToken };
 ```
 
 ## Exact Mode Selectors
@@ -167,7 +167,7 @@ export { variableByToken };
 import { exportCssVars, type CompiledColorScheme } from "scheme-tokens";
 
 export function exportExactSelectors(compiled: CompiledColorScheme): string {
-  const exported = exportCssVars(compiled, {
+  const cssExport = exportCssVars(compiled, {
     modeSelectors: {
       strategy: "selectors",
       selectors: {
@@ -177,22 +177,24 @@ export function exportExactSelectors(compiled: CompiledColorScheme): string {
     },
   });
 
-  if (!exported.ok) {
-    throw new Error(JSON.stringify(exported.issues, null, 2));
+  if (!cssExport.ok) {
+    throw new Error(JSON.stringify(cssExport.issues, null, 2));
   }
 
-  return exported.value.css;
+  return cssExport.value.css;
 }
 ```
 
 ## Read `variableByToken`
+
+`variableByToken` is a token-key to CSS custom-property map.
 
 ```ts
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
 
 const compiled = compileTokenGraph(
   defineTokens({
-    primary: "#6750a4",
+    background: "#ffffff",
   }),
 );
 
@@ -200,13 +202,14 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const exported = exportCssVars(compiled.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(compiled.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const primaryVariable = exported.value.variableByToken.primary;
-export { primaryVariable };
+const customPropertyByToken = cssExport.value.variableByToken;
+const backgroundCustomProperty = customPropertyByToken.background;
+export { backgroundCustomProperty };
 ```
 
 ## Read Ordered `blocks`
@@ -225,12 +228,12 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const exported = exportCssVars(compiled.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(compiled.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const firstBlock = exported.value.blocks[0];
+const firstBlock = cssExport.value.blocks[0];
 const declarations = firstBlock?.declarations ?? [];
 export { declarations };
 ```
@@ -292,12 +295,13 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const exported = exportCssVars(compiled.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(compiled.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-await writeFile("src/styles/tokens.css", exported.value.css);
+const stylesheet = cssExport.value.css;
+await writeFile("src/styles/tokens.css", stylesheet);
 ```
 
 ## Root-Only Usage
@@ -316,13 +320,13 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const exported = exportCssVars(compiled.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(compiled.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const css = exported.value.css;
-export { css };
+const stylesheet = cssExport.value.css;
+export { stylesheet };
 ```
 
 ## Root Plus Material Adapter
@@ -347,11 +351,11 @@ if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
 
-const exported = exportCssVars(built.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(built.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const css = exported.value.css;
-export { css };
+const appStylesheet = cssExport.value.css;
+export { appStylesheet };
 ```

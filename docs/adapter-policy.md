@@ -194,7 +194,7 @@ const commandExtension = defineShadcnExtension({
   },
 });
 
-const css = exportShadcnCss(scheme, {
+const shadcnStylesheet = exportShadcnCss(scheme, {
   extensions: [commandExtension],
 });
 ```

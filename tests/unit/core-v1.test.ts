@@ -333,9 +333,9 @@ describe("v1 graph and compiler", () => {
       target: "brand.primary",
     });
 
-    const css = unwrap(exportCssVars(compiled));
-    expect(css.variableByToken.primary).toBe("--primary");
-    expect(css.css).toContain("--primary: #6750a4;");
+    const cssExport = unwrap(exportCssVars(compiled));
+    expect(cssExport.variableByToken.primary).toBe("--primary");
+    expect(cssExport.css).toContain("--primary: #6750a4;");
   });
 
   test("accepts direct semantic tokens without implementation tokens", () => {
@@ -698,8 +698,8 @@ describe("v1 graph and compiler", () => {
     expect(Object.keys(compiled.tokens)).toEqual(["app.action", "app.action-text"]);
     expect(compiled.tokens["app.action"]?.dependenciesByMode.light).toEqual(["brand.primary"]);
 
-    const css = exportCssVars(compiled, { prefix: "theme" });
-    expect(css).toEqual({
+    const themeCssExport = exportCssVars(compiled, { prefix: "theme" });
+    expect(themeCssExport).toEqual({
       ok: true,
       value: {
         css:
@@ -755,8 +755,8 @@ describe("v1 graph and compiler", () => {
       ),
     );
 
-    const defaultCss = exportCssVars(compiled);
-    expect(defaultCss).toEqual({
+    const defaultCssExport = exportCssVars(compiled);
+    expect(defaultCssExport).toEqual({
       ok: true,
       value: {
         css:
@@ -789,8 +789,8 @@ describe("v1 graph and compiler", () => {
         },
       },
     });
-    expect(unwrap(defaultCss).css).not.toContain("--color-");
-    expect(unwrap(defaultCss).css).not.toContain("--scheme-");
+    expect(unwrap(defaultCssExport).css).not.toContain("--color-");
+    expect(unwrap(defaultCssExport).css).not.toContain("--scheme-");
     expect(exportCssVars(compiled, { prefix: "" })).toEqual(exportCssVars(compiled));
     expect(exportCssVars(compiled, { prefix: "color" })).toEqual({
       ok: true,
@@ -941,10 +941,10 @@ describe("v1 graph and compiler", () => {
       },
     } as const;
 
-    const exported = unwrap(exportCssVars(compiled, options));
+    const cssExport = unwrap(exportCssVars(compiled, options));
 
-    expect(exported.blocks.map((block) => block.selector)).toEqual([":root", ".dark"]);
-    expect(exported.css).toBe(
+    expect(cssExport.blocks.map((block) => block.selector)).toEqual([":root", ".dark"]);
+    expect(cssExport.css).toBe(
       ":root {\n" +
         "  --app--action: #6750a4;\n" +
         "  --app--action-text: #ffffff;\n" +
@@ -954,7 +954,7 @@ describe("v1 graph and compiler", () => {
         "  --app--action-text: #381e72;\n" +
         "}\n",
     );
-    expect(exported.css).toContain(`${exported.blocks[0]?.declarations[0]?.property}:`);
+    expect(cssExport.css).toContain(`${cssExport.blocks[0]?.declarations[0]?.property}:`);
   });
 
   test("rejects unknown and missing mode selector strategy keys", () => {

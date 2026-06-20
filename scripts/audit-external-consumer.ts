@@ -82,16 +82,16 @@ const compiled = expectOk(compileTokenGraph(graph), "compile default public sele
 if (!("background" in compiled.tokens) || compiled.tokens.background.valueByMode.dark.colorSpace !== "oklch") {
   throw new Error("root compile did not preserve light/dark public tokens");
 }
-const css = expectOk(exportCssVars(compiled), "export root CSS");
-writeFileSync("tokens.css", css.css);
-if (!css.css.includes(":root {") || !css.css.includes(':root[data-color-scheme="dark"] {')) {
+const cssExport = expectOk(exportCssVars(compiled), "export root CSS");
+writeFileSync("tokens.css", cssExport.css);
+if (!cssExport.css.includes(":root {") || !cssExport.css.includes(':root[data-color-scheme="dark"] {')) {
   throw new Error("default selectors were not emitted");
 }
-if (css.blocks.length !== 2 || css.blocks[0].selector !== ":root") {
+if (cssExport.blocks.length !== 2 || cssExport.blocks[0].selector !== ":root") {
   throw new Error("structured CSS blocks are not ordered or readable");
 }
-if (css.variableByToken.primary !== "--primary") {
-  throw new Error("variableByToken did not expose the generated property");
+if (cssExport.variableByToken.primary !== "--primary") {
+  throw new Error("variableByToken did not expose the generated CSS custom property");
 }
 const serialized = serializeCompiledScheme(compiled);
 const parsedCompiled = expectOk(parseCompiledScheme(JSON.parse(serialized)), "parse compiled scheme");
@@ -162,7 +162,7 @@ expectOk(parseTokenLayer(layer), "parse strict layer");
 expectFail(parseTokenLayer({ ...layer, kind: "scheme-tokens/token-layer" }), "invalid-artifact-kind");
 expectFail(parseCompiledScheme({ ...JSON.parse(serialized), kind: "scheme-tokens/compiled-scheme" }), "invalid-artifact-kind");
 
-const exactCss = expectOk(
+const exactCssExport = expectOk(
   exportCssVars(compiled, {
     modeSelectors: {
       strategy: "selectors",
@@ -171,7 +171,7 @@ const exactCss = expectOk(
   }),
   "exact selectors",
 );
-if (!exactCss.css.includes(".theme-dark .surface {")) {
+if (!exactCssExport.css.includes(".theme-dark .surface {")) {
   throw new Error("exact mode selectors were not emitted");
 }
 expectFail(
@@ -305,10 +305,10 @@ for (const key of ["background", "foreground", "primary", "primary-foreground"])
     throw new Error("application semantic token missing: " + key);
   }
 }
-const css = expectOk(exportCssVars(layered), "material3 CSS export");
-writeFileSync("material3.css", css.css);
-if (!css.css.includes("--primary:") || css.variableByToken.background !== "--background") {
-  throw new Error("material3 CSS export did not expose app-owned variables");
+const cssExport = expectOk(exportCssVars(layered), "material3 CSS export");
+writeFileSync("material3.css", cssExport.css);
+if (!cssExport.css.includes("--primary:") || cssExport.variableByToken.background !== "--background") {
+  throw new Error("material3 CSS export did not expose app-owned CSS custom properties");
 }
 
 const adapterManifest = require("@scheme-tokens/material3/package.json");

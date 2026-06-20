@@ -13,7 +13,7 @@ The root package owns:
 - graph parsing and validation;
 - token compilation;
 - deterministic serialization;
-- CSS variable export;
+- CSS custom-property export;
 - `Result` and `Issue` contracts;
 - adapter interfaces.
 

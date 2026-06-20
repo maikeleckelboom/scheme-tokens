@@ -18,13 +18,13 @@ if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
 
-const exported = exportCssVars(built.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(built.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const materialCss = exported.value.css;
-export { materialCss };
+const stylesheet = cssExport.value.css;
+export { stylesheet };
 ```
 
 This exports Material role tokens such as `material3.primary` and `material3.surface`. That is useful for inspection or
@@ -61,15 +61,14 @@ if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
 
-const exported = exportCssVars(built.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(built.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const appCss = exported.value.css;
-const primaryVariable = exported.value.variableByToken.primary;
+const appStylesheet = cssExport.value.css;
 
-export { appCss, primaryVariable };
+export { appStylesheet };
 ```
 
 `material3()` creates a source input. `buildScheme()` runs that source, applies layers, validates references, and

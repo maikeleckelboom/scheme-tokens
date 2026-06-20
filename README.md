@@ -20,8 +20,8 @@ import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
 const graph = defineTokens({
   background: "oklch(0.98 0.01 260)",
   foreground: "#111111",
-  brand: "color(display-p3 0.42 0.32 0.74)",
-  "brand-foreground": "#ffffff",
+  primary: "color(display-p3 0.42 0.32 0.74)",
+  "primary-foreground": "#ffffff",
 });
 
 const compiled = compileTokenGraph(graph);
@@ -29,15 +29,26 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const css = exportCssVars(compiled.value);
-if (!css.ok) {
-  throw new Error(JSON.stringify(css.issues, null, 2));
+const cssExport = exportCssVars(compiled.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const stylesheet = css.value.css;
-const backgroundVariable = css.value.variableByToken.background;
+const stylesheet = cssExport.value.css;
 
-export { backgroundVariable, stylesheet };
+export { stylesheet };
+```
+
+```css
+.page {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.button {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
 ```
 
 Authoring can be ergonomic while persisted artifacts stay strict and deterministic. Core accepts modern CSS color spaces
@@ -49,8 +60,9 @@ ordinary value for this token." It is not a Material role, generated palette, li
 The default CSS export uses `:root` for the default mode. Directly authored tokens default to `public`, and compilation
 defaults to `selection: "public"`.
 
-Omit `prefix` to emit custom properties such as `--background`, `--foreground`, `--brand`, and
-`--brand-foreground`. Pass `prefix: "color"` when you want namespaced variables such as `--color-background`.
+Omit `prefix` to emit custom properties such as `--background`, `--foreground`, `--primary`, and
+`--primary-foreground`. Pass `prefix: "color"` when you want namespaced custom properties such as
+`--color-background`.
 `exports` is reserved for package subpaths and output/export behavior such as CSS naming, filtering, prefixing, target
 formats, or future export profiles. It is not a graph or layer lane for mapping one token key to another.
 
@@ -89,12 +101,12 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const css = exportCssVars(compiled.value);
-if (!css.ok) {
-  throw new Error(JSON.stringify(css.issues, null, 2));
+const cssExport = exportCssVars(compiled.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const stylesheet = css.value.css;
+const stylesheet = cssExport.value.css;
 
 export { stylesheet };
 ```
@@ -111,12 +123,12 @@ Generated `data-attribute` and `class` selectors append to the scope, so the sco
 such as `:root` or `.preview`. Use exact `modeSelectors: { strategy: "selectors" }` for selector lists, pseudo-elements,
 descendant selectors, or other complex scopes.
 
-## Runtime CSS Variables
+## Programmatic CSS Export
 
-`exportCssVars()` returns a stylesheet string, structured declaration blocks, and `variableByToken` in one `Result`. Use
-`value.css` when you need serialized CSS, and use `value.variableByToken` when runtime code needs the generated custom
-property for a token. `value.blocks` is ordered renderer/exporter data for runtime application, previews, or custom
-renderers that should not parse CSS text.
+`exportCssVars()` returns one `Result` whose success value contains the stylesheet string, structured declaration
+blocks, and `variableByToken`. `variableByToken` is a token-key to CSS custom-property map for programmatic lookup.
+`blocks` is ordered renderer/exporter data for runtime application, previews, or custom renderers that should not parse
+CSS text.
 
 ```ts
 import { compileTokenGraph, defineTokenGraph, exportCssVars } from "scheme-tokens";
@@ -135,16 +147,17 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const exported = exportCssVars(compiled.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(compiled.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const stylesheet = exported.value.css;
-const backgroundVariable = exported.value.variableByToken.background;
-const blocks = exported.value.blocks;
+const stylesheet = cssExport.value.css;
+const customPropertyByToken = cssExport.value.variableByToken;
+const backgroundCustomProperty = customPropertyByToken.background;
+const blocks = cssExport.value.blocks;
 
-export { backgroundVariable, blocks, stylesheet };
+export { backgroundCustomProperty, blocks, stylesheet };
 ```
 
 Omit `prefix` to emit custom properties such as `--background`, `--foreground`, `--primary`, and
@@ -152,11 +165,11 @@ Omit `prefix` to emit custom properties such as `--background`, `--foreground`, 
 
 ## Tailwind v4
 
-`scheme-tokens` owns authored token names and runtime CSS variables. Tailwind owns the `@theme` namespace it needs to
-generate utilities. Keep those contracts separate: export stable runtime variables from `scheme-tokens`, then map the
-color tokens your app wants Tailwind to expose.
+`scheme-tokens` owns authored token names and runtime CSS custom properties. Tailwind owns the `@theme` namespace it
+needs to generate utilities. Keep those contracts separate: export stable runtime custom properties from
+`scheme-tokens`, then map the color tokens your app wants Tailwind to expose.
 
-Step 1: compile and export runtime CSS variables.
+Step 1: compile and export runtime CSS custom properties.
 
 ```ts
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
@@ -173,17 +186,17 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const css = exportCssVars(compiled.value);
-if (!css.ok) {
-  throw new Error(JSON.stringify(css.issues, null, 2));
+const cssExport = exportCssVars(compiled.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const runtimeCss = css.value.css;
+const stylesheet = cssExport.value.css;
 
-export { runtimeCss };
+export { stylesheet };
 ```
 
-Step 2: load the generated runtime CSS in your app.
+Step 2: load the generated stylesheet in your app.
 
 ```css
 :root {
@@ -194,7 +207,7 @@ Step 2: load the generated runtime CSS in your app.
 }
 ```
 
-Step 3: map those runtime variables into Tailwind's color contract explicitly.
+Step 3: map those runtime custom properties into Tailwind's color contract explicitly.
 
 ```css
 @theme inline {
@@ -205,8 +218,8 @@ Step 3: map those runtime variables into Tailwind's color contract explicitly.
 }
 ```
 
-Tailwind utilities now use Tailwind's `--color-*` theme variables, while the runtime variables from `scheme-tokens`
-remain authored, stable, and unprefixed. Do not derive Tailwind colors by blindly remapping every exported declaration;
+Tailwind utilities now use Tailwind's `--color-*` theme custom properties, while the runtime custom properties from
+`scheme-tokens` remain authored, stable, and unprefixed. Do not derive Tailwind colors by blindly remapping every exported declaration;
 keep the mapping to the color tokens that are part of your app's Tailwind contract.
 
 ## Layered Schemes
@@ -327,12 +340,12 @@ if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
 
-const css = exportCssVars(built.value);
-if (!css.ok) {
-  throw new Error(JSON.stringify(css.issues, null, 2));
+const cssExport = exportCssVars(built.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const stylesheet = css.value.css;
+const stylesheet = cssExport.value.css;
 
 export { stylesheet };
 ```
@@ -367,12 +380,12 @@ if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
 
-const exported = exportCssVars(built.value);
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
+const cssExport = exportCssVars(built.value);
+if (!cssExport.ok) {
+  throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const stylesheet = exported.value.css;
+const stylesheet = cssExport.value.css;
 
 export { stylesheet };
 ```
