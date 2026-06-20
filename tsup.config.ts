@@ -1,11 +1,11 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/sources/material3/index.ts"],
+  entry: ["src/index.ts", "src/conversion/index.ts", "src/sources/material3/index.ts"],
   format: ["esm"],
-  dts: true,
+  dts: false,
+  tsconfig: "tsconfig.lib.json",
   sourcemap: true,
   clean: true,
   treeshake: true,
-  noExternal: ["@material/material-color-utilities"],
 });

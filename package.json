@@ -10,11 +10,19 @@
     "token-graph",
     "typescript"
   ],
+  "homepage": "https://github.com/maikeleckelboom/color-scheme-tokens#readme",
+  "bugs": {
+    "url": "https://github.com/maikeleckelboom/color-scheme-tokens/issues"
+  },
   "license": "MIT",
   "author": "Maikel Eckelboom",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maikeleckelboom/color-scheme-tokens.git"
+  },
   "files": [
     "dist",
-    "docs",
+    "schemas",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -32,34 +40,60 @@
       "types": "./dist/sources/material3/index.d.ts",
       "import": "./dist/sources/material3/index.js"
     },
+    "./conversion": {
+      "types": "./dist/conversion/index.d.ts",
+      "import": "./dist/conversion/index.js"
+    },
+    "./schemas/token-graph.v1.schema.json": "./schemas/token-graph.v1.schema.json",
+    "./schemas/token-fragment.v1.schema.json": "./schemas/token-fragment.v1.schema.json",
+    "./schemas/compiled-token-set.v1.schema.json": "./schemas/compiled-token-set.v1.schema.json",
     "./package.json": "./package.json"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "build": "tsup",
-    "typecheck": "tsc --noEmit",
+    "build": "pnpm build:js && pnpm build:types",
+    "build:js": "tsup",
+    "build:types": "tsc -p tsconfig.build.json && node scripts/fix-declarations.mjs",
+    "typecheck": "tsc -p tsconfig.lib.json && tsc -p tsconfig.test.json && tsc -p tsconfig.scripts.json",
     "lint": "oxlint . --import-plugin --vitest-plugin --deny-warnings",
     "test": "vitest run",
+    "test:types": "tsc -p tsconfig.type-tests.json",
+    "test:properties": "vitest run tests/properties",
+    "test:schemas": "vitest run tests/schemas",
+    "test:docs": "node scripts/check-doc-examples.mjs",
+    "api:check": "node scripts/check-api.mjs",
+    "package:check": "pnpm build && publint --strict && attw --pack . --profile esm-only",
+    "smoke:consumer": "node scripts/smoke-consumer.mjs",
+    "check:tarball": "node scripts/check-tarball.mjs",
     "format": "oxfmt --check .",
     "format:fix": "oxfmt --write .",
-    "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm format",
+    "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:types && pnpm test:properties && pnpm test:schemas && pnpm build && pnpm api:check && pnpm format",
     "check": "pnpm validate",
-    "smoke:consumer": "node scripts/smokeConsumer.ts",
-    "release:check": "pnpm validate && pnpm pack --dry-run && pnpm smoke:consumer",
+    "release:check": "pnpm validate && pnpm package:check && pnpm test:docs && pnpm smoke:consumer && pnpm check:tarball",
     "prepack": "pnpm build"
   },
   "dependencies": {
-    "@material/material-color-utilities": "0.4.0"
+    "@material/material-color-utilities": "0.4.0",
+    "@texel/color": "1.1.11",
+    "css-tree": "3.2.1"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.3",
+    "@types/css-tree": "2.3.11",
     "@types/node": "^25.9.3",
+    "ajv": "8.20.0",
+    "fast-check": "4.8.0",
     "oxfmt": "^0.55.0",
     "oxlint": "^1.70.0",
+    "publint": "0.3.21",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "packageManager": "pnpm@11.7.0"
 }

@@ -1,77 +1,174 @@
-import type { ColorInput } from "./colorValue";
-import type { ColorTokenValue } from "./colorTokenValue";
-import type { TokenKey, TokenKeyInput } from "./keys";
-import type { ModeKey, ModeKeyInput } from "./modes";
-import type { TokenProvenance } from "./provenance";
+import type { ColorInput, ColorValue, ParseColorIssue } from "./color";
+import type { Issue, Result } from "./result";
+import type { JsonValue } from "./json";
 
-export type Result<Value, Problem> =
-  | { readonly ok: true; readonly value: Value }
-  | { readonly ok: false; readonly problems: readonly Problem[] };
+export type TokenVisibility = "public" | "internal";
 
-export type ParseResult<Value, Problem> =
-  | { readonly ok: true; readonly value: Value }
-  | { readonly ok: false; readonly problem: Problem };
-
-export interface ModeValueInput<Value> {
-  readonly mode: ModeKeyInput;
-  readonly value: Value;
+export interface ReferenceInput {
+  readonly ref: string;
 }
 
-export type ModeValuesInput<Value> = readonly ModeValueInput<Value>[];
+export type ColorExpressionInput = ColorInput | ReferenceInput;
+export type ColorExpression = ColorValue | ReferenceInput;
 
-export interface ModeValue<Value> {
-  readonly mode: ModeKey;
-  readonly value: Value;
+export type TokenDefinitionInput<Mode extends string = string> = {
+  readonly visibility?: TokenVisibility;
+  readonly description?: string;
+  readonly deprecated?: boolean | string;
+  readonly extensions?: Readonly<Record<string, JsonValue>>;
+} & (
+  | {
+      readonly value: ColorExpressionInput;
+      readonly valueByMode?: never;
+    }
+  | {
+      readonly value?: never;
+      readonly valueByMode: Readonly<Record<Mode, ColorExpressionInput>>;
+    }
+);
+
+export interface TokenFragmentInput<Mode extends string = string> {
+  readonly $schema?: string;
+  readonly formatVersion: 1;
+  readonly id: string;
+  readonly defaultVisibility: TokenVisibility;
+  readonly tokens: Readonly<Record<string, TokenDefinitionInput<Mode>>>;
 }
 
-export type ModeValues<Value> = readonly ModeValue<Value>[];
-
-export type ColorSchemeTokenModeValueInput = ModeValueInput<ColorInput>;
-
-export type ColorSchemeTokenModeValue = ModeValue<ColorTokenValue>;
-
-export interface ColorTokenNodeInput {
-  readonly kind: "color";
-  readonly key: TokenKeyInput;
-  readonly values: readonly ColorSchemeTokenModeValueInput[];
-  readonly provenance?: TokenProvenance;
+export interface TokenGraphInput<Mode extends string = string> {
+  readonly $schema?: string;
+  readonly formatVersion: 1;
+  readonly modes: readonly [Mode, ...Mode[]];
+  readonly defaultMode: Mode;
+  readonly defaultVisibility: TokenVisibility;
+  readonly tokens: Readonly<Record<string, TokenDefinitionInput<Mode>>>;
+  readonly fragments?: readonly TokenFragmentInput<Mode>[];
 }
 
-export interface ColorTokenNode {
-  readonly kind: "color";
-  readonly key: TokenKey;
-  readonly values: readonly ColorSchemeTokenModeValue[];
-  readonly provenance?: TokenProvenance;
+export type TokenOrigin =
+  | {
+      readonly kind: "graph";
+    }
+  | {
+      readonly kind: "fragment";
+      readonly id: string;
+    }
+  | {
+      readonly kind: "source";
+      readonly id: string;
+      readonly sourceToken?: string;
+    };
+
+export interface TokenGraphToken {
+  readonly visibility: TokenVisibility;
+  readonly valueByMode: Readonly<Record<string, ColorExpression>>;
+  readonly origin: TokenOrigin;
+  readonly description?: string;
+  readonly deprecated?: boolean | string;
+  readonly extensions?: Readonly<Record<string, JsonValue>>;
 }
 
-export interface AliasTokenNodeInput {
-  readonly kind: "alias";
-  readonly key: TokenKeyInput;
-  readonly target: TokenKeyInput | ModeValuesInput<TokenKeyInput>;
-  readonly provenance?: TokenProvenance;
+export interface TokenGraph {
+  readonly formatVersion: 1;
+  readonly modes: readonly [string, ...string[]];
+  readonly defaultMode: string;
+  readonly tokens: Readonly<Record<string, TokenGraphToken>>;
 }
 
-export interface AliasTokenNode {
-  readonly kind: "alias";
-  readonly key: TokenKey;
-  readonly target: TokenKey | ModeValues<TokenKey>;
-  readonly provenance?: TokenProvenance;
+export type TokenGraphIssue =
+  | ParseColorIssue
+  | (Issue<
+      | "invalid-object"
+      | "unknown-property"
+      | "missing-property"
+      | "invalid-format-version"
+      | "invalid-schema-uri"
+      | "invalid-json-value"
+      | "empty-modes"
+      | "invalid-mode-key"
+      | "duplicate-mode-key"
+      | "default-mode-not-found"
+      | "invalid-default-visibility"
+      | "invalid-fragment-id"
+      | "duplicate-fragment-id"
+      | "invalid-token-key"
+      | "duplicate-token-key"
+      | "invalid-visibility"
+      | "invalid-token-definition"
+      | "missing-token-value"
+      | "conflicting-token-value"
+      | "missing-mode-value"
+      | "unknown-mode-value"
+      | "invalid-reference"
+      | "unknown-reference"
+      | "reference-cycle"
+      | "invalid-description"
+      | "invalid-deprecated"
+      | "invalid-extensions"
+      | "invalid-extension-key"
+      | "issue-limit-reached"
+    > & {
+      readonly key?: string;
+      readonly mode?: string;
+      readonly fragmentId?: string;
+      readonly firstPath?: string;
+      readonly cycle?: readonly string[];
+    });
+
+export function defineTokenGraph<
+  const Modes extends readonly [string, ...string[]],
+  const Tokens extends Readonly<Record<string, TokenDefinitionInput<NoInfer<Modes[number]>>>>,
+  const Fragments extends readonly TokenFragmentInput<NoInfer<Modes[number]>>[] | undefined =
+    undefined,
+>(input: {
+  readonly $schema?: string;
+  readonly formatVersion: 1;
+  readonly modes: Modes;
+  readonly defaultMode: Modes[number];
+  readonly defaultVisibility: TokenVisibility;
+  readonly tokens: Tokens;
+  readonly fragments?: Fragments;
+}): {
+  readonly $schema?: string;
+  readonly formatVersion: 1;
+  readonly modes: Modes;
+  readonly defaultMode: Modes[number];
+  readonly defaultVisibility: TokenVisibility;
+  readonly tokens: Tokens;
+} & (Fragments extends undefined ? Record<never, never> : { readonly fragments: Fragments }) {
+  return input as {
+    readonly $schema?: string;
+    readonly formatVersion: 1;
+    readonly modes: Modes;
+    readonly defaultMode: Modes[number];
+    readonly defaultVisibility: TokenVisibility;
+    readonly tokens: Tokens;
+  } & (Fragments extends undefined ? Record<never, never> : { readonly fragments: Fragments });
 }
 
-export type TokenNodeInput = ColorTokenNodeInput | AliasTokenNodeInput;
-
-export type TokenNode = ColorTokenNode | AliasTokenNode;
-
-export interface ColorSchemeTokenGraphInput {
-  readonly schemaVersion: "color-scheme-token-graph/v0";
-  readonly modes: readonly ModeKeyInput[];
-  readonly tokens: readonly TokenNodeInput[];
+export function defineTokenFragment<
+  const Mode extends string = string,
+  const Tokens extends Readonly<Record<string, TokenDefinitionInput<Mode>>> = Readonly<
+    Record<string, TokenDefinitionInput<Mode>>
+  >,
+>(input: {
+  readonly $schema?: string;
+  readonly formatVersion: 1;
+  readonly id: string;
+  readonly defaultVisibility: TokenVisibility;
+  readonly tokens: Tokens;
+}): {
+  readonly $schema?: string;
+  readonly formatVersion: 1;
+  readonly id: string;
+  readonly defaultVisibility: TokenVisibility;
+  readonly tokens: Tokens;
+} {
+  return input;
 }
 
-export interface ValidatedColorSchemeTokenGraph {
-  readonly schemaVersion: "color-scheme-token-graph/v0";
-  readonly modes: readonly ModeKey[];
-  readonly tokens: readonly TokenNode[];
+export function isReferenceInput(input: unknown): input is ReferenceInput {
+  return input !== null && typeof input === "object" && "ref" in input;
 }
 
-export type ColorSchemeTokenGraph = ValidatedColorSchemeTokenGraph;
+export type ParseTokenGraphResult = Result<TokenGraph, TokenGraphIssue>;

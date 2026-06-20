@@ -1,30 +1,49 @@
-import type { ColorValue } from "../core/colorValue";
+import type { ColorValue } from "../core/color";
+import { normalizeNumber } from "../core/json";
 
-export function formatCssColor(value: ColorValue): string {
-  if (value.colorSpace === "srgb") {
-    const r = toByte(value.r);
-    const g = toByte(value.g);
-    const b = toByte(value.b);
-
-    if (value.alpha === 1) return `#${toHexByte(r)}${toHexByte(g)}${toHexByte(b)}`;
-    return `rgb(${r} ${g} ${b} / ${formatNumber(value.alpha)})`;
+export function formatCssColor(color: ColorValue): string {
+  if (color.colorSpace === "srgb") {
+    if (
+      color.alpha === 1 &&
+      isByteAligned(color.r) &&
+      isByteAligned(color.g) &&
+      isByteAligned(color.b)
+    ) {
+      return `#${toHexByte(color.r)}${toHexByte(color.g)}${toHexByte(color.b)}`;
+    }
+    return formatColorFunction("srgb", [color.r, color.g, color.b], color.alpha);
   }
 
-  if (value.colorSpace === "display-p3") {
-    return `color(display-p3 ${formatNumber(value.r)} ${formatNumber(value.g)} ${formatNumber(value.b)} / ${formatNumber(value.alpha)})`;
+  if (color.colorSpace === "display-p3") {
+    return formatColorFunction("display-p3", [color.r, color.g, color.b], color.alpha);
   }
 
-  return `oklch(${formatNumber(value.l)} ${formatNumber(value.c)} ${formatNumber(value.h)} / ${formatNumber(value.alpha)})`;
+  return `oklch(${formatNumber(color.l)} ${formatNumber(color.c)} ${formatNumber(color.h)}${formatAlpha(color.alpha)})`;
 }
 
-function toByte(value: number): number {
-  return Math.min(255, Math.max(0, Math.round(value * 255)));
+function formatColorFunction(
+  space: "srgb" | "display-p3",
+  channels: readonly number[],
+  alpha: number,
+): string {
+  return `color(${space} ${channels.map(formatNumber).join(" ")}${formatAlpha(alpha)})`;
+}
+
+function formatAlpha(alpha: number): string {
+  return alpha === 1 ? "" : ` / ${formatNumber(alpha)}`;
+}
+
+function isByteAligned(value: number): boolean {
+  const byte = Math.round(value * 255);
+  return byte >= 0 && byte <= 255 && byte / 255 === value;
 }
 
 function toHexByte(value: number): string {
-  return value.toString(16).padStart(2, "0");
+  return Math.round(value * 255)
+    .toString(16)
+    .padStart(2, "0");
 }
 
 function formatNumber(value: number): string {
-  return Number(value.toFixed(4)).toString();
+  return normalizeNumber(value).toString();
 }

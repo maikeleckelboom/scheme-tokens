@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://color-scheme-tokens.dev/schemas/token-graph.v1.schema.json",
+  "title": "color-scheme-tokens token graph v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "modes", "defaultMode", "defaultVisibility", "tokens"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "formatVersion": {
+      "const": 1
+    },
+    "modes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/segment"
+      }
+    },
+    "defaultMode": {
+      "$ref": "#/$defs/segment"
+    },
+    "defaultVisibility": {
+      "$ref": "#/$defs/visibility"
+    },
+    "tokens": {
+      "$ref": "#/$defs/tokenRecord"
+    },
+    "fragments": {
+      "type": "array",
+      "items": {
+        "$ref": "token-fragment.v1.schema.json"
+      }
+    }
+  },
+  "$defs": {
+    "segment": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "tokenKey": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)*$"
+    },
+    "visibility": {
+      "enum": ["public", "internal"]
+    },
+    "tokenRecord": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/tokenKey"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/tokenDefinition"
+      }
+    },
+    "tokenDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "visibility": {
+          "$ref": "#/$defs/visibility"
+        },
+        "description": {
+          "type": "string"
+        },
+        "deprecated": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        },
+        "value": {
+          "$ref": "#/$defs/expression"
+        },
+        "valueByMode": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/expression"
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["value"],
+          "not": {
+            "required": ["valueByMode"]
+          }
+        },
+        {
+          "required": ["valueByMode"],
+          "not": {
+            "required": ["value"]
+          }
+        }
+      ]
+    },
+    "expression": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/colorInput"
+        },
+        {
+          "$ref": "#/$defs/reference"
+        }
+      ]
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref"],
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/tokenKey"
+        }
+      }
+    },
+    "colorInput": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/srgbColor"
+        },
+        {
+          "$ref": "#/$defs/displayP3Color"
+        },
+        {
+          "$ref": "#/$defs/oklchColor"
+        }
+      ]
+    },
+    "srgbColor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["colorSpace", "r", "g", "b"],
+      "properties": {
+        "colorSpace": {
+          "const": "srgb"
+        },
+        "r": {
+          "type": "number"
+        },
+        "g": {
+          "type": "number"
+        },
+        "b": {
+          "type": "number"
+        },
+        "alpha": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "displayP3Color": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["colorSpace", "r", "g", "b"],
+      "properties": {
+        "colorSpace": {
+          "const": "display-p3"
+        },
+        "r": {
+          "type": "number"
+        },
+        "g": {
+          "type": "number"
+        },
+        "b": {
+          "type": "number"
+        },
+        "alpha": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "oklchColor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["colorSpace", "l", "c", "h"],
+      "properties": {
+        "colorSpace": {
+          "const": "oklch"
+        },
+        "l": {
+          "type": "number"
+        },
+        "c": {
+          "type": "number",
+          "minimum": 0
+        },
+        "h": {
+          "type": "number"
+        },
+        "alpha": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*\\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)*$"
+      }
+    }
+  }
+}

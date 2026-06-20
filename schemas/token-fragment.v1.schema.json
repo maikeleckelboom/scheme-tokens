@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://color-scheme-tokens.dev/schemas/token-fragment.v1.schema.json",
+  "title": "color-scheme-tokens token fragment v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "id", "defaultVisibility", "tokens"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "formatVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "defaultVisibility": {
+      "enum": ["public", "internal"]
+    },
+    "tokens": {
+      "$ref": "token-graph.v1.schema.json#/$defs/tokenRecord"
+    }
+  }
+}

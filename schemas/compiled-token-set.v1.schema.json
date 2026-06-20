@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://color-scheme-tokens.dev/schemas/compiled-token-set.v1.schema.json",
+  "title": "color-scheme-tokens compiled token set v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "modes", "defaultMode", "tokens"],
+  "properties": {
+    "formatVersion": {
+      "const": 1
+    },
+    "modes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+      }
+    },
+    "defaultMode": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "tokens": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "token-graph.v1.schema.json#/$defs/tokenKey"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["visibility", "valueByMode", "origin", "dependenciesByMode"],
+        "properties": {
+          "visibility": {
+            "enum": ["public", "internal"]
+          },
+          "valueByMode": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "token-graph.v1.schema.json#/$defs/colorInput"
+            }
+          },
+          "origin": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind"],
+                "properties": {
+                  "kind": {
+                    "const": "graph"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "id"],
+                "properties": {
+                  "kind": {
+                    "const": "fragment"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "id"],
+                "properties": {
+                  "kind": {
+                    "const": "source"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "sourceToken": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
+          "dependenciesByMode": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "$ref": "token-graph.v1.schema.json#/$defs/tokenKey"
+              }
+            }
+          },
+          "description": {
+            "type": "string"
+          },
+          "deprecated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "minLength": 1
+              }
+            ]
+          },
+          "extensions": {
+            "$ref": "token-graph.v1.schema.json#/$defs/extensions"
+          }
+        }
+      }
+    }
+  }
+}

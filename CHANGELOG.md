@@ -2,7 +2,7 @@
 
 ## 0.0.0
 
-- Initialize `color-scheme-tokens` as a clean graph-first TypeScript package.
-- Add implemented token key, mode key, color value, graph validation, graph compilation, deterministic serialization,
-  and CSS variable export primitives.
-- Keep dynamic color source wiring internal and deferred until it can be adapted behind a source adapter boundary.
+- Migrate the unpublished package to the v1 JSON-first token graph contract.
+- Replace v0 arrays, aliases, layers, recipes, and `problems` diagnostics with the final `Issue`/`Result` API.
+- Add explicit root, conversion, Material 3, and JSON Schema package entry points.
+- Add packed-package validation, API surface checks, schema tests, docs example checks, and tarball content checks.
