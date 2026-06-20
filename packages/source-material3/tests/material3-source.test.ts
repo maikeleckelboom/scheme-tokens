@@ -13,7 +13,7 @@ import {
 } from "color-scheme-tokens";
 import * as adapter from "../src";
 import { material3Source, type Material3SourceInput, type Material3SourceIssue } from "../src";
-import { material3Seed6750a4Tokens } from "./fixtures/material3-0-4-0-6750a4";
+import { material3SourceColor6750a4Tokens } from "./fixtures/material3-0-4-0-6750a4";
 
 function unwrap<Value>(result: Result<Value, Issue>): Value {
   expect(result.ok).toBe(true);
@@ -117,8 +117,28 @@ describe("material3Source", () => {
       ok: false,
       issues: [
         { code: "material3-invalid-id", path: "/id" },
-        { code: "material3-unsupported-color-input", path: "/sourceColor" },
+        {
+          code: "material3-unsupported-color-input",
+          field: "sourceColor",
+          path: "/sourceColor",
+        },
         { code: "material3-invalid-default-visibility", path: "/defaultVisibility" },
+      ],
+    });
+    expect(JSON.parse(JSON.stringify(result))).toEqual(result);
+  });
+
+  test("rejects missing sourceColor with an explicit field payload", () => {
+    const result = material3Source({} as Material3SourceInput).build();
+
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [
+        {
+          code: "material3-invalid-source-color",
+          field: "sourceColor",
+          path: "/sourceColor",
+        },
       ],
     });
     expect(JSON.parse(JSON.stringify(result))).toEqual(result);
@@ -134,11 +154,35 @@ describe("material3Source", () => {
       issues: [
         {
           code: "material3-unsupported-color-input",
+          field: "sourceColor",
           path: "/sourceColor",
           receivedType: "object",
         },
       ],
     });
+  });
+
+  test("rejects color, seed, and source aliases for the scheme source color", () => {
+    for (const alias of ["color", "seed", "source"] as const) {
+      const result = material3Source({
+        [alias]: "#6750a4",
+      } as unknown as Material3SourceInput).build();
+
+      expect(result).toMatchObject({
+        ok: false,
+        issues: [
+          {
+            code: "material3-invalid-source-color",
+            field: "sourceColor",
+            path: "/sourceColor",
+          },
+          {
+            code: "material3-invalid-input",
+            path: `/${alias}`,
+          },
+        ],
+      });
+    }
   });
 
   test("rejects hostile input without throwing", () => {
@@ -161,7 +205,7 @@ describe("material3Source", () => {
   test("matches the @material/material-color-utilities@0.4.0 #6750a4 reference vector", () => {
     const graph = unwrap(material3Source({ sourceColor: "#6750a4" }).build());
 
-    expect(extractGraphTokenValues(graph)).toEqual(material3Seed6750a4Tokens);
+    expect(extractGraphTokenValues(graph)).toEqual(material3SourceColor6750a4Tokens);
   });
 
   test("emits strict graph schema-compatible lower-kebab namespaced keys", () => {
@@ -249,5 +293,6 @@ function expectMaterial3SourceIssue(issue: Material3SourceIssue): Material3Sourc
 expectMaterial3SourceIssue({
   code: "material3-invalid-source-color",
   message: "sourceColor is required.",
+  field: "sourceColor",
   path: "/sourceColor",
 });

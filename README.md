@@ -259,6 +259,11 @@ The adapter emits strict `light` and `dark` graph tokens under the `material3` n
 `material3.primary`, `material3.on-primary`, and `material3.primary-container`. The root package does not import or
 depend on Material Design.
 
+`sourceColor` is the required Material source color used to generate the scheme. Some Material tooling calls this a seed
+color; this package keeps the field name `sourceColor` and does not accept `color`, `seed`, or `source` aliases. Material
+custom colors are future adapter scope. If they become public, the input name will be `extendedColors` rather than the
+engine's own custom-color option name.
+
 ## Development
 
 ```bash

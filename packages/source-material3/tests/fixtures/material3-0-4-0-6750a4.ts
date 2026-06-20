@@ -1,5 +1,5 @@
-// Reference vector generated from @material/material-color-utilities@0.4.0 for seed #6750a4.
-export const material3Seed6750a4Tokens = {
+// Reference vector generated from @material/material-color-utilities@0.4.0 for sourceColor #6750a4.
+export const material3SourceColor6750a4Tokens = {
   "material3.background": { light: "#fdf7ff", dark: "#141218" },
   "material3.error": { light: "#ba1a1a", dark: "#ffb4ab" },
   "material3.error-container": { light: "#ffdad6", dark: "#93000a" },

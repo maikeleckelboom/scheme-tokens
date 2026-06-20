@@ -36,8 +36,14 @@ material3.on-primary
 material3.primary-container
 ```
 
+`sourceColor` is the required Material source color used to generate the scheme. Some Material tooling calls this a seed
+color; this adapter keeps the field name `sourceColor` and does not accept `color`, `seed`, or `source` aliases.
 `sourceColor` currently accepts strict opaque hex strings in `#rrggbb` form. Other CSS color syntaxes are rejected
 instead of being parsed approximately.
+
+Material custom colors are not public API yet. If they become public, the input name will be `extendedColors`, with
+entries shaped as `{ name, color, harmonize? }`. Engine-specific option names stay internal adapter vocabulary. Advanced
+key-color-driven scheme input is also future scope; this adapter does not reserve or accept a loose `keyColors` option.
 
 ## Composition
 

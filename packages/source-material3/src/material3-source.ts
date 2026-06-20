@@ -24,9 +24,11 @@ export type Material3SourceIssue =
       readonly receivedType: string;
     })
   | (Issue<"material3-invalid-source-color"> & {
+      readonly field: "sourceColor";
       readonly receivedType?: string;
     })
   | (Issue<"material3-unsupported-color-input"> & {
+      readonly field: "sourceColor";
       readonly receivedType?: string;
       readonly value?: string;
     })
@@ -68,6 +70,7 @@ export function material3Source(input: Material3SourceInput): TokenSource<Materi
           {
             code: "material3-invalid-source-color",
             message: "sourceColor is required.",
+            field: "sourceColor",
             path: "/sourceColor",
           },
         ]);
@@ -165,6 +168,7 @@ function parseSourceColor(
     issues.push({
       code: "material3-invalid-source-color",
       message: "sourceColor is required.",
+      field: "sourceColor",
       path: "/sourceColor",
     });
     return undefined;
@@ -173,6 +177,7 @@ function parseSourceColor(
     issues.push({
       code: "material3-unsupported-color-input",
       message: "sourceColor currently supports strict #rrggbb hex strings only.",
+      field: "sourceColor",
       path: "/sourceColor",
       receivedType: describeUnknown(value),
     });
@@ -182,6 +187,7 @@ function parseSourceColor(
     issues.push({
       code: "material3-unsupported-color-input",
       message: "sourceColor currently supports strict #rrggbb hex strings only.",
+      field: "sourceColor",
       path: "/sourceColor",
       value,
     });

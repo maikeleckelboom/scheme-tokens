@@ -11,3 +11,12 @@ source.id.toUpperCase();
 
 // @ts-expect-error sourceColor is required.
 material3Source({});
+
+// @ts-expect-error color is not an alias for sourceColor.
+material3Source({ color: "#6750a4" });
+
+// @ts-expect-error seed is not an alias for sourceColor.
+material3Source({ seed: "#6750a4" });
+
+// @ts-expect-error source is not an alias for sourceColor.
+material3Source({ source: "#6750a4" });
