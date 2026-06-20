@@ -182,7 +182,12 @@ function brandSource(primary?: string): TokenSource<BrandIssue> {
       if (primary === undefined) {
         return {
           ok: false,
-          issues: [{ code: "missing-brand-primary", message: "Primary color is required." }],
+          issues: [
+            {
+              code: "missing-brand-primary",
+              message: "Primary color is required.",
+            },
+          ],
         };
       }
 
@@ -224,7 +229,8 @@ if (!built.ok) {
 
 Engine-backed behavior belongs in separate packages, for example future `@color-scheme-tokens/source-material3` or
 `@color-scheme-tokens/conversion-texel` packages. Material 3 support must use a real Material algorithm through that
-adapter boundary, not an approximation inside core.
+adapter boundary, not an approximation inside core. The adapter package model is documented in
+[`docs/adapter-policy.md`](./docs/adapter-policy.md).
 
 ## Development
 

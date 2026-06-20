@@ -19,3 +19,5 @@ changing the machine contract.
 - Paths point at the narrowest stable input location the parser can identify.
 - Unknown-value descriptions are bounded and avoid user-code coercion.
 - Internal thrown errors are reserved for impossible library states, not normal input failure.
+- Adapter-specific issue codes are owned by adapter packages. `buildTokenSet()` may surface adapter issues, but adapters
+  must not cast their issue codes into core issue unions.

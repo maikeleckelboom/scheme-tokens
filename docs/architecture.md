@@ -62,6 +62,10 @@ the selected token set. This is the core integration point for future adapter pa
 Adapter packages may depend on engines. Core exposes the interface but does not provide Material 3, Texel, conversion, or
 image-backed behavior.
 
+Source adapters produce graph input for `buildTokenSet()`. Conversion adapters perform separate conversion operations and
+return `Result` values with adapter-owned issues. The adapter package topology and release obligations are defined in
+[`ADR 0002`](./adr/0002-adapter-package-architecture.md).
+
 ## Determinism
 
 Object-record diagnostics, compiled token keys, serialized JSON keys, modes after the default mode, and CSS declarations
