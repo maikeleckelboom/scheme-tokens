@@ -1,8 +1,16 @@
 import { readdirSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 
-const checkedRoots = ["src", "tests", "scripts", "docs"] as const;
-const conventionalNames = new Set(["index.ts"]);
+const checkedRoots = ["src", "tests", "scripts", "docs", "packages"] as const;
+const conventionalNames = new Set([
+  "AGENTS.md",
+  "CHANGELOG.md",
+  "LICENSE",
+  "README.md",
+  "index.ts",
+  "package.json",
+  "tsconfig.json",
+]);
 const kebabCaseFileName = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)*$/;
 const failures: string[] = [];
 
@@ -18,6 +26,9 @@ function checkDirectory(directory: string): void {
   for (const entry of readdirSync(directory)) {
     const path = join(directory, entry);
     if (statSync(path).isDirectory()) {
+      if (entry === "node_modules") {
+        continue;
+      }
       checkDirectory(path);
       continue;
     }

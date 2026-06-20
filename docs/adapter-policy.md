@@ -1,11 +1,11 @@
 # Adapter Policy
 
-Adapters are separate future packages. The full package architecture is defined in
+Adapters are separate packages. The full package architecture is defined in
 [`docs/adr/0002-adapter-package-architecture.md`](./adr/0002-adapter-package-architecture.md).
 
-The current repository still ships one package: `color-scheme-tokens`, the dependency-light core. It exports root runtime
-helpers and strict core schema subpaths only. Adapter packages should be added later only when a real engine-backed
-capability is ready.
+The repository ships `color-scheme-tokens`, the dependency-light core, and optional adapter packages under `packages/`.
+The core package exports root runtime helpers and strict core schema subpaths only. Adapter packages are added only when
+a real engine-backed capability is ready.
 
 ## Source Adapters
 
@@ -40,7 +40,7 @@ fragment, or compiled token set, it must satisfy the matching core parser and sc
   dependency.
 - Core must not import adapter packages.
 
-Material 3 dependencies belong to `@color-scheme-tokens/source-material3`. Texel dependencies belong to
+Material 3 dependencies belong to `@color-scheme-tokens/source-material3`. Texel dependencies belong to future
 `@color-scheme-tokens/conversion-texel`.
 
 ## Issue and Schema Rules
@@ -61,3 +61,8 @@ Every adapter must prove before release:
 - a packed consumer can install and use core plus the adapter;
 - reference-vector tests prove the real engine-backed behavior;
 - Material 3 output, when shipped, comes from a real Material algorithm and is not approximated.
+
+## Current Adapters
+
+- `@color-scheme-tokens/source-material3` creates a `TokenSource` from a strict hex Material seed color and emits
+  `light` / `dark` graph tokens under a lower-kebab source id namespace.

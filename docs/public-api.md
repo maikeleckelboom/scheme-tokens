@@ -79,5 +79,6 @@ contains resolved color objects, not the original authored color strings.
 extra adapter metadata, and invokes `build()` with the original source object as `this`.
 
 `buildTokenSet()` is the adapter runner. It calls a source, composes caller fragments, validates the returned graph, and
-compiles the selected tokens. Adapter packages are future scope; the root package does not implement Material 3, Texel,
-conversion, image, or CSS parser engines.
+compiles the selected tokens. The root package does not implement Material 3, Texel, conversion, image, or CSS parser
+engines. Material 3 support lives in `@color-scheme-tokens/source-material3`, which imports core only through the generic
+source contract.

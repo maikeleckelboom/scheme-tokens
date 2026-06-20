@@ -57,12 +57,15 @@
     "api:check": "node --experimental-strip-types scripts/check-api.ts",
     "package:check": "pnpm build && publint --strict && attw --pack . --profile esm-only",
     "smoke:consumer": "node --experimental-strip-types scripts/smoke-consumer.ts",
+    "smoke:adapter-consumer": "node --experimental-strip-types scripts/smoke-adapter-consumer.ts",
     "check:tarball": "node --experimental-strip-types scripts/check-tarball.ts",
     "format": "oxfmt --check .",
     "format:fix": "oxfmt --write .",
-    "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:types && pnpm test:properties && pnpm test:schemas && pnpm test:filenames && pnpm build && pnpm api:check && pnpm format",
+    "validate:core": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:types && pnpm test:properties && pnpm test:schemas && pnpm test:filenames && pnpm build && pnpm api:check && pnpm format",
+    "validate": "pnpm validate:core && pnpm -r --if-present --filter=!color-scheme-tokens validate",
     "check": "pnpm validate",
-    "release:check": "pnpm validate && pnpm package:check && pnpm test:docs && pnpm smoke:consumer && pnpm check:tarball",
+    "release:core": "pnpm validate:core && pnpm package:check && pnpm test:docs && pnpm smoke:consumer && pnpm check:tarball",
+    "release:check": "pnpm release:core && pnpm -r --if-present --filter=!color-scheme-tokens release:check && pnpm smoke:adapter-consumer",
     "prepack": "pnpm build"
   },
   "devDependencies": {

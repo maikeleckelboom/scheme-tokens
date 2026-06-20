@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "color-scheme-tokens": ["../../src/index.ts"]
+    },
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["scripts/**/*.ts"]
+}

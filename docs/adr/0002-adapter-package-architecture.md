@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted. Implemented by the first source adapter package in Slice 4.
 
 ## Context
 
@@ -113,8 +113,7 @@ Before any adapter release, prove:
 
 ## Consequences
 
-- No adapter package or empty adapter scaffold is added in this slice.
-- The current package exports stay root plus schema subpaths only.
-- Future adapter packages can move into this repository later without renaming the core package.
+- The core package exports stay root plus schema subpaths only.
+- Adapter packages can live in this repository without renaming the core package.
 - Source adapters feed the core graph pipeline through `TokenSource`.
 - Conversion adapters stay separate operations unless they deliberately expose a source adapter too.

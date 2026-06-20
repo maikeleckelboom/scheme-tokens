@@ -123,6 +123,9 @@ for (const manifest of manifests) {
   if (
     dts.includes("@texel/color") ||
     dts.includes("@material/material-color-utilities") ||
+    dts.includes("@color-scheme-tokens/source-material3") ||
+    dts.includes("material3Source") ||
+    dts.includes("Material3") ||
     dts.includes("css-tree")
   ) {
     throw new Error(`${manifest.name} declaration leaks dependency types`);
@@ -133,6 +136,9 @@ const rootBundle = readFileSync(join(root, "dist/index.js"), "utf8");
 if (
   rootBundle.includes("@texel/color") ||
   rootBundle.includes("@material/material-color-utilities") ||
+  rootBundle.includes("@color-scheme-tokens/source-material3") ||
+  rootBundle.includes("material3Source") ||
+  rootBundle.includes("Material3") ||
   rootBundle.includes("css-tree")
 ) {
   throw new Error("Root import graph references optional engine dependencies");

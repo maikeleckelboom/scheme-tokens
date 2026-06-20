@@ -9,3 +9,5 @@
   strict.
 - Strengthen deterministic diagnostics, direct dependency metadata, package-boundary checks, docs examples, and packed
   tarball validation.
+- Add `@color-scheme-tokens/source-material3` as an optional Material 3 source adapter package outside the root core
+  boundary.

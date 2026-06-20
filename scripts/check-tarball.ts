@@ -33,7 +33,10 @@ const denied = [
   /^package\/src\//,
   /^package\/tests\//,
   /^package\/scripts\//,
+  /^package\/packages\//,
   /^package\/\.github\//,
+  /@material\/material-color-utilities/i,
+  /source-material3/i,
   /SOURCE-CONVERSATION/i,
   /v1-migration/i,
 ];
@@ -73,6 +76,7 @@ const dependencyText = JSON.stringify(packageJson);
 if (
   dependencyText.includes("@texel/color") ||
   dependencyText.includes("@material/material-color-utilities") ||
+  dependencyText.includes("@color-scheme-tokens/source-material3") ||
   dependencyText.includes("css-tree")
 ) {
   throw new Error("core package manifest leaks optional engine dependencies");

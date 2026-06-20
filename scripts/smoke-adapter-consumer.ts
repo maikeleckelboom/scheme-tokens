@@ -1,0 +1,147 @@
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, join, relative } from "node:path";
+
+const repoRoot = process.cwd();
+const adapterRoot = join(repoRoot, "packages", "source-material3");
+const workspace = mkdtempSync(join(tmpdir(), "color-scheme-tokens-material3-smoke-"));
+const packDirectory = join(workspace, "pack");
+const consumerDirectory = join(workspace, "consumer");
+mkdirSync(packDirectory, { recursive: true });
+mkdirSync(consumerDirectory, { recursive: true });
+
+const coreTarball = pack(repoRoot, packDirectory);
+const adapterTarball = pack(adapterRoot, packDirectory);
+const coreSpec = fileDependencySpec(consumerDirectory, coreTarball);
+const adapterSpec = fileDependencySpec(consumerDirectory, adapterTarball);
+
+writeJson(join(consumerDirectory, "package.json"), {
+  private: true,
+  type: "module",
+  dependencies: {
+    "color-scheme-tokens": coreSpec,
+    "@color-scheme-tokens/source-material3": adapterSpec,
+  },
+});
+writeJson(join(consumerDirectory, "tsconfig.json"), {
+  compilerOptions: {
+    strict: true,
+    skipLibCheck: false,
+    module: "NodeNext",
+    moduleResolution: "NodeNext",
+    target: "ES2022",
+    noEmit: true,
+    types: [],
+  },
+  include: ["types.ts"],
+});
+writeFileSync(
+  join(consumerDirectory, "material3.mjs"),
+  `
+import { buildTokenSet, defineTokenFragment } from "color-scheme-tokens";
+import { material3Source } from "@color-scheme-tokens/source-material3";
+
+const application = defineTokenFragment({
+  id: "application",
+  defaultVisibility: "public",
+  tokens: {
+    "app.background": { ref: "material3.surface" },
+    "app.foreground": { ref: "material3.on-surface" },
+  },
+});
+
+const built = buildTokenSet({
+  source: material3Source({
+    sourceColor: "#6750a4",
+    defaultVisibility: "internal",
+  }),
+  fragments: [application],
+});
+
+if (!built.ok) throw new Error(JSON.stringify(built.issues));
+if (!("app.background" in built.value.tokenSet.tokens)) throw new Error("adapter fragment composition failed");
+if (built.value.graph.tokens["material3.primary"]?.origin?.kind !== "source") {
+  throw new Error("adapter source origin was not preserved");
+}
+`,
+);
+writeFileSync(
+  join(consumerDirectory, "dependency-model.mjs"),
+  `
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const consumer = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
+if (consumer.dependencies["@material/material-color-utilities"] !== undefined) {
+  throw new Error("consumer directly depends on the Material engine");
+}
+
+const adapterPackagePath = require.resolve("@color-scheme-tokens/source-material3/package.json");
+const adapter = JSON.parse(readFileSync(adapterPackagePath, "utf8"));
+if (adapter.dependencies?.["@material/material-color-utilities"] !== "0.4.0") {
+  throw new Error("adapter does not own the exact Material engine dependency");
+}
+`,
+);
+writeFileSync(
+  join(consumerDirectory, "types.ts"),
+  `
+import { buildTokenSet, type TokenSource } from "color-scheme-tokens";
+import {
+  material3Source,
+  type Material3SourceInput,
+  type Material3SourceIssue,
+} from "@color-scheme-tokens/source-material3";
+
+const input: Material3SourceInput = { sourceColor: "#6750a4" };
+const source: TokenSource<Material3SourceIssue> = material3Source(input);
+const built = buildTokenSet({ source });
+if (built.ok) built.value.tokenSet.defaultMode.toUpperCase();
+`,
+);
+
+runPnpm(["install", "--ignore-scripts"], consumerDirectory);
+for (const script of ["material3.mjs", "dependency-model.mjs"]) {
+  run("node", [script], consumerDirectory);
+}
+run(
+  "node",
+  [join(repoRoot, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.json"],
+  consumerDirectory,
+);
+
+function pack(cwd: string, destination: string): string {
+  const output = runPnpm(["pack", "--pack-destination", destination], cwd)
+    .trim()
+    .split(/\r?\n/)
+    .at(-1);
+  if (output === undefined) {
+    throw new Error(`Unable to determine packed tarball name for ${cwd}`);
+  }
+  return join(destination, basename(output));
+}
+
+function fileDependencySpec(fromDirectory: string, tarball: string): string {
+  return `file:${relative(fromDirectory, tarball).replaceAll("\\", "/")}`;
+}
+
+function runPnpm(args: readonly string[], cwd: string): string {
+  const npmExecPath = process.env.npm_execpath;
+  return npmExecPath === undefined
+    ? run("pnpm", args, cwd)
+    : run(process.execPath, [npmExecPath, ...args], cwd);
+}
+
+function run(command: string, args: readonly string[], cwd: string): string {
+  return execFileSync(command, args, {
+    cwd,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "inherit"],
+  });
+}
+
+function writeJson(path: string, value: unknown): void {
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+}

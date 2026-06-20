@@ -9,8 +9,12 @@ interface PackageManifest {
 }
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+const adapterRoot = join(repoRoot, "packages", "source-material3");
 const manifest = JSON.parse(
   readFileSync(join(repoRoot, "package.json"), "utf8"),
+) as PackageManifest;
+const adapterManifest = JSON.parse(
+  readFileSync(join(adapterRoot, "package.json"), "utf8"),
 ) as PackageManifest;
 const readme = readFileSync(join(repoRoot, "README.md"), "utf8");
 const blocks: string[] = [];
@@ -29,14 +33,20 @@ const packDirectory = join(workspace, "pack");
 const consumerDirectory = join(workspace, "consumer");
 mkdirSync(packDirectory, { recursive: true });
 mkdirSync(consumerDirectory, { recursive: true });
-const tarball = pack(packDirectory);
+const tarball = pack(repoRoot, packDirectory);
+const dependencies: Record<string, string> = {
+  [manifest.name]: `file:${tarball.replaceAll("\\", "/")}`,
+};
+
+if (blocks.some((block) => block.includes(adapterManifest.name))) {
+  const adapterTarball = pack(adapterRoot, packDirectory);
+  dependencies[adapterManifest.name] = `file:${adapterTarball.replaceAll("\\", "/")}`;
+}
 
 writeJson(join(consumerDirectory, "package.json"), {
   private: true,
   type: "module",
-  dependencies: {
-    [manifest.name]: `file:${tarball.replaceAll("\\", "/")}`,
-  },
+  dependencies,
 });
 writeJson(join(consumerDirectory, "tsconfig.json"), {
   compilerOptions: {
@@ -61,8 +71,8 @@ run(
   consumerDirectory,
 );
 
-function pack(destination: string): string {
-  const output = runPnpm(["pack", "--pack-destination", destination], repoRoot)
+function pack(cwd: string, destination: string): string {
+  const output = runPnpm(["pack", "--pack-destination", destination], cwd)
     .trim()
     .split(/\r?\n/)
     .at(-1);

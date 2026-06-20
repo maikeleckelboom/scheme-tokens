@@ -31,15 +31,17 @@ describe("package boundary", () => {
     ]);
   });
 
-  test("core package has no runtime dependency graph", () => {
+  test("core package has no Material or optional-engine dependency graph", () => {
     const manifest = readManifest();
     expect(manifest.dependencies ?? {}).toEqual({});
+    expect(manifest.peerDependencies ?? {}).toEqual({});
+    expect(manifest.optionalDependencies ?? {}).toEqual({});
     expect(JSON.stringify(manifest)).not.toContain("@material/material-color-utilities");
     expect(JSON.stringify(manifest)).not.toContain("@texel/color");
     expect(JSON.stringify(manifest)).not.toContain("css-tree");
   });
 
-  test("source tree does not contain engine-backed adapter paths or imports", () => {
+  test("root source tree does not contain engine-backed adapter paths, imports, or Material contracts", () => {
     expect(existsSync(join(repoRoot, "src", "conversion"))).toBe(false);
     expect(existsSync(join(repoRoot, "src", "sources", "material3"))).toBe(false);
 
@@ -47,6 +49,10 @@ describe("package boundary", () => {
       .map((path) => readFileSync(path, "utf8"))
       .join("\n");
     expect(sourceText).not.toContain("@material/material-color-utilities");
+    expect(sourceText).not.toContain("@color-scheme-tokens/source-material3");
+    expect(sourceText).not.toContain("material3Source");
+    expect(sourceText).not.toContain("Material3SourceInput");
+    expect(sourceText).not.toContain("MATERIAL3_ROLE");
     expect(sourceText).not.toContain("@texel/color");
     expect(sourceText).not.toContain("css-tree");
   });
@@ -54,6 +60,8 @@ describe("package boundary", () => {
 
 interface PackageManifest {
   readonly dependencies?: Readonly<Record<string, string>>;
+  readonly optionalDependencies?: Readonly<Record<string, string>>;
+  readonly peerDependencies?: Readonly<Record<string, string>>;
   readonly exports: Readonly<Record<string, unknown>>;
 }
 

@@ -158,9 +158,8 @@ resolved color values plus dependency and origin metadata for the selected token
 
 ## Adapter Runner
 
-`buildTokenSet()` is the core runner for future adapter packages. Core supplies the structural `TokenSource` interface,
-calls a source, composes caller fragments, validates the returned graph, and compiles the selected tokens. No adapter
-package exists in this slice.
+`buildTokenSet()` is the core runner for adapter packages. Core supplies the structural `TokenSource` interface, calls a
+source, composes caller fragments, validates the returned graph, and compiles the selected tokens.
 
 ```ts
 import {
@@ -227,10 +226,38 @@ if (!built.ok) {
 }
 ```
 
-Engine-backed behavior belongs in separate packages, for example future `@color-scheme-tokens/source-material3` or
-`@color-scheme-tokens/conversion-texel` packages. Material 3 support must use a real Material algorithm through that
-adapter boundary, not an approximation inside core. The adapter package model is documented in
+Engine-backed behavior belongs in separate packages, for example `@color-scheme-tokens/source-material3` or future
+`@color-scheme-tokens/conversion-texel` packages. Material 3 support uses a real Material algorithm through that adapter
+boundary, not an approximation inside core. The adapter package model is documented in
 [`docs/adapter-policy.md`](./docs/adapter-policy.md).
+
+## Material 3 Adapter
+
+Manual/custom colors require only `color-scheme-tokens`. Material 3 users install the root package plus the source
+adapter:
+
+```bash
+pnpm add color-scheme-tokens @color-scheme-tokens/source-material3
+```
+
+```ts
+import { buildTokenSet } from "color-scheme-tokens";
+import { material3Source } from "@color-scheme-tokens/source-material3";
+
+const built = buildTokenSet({
+  source: material3Source({
+    sourceColor: "#6750a4",
+  }),
+});
+
+if (!built.ok) {
+  throw new Error(JSON.stringify(built.issues, null, 2));
+}
+```
+
+The adapter emits strict `light` and `dark` graph tokens under the `material3` namespace by default, such as
+`material3.primary`, `material3.on-primary`, and `material3.primary-container`. The root package does not import or
+depend on Material Design.
 
 ## Development
 
