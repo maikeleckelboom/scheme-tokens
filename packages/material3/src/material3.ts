@@ -13,14 +13,14 @@ export interface Material3ExtendedColorInput {
   readonly harmonize?: boolean;
 }
 
-export interface Material3SourceInput {
+export interface Material3Input {
   readonly sourceColor: string;
   readonly id?: string;
   readonly defaultVisibility?: TokenVisibility;
   readonly extendedColors?: readonly Material3ExtendedColorInput[];
 }
 
-export type Material3SourceIssue =
+export type Material3Issue =
   | (Issue<"material3-invalid-input"> & {
       readonly receivedType: string;
     })
@@ -72,24 +72,24 @@ export interface Material3ExtendedColor {
   readonly harmonize: boolean;
 }
 
-interface ParsedMaterial3SourceInput {
+interface ParsedMaterial3Input {
   readonly sourceId: string;
   readonly sourceColor: string | undefined;
   readonly defaultVisibility: TokenVisibility;
   readonly extendedColors: readonly Material3ExtendedColor[];
-  readonly issues: readonly Material3SourceIssue[];
+  readonly issues: readonly Material3Issue[];
 }
 
 const defaultSourceId = "material3";
 const strictHexPattern = /^#[0-9a-fA-F]{6}$/;
 const sourceIdPattern = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
-export function material3Source(input: Material3SourceInput): TokenSource<Material3SourceIssue> {
-  const parsed = parseMaterial3SourceInput(input);
+export function material3(input: Material3Input): TokenSource<Material3Issue> {
+  const parsed = parseMaterial3Input(input);
 
   return {
     id: parsed.sourceId,
-    build(): Result<TokenGraphInput, Material3SourceIssue> {
+    build(): Result<TokenGraphInput, Material3Issue> {
       if (parsed.issues.length > 0) {
         return fail(parsed.issues);
       }
@@ -128,7 +128,7 @@ export function material3Source(input: Material3SourceInput): TokenSource<Materi
   };
 }
 
-function parseMaterial3SourceInput(input: unknown): ParsedMaterial3SourceInput {
+function parseMaterial3Input(input: unknown): ParsedMaterial3Input {
   const entries = readPlainRecord(input);
   if (!entries.ok) {
     return {
@@ -141,7 +141,7 @@ function parseMaterial3SourceInput(input: unknown): ParsedMaterial3SourceInput {
   }
 
   const record = new Map(entries.value.map((entry) => [entry.key, entry.value]));
-  const issues: Material3SourceIssue[] = [];
+  const issues: Material3Issue[] = [];
   const sourceId = parseSourceId(record.get("id"), record.has("id"), issues);
   const sourceColor = parseSourceColor(
     record.get("sourceColor"),
@@ -168,7 +168,7 @@ function parseMaterial3SourceInput(input: unknown): ParsedMaterial3SourceInput {
     ) {
       issues.push({
         code: "material3-invalid-input",
-        message: `Unknown material3Source input property: ${entry.key}.`,
+        message: `Unknown material3 input property: ${entry.key}.`,
         path: `/${jsonPointerSegment(entry.key)}`,
         receivedType: describeUnknown(entry.value),
       });
@@ -184,7 +184,7 @@ function parseMaterial3SourceInput(input: unknown): ParsedMaterial3SourceInput {
   };
 }
 
-function parseSourceId(value: unknown, hasValue: boolean, issues: Material3SourceIssue[]): string {
+function parseSourceId(value: unknown, hasValue: boolean, issues: Material3Issue[]): string {
   if (!hasValue) {
     return defaultSourceId;
   }
@@ -203,7 +203,7 @@ function parseSourceId(value: unknown, hasValue: boolean, issues: Material3Sourc
 function parseSourceColor(
   value: unknown,
   hasValue: boolean,
-  issues: Material3SourceIssue[],
+  issues: Material3Issue[],
 ): string | undefined {
   if (!hasValue) {
     issues.push({
@@ -240,7 +240,7 @@ function parseSourceColor(
 function parseDefaultVisibility(
   value: unknown,
   hasValue: boolean,
-  issues: Material3SourceIssue[],
+  issues: Material3Issue[],
 ): TokenVisibility {
   if (!hasValue) {
     return "public";
@@ -260,7 +260,7 @@ function parseDefaultVisibility(
 function parseExtendedColors(
   value: unknown,
   hasValue: boolean,
-  issues: Material3SourceIssue[],
+  issues: Material3Issue[],
 ): readonly Material3ExtendedColor[] {
   if (!hasValue) {
     return [];
@@ -313,7 +313,7 @@ function parseExtendedColors(
 function parseExtendedColor(
   input: unknown,
   index: number,
-  issues: Material3SourceIssue[],
+  issues: Material3Issue[],
 ): Material3ExtendedColor | undefined {
   const path = `/extendedColors/${index}`;
   const entries = readPlainRecord(input);
@@ -342,7 +342,7 @@ function parseExtendedColor(
     if (entry.key !== "name" && entry.key !== "color" && entry.key !== "harmonize") {
       issues.push({
         code: "material3-invalid-input",
-        message: `Unknown material3Source extendedColors entry property: ${entry.key}.`,
+        message: `Unknown material3 extendedColors entry property: ${entry.key}.`,
         path: `${path}/${jsonPointerSegment(entry.key)}`,
         receivedType: describeUnknown(entry.value),
       });
@@ -359,7 +359,7 @@ function parseExtendedColorName(
   value: unknown,
   hasValue: boolean,
   path: string,
-  issues: Material3SourceIssue[],
+  issues: Material3Issue[],
 ): string | undefined {
   if (!hasValue) {
     issues.push({
@@ -394,7 +394,7 @@ function parseExtendedColorValue(
   value: unknown,
   hasValue: boolean,
   path: string,
-  issues: Material3SourceIssue[],
+  issues: Material3Issue[],
 ): string | undefined {
   if (!hasValue) {
     issues.push({
@@ -429,7 +429,7 @@ function parseExtendedColorHarmonize(
   value: unknown,
   hasValue: boolean,
   path: string,
-  issues: Material3SourceIssue[],
+  issues: Material3Issue[],
 ): boolean | undefined {
   if (!hasValue) {
     return true;
@@ -450,9 +450,9 @@ function jsonPointerSegment(segment: string): string {
   return segment.replaceAll("~", "~0").replaceAll("/", "~1");
 }
 
-function fail(issues: readonly Material3SourceIssue[]): Result<never, Material3SourceIssue> {
+function fail(issues: readonly Material3Issue[]): Result<never, Material3Issue> {
   if (issues.length === 0) {
     throw new Error("Expected at least one Material 3 source issue.");
   }
-  return { ok: false, issues: issues as [Material3SourceIssue, ...Material3SourceIssue[]] };
+  return { ok: false, issues: issues as [Material3Issue, ...Material3Issue[]] };
 }

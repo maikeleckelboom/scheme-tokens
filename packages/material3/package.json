@@ -1,5 +1,5 @@
 {
-  "name": "@scheme-tokens/source-material3",
+  "name": "@scheme-tokens/material3",
   "version": "0.1.0",
   "description": "Material 3 source adapter for scheme-tokens.",
   "keywords": [
@@ -8,7 +8,7 @@
     "material-3",
     "token-graph"
   ],
-  "homepage": "https://github.com/maikeleckelboom/scheme-tokens/tree/main/packages/source-material3#readme",
+  "homepage": "https://github.com/maikeleckelboom/scheme-tokens/tree/main/packages/material3#readme",
   "bugs": {
     "url": "https://github.com/maikeleckelboom/scheme-tokens/issues"
   },
@@ -17,7 +17,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/maikeleckelboom/scheme-tokens.git",
-    "directory": "packages/source-material3"
+    "directory": "packages/material3"
   },
   "files": [
     "dist",

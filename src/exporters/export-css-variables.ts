@@ -29,7 +29,7 @@ export type CssModeSelectors =
       readonly selectors: Readonly<Record<string, string>>;
     };
 
-export interface ExportCssVariablesOptions {
+export interface ExportCssVarsOptions {
   readonly prefix?: string;
   readonly scope?: CssScope;
   readonly modeSelectors?: CssModeSelectors;
@@ -42,7 +42,7 @@ export interface CssVariableBlock {
   readonly declarations: Readonly<Record<string, string>>;
 }
 
-export type ExportCssVariablesIssue = Issue<
+export type ExportCssVarsIssue = Issue<
   | "invalid-css-options"
   | "invalid-css-prefix"
   | "invalid-scope"
@@ -58,10 +58,10 @@ export type ExportCssVariablesIssue = Issue<
   readonly selector?: string;
 };
 
-export function exportCssVariables(
+export function exportCssVars(
   scheme: CompiledScheme,
-  options?: ExportCssVariablesOptions,
-): Result<string, ExportCssVariablesIssue> {
+  options?: ExportCssVarsOptions,
+): Result<string, ExportCssVarsIssue> {
   const parsed = parseOptions(scheme, options);
   if (!parsed.ok) {
     return parsed;
@@ -76,10 +76,10 @@ export function exportCssVariables(
   };
 }
 
-export function exportCssVariableBlocks(
+export function exportCssVarBlocks(
   scheme: CompiledScheme,
-  options?: ExportCssVariablesOptions,
-): Result<readonly CssVariableBlock[], ExportCssVariablesIssue> {
+  options?: ExportCssVarsOptions,
+): Result<readonly CssVariableBlock[], ExportCssVarsIssue> {
   const parsed = parseOptions(scheme, options);
   if (!parsed.ok) {
     return parsed;
@@ -127,8 +127,8 @@ interface ParsedCssOptions {
 
 function parseOptions(
   scheme: CompiledScheme,
-  options: ExportCssVariablesOptions | undefined,
-): Result<ParsedCssOptions, ExportCssVariablesIssue> {
+  options: ExportCssVarsOptions | undefined,
+): Result<ParsedCssOptions, ExportCssVarsIssue> {
   const entries =
     options === undefined
       ? ({ ok: true, value: [] } as const)
@@ -137,7 +137,7 @@ function parseOptions(
           message: "CSS options must be a plain object.",
         });
   if (!entries.ok) {
-    return entries as Result<never, ExportCssVariablesIssue>;
+    return entries as Result<never, ExportCssVarsIssue>;
   }
 
   for (const entry of entries.value) {
@@ -199,7 +199,7 @@ function parseSelectors(
   scheme: CompiledScheme,
   scopeInput: unknown,
   modeSelectorsInput: unknown,
-): Result<Readonly<Record<string, string>>, ExportCssVariablesIssue> {
+): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
   const modeSelector = modeSelectorsInput ?? {
     strategy: "data-attribute",
     attribute: "data-color-scheme",
@@ -209,7 +209,7 @@ function parseSelectors(
     message: "modeSelectors must be a plain object.",
   });
   if (!selectorStrategy.ok) {
-    return selectorStrategy as Result<never, ExportCssVariablesIssue>;
+    return selectorStrategy as Result<never, ExportCssVarsIssue>;
   }
   const strategyRecord = new Map(selectorStrategy.value.map((entry) => [entry.key, entry.value]));
   const strategy = strategyRecord.get("strategy");
@@ -275,7 +275,7 @@ function parseSelectors(
   };
 }
 
-function parseScope(input: unknown): Result<string, ExportCssVariablesIssue> {
+function parseScope(input: unknown): Result<string, ExportCssVarsIssue> {
   if (input === undefined) {
     return { ok: true, value: ":root" };
   }
@@ -284,7 +284,7 @@ function parseScope(input: unknown): Result<string, ExportCssVariablesIssue> {
     message: "scope must be a plain object.",
   });
   if (!entries.ok) {
-    return entries as Result<never, ExportCssVariablesIssue>;
+    return entries as Result<never, ExportCssVarsIssue>;
   }
   const record = new Map(entries.value.map((entry) => [entry.key, entry.value]));
   if (record.get("strategy") === "root" && record.size === 1) {
@@ -309,13 +309,13 @@ function parseScope(input: unknown): Result<string, ExportCssVariablesIssue> {
 function parseExactSelectors(
   scheme: CompiledScheme,
   input: unknown,
-): Result<Readonly<Record<string, string>>, ExportCssVariablesIssue> {
+): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
   const entries = readPlainRecord(input, {
     code: "invalid-mode-selectors",
     message: "selectors must be a plain object.",
   });
   if (!entries.ok) {
-    return entries as Result<never, ExportCssVariablesIssue>;
+    return entries as Result<never, ExportCssVarsIssue>;
   }
 
   const modeSet = new Set(scheme.modes);
@@ -365,7 +365,7 @@ function generatedSelectors(
   scheme: CompiledScheme,
   selectorForMode: (mode: string) => string,
   defaultSelector: string,
-): Result<Readonly<Record<string, string>>, ExportCssVariablesIssue> {
+): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
   const selectors: Record<string, string> = {};
   for (const mode of scheme.modes) {
     selectors[mode] = mode === scheme.defaultMode ? defaultSelector : selectorForMode(mode);
@@ -375,7 +375,7 @@ function generatedSelectors(
 
 function rejectDuplicateSelectors(
   selectors: Readonly<Record<string, string>>,
-): Result<Readonly<Record<string, string>>, ExportCssVariablesIssue> {
+): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
   const seen = new Map<string, string>();
   for (const [mode, selector] of Object.entries(selectors)) {
     const first = seen.get(selector);

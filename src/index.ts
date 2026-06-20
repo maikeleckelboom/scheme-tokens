@@ -3,7 +3,7 @@ export { parseTokenGraph } from "./core/parse-token-graph";
 export { parseColor } from "./core/color";
 export { compileTokenGraph } from "./core/compile-token-graph";
 export { buildScheme } from "./core/source";
-export { exportCssVariableBlocks, exportCssVariables } from "./exporters/export-css-variables";
+export { exportCssVarBlocks, exportCssVars } from "./exporters/export-css-variables";
 export { serializeScheme } from "./exporters/serialize-scheme";
 export { formatCssColor } from "./exporters/format-css-color";
 
@@ -48,13 +48,12 @@ export type {
   BuildSchemeIssue,
   BuildSchemeOptions,
   BuildSchemeSourceOptions,
-  BuildSchemeValue,
   TokenSource,
 } from "./core/source";
 export type {
   CssVariableBlock,
   CssModeSelectors,
   CssScope,
-  ExportCssVariablesIssue,
-  ExportCssVariablesOptions,
+  ExportCssVarsIssue,
+  ExportCssVarsOptions,
 } from "./exporters/export-css-variables";

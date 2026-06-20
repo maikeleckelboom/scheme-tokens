@@ -1,4 +1,4 @@
-import type { Material3SourceIssue } from "./material3-source";
+import type { Material3Issue } from "./material3";
 import { describeUnknown } from "./safe-description";
 
 export interface PlainRecordEntry {
@@ -13,7 +13,7 @@ export type PlainRecordResult =
     }
   | {
       readonly ok: false;
-      readonly issue: Material3SourceIssue;
+      readonly issue: Material3Issue;
     };
 
 export function readPlainRecord(input: unknown): PlainRecordResult {
@@ -53,7 +53,7 @@ function invalidInput(input: unknown): PlainRecordResult {
     ok: false,
     issue: {
       code: "material3-invalid-input",
-      message: "material3Source input must be a JSON-safe plain object.",
+      message: "material3 input must be a JSON-safe plain object.",
       receivedType: describeUnknown(input),
     },
   };

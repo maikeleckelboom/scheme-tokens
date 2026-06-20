@@ -1,4 +1,4 @@
-# @scheme-tokens/source-material3
+# @scheme-tokens/material3
 
 Material 3 source adapter for `scheme-tokens`.
 
@@ -6,14 +6,14 @@ Manual token graphs only need the root `scheme-tokens` package. Install this ada
 wants Material 3 Dynamic Color output from the official Material color utility engine.
 
 ```bash
-pnpm add scheme-tokens @scheme-tokens/source-material3
+pnpm add scheme-tokens @scheme-tokens/material3
 ```
 
 ## Usage
 
 ```ts
-import { buildScheme, defineTokenLayer, exportCssVariableBlocks } from "scheme-tokens";
-import { material3Source } from "@scheme-tokens/source-material3";
+import { buildScheme, defineTokenLayer, exportCssVarBlocks } from "scheme-tokens";
+import { material3 } from "@scheme-tokens/material3";
 
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
@@ -26,7 +26,7 @@ const application = defineTokenLayer<"light" | "dark">({
 });
 
 const built = buildScheme(
-  material3Source({
+  material3({
     sourceColor: "#6750a4",
     defaultVisibility: "internal",
   }),
@@ -37,7 +37,7 @@ if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
 
-const blocks = exportCssVariableBlocks(built.value.compiled);
+const blocks = exportCssVarBlocks(built.value);
 if (!blocks.ok) {
   throw new Error(JSON.stringify(blocks.issues, null, 2));
 }
@@ -54,8 +54,8 @@ material3.on-primary
 material3.primary-container
 ```
 
-`sourceColor` is the required Material source color used to generate the scheme. Some Material tooling calls this a seed
-color; this adapter keeps the field name `sourceColor` and does not accept `color`, `seed`, or `source` aliases.
+`sourceColor` is the required Material source color used to generate the scheme. This adapter keeps the field name
+`sourceColor` and does not accept `color`, `seed`, or `source` aliases.
 `sourceColor` currently accepts strict opaque hex strings in `#rrggbb` form. Other CSS color syntaxes are rejected
 instead of being parsed approximately.
 
@@ -66,10 +66,10 @@ the engine's own option names.
 
 ```ts
 import { buildScheme } from "scheme-tokens";
-import { material3Source } from "@scheme-tokens/source-material3";
+import { material3 } from "@scheme-tokens/material3";
 
 const built = buildScheme(
-  material3Source({
+  material3({
     sourceColor: "#6750a4",
     extendedColors: [{ name: "success", color: "#2e7d32" }],
   }),
@@ -99,11 +99,11 @@ Advanced key-color-driven scheme input remains future scope; this adapter does n
 
 ## Composition
 
-Use `exportCssVariables()` when you want a stylesheet string instead of structured blocks.
+Use `exportCssVars()` when you want a stylesheet string instead of structured blocks.
 
 ```ts
-import { buildScheme, defineTokenLayer, exportCssVariables } from "scheme-tokens";
-import { material3Source } from "@scheme-tokens/source-material3";
+import { buildScheme, defineTokenLayer, exportCssVars } from "scheme-tokens";
+import { material3 } from "@scheme-tokens/material3";
 
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
@@ -116,7 +116,7 @@ const application = defineTokenLayer<"light" | "dark">({
 });
 
 const built = buildScheme(
-  material3Source({
+  material3({
     sourceColor: "#6750a4",
     defaultVisibility: "internal",
   }),
@@ -127,15 +127,16 @@ if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
 
-const css = exportCssVariables(built.value.compiled);
+const css = exportCssVars(built.value);
 if (!css.ok) {
   throw new Error(JSON.stringify(css.issues, null, 2));
 }
 ```
 
 Use `defaultVisibility: "internal"` when the Material roles should feed public application tokens without being exported
-as public tokens themselves. Sources compose before layers, and later application layers can override Material source
-tokens or earlier layers by token key. This is token overlay behavior, not CSS cascade specificity or CSS `@layer`.
+as public tokens themselves. The Material 3 base resolves before layers, and later application layers can override
+Material tokens or earlier layers by token key. This is token overlay behavior, not CSS cascade specificity or CSS
+`@layer`.
 
 Material 3 support lives in this adapter package. The root package does not import, export, document as required, or
 depend on the Material engine for manual token graphs.

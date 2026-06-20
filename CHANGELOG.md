@@ -7,17 +7,17 @@
 - Release the dependency-light `scheme-tokens` core package with explicit token graph contracts, strict graph
   parsing, token compilation, deterministic serialization, and `Result` / `Issue` diagnostics.
 - Publish strict JSON Schema artifacts for persisted token graphs, token layers, and serialized compiled schemes.
-- Support CSS variable export through `exportCssVariables(..., { prefix })` for stylesheet strings and
-  `exportCssVariableBlocks(..., { prefix })` for structured mode blocks; omitted or empty prefixes emit unprefixed custom
+- Support CSS variable export through `exportCssVars(..., { prefix })` for stylesheet strings and
+  `exportCssVarBlocks(..., { prefix })` for structured mode blocks; omitted or empty prefixes emit unprefixed custom
   properties such as `--background`, and the removed `variablePrefix` option is not accepted.
 - Keep authoring helpers ergonomic with JSON-safe manual token graphs and token layers while preserving strict persisted
   input behavior.
 - Allow helper-only token-key string reference shorthand and metadata plus mode-key shorthand in `defineTokenGraph()` and
   `defineTokenLayer()` while keeping strict parser and schema inputs explicit.
-- Release `@scheme-tokens/source-material3` as a separate Material 3 source adapter package that owns all Material
+- Release `@scheme-tokens/material3` as a separate Material 3 source adapter package that owns all Material
   behavior, uses `sourceColor`, supports `extendedColors`, and depends on the real Material color utility engine.
-- Expose `buildScheme({ sources, layers })` as the adapter runner and layer composer shape. `sources` is optional for
-  layer-only builds, source-only builds remain valid, and later layers override earlier layers or source tokens by token
+- Expose `buildScheme({ base, layers })` as the adapter runner and layer composer shape. `base` is optional for
+  layer-only builds, base-only builds remain valid, and later layers override earlier layers or base tokens by token
   key.
 - Add `modes`, `defaultMode`, and `defaultVisibility` to `BuildSchemeOptions` so layer-only builds can establish an
   explicit graph mode envelope without moving mode authority onto `TokenLayerInput`.

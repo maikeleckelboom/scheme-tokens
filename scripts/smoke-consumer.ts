@@ -41,7 +41,7 @@ writeJson(join(consumerDirectory, "tsconfig.json"), {
 writeFileSync(
   join(consumerDirectory, "root.mjs"),
   `
-import { buildScheme, compileTokenGraph, defineTokenGraph, defineTokenLayer, defineTokens, exportCssVariableBlocks, exportCssVariables } from ${JSON.stringify(manifest.name)};
+import { buildScheme, compileTokenGraph, defineTokenGraph, defineTokenLayer, defineTokens, exportCssVarBlocks, exportCssVars } from ${JSON.stringify(manifest.name)};
 
 const graph = defineTokens({
   background: "#ffffff",
@@ -51,16 +51,16 @@ const graph = defineTokens({
 });
 const compiled = compileTokenGraph(graph);
 if (!compiled.ok) throw new Error(JSON.stringify(compiled.issues));
-const css = exportCssVariables(compiled.value);
+const css = exportCssVars(compiled.value);
 if (!css.ok || !css.value.includes("--background: #ffffff;")) throw new Error("root workflow failed");
 if (css.value.includes("--color-background") || css.value.includes("--scheme-background")) {
   throw new Error("default CSS export must use authored runtime token names");
 }
-const prefixedCss = exportCssVariables(compiled.value, { prefix: "color" });
+const prefixedCss = exportCssVars(compiled.value, { prefix: "color" });
 if (!prefixedCss.ok || !prefixedCss.value.includes("--color-background: #ffffff;")) {
   throw new Error("explicit CSS prefix export failed");
 }
-const blocks = exportCssVariableBlocks(compiled.value);
+const blocks = exportCssVarBlocks(compiled.value);
 if (!blocks.ok) throw new Error(JSON.stringify(blocks.issues));
 const declarations = blocks.value[0]?.declarations;
 if (declarations?.["--background"] !== "#ffffff") throw new Error("structured CSS export failed");
@@ -74,7 +74,7 @@ const base = defineTokenLayer({ id: "base", tokens: { primary: "#6750a4" } });
 const brand = defineTokenLayer({ id: "brand", tokens: { primary: "#ff3b30" } });
 const built = buildScheme({ layers: [base, brand] });
 if (!built.ok) throw new Error(JSON.stringify(built.issues));
-if (built.value.graph.tokens.primary?.origin?.kind !== "layer") throw new Error("layer-only origin failed");
+if (built.value.tokens.primary?.origin?.kind !== "layer") throw new Error("layer-only origin failed");
 const lightDarkLayer = defineTokenLayer({
   id: "application",
   modes: ["light", "dark"],
@@ -91,7 +91,7 @@ const lightDarkBuilt = buildScheme({
   layers: [lightDarkLayer],
 });
 if (!lightDarkBuilt.ok) throw new Error(JSON.stringify(lightDarkBuilt.issues));
-if (lightDarkBuilt.value.compiled.tokens.background?.valueByMode.dark?.colorSpace !== "srgb") {
+if (lightDarkBuilt.value.tokens.background?.valueByMode.dark?.colorSpace !== "srgb") {
   throw new Error("layer-only multi-mode build failed");
 }
 `,
@@ -99,7 +99,7 @@ if (lightDarkBuilt.value.compiled.tokens.background?.valueByMode.dark?.colorSpac
 writeFileSync(
   join(consumerDirectory, "subpaths.mjs"),
   `
-for (const subpath of ["conversion", "sources/material3"]) {
+for (const subpath of ["conversion", "material3"]) {
   try {
     await import(${JSON.stringify(manifest.name)} + "/" + subpath);
     throw new Error("unexpected subpath import success: " + subpath);
@@ -154,12 +154,12 @@ import {
   defineTokenLayer,
   defineTokenGraph,
   defineTokens,
-  exportCssVariableBlocks,
+  exportCssVarBlocks,
   type BuildSchemeSourceOptions,
   type CssVariableBlock,
   type ColorValue,
   type CompiledScheme,
-  type ExportCssVariablesOptions,
+  type ExportCssVarsOptions,
   type Issue,
   type Result,
   type TokenGraphInput,
@@ -178,13 +178,13 @@ const layer: TokenLayerInput = defineTokenLayer({
   tokens: { "brand.primary": "#6750a4" },
 });
 const compiled: Result<CompiledScheme, Issue> = compileTokenGraph(graph);
-const cssOptions: ExportCssVariablesOptions = { prefix: "theme" };
-const legacyCssOptions: ExportCssVariablesOptions = {
+const cssOptions: ExportCssVarsOptions = { prefix: "theme" };
+const legacyCssOptions: ExportCssVarsOptions = {
   // @ts-expect-error variablePrefix is not part of the public CSS export options.
   variablePrefix: "theme",
 };
 const color: ColorValue = { colorSpace: "srgb", r: 1, g: 1, b: 1, alpha: 1 };
-const blocks = exportCssVariableBlocks({} as never);
+const blocks = exportCssVarBlocks({} as never);
 const cssBlock: CssVariableBlock | undefined = blocks.ok ? blocks.value[0] : undefined;
 const source = {
   id: "brand",
@@ -192,7 +192,7 @@ const source = {
     return { ok: true as const, value: graph };
   },
 };
-const built = buildScheme({ sources: [source] });
+const built = buildScheme({ base: [source] });
 const shorthandBuilt = buildScheme(source, { selection: "all" } satisfies BuildSchemeSourceOptions);
 const layerBuilt = buildScheme({ layers: [layer] });
 const lightDarkLayer = defineTokenLayer<"light" | "dark">({
@@ -211,10 +211,10 @@ cssBlock?.declarations["--background"]?.toUpperCase();
 color.colorSpace.toUpperCase();
 if (compiled.ok) compiled.value.defaultMode.toUpperCase();
 tokenGraph.defaultMode.toUpperCase();
-if (built.ok) built.value.compiled.defaultMode.toUpperCase();
-if (shorthandBuilt.ok) shorthandBuilt.value.compiled.defaultMode.toUpperCase();
-if (layerBuilt.ok) layerBuilt.value.compiled.defaultMode.toUpperCase();
-if (lightDarkBuilt.ok) lightDarkBuilt.value.compiled.defaultMode.toUpperCase();
+if (built.ok) built.value.defaultMode.toUpperCase();
+if (shorthandBuilt.ok) shorthandBuilt.value.defaultMode.toUpperCase();
+if (layerBuilt.ok) layerBuilt.value.defaultMode.toUpperCase();
+if (lightDarkBuilt.ok) lightDarkBuilt.value.defaultMode.toUpperCase();
 `,
 );
 
@@ -229,7 +229,7 @@ run(
 );
 
 const installedRoot = join(consumerDirectory, "node_modules", manifest.name);
-if (existsSync(join(consumerDirectory, "node_modules", "@scheme-tokens", "source-material3"))) {
+if (existsSync(join(consumerDirectory, "node_modules", "@scheme-tokens", "material3"))) {
   throw new Error("core-only consumer unexpectedly installed the Material adapter");
 }
 if (existsSync(join(consumerDirectory, "node_modules", "@material", "material-color-utilities"))) {

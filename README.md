@@ -15,7 +15,7 @@ pnpm add scheme-tokens
 ## Quick Start
 
 ```ts
-import { compileTokenGraph, defineTokens, exportCssVariables } from "scheme-tokens";
+import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
 
 const graph = defineTokens({
   background: "#ffffff",
@@ -29,7 +29,7 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const css = exportCssVariables(compiled.value);
+const css = exportCssVars(compiled.value);
 if (!css.ok) {
   throw new Error(JSON.stringify(css.issues, null, 2));
 }
@@ -49,7 +49,7 @@ Omit `prefix` to emit custom properties such as `--background`, `--foreground`, 
 ## Light and Dark Values
 
 ```ts
-import { compileTokenGraph, defineTokenGraph, exportCssVariables } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, exportCssVars } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
@@ -90,7 +90,7 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const css = exportCssVariables(compiled.value);
+const css = exportCssVars(compiled.value);
 if (!css.ok) {
   throw new Error(JSON.stringify(css.issues, null, 2));
 }
@@ -110,15 +110,15 @@ The default CSS selectors are `:root` for the default mode and `:root[data-color
 
 ## Runtime CSS Variables
 
-`exportCssVariables()` returns a stylesheet string. `exportCssVariableBlocks()` returns structured blocks for runtime
+`exportCssVars()` returns a stylesheet string. `exportCssVarBlocks()` returns structured blocks for runtime
 application, previews, or custom renderers that should not parse CSS text.
 
 ```ts
 import {
   compileTokenGraph,
   defineTokenGraph,
-  exportCssVariableBlocks,
-  exportCssVariables,
+  exportCssVarBlocks,
+  exportCssVars,
 } from "scheme-tokens";
 
 const graph = defineTokenGraph({
@@ -135,8 +135,8 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const css = exportCssVariables(compiled.value);
-const blocks = exportCssVariableBlocks(compiled.value);
+const css = exportCssVars(compiled.value);
+const blocks = exportCssVarBlocks(compiled.value);
 if (!css.ok || !blocks.ok) {
   throw new Error("CSS export failed");
 }
@@ -157,7 +157,7 @@ color tokens your app wants Tailwind to expose.
 Step 1: compile and export runtime CSS variables.
 
 ```ts
-import { compileTokenGraph, defineTokens, exportCssVariables } from "scheme-tokens";
+import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
 
 const graph = defineTokens({
   background: "#ffffff",
@@ -171,7 +171,7 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const css = exportCssVariables(compiled.value);
+const css = exportCssVars(compiled.value);
 if (!css.ok) {
   throw new Error(JSON.stringify(css.issues, null, 2));
 }
@@ -207,8 +207,8 @@ keep the mapping to the color tokens that are part of your app's Tailwind contra
 
 ## Layered Schemes
 
-Use layers when a product needs ordered authored overlays. Sources are optional; a layer-only build does not need an
-empty sources array.
+Use layers when a product needs ordered authored overlays. A generated base is optional; a layer-only build does not need
+an empty base array.
 
 ```ts
 import { buildScheme, defineTokenLayer } from "scheme-tokens";
@@ -238,9 +238,9 @@ if (!built.ok) {
 }
 ```
 
-Layers are ordered token overlays. Sources compose first, layers compose after sources, and later layers win by token
-key. This is deterministic token composition, not CSS cascade behavior: there is no selector specificity, `!important`,
-CSS `@layer`, DOM mutation, or style injection.
+Layers are ordered token overlays. When a generated base is present, it resolves before layers, and later layers win by
+token key. This is deterministic token composition, not CSS cascade behavior: there is no selector specificity,
+`!important`, CSS `@layer`, DOM mutation, or style injection.
 
 For layer-only light and dark builds, pass the graph mode envelope to `buildScheme()`:
 
@@ -275,17 +275,17 @@ if (!built.ok) {
 
 ## Optional Material 3
 
-Material 3 output is provided by `@scheme-tokens/source-material3`, not by the root package.
+Material 3 output is provided by `@scheme-tokens/material3`, not by the root package.
 
 ```bash
-pnpm add scheme-tokens @scheme-tokens/source-material3
+pnpm add scheme-tokens @scheme-tokens/material3
 ```
 
 ```ts
 import { buildScheme } from "scheme-tokens";
-import { material3Source } from "@scheme-tokens/source-material3";
+import { material3 } from "@scheme-tokens/material3";
 
-const built = buildScheme(material3Source({ sourceColor: "#6750a4" }));
+const built = buildScheme(material3({ sourceColor: "#6750a4" }));
 if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
@@ -294,8 +294,8 @@ if (!built.ok) {
 Add an application layer when generated Material roles should feed project-owned tokens:
 
 ```ts
-import { buildScheme, defineTokenLayer, exportCssVariables } from "scheme-tokens";
-import { material3Source } from "@scheme-tokens/source-material3";
+import { buildScheme, defineTokenLayer, exportCssVars } from "scheme-tokens";
+import { material3 } from "@scheme-tokens/material3";
 
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
@@ -308,7 +308,7 @@ const application = defineTokenLayer<"light" | "dark">({
 });
 
 const built = buildScheme(
-  material3Source({
+  material3({
     sourceColor: "#6750a4",
     defaultVisibility: "internal",
   }),
@@ -319,7 +319,7 @@ if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
 
-const css = exportCssVariables(built.value.compiled);
+const css = exportCssVars(built.value);
 if (!css.ok) {
   throw new Error(JSON.stringify(css.issues, null, 2));
 }
@@ -327,10 +327,11 @@ if (!css.ok) {
 console.log(css.value);
 ```
 
-`buildScheme()` is the runner that composes sources and layers, validates the composed graph material, and produces
-`built.value.compiled`. At least one source or layer is required. `buildScheme(source)` is the source-only convenience
-form, `buildScheme(source, { layers })` composes source output with application layers, and layer-only builds use the
-canonical options object. The Material adapter supplies a real Material source; the root package stays engine-free.
+`buildScheme()` is the runner that composes base inputs and layers, validates the composed graph material, and produces
+`built.value`. At least one base input or layer is required. `buildScheme(material3(...))` is the generated-base
+convenience form, `buildScheme(material3(...), { layers })` resolves the Material 3 base before application layers, and
+layer-only builds use the canonical options object. The Material adapter supplies a real Material 3 base scheme input;
+the root package stays engine-free.
 
 `sourceColor` is the required Material source color used to generate the scheme. Material extended colors are exposed as
 `extendedColors`, with entries shaped as `{ name, color, harmonize? }`.
@@ -338,7 +339,7 @@ canonical options object. The Material adapter supplies a real Material source; 
 The adapter emits strict `light` and `dark` graph tokens with adapter-owned keys such as `material3.primary`,
 `material3.on-primary`, and `material3.primary-container`.
 
-See [`@scheme-tokens/source-material3`](./packages/source-material3/README.md) for adapter-specific options and
+See [`@scheme-tokens/material3`](./packages/material3/README.md) for adapter-specific options and
 composition examples.
 
 ## Serialize the Compiled Scheme

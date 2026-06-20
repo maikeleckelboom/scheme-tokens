@@ -13,7 +13,7 @@ import {
   MATERIAL3_ROLE_NAMES,
   type Material3RoleName,
 } from "./material3-roles";
-import type { Material3ExtendedColor } from "./material3-source";
+import type { Material3ExtendedColor } from "./material3";
 
 export const MATERIAL3_ENGINE_PACKAGE = "@material/material-color-utilities";
 export const MATERIAL3_ENGINE_VERSION = "0.4.0";

@@ -5,8 +5,8 @@ import {
   defineTokenLayer,
   defineTokenGraph,
   defineTokens,
-  exportCssVariableBlocks,
-  exportCssVariables,
+  exportCssVarBlocks,
+  exportCssVars,
   formatCssColor,
   parseColor,
   parseTokenGraph,
@@ -354,7 +354,7 @@ describe("v1 graph and compiler", () => {
     expect(Object.keys(compiled.tokens)).toEqual(["app.action", "app.action-text"]);
     expect(compiled.tokens["app.action"]?.dependenciesByMode.light).toEqual(["brand.primary"]);
 
-    const css = exportCssVariables(compiled, { prefix: "theme" });
+    const css = exportCssVars(compiled, { prefix: "theme" });
     expect(css).toEqual({
       ok: true,
       value:
@@ -387,7 +387,7 @@ describe("v1 graph and compiler", () => {
       ),
     );
 
-    const defaultCss = exportCssVariables(compiled);
+    const defaultCss = exportCssVars(compiled);
     expect(defaultCss).toEqual({
       ok: true,
       value:
@@ -401,8 +401,8 @@ describe("v1 graph and compiler", () => {
     });
     expect(unwrap(defaultCss)).not.toContain("--color-");
     expect(unwrap(defaultCss)).not.toContain("--scheme-");
-    expect(exportCssVariables(compiled, { prefix: "" })).toEqual(exportCssVariables(compiled));
-    expect(exportCssVariables(compiled, { prefix: "color" })).toEqual({
+    expect(exportCssVars(compiled, { prefix: "" })).toEqual(exportCssVars(compiled));
+    expect(exportCssVars(compiled, { prefix: "color" })).toEqual({
       ok: true,
       value:
         ":root {\n" +
@@ -427,7 +427,7 @@ describe("v1 graph and compiler", () => {
       ),
     );
 
-    expect(exportCssVariableBlocks(compiled)).toEqual({
+    expect(exportCssVarBlocks(compiled)).toEqual({
       ok: true,
       value: [
         {
@@ -440,10 +440,8 @@ describe("v1 graph and compiler", () => {
         },
       ],
     });
-    expect(exportCssVariableBlocks(compiled, { prefix: "" })).toEqual(
-      exportCssVariableBlocks(compiled),
-    );
-    expect(exportCssVariableBlocks(compiled, { prefix: "color" })).toEqual({
+    expect(exportCssVarBlocks(compiled, { prefix: "" })).toEqual(exportCssVarBlocks(compiled));
+    expect(exportCssVarBlocks(compiled, { prefix: "color" })).toEqual({
       ok: true,
       value: [
         {
@@ -462,7 +460,7 @@ describe("v1 graph and compiler", () => {
     const compiled = unwrap(compileTokenGraph(makeGraph()));
 
     expect(
-      exportCssVariableBlocks(compiled, {
+      exportCssVarBlocks(compiled, {
         prefix: "color",
         scope: { strategy: "selector", selector: ".preview" },
         modeSelectors: { strategy: "class", classPrefix: "theme-" },
@@ -502,8 +500,8 @@ describe("v1 graph and compiler", () => {
       },
     } as const;
 
-    const blocks = unwrap(exportCssVariableBlocks(compiled, options));
-    const css = unwrap(exportCssVariables(compiled, options));
+    const blocks = unwrap(exportCssVarBlocks(compiled, options));
+    const css = unwrap(exportCssVars(compiled, options));
 
     expect(blocks.map((block) => block.selector)).toEqual([":root", ".dark"]);
     expect(css).toBe(
@@ -523,11 +521,11 @@ describe("v1 graph and compiler", () => {
     const compiled = unwrap(compileTokenGraph(makeGraph()));
     const oldOptions: unknown = { variablePrefix: "theme" };
 
-    expect(exportCssVariables(compiled, oldOptions as never)).toEqual({
+    expect(exportCssVars(compiled, oldOptions as never)).toEqual({
       ok: false,
       issues: [{ code: "invalid-css-options", message: "Unknown CSS option: variablePrefix." }],
     });
-    expect(exportCssVariableBlocks(compiled, oldOptions as never)).toEqual({
+    expect(exportCssVarBlocks(compiled, oldOptions as never)).toEqual({
       ok: false,
       issues: [{ code: "invalid-css-options", message: "Unknown CSS option: variablePrefix." }],
     });
@@ -545,8 +543,8 @@ describe("v1 graph and compiler", () => {
         },
       ],
     } as const;
-    expect(exportCssVariables(compiled, { prefix: "Theme" })).toEqual(expected);
-    expect(exportCssVariableBlocks(compiled, { prefix: "Theme" })).toEqual(expected);
+    expect(exportCssVars(compiled, { prefix: "Theme" })).toEqual(expected);
+    expect(exportCssVarBlocks(compiled, { prefix: "Theme" })).toEqual(expected);
   });
 
   test("stores direct dependencies without expanding transitive chains", () => {
@@ -820,11 +818,11 @@ describe("v1 sources", () => {
 
     const value = unwrap(buildScheme({ layers: [base, brand] }));
 
-    expect(value.graph.modes).toEqual(["base"]);
-    expect(value.graph.defaultMode).toBe("base");
-    expect(Object.keys(value.compiled.tokens)).toEqual(["background", "foreground", "primary"]);
-    expect(value.graph.tokens.primary?.origin).toEqual({ kind: "layer", id: "brand" });
-    expect(value.compiled.tokens.primary?.valueByMode.base).toEqual({
+    expect(value.modes).toEqual(["base"]);
+    expect(value.defaultMode).toBe("base");
+    expect(Object.keys(value.tokens)).toEqual(["background", "foreground", "primary"]);
+    expect(value.tokens.primary?.origin).toEqual({ kind: "layer", id: "brand" });
+    expect(value.tokens.primary?.valueByMode.base).toEqual({
       colorSpace: "srgb",
       r: 1,
       g: 0.23137254901960785,
@@ -867,17 +865,17 @@ describe("v1 sources", () => {
       }),
     );
 
-    expect(value.graph.modes).toEqual(["light", "dark"]);
-    expect(value.graph.defaultMode).toBe("light");
-    expect(Object.keys(value.compiled.tokens)).toEqual(["background", "foreground", "primary"]);
-    expect(value.compiled.tokens.background?.valueByMode.dark).toEqual({
+    expect(value.modes).toEqual(["light", "dark"]);
+    expect(value.defaultMode).toBe("light");
+    expect(Object.keys(value.tokens)).toEqual(["background", "foreground", "primary"]);
+    expect(value.tokens.background?.valueByMode.dark).toEqual({
       colorSpace: "srgb",
       r: 0.0784313725490196,
       g: 0.07058823529411765,
       b: 0.09411764705882353,
       alpha: 1,
     });
-    expect(exportCssVariables(value.compiled)).toEqual({
+    expect(exportCssVars(value)).toEqual({
       ok: true,
       value:
         ":root {\n" +
@@ -922,7 +920,7 @@ describe("v1 sources", () => {
     });
   });
 
-  test("buildScheme accepts source-only usage without layers", () => {
+  test("buildScheme accepts base-only usage without layers", () => {
     const source = fixedSource(
       "brand",
       defineTokenGraph({
@@ -932,10 +930,10 @@ describe("v1 sources", () => {
       }),
     );
 
-    const value = unwrap(buildScheme({ sources: [source] }));
+    const value = unwrap(buildScheme({ base: [source] }));
 
-    expect(Object.keys(value.compiled.tokens)).toEqual(["primary"]);
-    expect(value.graph.tokens.primary?.origin).toEqual({ kind: "source", id: "brand" });
+    expect(Object.keys(value.tokens)).toEqual(["primary"]);
+    expect(value.tokens.primary?.origin).toEqual({ kind: "source", id: "brand" });
   });
 
   test("buildScheme accepts a single source shorthand", () => {
@@ -950,8 +948,8 @@ describe("v1 sources", () => {
 
     const value = unwrap(buildScheme(source));
 
-    expect(Object.keys(value.compiled.tokens)).toEqual(["primary"]);
-    expect(value.graph.tokens.primary?.origin).toEqual({ kind: "source", id: "brand" });
+    expect(Object.keys(value.tokens)).toEqual(["primary"]);
+    expect(value.tokens.primary?.origin).toEqual({ kind: "source", id: "brand" });
   });
 
   test("buildScheme accepts one source through sources and composes caller layers", () => {
@@ -990,14 +988,14 @@ describe("v1 sources", () => {
       },
     });
 
-    const value = unwrap(buildScheme({ sources: [source], layers: [app] }));
+    const value = unwrap(buildScheme({ base: [source], layers: [app], selection: "all" }));
     expect(calls).toBe(1);
-    expect(Object.keys(value.compiled.tokens)).toEqual(["app.action"]);
-    expect(value.graph.tokens["company.primary"]?.origin).toEqual({
+    expect(Object.keys(value.tokens)).toEqual(["app.action", "company.primary"]);
+    expect(value.tokens["company.primary"]?.origin).toEqual({
       kind: "source",
       id: "company",
     });
-    expect(value.graph.tokens["app.action"]?.origin).toEqual({
+    expect(value.tokens["app.action"]?.origin).toEqual({
       kind: "layer",
       id: "application",
     });
@@ -1022,8 +1020,8 @@ describe("v1 sources", () => {
 
     const value = unwrap(buildScheme(source, { layers: [app] }));
 
-    expect(Object.keys(value.compiled.tokens)).toEqual(["app.action"]);
-    expect(value.graph.tokens["app.action"]?.origin).toEqual({
+    expect(Object.keys(value.tokens)).toEqual(["app.action"]);
+    expect(value.tokens["app.action"]?.origin).toEqual({
       kind: "layer",
       id: "application",
     });
@@ -1046,10 +1044,10 @@ describe("v1 sources", () => {
       },
     });
 
-    const value = unwrap(buildScheme({ sources: [source], layers: [layer] }));
+    const value = unwrap(buildScheme({ base: [source], layers: [layer] }));
 
-    expect(value.graph.tokens.primary?.origin).toEqual({ kind: "layer", id: "brand" });
-    expect(value.compiled.tokens.background?.valueByMode.base).toEqual({
+    expect(value.tokens.primary?.origin).toEqual({ kind: "layer", id: "brand" });
+    expect(value.tokens.background?.valueByMode.base).toEqual({
       colorSpace: "srgb",
       r: 1,
       g: 0.23137254901960785,
@@ -1087,22 +1085,20 @@ describe("v1 sources", () => {
       },
     };
 
-    const value = unwrap(buildScheme({ sources: [palette, semantic] }));
+    const value = unwrap(buildScheme({ base: [palette, semantic], selection: "all" }));
 
-    expect(Object.keys(value.compiled.tokens)).toEqual(["semantic.action"]);
-    expect(value.graph.tokens["palette.primary"]?.origin).toEqual({
+    expect(Object.keys(value.tokens)).toEqual(["palette.primary", "semantic.action"]);
+    expect(value.tokens["palette.primary"]?.origin).toEqual({
       kind: "source",
       id: "palette",
     });
-    expect(value.graph.tokens["semantic.action"]?.origin).toEqual({
+    expect(value.tokens["semantic.action"]?.origin).toEqual({
       kind: "source",
       id: "semantic",
     });
-    expect(value.graph.tokens["palette.primary"]?.visibility).toBe("internal");
-    expect(value.graph.tokens["semantic.action"]?.visibility).toBe("public");
-    expect(value.compiled.tokens["semantic.action"]?.dependenciesByMode.base).toEqual([
-      "palette.primary",
-    ]);
+    expect(value.tokens["palette.primary"]?.visibility).toBe("internal");
+    expect(value.tokens["semantic.action"]?.visibility).toBe("public");
+    expect(value.tokens["semantic.action"]?.dependenciesByMode.base).toEqual(["palette.primary"]);
   });
 
   test("buildScheme accepts source array shorthand", () => {
@@ -1124,10 +1120,10 @@ describe("v1 sources", () => {
       }),
     );
 
-    const value = unwrap(buildScheme([palette, semantic]));
+    const value = unwrap(buildScheme([palette, semantic], { selection: "all" }));
 
-    expect(Object.keys(value.compiled.tokens)).toEqual(["semantic.action"]);
-    expect(value.graph.tokens["palette.primary"]?.origin).toEqual({
+    expect(Object.keys(value.tokens)).toEqual(["palette.primary", "semantic.action"]);
+    expect(value.tokens["palette.primary"]?.origin).toEqual({
       kind: "source",
       id: "palette",
     });
@@ -1161,8 +1157,8 @@ describe("v1 sources", () => {
 
     const value = unwrap(buildScheme([palette, semantic], { layers: [app] }));
 
-    expect(Object.keys(value.compiled.tokens)).toEqual(["app.action"]);
-    expect(value.graph.tokens["app.action"]?.origin).toEqual({
+    expect(Object.keys(value.tokens)).toEqual(["app.action"]);
+    expect(value.tokens["app.action"]?.origin).toEqual({
       kind: "layer",
       id: "application",
     });
@@ -1193,56 +1189,56 @@ describe("v1 sources", () => {
     const scenarios = [
       {
         graph: strictSourceGraph("bad.format-version", { formatVersion: 2 }),
-        issue: { code: "invalid-format-version", path: "/sources/1/formatVersion" },
+        issue: { code: "invalid-format-version", path: "/base/1/formatVersion" },
       },
       {
         graph: withoutProperty(strictSourceGraph("bad.missing-format-version"), "formatVersion"),
-        issue: { code: "missing-property", path: "/sources/1/formatVersion" },
+        issue: { code: "missing-property", path: "/base/1/formatVersion" },
       },
       {
         graph: invalidModes,
-        issue: { code: "invalid-mode-key", path: "/sources/1/modes" },
+        issue: { code: "invalid-mode-key", path: "/base/1/modes" },
       },
       {
         graph: missingModes,
-        issue: { code: "missing-property", path: "/sources/1/modes" },
+        issue: { code: "missing-property", path: "/base/1/modes" },
       },
       {
         graph: invalidDefaultMode,
-        issue: { code: "default-mode-not-found", path: "/sources/1/defaultMode" },
+        issue: { code: "default-mode-not-found", path: "/base/1/defaultMode" },
       },
       {
         graph: missingDefaultMode,
-        issue: { code: "missing-property", path: "/sources/1/defaultMode" },
+        issue: { code: "missing-property", path: "/base/1/defaultMode" },
       },
       {
         graph: invalidDefaultVisibility,
-        issue: { code: "invalid-default-visibility", path: "/sources/1/defaultVisibility" },
+        issue: { code: "invalid-default-visibility", path: "/base/1/defaultVisibility" },
       },
       {
         graph: missingDefaultVisibility,
-        issue: { code: "invalid-default-visibility", path: "/sources/1/defaultVisibility" },
+        issue: { code: "invalid-default-visibility", path: "/base/1/defaultVisibility" },
       },
       {
         graph: invalidTokens,
-        issue: { code: "invalid-object", path: "/sources/1/tokens" },
+        issue: { code: "invalid-object", path: "/base/1/tokens" },
       },
       {
         graph: missingTokens,
-        issue: { code: "missing-property", path: "/sources/1/tokens" },
+        issue: { code: "missing-property", path: "/base/1/tokens" },
       },
       {
         graph: strictSourceGraph("bad.unknown", { unexpected: true }),
-        issue: { code: "unknown-property", path: "/sources/1/unexpected" },
+        issue: { code: "unknown-property", path: "/base/1/unexpected" },
       },
       {
         graph: invalidLayers,
-        issue: { code: "invalid-object", path: "/sources/1/layers" },
+        issue: { code: "invalid-object", path: "/base/1/layers" },
       },
     ] as const;
 
     for (const scenario of scenarios) {
-      expect(buildScheme({ sources: [valid, fixedSource("bad", scenario.graph)] })).toMatchObject({
+      expect(buildScheme({ base: [valid, fixedSource("bad", scenario.graph)] })).toMatchObject({
         ok: false,
         issues: [scenario.issue],
       });
@@ -1279,13 +1275,11 @@ describe("v1 sources", () => {
       },
     });
 
-    const value = unwrap(buildScheme({ sources: [first, second] }));
+    const value = unwrap(buildScheme({ base: [first, second] }));
 
-    expect(value.graph.modes).toEqual(["light", "dark"]);
-    expect(Object.keys(value.compiled.tokens)).toEqual(["first.token", "second.token"]);
-    expect(value.compiled.tokens["second.token"]?.dependenciesByMode.light).toEqual([
-      "first.token",
-    ]);
+    expect(value.modes).toEqual(["light", "dark"]);
+    expect(Object.keys(value.tokens)).toEqual(["first.token", "second.token"]);
+    expect(value.tokens["second.token"]?.dependenciesByMode.light).toEqual(["first.token"]);
   });
 
   test("buildScheme rejects incompatible source mode sets and default modes", () => {
@@ -1332,13 +1326,13 @@ describe("v1 sources", () => {
       },
     });
 
-    expect(buildScheme({ sources: [first, differentModeSet] })).toMatchObject({
+    expect(buildScheme({ base: [first, differentModeSet] })).toMatchObject({
       ok: false,
-      issues: [{ code: "invalid-source-result", path: "/sources/1/modes" }],
+      issues: [{ code: "invalid-source-result", path: "/base/1/modes" }],
     });
-    expect(buildScheme({ sources: [first, differentDefaultMode] })).toMatchObject({
+    expect(buildScheme({ base: [first, differentDefaultMode] })).toMatchObject({
       ok: false,
-      issues: [{ code: "invalid-source-result", path: "/sources/1/defaultMode" }],
+      issues: [{ code: "invalid-source-result", path: "/base/1/defaultMode" }],
     });
   });
 
@@ -1364,17 +1358,17 @@ describe("v1 sources", () => {
         modes: ["light", "dark"],
         defaultMode: "light",
         defaultVisibility: "internal",
-        sources: [source],
+        base: [source],
       }),
     );
-    expect(value.graph.modes).toEqual(["light", "dark"]);
-    expect(Object.keys(value.compiled.tokens)).toEqual(["first.token"]);
+    expect(value.modes).toEqual(["light", "dark"]);
+    expect(Object.keys(value.tokens)).toEqual(["first.token"]);
 
     expect(
       buildScheme({
         modes: ["light", "dim"],
         defaultMode: "light",
-        sources: [source],
+        base: [source],
       }),
     ).toMatchObject({
       ok: false,
@@ -1384,13 +1378,13 @@ describe("v1 sources", () => {
       buildScheme({
         modes: ["light", "dark"],
         defaultMode: "dark",
-        sources: [source],
+        base: [source],
       }),
     ).toMatchObject({
       ok: false,
       issues: [{ code: "invalid-build-options", path: "/defaultMode" }],
     });
-    expect(buildScheme({ defaultVisibility: "public", sources: [source] })).toMatchObject({
+    expect(buildScheme({ defaultVisibility: "public", base: [source] })).toMatchObject({
       ok: false,
       issues: [{ code: "invalid-build-options", path: "/defaultVisibility" }],
     });
@@ -1417,20 +1411,24 @@ describe("v1 sources", () => {
       },
     });
 
-    const value = unwrap(buildScheme({ sources: [palette, semantic] }));
+    const value = unwrap(buildScheme({ base: [palette, semantic], selection: "all" }));
 
-    expect(value.graph.tokens["palette.primary"]?.visibility).toBe("internal");
-    expect(value.graph.tokens["semantic.action"]?.visibility).toBe("public");
-    expect(value.graph.tokens["semantic.hidden"]?.visibility).toBe("internal");
-    expect(value.graph.tokens["palette.primary"]?.origin).toEqual({
+    expect(value.tokens["palette.primary"]?.visibility).toBe("internal");
+    expect(value.tokens["semantic.action"]?.visibility).toBe("public");
+    expect(value.tokens["semantic.hidden"]?.visibility).toBe("internal");
+    expect(value.tokens["palette.primary"]?.origin).toEqual({
       kind: "source",
       id: "palette",
     });
-    expect(value.graph.tokens["semantic.action"]?.origin).toEqual({
+    expect(value.tokens["semantic.action"]?.origin).toEqual({
       kind: "source",
       id: "semantic",
     });
-    expect(Object.keys(value.compiled.tokens)).toEqual(["semantic.action"]);
+    expect(Object.keys(value.tokens)).toEqual([
+      "palette.primary",
+      "semantic.action",
+      "semantic.hidden",
+    ]);
   });
 
   test("buildScheme composes caller layers after all sources", () => {
@@ -1470,10 +1468,10 @@ describe("v1 sources", () => {
       },
     });
 
-    const value = unwrap(buildScheme({ sources: [palette, semantic], layers: [app] }));
+    const value = unwrap(buildScheme({ base: [palette, semantic], layers: [app] }));
 
-    expect(Object.keys(value.compiled.tokens)).toEqual(["app.action"]);
-    expect(value.graph.tokens["app.action"]?.origin).toEqual({
+    expect(Object.keys(value.tokens)).toEqual(["app.action"]);
+    expect(value.tokens["app.action"]?.origin).toEqual({
       kind: "layer",
       id: "application",
     });
@@ -1495,9 +1493,9 @@ describe("v1 sources", () => {
       },
     };
 
-    const built = unwrap(buildScheme({ sources: [source] }));
+    const built = unwrap(buildScheme({ base: [source] }));
 
-    expect(built.graph.tokens["brand.primary"]?.valueByMode.base).toEqual({
+    expect(built.tokens["brand.primary"]?.valueByMode.base).toEqual({
       colorSpace: "srgb",
       r: 0.0784313725490196,
       g: 0.3333333333333333,
@@ -1512,7 +1510,7 @@ describe("v1 sources", () => {
       issues: [
         {
           code: "invalid-build-options",
-          message: "buildScheme requires at least one source or layer.",
+          message: "buildScheme requires at least one base input or layer.",
         },
       ],
     });
@@ -1521,43 +1519,43 @@ describe("v1 sources", () => {
       issues: [
         {
           code: "invalid-build-options",
-          message: "buildScheme requires at least one source or layer.",
+          message: "buildScheme requires at least one base input or layer.",
         },
       ],
     });
-    expect(buildScheme({ sources: [] } as never)).toMatchObject({
+    expect(buildScheme({ base: [] } as never)).toMatchObject({
       ok: false,
       issues: [
         {
           code: "invalid-build-options",
-          message: "buildScheme requires at least one source or layer.",
+          message: "buildScheme requires at least one base input or layer.",
         },
       ],
     });
-    expect(buildScheme({ sources: [], layers: [] } as never)).toMatchObject({
+    expect(buildScheme({ base: [], layers: [] } as never)).toMatchObject({
       ok: false,
       issues: [
         {
           code: "invalid-build-options",
-          message: "buildScheme requires at least one source or layer.",
+          message: "buildScheme requires at least one base input or layer.",
         },
       ],
     });
     expect(buildScheme([defineTokenLayer({ id: "brand", tokens: {} })] as never)).toMatchObject({
       ok: false,
-      issues: [{ code: "invalid-build-options", path: "/sources/0" }],
+      issues: [{ code: "invalid-build-options", path: "/base/0" }],
     });
     expect(buildScheme(defineTokenLayer({ id: "brand", tokens: {} }) as never, {})).toMatchObject({
       ok: false,
-      issues: [{ code: "invalid-build-options", path: "/sources/0" }],
+      issues: [{ code: "invalid-build-options", path: "/base" }],
     });
     expect(
       buildScheme(fixedSource("brand", defineTokenGraph({ tokens: {} })), {
-        sources: [fixedSource("other", defineTokenGraph({ tokens: {} }))],
+        base: [fixedSource("other", defineTokenGraph({ tokens: {} }))],
       } as never),
     ).toMatchObject({
       ok: false,
-      issues: [{ code: "invalid-build-options", path: "/sources" }],
+      issues: [{ code: "invalid-build-options", path: "/base" }],
     });
     expect(
       buildScheme({
@@ -1588,14 +1586,14 @@ describe("v1 sources", () => {
       build: () => ({ ok: true as const, value: defineTokenGraph({ tokens: {} }) }),
     };
 
-    expect(buildScheme({ sources: [source, source] })).toMatchObject({
+    expect(buildScheme({ base: [source, source] })).toMatchObject({
       ok: false,
       issues: [
         {
           code: "duplicate-source-id",
-          path: "/sources/1/id",
+          path: "/base/1/id",
           sourceId: "brand",
-          firstPath: "/sources/0/id",
+          firstPath: "/base/0/id",
         },
       ],
     });
@@ -1619,13 +1617,13 @@ describe("v1 sources", () => {
         }) as const,
     };
 
-    expect(buildScheme({ sources: [first, second] })).toMatchObject({
+    expect(buildScheme({ base: [first, second] })).toMatchObject({
       ok: false,
       issues: [
         {
           code: "duplicate-token-key",
-          path: "/sources/1/tokens/brand.primary",
-          firstPath: "/sources/0/tokens/brand.primary",
+          path: "/base/1/tokens/brand.primary",
+          firstPath: "/base/0/tokens/brand.primary",
         },
       ],
     });

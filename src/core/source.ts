@@ -1,12 +1,6 @@
 import type { CompileTokenGraphIssue, CompiledScheme, TokenSelection } from "./compiled-types";
 import { compileParsedTokenGraph, parseCompileSelection } from "./compile-token-graph";
-import type {
-  TokenGraph,
-  TokenGraphInput,
-  TokenGraphIssue,
-  TokenLayerInput,
-  TokenVisibility,
-} from "./graph";
+import type { TokenGraphInput, TokenGraphIssue, TokenLayerInput, TokenVisibility } from "./graph";
 import { isSingleSegmentIdentifier } from "./identifiers";
 import { defineRecordValue, escapePointerSegment, isJsonSafeIssue, readPlainRecord } from "./json";
 import { parseTokenGraphInternal } from "./parse-token-graph";
@@ -25,20 +19,12 @@ export interface BuildSchemeOptions<I extends Issue = Issue> {
   readonly defaultMode?: string;
   readonly defaultVisibility?: TokenVisibility;
   readonly tokens?: never;
-  readonly sources?: readonly TokenSource<I>[];
+  readonly base?: TokenSource<I> | readonly TokenSource<I>[];
   readonly layers?: readonly TokenLayerInput[];
   readonly selection?: TokenSelection;
 }
 
-export type BuildSchemeSourceOptions<I extends Issue = Issue> = Omit<
-  BuildSchemeOptions<I>,
-  "sources"
->;
-
-export interface BuildSchemeValue {
-  readonly graph: TokenGraph;
-  readonly compiled: CompiledScheme;
-}
+export type BuildSchemeSourceOptions<I extends Issue = Issue> = Omit<BuildSchemeOptions<I>, "base">;
 
 export type BuildSchemeIssue =
   | TokenGraphIssue
@@ -58,25 +44,25 @@ export type BuildSchemeIssue =
 
 export function buildScheme<I extends Issue>(
   options: BuildSchemeOptions<I>,
-): Result<BuildSchemeValue, I | BuildSchemeIssue>;
+): Result<CompiledScheme, I | BuildSchemeIssue>;
 export function buildScheme<I extends Issue>(
   source: TokenSource<I>,
-): Result<BuildSchemeValue, I | BuildSchemeIssue>;
+): Result<CompiledScheme, I | BuildSchemeIssue>;
 export function buildScheme<I extends Issue>(
   source: TokenSource<I>,
   options: BuildSchemeSourceOptions<I>,
-): Result<BuildSchemeValue, I | BuildSchemeIssue>;
+): Result<CompiledScheme, I | BuildSchemeIssue>;
 export function buildScheme<I extends Issue>(
   sources: readonly [TokenSource<I>, ...TokenSource<I>[]],
-): Result<BuildSchemeValue, I | BuildSchemeIssue>;
+): Result<CompiledScheme, I | BuildSchemeIssue>;
 export function buildScheme<I extends Issue>(
   sources: readonly [TokenSource<I>, ...TokenSource<I>[]],
   options: BuildSchemeSourceOptions<I>,
-): Result<BuildSchemeValue, I | BuildSchemeIssue>;
+): Result<CompiledScheme, I | BuildSchemeIssue>;
 export function buildScheme<I extends Issue>(
   input: BuildSchemeOptions<I> | TokenSource<I> | readonly [TokenSource<I>, ...TokenSource<I>[]],
   options?: BuildSchemeSourceOptions<I>,
-): Result<BuildSchemeValue, I | BuildSchemeIssue> {
+): Result<CompiledScheme, I | BuildSchemeIssue> {
   const normalizedOptions = normalizeBuildSchemeCall(input, options);
   if (!normalizedOptions.ok) {
     return normalizedOptions as Result<never, I | BuildSchemeIssue>;
@@ -111,7 +97,7 @@ export function buildScheme<I extends Issue>(
     composed.value.layerSourceIds,
     callerLayerIds,
     parsedOptions.value.selection,
-  ) as Result<BuildSchemeValue, I | BuildSchemeIssue>;
+  ) as Result<CompiledScheme, I | BuildSchemeIssue>;
 }
 
 function normalizeBuildSchemeCall<I extends Issue>(
@@ -127,17 +113,17 @@ function normalizeBuildSchemeCall<I extends Issue>(
       ok: true,
       value: {
         ...parsedOptions.value,
-        sources: Array.isArray(input) ? input : [input as TokenSource<I>],
+        base: Array.isArray(input) ? input : (input as TokenSource<I>),
       },
     };
   }
 
   if (Array.isArray(input)) {
-    return { ok: true, value: { sources: input } };
+    return { ok: true, value: { base: input } };
   }
 
   return isSourceShorthand(input)
-    ? { ok: true, value: { sources: [input] } }
+    ? { ok: true, value: { base: input } }
     : { ok: true, value: input as BuildSchemeOptions<I> };
 }
 
@@ -151,14 +137,14 @@ function parseBuildSourceOptions<I extends Issue>(
   if (!entries.ok) {
     return entries as Result<never, BuildSchemeIssue>;
   }
-  if (entries.value.some((entry) => entry.key === "sources")) {
+  if (entries.value.some((entry) => entry.key === "base")) {
     return {
       ok: false,
       issues: [
         {
           code: "invalid-build-options",
-          message: "buildScheme source options cannot include sources.",
-          path: "/sources",
+          message: "buildScheme source options cannot include base.",
+          path: "/base",
         },
       ],
     };
@@ -184,7 +170,7 @@ function buildFromComposedGraph(
   layerSourceIds: ReadonlyMap<string, string>,
   callerLayerIds: ReadonlySet<string>,
   selection: TokenSelection | undefined,
-): Result<BuildSchemeValue, BuildSchemeIssue> {
+): Result<CompiledScheme, BuildSchemeIssue> {
   const parsedGraph = parseTokenGraphInternal(graphInput, {
     callerLayerIds,
     tokenSourceIds,
@@ -207,13 +193,7 @@ function buildFromComposedGraph(
     return compiled;
   }
 
-  return {
-    ok: true,
-    value: {
-      graph: parsedGraph.value,
-      compiled: compiled.value,
-    },
-  };
+  return compiled;
 }
 
 interface ParsedBuildOptions<I extends Issue> {
@@ -245,7 +225,7 @@ function parseBuildOptions<I extends Issue>(
       entry.key !== "modes" &&
       entry.key !== "defaultMode" &&
       entry.key !== "defaultVisibility" &&
-      entry.key !== "sources" &&
+      entry.key !== "base" &&
       entry.key !== "layers" &&
       entry.key !== "selection"
     ) {
@@ -261,7 +241,7 @@ function parseBuildOptions<I extends Issue>(
   if (!envelope.ok) {
     return envelope;
   }
-  const sources = parseSources<I>(record.get("sources"));
+  const sources = parseBase<I>(record.get("base"));
   if (!sources.ok) {
     return sources;
   }
@@ -271,7 +251,7 @@ function parseBuildOptions<I extends Issue>(
       issues: [
         {
           code: "invalid-build-options",
-          message: "defaultMode requires modes when buildScheme has no sources.",
+          message: "defaultMode requires modes when buildScheme has no base input.",
           path: "/defaultMode",
         },
       ],
@@ -290,7 +270,7 @@ function parseBuildOptions<I extends Issue>(
       issues: [
         {
           code: "invalid-build-options",
-          message: "buildScheme requires at least one source or layer.",
+          message: "buildScheme requires at least one base input or layer.",
         },
       ],
     };
@@ -464,11 +444,15 @@ function parseBuildModes(input: unknown): Result<readonly [string, ...string[]],
   return { ok: true, value: [firstMode, ...modes.slice(1)] };
 }
 
-function parseSources<I extends Issue>(
+function parseBase<I extends Issue>(
   input: unknown,
 ): Result<readonly TokenSource<I>[], BuildSchemeIssue> {
   if (input === undefined) {
     return { ok: true, value: [] };
+  }
+  if (isSourceShorthand(input)) {
+    const source = parseSource<I>(input, 0);
+    return source.ok ? { ok: true, value: [source.value] } : source;
   }
   if (!Array.isArray(input)) {
     return {
@@ -476,8 +460,8 @@ function parseSources<I extends Issue>(
       issues: [
         {
           code: "invalid-build-options",
-          message: "sources must be an array.",
-          path: "/sources",
+          message: "base must be a source or an array of sources.",
+          path: "/base",
         },
       ],
     };
@@ -490,7 +474,7 @@ function parseSources<I extends Issue>(
     if (!source.ok) {
       return source;
     }
-    const idPath = `/sources/${sourceIndex}/id`;
+    const idPath = `/base/${sourceIndex}/id`;
     const firstPath = sourceIdPaths.get(source.value.id);
     if (firstPath !== undefined) {
       return {
@@ -518,7 +502,7 @@ function parseSource<I extends Issue>(
   input: unknown,
   sourceIndex: number,
 ): Result<TokenSource<I>, BuildSchemeIssue> {
-  const path = `/sources/${sourceIndex}`;
+  const path = `/base/${sourceIndex}`;
   const entries = readPlainRecord(input, {
     code: "invalid-build-options",
     message: "source must be a plain object with id and build.",
@@ -587,7 +571,7 @@ function callSource<I extends Issue>(
         {
           code: "source-build-failed",
           message: "Source build threw an exception.",
-          path: `/sources/${sourceIndex}`,
+          path: `/base/${sourceIndex}`,
           sourceId: source.id,
           sourceIndex,
         },
@@ -607,7 +591,7 @@ function validateSourceResult<I extends Issue>(
   const entries = readPlainRecord(input, {
     code: "invalid-source-result",
     message: "Source build result must be a plain Result object.",
-    path: `/sources/${sourceIndex}`,
+    path: `/base/${sourceIndex}`,
   });
   if (!entries.ok) {
     return entries as Result<never, I | BuildSchemeIssue>;
@@ -622,7 +606,7 @@ function validateSourceResult<I extends Issue>(
           {
             code: "invalid-source-result",
             message: "Successful source result must contain ok and value.",
-            path: `/sources/${sourceIndex}`,
+            path: `/base/${sourceIndex}`,
             sourceId,
             sourceIndex,
           },
@@ -638,7 +622,7 @@ function validateSourceResult<I extends Issue>(
         {
           code: "invalid-source-result",
           message: "Source result must be ok true/value or ok false/issues.",
-          path: `/sources/${sourceIndex}`,
+          path: `/base/${sourceIndex}`,
           sourceId,
           sourceIndex,
         },
@@ -653,7 +637,7 @@ function validateSourceResult<I extends Issue>(
         {
           code: "invalid-source-result",
           message: "Failed source result must contain non-empty issues.",
-          path: `/sources/${sourceIndex}/issues`,
+          path: `/base/${sourceIndex}/issues`,
           sourceId,
           sourceIndex,
         },
@@ -668,7 +652,7 @@ function validateSourceResult<I extends Issue>(
           {
             code: "invalid-source-issue",
             message: "Source issues must be JSON-safe Issue objects.",
-            path: `/sources/${sourceIndex}/issues`,
+            path: `/base/${sourceIndex}/issues`,
             sourceId,
             sourceIndex,
           },
@@ -863,7 +847,7 @@ function validateSourceGraph(source: BuiltSourceGraph): Result<SourceGraphParts,
 }
 
 function readSourceGraph(source: BuiltSourceGraph): Result<RawSourceGraphParts, BuildSchemeIssue> {
-  const sourcePath = `/sources/${source.sourceIndex}`;
+  const sourcePath = `/base/${source.sourceIndex}`;
   const entries = readPlainRecord(source.graph, {
     code: "invalid-source-result",
     message: "Source graph must be a plain object.",
@@ -920,7 +904,7 @@ function prefixSourceGraphIssue(
   const path = issue.path ?? "";
   return {
     ...issue,
-    path: path === "" ? `/sources/${source.sourceIndex}` : `/sources/${source.sourceIndex}${path}`,
+    path: path === "" ? `/base/${source.sourceIndex}` : `/base/${source.sourceIndex}${path}`,
   };
 }
 
@@ -938,7 +922,7 @@ function validateSourceModes(
         {
           code: "invalid-source-result",
           message: "Source graph modes must match the first source graph.",
-          path: `/sources/${current.sourceIndex}/modes`,
+          path: `/base/${current.sourceIndex}/modes`,
           sourceId: current.sourceId,
           sourceIndex: current.sourceIndex,
         },
@@ -952,7 +936,7 @@ function validateSourceModes(
         {
           code: "invalid-source-result",
           message: "Source graph defaultMode must match the first source graph.",
-          path: `/sources/${current.sourceIndex}/defaultMode`,
+          path: `/base/${current.sourceIndex}/defaultMode`,
           sourceId: current.sourceId,
           sourceIndex: current.sourceIndex,
         },
@@ -982,14 +966,14 @@ function appendSourceTokens(
   const entries = readPlainRecord(sourceGraph.tokens, {
     code: "invalid-source-result",
     message: "Source graph tokens must be a plain object record.",
-    path: `/sources/${sourceGraph.sourceIndex}/tokens`,
+    path: `/base/${sourceGraph.sourceIndex}/tokens`,
   });
   if (!entries.ok) {
     return entries as Result<never, BuildSchemeIssue>;
   }
 
   for (const entry of entries.value) {
-    const tokenPath = `/sources/${sourceGraph.sourceIndex}/tokens/${escapePointerSegment(entry.key)}`;
+    const tokenPath = `/base/${sourceGraph.sourceIndex}/tokens/${escapePointerSegment(entry.key)}`;
     const firstPath = firstTokenPaths.get(entry.key);
     if (firstPath !== undefined) {
       return {

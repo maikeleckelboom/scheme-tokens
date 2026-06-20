@@ -72,8 +72,8 @@ const manifests: readonly ApiManifest[] = [
       "defineTokenGraph",
       "defineTokenLayer",
       "defineTokens",
-      "exportCssVariableBlocks",
-      "exportCssVariables",
+      "exportCssVarBlocks",
+      "exportCssVars",
       "formatCssColor",
       "parseColor",
       "parseTokenGraph",
@@ -117,13 +117,12 @@ const manifests: readonly ApiManifest[] = [
       "TokenSource",
       "BuildSchemeOptions",
       "BuildSchemeSourceOptions",
-      "BuildSchemeValue",
       "BuildSchemeIssue",
       "CssVariableBlock",
       "CssScope",
       "CssModeSelectors",
-      "ExportCssVariablesOptions",
-      "ExportCssVariablesIssue",
+      "ExportCssVarsOptions",
+      "ExportCssVarsIssue",
     ],
   },
 ];
@@ -155,8 +154,8 @@ for (const manifest of manifests) {
   if (
     dts.includes("@texel/color") ||
     dts.includes("@material/material-color-utilities") ||
-    dts.includes("@scheme-tokens/source-material3") ||
-    dts.includes("material3Source") ||
+    dts.includes("@scheme-tokens/material3") ||
+    dts.includes("material3") ||
     dts.includes("Material3") ||
     dts.includes("css-tree")
   ) {
@@ -174,8 +173,8 @@ const rootBundle = readFileSync(join(root, "dist/index.js"), "utf8");
 if (
   rootBundle.includes("@texel/color") ||
   rootBundle.includes("@material/material-color-utilities") ||
-  rootBundle.includes("@scheme-tokens/source-material3") ||
-  rootBundle.includes("material3Source") ||
+  rootBundle.includes("@scheme-tokens/material3") ||
+  rootBundle.includes("material3") ||
   rootBundle.includes("Material3") ||
   rootBundle.includes("css-tree")
 ) {

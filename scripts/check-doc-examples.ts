@@ -16,7 +16,7 @@ interface PackageManifest {
 }
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const adapterRoot = join(repoRoot, "packages", "source-material3");
+const adapterRoot = join(repoRoot, "packages", "material3");
 const manifest = JSON.parse(
   readFileSync(join(repoRoot, "package.json"), "utf8"),
 ) as PackageManifest;
@@ -164,7 +164,7 @@ function assertTailwindRecipe(readmeText: string): void {
       throw new Error(`README Tailwind v4 recipe is missing: ${snippet}`);
     }
   }
-  if (readmeText.includes('exportCssVariables(compiled.value, { prefix: "color" })')) {
+  if (readmeText.includes('exportCssVars(compiled.value, { prefix: "color" })')) {
     throw new Error("README must not teach Tailwind by prefixing runtime CSS variables");
   }
 }

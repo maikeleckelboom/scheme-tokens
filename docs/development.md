@@ -29,24 +29,24 @@ Run these commands from a clean worktree:
 pnpm install --frozen-lockfile
 pnpm validate
 pnpm release:check
-pnpm -C packages/source-material3 release:check
+pnpm -C packages/material3 release:check
 pnpm pack --dry-run
-pnpm -C packages/source-material3 pack --dry-run
+pnpm -C packages/material3 pack --dry-run
 npm publish --dry-run
-(cd packages/source-material3 && npm publish --dry-run --access public)
+(cd packages/material3 && npm publish --dry-run --access public)
 ```
 
 Run the final two commands from the package directories they publish:
 
 - run `npm publish --dry-run` from the repository root for `scheme-tokens`;
-- run `npm publish --dry-run --access public` from `packages/source-material3` for
-  `@scheme-tokens/source-material3`.
+- run `npm publish --dry-run --access public` from `packages/material3` for
+  `@scheme-tokens/material3`.
 
 Use these read-only npm checks when network access is available:
 
 ```bash
 npm view scheme-tokens name version
-npm view @scheme-tokens/source-material3 name version
+npm view @scheme-tokens/material3 name version
 npm whoami
 ```
 
@@ -59,11 +59,11 @@ After approval, publish the packages explicitly and in order:
 
 ```bash
 npm publish
-(cd packages/source-material3 && npm publish --access public)
+(cd packages/material3 && npm publish --access public)
 ```
 
 The unscoped `scheme-tokens` package uses normal public npm behavior. The scoped
-`@scheme-tokens/source-material3` package requires public access configuration, either through
+`@scheme-tokens/material3` package requires public access configuration, either through
 `publishConfig.access: "public"` or an explicit `--access public` publish command. Do not assume the npm organization,
 scope, or package permissions are ready until the dry run and maintainer account checks confirm them.
 

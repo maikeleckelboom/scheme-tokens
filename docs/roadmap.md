@@ -20,13 +20,13 @@ Planned package names:
 
 - strict `TokenGraphInput`, `TokenLayerInput`, and `CompiledScheme` contracts;
 - JSON-safe helper input through `defineTokens()`, `defineTokenGraph()`, and `defineTokenLayer()`;
-- `buildScheme()` for source-only, layer-only, source-plus-layer builds, and source-first convenience calls;
+- `buildScheme()` for base-only, layer-only, base-plus-layer builds, and base-first convenience calls;
 - deterministic source/layer composition;
 - unprefixed CSS variable export by default;
-- structured CSS variable blocks through `exportCssVariableBlocks()`;
+- structured CSS variable blocks through `exportCssVarBlocks()`;
 - deterministic compiled-scheme serialization;
 - strict schema artifacts for core wire formats;
-- `@scheme-tokens/source-material3` as the first real source adapter.
+- `@scheme-tokens/material3` as the first real source adapter.
 
 ## 0.1.0 Exclusions
 
@@ -39,7 +39,7 @@ Planned package names:
 ## Adapter Categories
 
 Source adapters generate `TokenGraphInput` from an engine or provider and may expose `TokenSource` helpers. Source
-packages use `@scheme-tokens/source-*`; the current example is `@scheme-tokens/source-material3`.
+packages use `@scheme-tokens/*`; the current example is `@scheme-tokens/material3`.
 
 Conversion adapters perform explicit post-compile color conversion, gamut mapping, color math, or projection.
 Conversion packages use `@scheme-tokens/conversion-*`. Texel belongs to conversion adapters, not source adapters and not
@@ -82,13 +82,13 @@ import {
   buildScheme,
   defineTokenLayer,
   defineTokens,
-  exportCssVariables,
+  exportCssVars,
   serializeScheme,
   type CompiledScheme,
 } from "scheme-tokens";
 import { projectScheme } from "@scheme-tokens/conversion-texel";
 import { exportDtcgDocuments } from "@scheme-tokens/format-dtcg";
-import { material3Source } from "@scheme-tokens/source-material3";
+import { material3 } from "@scheme-tokens/material3";
 import { exportShadcnCss, material3ShadcnLayer } from "@scheme-tokens/target-shadcn";
 
 const applicationLayer = defineTokenLayer({
@@ -104,7 +104,7 @@ const shadcnMappingLayer = material3ShadcnLayer({
 });
 
 const built = buildScheme(
-  material3Source({
+  material3({
     sourceColor: "#6750a4",
     defaultVisibility: "internal",
   }),
@@ -117,15 +117,15 @@ if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
 
-const compiled: CompiledScheme = built.value.compiled;
+const compiled: CompiledScheme = built.value;
 const projected = projectScheme({ scheme: compiled, to: "display-p3" });
 if (!projected.ok) {
   throw new Error(JSON.stringify(projected.issues, null, 2));
 }
 
-const deliveryScheme = projected.value.compiled;
+const deliveryScheme = projected.value;
 
-const coreCss = exportCssVariables(deliveryScheme);
+const coreCss = exportCssVars(deliveryScheme);
 const shadcnCss = exportShadcnCss(deliveryScheme);
 const dtcgDocuments = exportDtcgDocuments(deliveryScheme);
 const serialized = serializeScheme(deliveryScheme);
@@ -241,7 +241,7 @@ Planned scheme projection should be explicit and auditable:
 
 ```ts
 const projected = projectScheme({
-  scheme: built.value.compiled,
+  scheme: built.value,
   to: "display-p3",
   gamut: {
     behavior: "map",

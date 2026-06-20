@@ -14,7 +14,7 @@ Adapter packages have different roles. They can participate in one workflow, but
 same pipeline slot:
 
 - `@scheme-tokens/source-*` contributes source graph material before build. Example:
-  `@scheme-tokens/source-material3`.
+  `@scheme-tokens/material3`.
 - `@scheme-tokens/conversion-*` performs explicit post-compile color conversion, gamut mapping, color math, or
   projection. Planned example: `@scheme-tokens/conversion-texel`.
 - `@scheme-tokens/target-*` maps compiled or core token material into a framework or design-system target contract.
@@ -49,9 +49,9 @@ Source generation, conversion projection, target export, format export, and core
 ## Source Adapters
 
 Source adapters generate `TokenGraphInput` from an engine or provider and may expose `TokenSource` helpers for
-`buildScheme(source)` or `buildScheme({ sources })`. Applications may add authored layers with
-`buildScheme(source, { layers })` or `buildScheme({ sources, layers })`; those layers compose after source output and
-may override source tokens.
+`buildScheme(source)` or `buildScheme({ base: source })`. Applications may add authored layers with
+`buildScheme(source, { layers })` or `buildScheme({ base: source, layers })`; those layers compose after source output
+and may override source tokens.
 
 ```ts
 interface TokenSource<I extends Issue = Issue> {
@@ -63,7 +63,7 @@ interface TokenSource<I extends Issue = Issue> {
 `TokenSource` is structural. A source object may include metadata beyond `id` and `build`; core validates those two
 members and invokes `build()` with the original source object as the receiver.
 
-Source adapter factories should use plain names such as `material3Source(input)`. They return strict core graph input and
+Source adapter factories should use plain names such as `material3(input)`. They return strict core graph input and
 report recoverable failures with adapter-owned issue types.
 
 For a minimal fixed source, the implementation can be structural:
@@ -210,7 +210,7 @@ be considered only as explicit opt-in and is not 0.1.0 scope.
   dependency.
 - Core must not import adapter packages.
 
-Material 3 dependencies belong to `@scheme-tokens/source-material3`. Texel dependencies belong to future
+Material 3 dependencies belong to `@scheme-tokens/material3`. Texel dependencies belong to future
 `@scheme-tokens/conversion-texel`. DTCG format behavior belongs to future
 `@scheme-tokens/format-dtcg`. shadcn target behavior belongs to future
 `@scheme-tokens/target-shadcn`.
@@ -236,9 +236,9 @@ Every adapter must prove before release:
 
 ## Current Adapters
 
-- `@scheme-tokens/source-material3` creates a `TokenSource` from a strict hex Material `sourceColor` and emits
-  `light` / `dark` graph tokens under a lower-kebab source id namespace. Some Material tooling calls that input a seed
-  color; the adapter public field remains `sourceColor`.
+- `@scheme-tokens/material3` creates a `TokenSource` from a strict hex Material `sourceColor` and emits
+  `light` / `dark` graph tokens under a lower-kebab source id namespace. The adapter public field remains
+  `sourceColor`.
 - Material extended colors are adapter-owned behavior exposed as `extendedColors`, with entries shaped as
   `{ name, color, harmonize? }`. Engine-specific option names stay internal.
 - Key-color-driven Material schemes are future advanced scope only and require a clear, official, tested engine path

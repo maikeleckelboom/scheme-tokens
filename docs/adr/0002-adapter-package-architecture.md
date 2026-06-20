@@ -17,18 +17,18 @@ and external format adapters.
 ## Decision
 
 Adapters are separate npm packages. The root package remains named `scheme-tokens` and remains the core package.
-There is no `scheme-tokens/sources/*`, `scheme-tokens/conversion/*`, or ambient adapter registry.
+There is no `scheme-tokens/material3`, `scheme-tokens/conversion/*`, or ambient adapter registry.
 
 The repository keeps the core package at the repository root. Adapter packages live under `packages/` only when they have
 a real implementation:
 
 ```text
 package.json                            # scheme-tokens
-packages/source-material3/package.json  # @scheme-tokens/source-material3
+packages/material3/package.json         # @scheme-tokens/material3
 packages/conversion-texel/package.json  # @scheme-tokens/conversion-texel
 packages/target-shadcn/package.json     # @scheme-tokens/target-shadcn
 packages/format-dtcg/package.json       # @scheme-tokens/format-dtcg
-packages/source-*/package.json          # future source adapters
+packages/*/package.json                 # future source adapters
 packages/conversion-*/package.json      # future conversion adapters
 packages/target-*/package.json          # future target adapters
 packages/format-*/package.json          # future format adapters
@@ -40,11 +40,11 @@ Do not move core to `packages/core` unless a separate decision proves that churn
 
 Use role-first package names:
 
-- `@scheme-tokens/source-material3`;
+- `@scheme-tokens/material3`;
 - `@scheme-tokens/conversion-texel`;
 - `@scheme-tokens/target-shadcn`;
 - `@scheme-tokens/format-dtcg`;
-- `@scheme-tokens/source-*` for future source adapters;
+- `@scheme-tokens/*` for future source adapters;
 - `@scheme-tokens/conversion-*` for future conversion adapters;
 - `@scheme-tokens/target-*` for future target adapters;
 - `@scheme-tokens/format-*` for future format adapters.
@@ -70,7 +70,7 @@ that creates hidden transitive adapter dependencies and makes downstream adapter
 ## Dependency Ownership
 
 The root package must not depend on optional engines. Material 3 dependencies belong to
-`@scheme-tokens/source-material3`. Texel dependencies belong to `@scheme-tokens/conversion-texel`. Target framework
+`@scheme-tokens/material3`. Texel dependencies belong to `@scheme-tokens/conversion-texel`. Target framework
 policy belongs to target adapters. External format behavior belongs to format adapters.
 
 Adapters depend on `scheme-tokens` as a peer dependency and dev dependency, not as a normal runtime dependency.
@@ -83,12 +83,12 @@ needs a reproducible implementation at runtime.
 
 ## Source Adapter Shape
 
-A source adapter creates a `TokenSource` for `buildScheme({ sources })`. Applications can compose authored token
-layers after source output with `buildScheme({ sources, layers })`. The minimum package root surface is:
+A source adapter creates a `TokenSource` for `buildScheme({ base })`. Applications can compose authored token
+layers after source output with `buildScheme({ base, layers })`. The minimum package root surface is:
 
-- a factory named after the capability, for example `material3Source(input)`;
-- JSON-safe public input types, for example `Material3SourceInput`;
-- adapter issue types, for example `Material3SourceIssue`;
+- a factory named after the capability, for example `material3(input)`;
+- JSON-safe public input types, for example `Material3Input`;
+- adapter issue types, for example `Material3Issue`;
 - optional metadata constants only when they are useful to consumers.
 
 The factory returns a structural `TokenSource<AdapterIssue>` with a stable lower-kebab `id`. Its `build()` method returns

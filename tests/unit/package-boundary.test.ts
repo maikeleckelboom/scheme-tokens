@@ -21,8 +21,8 @@ describe("package boundary", () => {
       "defineTokenGraph",
       "defineTokenLayer",
       "defineTokens",
-      "exportCssVariableBlocks",
-      "exportCssVariables",
+      "exportCssVarBlocks",
+      "exportCssVars",
       "formatCssColor",
       "parseColor",
       "parseTokenGraph",
@@ -60,9 +60,9 @@ describe("package boundary", () => {
       .map((path) => readFileSync(path, "utf8"))
       .join("\n");
     expect(sourceText).not.toContain("@material/material-color-utilities");
-    expect(sourceText).not.toContain("@scheme-tokens/source-material3");
-    expect(sourceText).not.toContain("material3Source");
-    expect(sourceText).not.toContain("Material3SourceInput");
+    expect(sourceText).not.toContain("@scheme-tokens/material3");
+    expect(sourceText).not.toContain("material3");
+    expect(sourceText).not.toContain("Material3Input");
     expect(sourceText).not.toContain("MATERIAL3_ROLE");
     expect(sourceText).not.toContain("extendedColors");
     expect(sourceText).not.toContain("customColors");

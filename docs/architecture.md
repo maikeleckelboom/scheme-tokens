@@ -74,22 +74,22 @@ or structured `{ mode, selector, declarations }` blocks for runtime preview surf
 the generated root, data-attribute, class, and simple exact-selector workflows without making a CSS parser part of the
 core dependency graph.
 
-## Sources
+## Base Inputs
 
-`buildScheme()` composes source and layer graph contributors before compilation. Sources are generated or external
-graph-material providers. Layers are ordered named authored token overlays.
+`buildScheme()` resolves generated base input and layer graph contributors before compilation. Base inputs are generated
+or external graph-material providers. Layers are ordered named authored token overlays.
 
-Sources compose first in array order. Duplicate token keys across sources are invalid. Layers compose after sources in
-array order. Later layers override earlier layers by token key, and layers may override source tokens. References,
-missing-reference validation, and circular-reference validation run after the final source/layer graph has been composed.
-Winning token origin metadata points at the winning source or layer.
+When several base inputs are provided, they compose first in array order. Duplicate token keys across base inputs are
+invalid. Layers compose after base inputs in array order. Later layers override earlier layers by token key, and layers
+may override base tokens. References, missing-reference validation, and circular-reference validation run after the final
+graph has been composed. Winning token origin metadata points at the winning base input or layer.
 
 Layer composition is intentionally simpler than CSS cascade behavior. It has no selector specificity, no `!important`, no
 implicit CSS `@layer` behavior, no DOM behavior, and no runtime style injection helpers.
 
 Adapter packages may depend on engines, external format tooling, or target framework policy. Core exposes the interface
-but does not provide Material 3, Texel, conversion, DTCG, shadcn, or image-backed behavior. The first source adapter is
-`@scheme-tokens/source-material3`; it lives outside the root package and owns the Material engine dependency.
+but does not provide Material 3, Texel, conversion, DTCG, shadcn, or image-backed behavior. The Material 3 adapter is
+`@scheme-tokens/material3`; it lives outside the root package and owns the Material engine dependency.
 
 Source adapters produce graph input for `buildScheme()`. Conversion adapters perform separate post-compile conversion
 operations and return `Result` values with adapter-owned issues. Format adapters import or export external file and wire

@@ -11,8 +11,8 @@ The root API is intentionally small and explicit.
 - `parseColor`
 - `compileTokenGraph`
 - `buildScheme`
-- `exportCssVariables`
-- `exportCssVariableBlocks`
+- `exportCssVars`
+- `exportCssVarBlocks`
 - `serializeScheme`
 - `formatCssColor`
 
@@ -34,13 +34,13 @@ For manual colors:
 
 1. Use `defineTokens()` for simple token-record authoring, or `defineTokenGraph()` for full graph-shaped authoring.
 2. Use `compileTokenGraph()` to validate and resolve the selected tokens.
-3. Use `exportCssVariables()` for CSS, `exportCssVariableBlocks()` for structured declarations, or
+3. Use `exportCssVars()` for CSS, `exportCssVarBlocks()` for structured declarations, or
    `serializeScheme()` for deterministic compiled JSON.
 
 `compileTokenGraph()` defaults to `selection: "public"`. The CSS exporter emits variables for the compiled scheme it
 receives; it does not apply visibility filtering itself.
 
-`exportCssVariables()` returns a CSS stylesheet string. `exportCssVariableBlocks()` returns one structured block per
+`exportCssVars()` returns a CSS stylesheet string. `exportCssVarBlocks()` returns one structured block per
 compiled mode, preserving the CSS model as `{ mode, selector, declarations }` for runtime application, previews, or
 custom renderers.
 
@@ -151,54 +151,54 @@ compiled scheme output. They intentionally reject helper-only shorthand such as 
 direct dependency metadata. `serializeScheme()` serializes this compiled output in deterministic order. Compiled JSON
 contains resolved color objects, not the original authored color strings.
 
-## Adapter Sources
+## Base Inputs
 
-`TokenSource` is structural. Core accepts a safe source object with a valid string `id` and callable `build`, permits
-extra adapter metadata, and invokes `build()` with the original source object as `this`.
+`TokenSource` is structural. Core accepts a safe base input object with a valid string `id` and callable `build`,
+permits extra adapter metadata, and invokes `build()` with the original source object as `this`.
 
 `buildScheme()` is the adapter runner and layer composer. `buildScheme(options)` is the canonical explicit form.
-`buildScheme(source)` and `buildScheme([sourceA, sourceB])` are source-only convenience forms. A second options argument
-may provide build options except `sources`, for example `buildScheme(source, { layers, selection })`.
+`buildScheme(source)` and `buildScheme([sourceA, sourceB])` are base-only convenience forms. A second options argument
+may provide build options except `base`, for example `buildScheme(source, { layers, selection })`.
 
 Layers and build-envelope fields belong in the options object. Mixed source/layer positional arrays are intentionally
-unsupported; use `buildScheme({ sources, layers })` or `buildScheme(source, { layers })` instead.
+unsupported; use `buildScheme({ base, layers })` or `buildScheme(source, { layers })` instead.
 
-The canonical options object accepts source-only, layer-only, and source-plus-layer input. `sources` and `layers` are
-both optional fields, but at least one of them must be present and non-empty.
+The canonical options object accepts base-only, layer-only, and base-plus-layer input. `base` and `layers` are optional
+fields, but at least one of them must be present and non-empty.
 
-Sources compose first in array order. Duplicate token keys across sources are invalid. Layers compose after sources as
-ordered authored token overlays. Later layers win by token key, and a layer may override a source token. References,
-missing-reference checks, and circular-reference checks run after final source/layer composition. Winning token origin
-metadata points at the winning source or layer.
+When `base` is an array, base inputs compose first in array order. Duplicate token keys across base inputs are invalid.
+Layers compose after base inputs as ordered authored token overlays. Later layers win by token key, and a layer may
+override a base token. References, missing-reference checks, and circular-reference checks run after final composition.
+Winning token origin metadata points at the winning base input or layer.
 
 Layer composition is not CSS cascade behavior. Core does not implement selector specificity, `!important`, CSS `@layer`,
 DOM mutation, or runtime style injection.
 
 The root package does not implement Material 3, Texel, conversion, image, or CSS parser engines. Material 3 support lives
-in `@scheme-tokens/source-material3`, which imports core only through the generic source contract.
+in `@scheme-tokens/material3`, which imports core only through the generic source contract.
 
 ## BuildSchemeOptions
 
 `BuildSchemeOptions` accepts:
 
-- `sources?: readonly TokenSource[]`
+- `base?: TokenSource | readonly TokenSource[]`
 - `layers?: readonly TokenLayerInput[]`
 - `modes?: readonly [string, ...string[]]`
 - `defaultMode?: string`
 - `defaultVisibility?: "public" | "internal"`
 - `selection?: TokenSelection`
 
-At least one source or layer is required.
+At least one base input or layer is required.
 
-`BuildSchemeSourceOptions` is `BuildSchemeOptions` without `sources`. It is the second-argument type for source shorthand
+`BuildSchemeSourceOptions` is `BuildSchemeOptions` without `base`. It is the second-argument type for source shorthand
 calls.
 
-When sources are present, the first source graph establishes the composed graph envelope. If `modes`, `defaultMode`, or
-`defaultVisibility` are also provided to `buildScheme()`, they must match that first source graph or the call returns an
-`invalid-build-options` issue. Explicit build options validate the expected source envelope; they do not override source
+When base inputs are present, the first base graph establishes the composed graph envelope. If `modes`, `defaultMode`, or
+`defaultVisibility` are also provided to `buildScheme()`, they must match that first base graph or the call returns an
+`invalid-build-options` issue. Explicit build options validate the expected base envelope; they do not override base
 authority.
 
-When no sources are present, `buildScheme()` uses `modes`, `defaultMode`, and `defaultVisibility` from the options to
+When no base input is present, `buildScheme()` uses `modes`, `defaultMode`, and `defaultVisibility` from the options to
 create the composed graph envelope. If `modes` is omitted, the current simple layer-only behavior remains one `base` mode
 with `defaultMode: "base"`. If `modes` is provided, `defaultMode` is required and must belong to `modes`.
 `defaultVisibility` defaults to `public` when omitted.

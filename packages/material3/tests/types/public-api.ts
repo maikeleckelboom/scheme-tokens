@@ -1,9 +1,9 @@
 import type { TokenSource } from "scheme-tokens";
 import {
-  material3Source,
+  material3,
   type Material3ExtendedColorInput,
-  type Material3SourceInput,
-  type Material3SourceIssue,
+  type Material3Input,
+  type Material3Issue,
 } from "../../src";
 
 const extendedColor: Material3ExtendedColorInput = {
@@ -12,34 +12,34 @@ const extendedColor: Material3ExtendedColorInput = {
   harmonize: true,
 };
 
-const input: Material3SourceInput = {
+const input: Material3Input = {
   sourceColor: "#6750a4",
   defaultVisibility: "internal",
   extendedColors: [extendedColor],
 };
 
-const source: TokenSource<Material3SourceIssue> = material3Source(input);
+const source: TokenSource<Material3Issue> = material3(input);
 source.id.toUpperCase();
 
 // @ts-expect-error sourceColor is required.
-material3Source({});
+material3({});
 
 // @ts-expect-error color is not an alias for sourceColor.
-material3Source({ color: "#6750a4" });
+material3({ color: "#6750a4" });
 
 // @ts-expect-error seed is not an alias for sourceColor.
-material3Source({ seed: "#6750a4" });
+material3({ seed: "#6750a4" });
 
 // @ts-expect-error source is not an alias for sourceColor.
-material3Source({ source: "#6750a4" });
+material3({ source: "#6750a4" });
 
 // @ts-expect-error customColors is not an alias for extendedColors.
-material3Source({ sourceColor: "#6750a4", customColors: [] });
+material3({ sourceColor: "#6750a4", customColors: [] });
 
 // @ts-expect-error keyColors is not implemented.
-material3Source({ sourceColor: "#6750a4", keyColors: [] });
+material3({ sourceColor: "#6750a4", keyColors: [] });
 
-material3Source({
+material3({
   sourceColor: "#6750a4",
   extendedColors: [
     {
@@ -51,7 +51,7 @@ material3Source({
   ],
 });
 
-material3Source({
+material3({
   sourceColor: "#6750a4",
   extendedColors: [
     {

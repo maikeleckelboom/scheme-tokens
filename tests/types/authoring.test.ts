@@ -3,10 +3,10 @@ import {
   defineTokenLayer,
   defineTokenGraph,
   defineTokens,
-  exportCssVariableBlocks,
+  exportCssVarBlocks,
   type BuildSchemeSourceOptions,
   type CssVariableBlock,
-  type ExportCssVariablesOptions,
+  type ExportCssVarsOptions,
   type Issue,
   type Result,
   type TokenGraphInput,
@@ -73,41 +73,41 @@ const source: TokenSource = {
   },
 };
 
-const built = buildScheme({ sources: [source] });
+const built = buildScheme({ base: [source] });
 if (built.ok) {
-  built.value.compiled.defaultMode.toUpperCase();
+  built.value.defaultMode.toUpperCase();
   // @ts-expect-error buildScheme returns compiled, not scheme.
   built.value["scheme"].defaultMode.toUpperCase();
 }
 
 const sourceBuilt = buildScheme(source);
 if (sourceBuilt.ok) {
-  sourceBuilt.value.compiled.defaultMode.toUpperCase();
+  sourceBuilt.value.defaultMode.toUpperCase();
 }
 
 const sourceOptions: BuildSchemeSourceOptions = { selection: "all" };
 const sourceOptionsBuilt = buildScheme(source, sourceOptions);
 if (sourceOptionsBuilt.ok) {
-  sourceOptionsBuilt.value.compiled.defaultMode.toUpperCase();
+  sourceOptionsBuilt.value.defaultMode.toUpperCase();
 }
 
 const sourceArrayBuilt = buildScheme([source, source]);
 if (sourceArrayBuilt.ok) {
-  sourceArrayBuilt.value.compiled.defaultMode.toUpperCase();
+  sourceArrayBuilt.value.defaultMode.toUpperCase();
 }
 
 // @ts-expect-error source is not a buildScheme option.
 buildScheme({ source });
 
-// @ts-expect-error source shorthand options cannot include sources.
-buildScheme(source, { sources: [source] });
+// @ts-expect-error source shorthand options cannot include base.
+buildScheme(source, { base: [source] });
 
 const emptyBuild = buildScheme({});
 if (!emptyBuild.ok) {
   emptyBuild.issues[0]?.code.toUpperCase();
 }
 
-const emptyContributorBuild = buildScheme({ sources: [], layers: [] });
+const emptyContributorBuild = buildScheme({ base: [], layers: [] });
 if (!emptyContributorBuild.ok) {
   emptyContributorBuild.issues[0]?.code.toUpperCase();
 }
@@ -142,7 +142,7 @@ typedLayer.id.toUpperCase();
 
 const sourceAndLayerBuilt = buildScheme(source, { layers: [layer], selection: "all" });
 if (sourceAndLayerBuilt.ok) {
-  sourceAndLayerBuilt.value.compiled.defaultMode.toUpperCase();
+  sourceAndLayerBuilt.value.defaultMode.toUpperCase();
 }
 
 const sourceArrayAndLayerBuilt = buildScheme([source, source], {
@@ -150,7 +150,7 @@ const sourceArrayAndLayerBuilt = buildScheme([source, source], {
   selection: "all",
 });
 if (sourceArrayAndLayerBuilt.ok) {
-  sourceArrayAndLayerBuilt.value.compiled.defaultMode.toUpperCase();
+  sourceArrayAndLayerBuilt.value.defaultMode.toUpperCase();
 }
 
 // @ts-expect-error layers are not positional buildScheme contributors.
@@ -164,7 +164,7 @@ buildScheme([source, layer]);
 
 const layerBuilt = buildScheme({ layers: [layer] });
 if (layerBuilt.ok) {
-  layerBuilt.value.compiled.defaultMode.toUpperCase();
+  layerBuilt.value.defaultMode.toUpperCase();
 }
 
 const multiModeLayer = defineTokenLayer<"light" | "dark">({
@@ -183,19 +183,19 @@ const multiModeLayerBuilt = buildScheme({
   layers: [multiModeLayer],
 });
 if (multiModeLayerBuilt.ok) {
-  multiModeLayerBuilt.value.compiled.defaultMode.toUpperCase();
+  multiModeLayerBuilt.value.defaultMode.toUpperCase();
 }
 
-const cssOptions: ExportCssVariablesOptions = { prefix: "theme" };
+const cssOptions: ExportCssVarsOptions = { prefix: "theme" };
 cssOptions.prefix?.toUpperCase();
-const cssBlocks = exportCssVariableBlocks({} as never);
+const cssBlocks = exportCssVarBlocks({} as never);
 if (cssBlocks.ok) {
   const firstBlock: CssVariableBlock | undefined = cssBlocks.value[0];
   firstBlock?.selector.toUpperCase();
   firstBlock?.declarations["--background"]?.toUpperCase();
 }
 
-const legacyCssOptions: ExportCssVariablesOptions = {
+const legacyCssOptions: ExportCssVarsOptions = {
   // @ts-expect-error variablePrefix is not part of the public CSS export options.
   variablePrefix: "theme",
 };

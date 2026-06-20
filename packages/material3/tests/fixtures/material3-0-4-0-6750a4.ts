@@ -1,5 +1,5 @@
 // Reference vector generated from @material/material-color-utilities@0.4.0 for sourceColor #6750a4.
-export const material3SourceColor6750a4Tokens = {
+export const material3Color6750a4Tokens = {
   "material3.background": { light: "#fdf7ff", dark: "#141218" },
   "material3.error": { light: "#ba1a1a", dark: "#ffb4ab" },
   "material3.error-container": { light: "#ffdad6", dark: "#93000a" },
@@ -63,7 +63,7 @@ export const material3SourceColor6750a4Tokens = {
 
 // Reference vector generated from @material/material-color-utilities@0.4.0 for sourceColor #6750a4
 // and extendedColors [{ name: "success", color: "#2e7d32", harmonize: true }].
-export const material3SourceColor6750a4SuccessExtendedTokens = {
+export const material3Color6750a4SuccessExtendedTokens = {
   "material3.extended.success.color": { light: "#006d43", dark: "#76daa1" },
   "material3.extended.success.color-container": { light: "#92f7bc", dark: "#005231" },
   "material3.extended.success.on-color": { light: "#ffffff", dark: "#003920" },
@@ -72,7 +72,7 @@ export const material3SourceColor6750a4SuccessExtendedTokens = {
 
 // Reference vector generated from @material/material-color-utilities@0.4.0 for sourceColor #6750a4
 // and extendedColors [{ name: "success", color: "#2e7d32", harmonize: false }].
-export const material3SourceColor6750a4UnharmonizedSuccessExtendedTokens = {
+export const material3Color6750a4UnharmonizedSuccessExtendedTokens = {
   "material3.extended.success.color": { light: "#1b6d24", dark: "#88d982" },
   "material3.extended.success.color-container": { light: "#a3f69c", dark: "#005312" },
   "material3.extended.success.on-color": { light: "#ffffff", dark: "#003909" },

@@ -17,7 +17,7 @@ optional capability engines.
 Material 3 support, Texel-backed conversion, image extraction, browser canvas behavior, rich CSS parsing, and other
 engine-backed behavior must live in separate adapter packages. Intended future package names include:
 
-- `@scheme-tokens/source-material3`;
+- `@scheme-tokens/material3`;
 - `@scheme-tokens/conversion-texel`.
 
 The core package may expose adapter interfaces such as `TokenSource`, but it must not import adapter engines or fake their
@@ -27,6 +27,6 @@ behavior.
 
 - Root imports do not load optional engines.
 - The package has no runtime dependencies.
-- `/sources/material3` and `/conversion` are not core subpaths.
+- `/material3` and `/conversion` are not core subpaths.
 - Material 3 output is not approximated inside core.
 - Adapter packages must return core graph inputs and report recoverable failures with `Result` and `Issue`.
