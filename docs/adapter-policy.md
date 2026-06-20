@@ -67,7 +67,7 @@ Every adapter must prove before release:
 - `@color-scheme-tokens/source-material3` creates a `TokenSource` from a strict hex Material `sourceColor` and emits
   `light` / `dark` graph tokens under a lower-kebab source id namespace. Some Material tooling calls that input a seed
   color; the adapter public field remains `sourceColor`.
-- Material custom colors are future adapter scope. If shipped, the public input name should be `extendedColors`, with
-  entries shaped as `{ name, color, harmonize? }`; engine-specific option names should stay internal.
+- Material custom colors are adapter-owned behavior exposed as `extendedColors`, with entries shaped as
+  `{ name, color, harmonize? }`. Engine-specific option names stay internal.
 - Key-color-driven Material schemes are future advanced scope only and require a clear, official, tested engine path
   before becoming public API.

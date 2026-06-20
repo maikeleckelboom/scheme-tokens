@@ -60,3 +60,21 @@ export const material3SourceColor6750a4Tokens = {
   "material3.tertiary-fixed-dim": { light: "#efb8c8", dark: "#efb8c8" },
   "material3.tertiary-palette-key-color": { light: "#996a79", dark: "#996a79" },
 } as const;
+
+// Reference vector generated from @material/material-color-utilities@0.4.0 for sourceColor #6750a4
+// and extendedColors [{ name: "success", color: "#2e7d32", harmonize: true }].
+export const material3SourceColor6750a4SuccessExtendedTokens = {
+  "material3.extended.success.color": { light: "#006d43", dark: "#76daa1" },
+  "material3.extended.success.color-container": { light: "#92f7bc", dark: "#005231" },
+  "material3.extended.success.on-color": { light: "#ffffff", dark: "#003920" },
+  "material3.extended.success.on-color-container": { light: "#002111", dark: "#92f7bc" },
+} as const;
+
+// Reference vector generated from @material/material-color-utilities@0.4.0 for sourceColor #6750a4
+// and extendedColors [{ name: "success", color: "#2e7d32", harmonize: false }].
+export const material3SourceColor6750a4UnharmonizedSuccessExtendedTokens = {
+  "material3.extended.success.color": { light: "#1b6d24", dark: "#88d982" },
+  "material3.extended.success.color-container": { light: "#a3f69c", dark: "#005312" },
+  "material3.extended.success.on-color": { light: "#ffffff", dark: "#003909" },
+  "material3.extended.success.on-color-container": { light: "#002204", dark: "#a3f69c" },
+} as const;

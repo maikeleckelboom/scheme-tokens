@@ -53,6 +53,11 @@ describe("package boundary", () => {
     expect(sourceText).not.toContain("material3Source");
     expect(sourceText).not.toContain("Material3SourceInput");
     expect(sourceText).not.toContain("MATERIAL3_ROLE");
+    expect(sourceText).not.toContain("extendedColors");
+    expect(sourceText).not.toContain("customColors");
+    expect(sourceText).not.toContain("harmonize");
+    expect(sourceText).not.toContain("blend");
+    expect(sourceText).not.toContain("keyColors");
     expect(sourceText).not.toContain("@texel/color");
     expect(sourceText).not.toContain("css-tree");
   });

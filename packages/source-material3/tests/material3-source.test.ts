@@ -13,7 +13,11 @@ import {
 } from "color-scheme-tokens";
 import * as adapter from "../src";
 import { material3Source, type Material3SourceInput, type Material3SourceIssue } from "../src";
-import { material3SourceColor6750a4Tokens } from "./fixtures/material3-0-4-0-6750a4";
+import {
+  material3SourceColor6750a4SuccessExtendedTokens,
+  material3SourceColor6750a4Tokens,
+  material3SourceColor6750a4UnharmonizedSuccessExtendedTokens,
+} from "./fixtures/material3-0-4-0-6750a4";
 
 function unwrap<Value>(result: Result<Value, Issue>): Value {
   expect(result.ok).toBe(true);
@@ -57,6 +61,83 @@ describe("material3Source", () => {
       b: 0.5607843137254902,
       alpha: 1,
     });
+  });
+
+  test("emits extended color tokens in light and dark modes", () => {
+    const graph = unwrap(
+      material3Source({
+        sourceColor: "#6750a4",
+        extendedColors: [{ name: "success", color: "#2e7d32", harmonize: true }],
+      }).build(),
+    );
+
+    expect(extractGraphTokenValuesByPrefix(graph, "material3.extended.")).toEqual(
+      material3SourceColor6750a4SuccessExtendedTokens,
+    );
+    expect(parseTokenGraph(graph).ok).toBe(true);
+    expect(Object.keys(graph.tokens)).toContain("material3.extended.success.color");
+    expect(Object.keys(graph.tokens)).toContain("material3.extended.success.on-color");
+    expect(Object.keys(graph.tokens)).toContain("material3.extended.success.color-container");
+    expect(Object.keys(graph.tokens)).toContain("material3.extended.success.on-color-container");
+  });
+
+  test("defaults extended color harmonize to true", () => {
+    const defaultGraph = unwrap(
+      material3Source({
+        sourceColor: "#6750a4",
+        extendedColors: [{ name: "success", color: "#2e7d32" }],
+      }).build(),
+    );
+    const explicitGraph = unwrap(
+      material3Source({
+        sourceColor: "#6750a4",
+        extendedColors: [{ name: "success", color: "#2e7d32", harmonize: true }],
+      }).build(),
+    );
+
+    expect(extractGraphTokenValuesByPrefix(defaultGraph, "material3.extended.")).toEqual(
+      extractGraphTokenValuesByPrefix(explicitGraph, "material3.extended."),
+    );
+  });
+
+  test("supports unharmonized extended colors when harmonize is false", () => {
+    const graph = unwrap(
+      material3Source({
+        sourceColor: "#6750a4",
+        extendedColors: [{ name: "success", color: "#2e7d32", harmonize: false }],
+      }).build(),
+    );
+
+    expect(extractGraphTokenValuesByPrefix(graph, "material3.extended.")).toEqual(
+      material3SourceColor6750a4UnharmonizedSuccessExtendedTokens,
+    );
+    expect(extractGraphTokenValuesByPrefix(graph, "material3.extended.")).not.toEqual(
+      material3SourceColor6750a4SuccessExtendedTokens,
+    );
+  });
+
+  test("applies defaultVisibility to extended color tokens", () => {
+    const application = defineTokenFragment<"light" | "dark">({
+      id: "application",
+      defaultVisibility: "public",
+      tokens: {
+        "app.success": { ref: "material3.extended.success.color" },
+      },
+    });
+    const built = unwrap(
+      buildTokenSet({
+        source: material3Source({
+          sourceColor: "#6750a4",
+          defaultVisibility: "internal",
+          extendedColors: [{ name: "success", color: "#2e7d32" }],
+        }),
+        fragments: [application],
+      }),
+    );
+
+    expect(built.graph.tokens["material3.extended.success.color"]?.visibility).toBe("internal");
+    expect(built.tokenSet.tokens["material3.extended.success.color"]).toBeUndefined();
+    expect(built.tokenSet.tokens["app.success"]).toBeDefined();
   });
 
   test("composes adapter output with caller fragments", () => {
@@ -162,6 +243,135 @@ describe("material3Source", () => {
     });
   });
 
+  test("rejects extendedColors when it is not an array", () => {
+    const result = material3Source({
+      sourceColor: "#6750a4",
+      extendedColors: {},
+    } as unknown as Material3SourceInput).build();
+
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [{ code: "material3-invalid-extended-colors", path: "/extendedColors" }],
+    });
+    expect(JSON.parse(JSON.stringify(result))).toEqual(result);
+  });
+
+  test("rejects extended color entries missing name", () => {
+    const result = material3Source({
+      sourceColor: "#6750a4",
+      extendedColors: [{ color: "#2e7d32" }],
+    } as unknown as Material3SourceInput).build();
+
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [{ code: "material3-invalid-extended-color-name", path: "/extendedColors/0/name" }],
+    });
+  });
+
+  test("rejects invalid extended color names", () => {
+    for (const name of ["", "Success", "success.color", "success/color", "success color"]) {
+      const result = material3Source({
+        sourceColor: "#6750a4",
+        extendedColors: [{ name, color: "#2e7d32" }],
+      } as unknown as Material3SourceInput).build();
+
+      expect(result).toMatchObject({
+        ok: false,
+        issues: [{ code: "material3-invalid-extended-color-name", path: "/extendedColors/0/name" }],
+      });
+    }
+  });
+
+  test("rejects duplicate extended color names", () => {
+    const result = material3Source({
+      sourceColor: "#6750a4",
+      extendedColors: [
+        { name: "success", color: "#2e7d32" },
+        { name: "success", color: "#006d43" },
+      ],
+    }).build();
+
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [
+        {
+          code: "material3-duplicate-extended-color-name",
+          path: "/extendedColors/1/name",
+          value: "success",
+        },
+      ],
+    });
+  });
+
+  test("rejects extended color entries missing color", () => {
+    const result = material3Source({
+      sourceColor: "#6750a4",
+      extendedColors: [{ name: "success" }],
+    } as unknown as Material3SourceInput).build();
+
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [
+        { code: "material3-unsupported-extended-color-input", path: "/extendedColors/0/color" },
+      ],
+    });
+  });
+
+  test("rejects invalid extended color values", () => {
+    const result = material3Source({
+      sourceColor: "#6750a4",
+      extendedColors: [{ name: "success", color: "rgb(46 125 50)" }],
+    }).build();
+
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [
+        { code: "material3-unsupported-extended-color-input", path: "/extendedColors/0/color" },
+      ],
+    });
+  });
+
+  test("rejects invalid extended color harmonize values", () => {
+    const result = material3Source({
+      sourceColor: "#6750a4",
+      extendedColors: [{ name: "success", color: "#2e7d32", harmonize: "yes" }],
+    } as unknown as Material3SourceInput).build();
+
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [
+        {
+          code: "material3-invalid-extended-color-harmonize",
+          path: "/extendedColors/0/harmonize",
+        },
+      ],
+    });
+  });
+
+  test("rejects customColors, keyColors, and blend public aliases", () => {
+    for (const alias of ["customColors", "keyColors"] as const) {
+      const result = material3Source({
+        sourceColor: "#6750a4",
+        [alias]: [{ name: "success", color: "#2e7d32" }],
+      } as unknown as Material3SourceInput).build();
+
+      expect(result).toMatchObject({
+        ok: false,
+        issues: [{ code: "material3-invalid-input", path: `/${alias}` }],
+      });
+    }
+
+    const blendResult = material3Source({
+      sourceColor: "#6750a4",
+      extendedColors: [{ name: "success", color: "#2e7d32", blend: true }],
+    } as unknown as Material3SourceInput).build();
+
+    expect(blendResult).toMatchObject({
+      ok: false,
+      issues: [{ code: "material3-invalid-input", path: "/extendedColors/0/blend" }],
+    });
+  });
+
   test("rejects color, seed, and source aliases for the scheme source color", () => {
     for (const alias of ["color", "seed", "source"] as const) {
       const result = material3Source({
@@ -206,6 +416,19 @@ describe("material3Source", () => {
     const graph = unwrap(material3Source({ sourceColor: "#6750a4" }).build());
 
     expect(extractGraphTokenValues(graph)).toEqual(material3SourceColor6750a4Tokens);
+  });
+
+  test("matches the @material/material-color-utilities@0.4.0 extended color reference vector", () => {
+    const graph = unwrap(
+      material3Source({
+        sourceColor: "#6750a4",
+        extendedColors: [{ name: "success", color: "#2e7d32", harmonize: true }],
+      }).build(),
+    );
+
+    expect(extractGraphTokenValuesByPrefix(graph, "material3.extended.")).toEqual(
+      material3SourceColor6750a4SuccessExtendedTokens,
+    );
   });
 
   test("emits strict graph schema-compatible lower-kebab namespaced keys", () => {
@@ -263,6 +486,15 @@ function extractGraphTokenValues(
   return output;
 }
 
+function extractGraphTokenValuesByPrefix(
+  graph: TokenGraphInput,
+  prefix: string,
+): Readonly<Record<string, { readonly light: string; readonly dark: string }>> {
+  return Object.fromEntries(
+    Object.entries(extractGraphTokenValues(graph)).filter(([key]) => key.startsWith(prefix)),
+  );
+}
+
 function createAjv(): Ajv2020 {
   return new Ajv2020({
     allErrors: true,
@@ -295,4 +527,11 @@ expectMaterial3SourceIssue({
   message: "sourceColor is required.",
   field: "sourceColor",
   path: "/sourceColor",
+});
+
+expectMaterial3SourceIssue({
+  code: "material3-invalid-extended-color-name",
+  message: "extended color name must be a lower-kebab single segment.",
+  path: "/extendedColors/0/name",
+  value: "Success",
 });

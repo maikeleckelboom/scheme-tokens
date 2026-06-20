@@ -41,9 +41,43 @@ color; this adapter keeps the field name `sourceColor` and does not accept `colo
 `sourceColor` currently accepts strict opaque hex strings in `#rrggbb` form. Other CSS color syntaxes are rejected
 instead of being parsed approximately.
 
-Material custom colors are not public API yet. If they become public, the input name will be `extendedColors`, with
-entries shaped as `{ name, color, harmonize? }`. Engine-specific option names stay internal adapter vocabulary. Advanced
-key-color-driven scheme input is also future scope; this adapter does not reserve or accept a loose `keyColors` option.
+## Extended Colors
+
+Material custom colors are exposed through this adapter as `extendedColors`, using stable adapter vocabulary rather than
+the engine's own option names.
+
+```ts
+import { buildTokenSet } from "color-scheme-tokens";
+import { material3Source } from "@color-scheme-tokens/source-material3";
+
+const built = buildTokenSet({
+  source: material3Source({
+    sourceColor: "#6750a4",
+    extendedColors: [{ name: "success", color: "#2e7d32" }],
+  }),
+});
+
+if (!built.ok) {
+  throw new Error(JSON.stringify(built.issues, null, 2));
+}
+```
+
+Each entry is shaped as `{ name, color, harmonize? }`. `name` is a lower-kebab token segment, `color` uses the same
+strict `#rrggbb` input as `sourceColor`, and `harmonize` maps to Material custom color harmonization behavior. When
+omitted, `harmonize` defaults to `true`.
+
+Extended color tokens are emitted under the source id namespace:
+
+```text
+material3.extended.success.color
+material3.extended.success.on-color
+material3.extended.success.color-container
+material3.extended.success.on-color-container
+```
+
+Engine-specific option names stay internal adapter vocabulary. The adapter does not accept `customColors` or `blend`.
+Advanced key-color-driven scheme input remains future scope; this adapter does not implement or reserve a loose
+`keyColors` API.
 
 ## Composition
 

@@ -48,6 +48,7 @@ const application = defineTokenFragment({
   tokens: {
     "app.background": { ref: "material3.surface" },
     "app.foreground": { ref: "material3.on-surface" },
+    "app.success": { ref: "material3.extended.success.color" },
   },
 });
 
@@ -55,14 +56,19 @@ const built = buildTokenSet({
   source: material3Source({
     sourceColor: "#6750a4",
     defaultVisibility: "internal",
+    extendedColors: [{ name: "success", color: "#2e7d32" }],
   }),
   fragments: [application],
 });
 
 if (!built.ok) throw new Error(JSON.stringify(built.issues));
 if (!("app.background" in built.value.tokenSet.tokens)) throw new Error("adapter fragment composition failed");
+if (!("app.success" in built.value.tokenSet.tokens)) throw new Error("adapter extended color composition failed");
 if (built.value.graph.tokens["material3.primary"]?.origin?.kind !== "source") {
   throw new Error("adapter source origin was not preserved");
+}
+if (built.value.graph.tokens["material3.extended.success.color"]?.origin?.kind !== "source") {
+  throw new Error("adapter extended color source origin was not preserved");
 }
 `,
 );
@@ -91,11 +97,13 @@ writeFileSync(
 import { buildTokenSet, type TokenSource } from "color-scheme-tokens";
 import {
   material3Source,
+  type Material3ExtendedColorInput,
   type Material3SourceInput,
   type Material3SourceIssue,
 } from "@color-scheme-tokens/source-material3";
 
-const input: Material3SourceInput = { sourceColor: "#6750a4" };
+const extendedColor: Material3ExtendedColorInput = { name: "success", color: "#2e7d32" };
+const input: Material3SourceInput = { sourceColor: "#6750a4", extendedColors: [extendedColor] };
 const source: TokenSource<Material3SourceIssue> = material3Source(input);
 const built = buildTokenSet({ source });
 if (built.ok) built.value.tokenSet.defaultMode.toUpperCase();
