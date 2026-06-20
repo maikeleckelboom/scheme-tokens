@@ -14,7 +14,7 @@ changing the machine contract.
 ## Rules
 
 - Public parse, compile, source, and export failures return non-empty `issues`.
-- Public boundaries do not throw for malformed unknown input.
+- Parse boundaries and option validators that accept `unknown` do not throw for malformed unknown input.
 - Diagnostics are deterministic across object insertion order.
 - Paths point at the narrowest stable input location the parser can identify.
 - Unknown-value descriptions are bounded and avoid user-code coercion.

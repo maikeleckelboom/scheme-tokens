@@ -175,6 +175,7 @@ export function defineTokenGraph<
 }): TokenGraphInput<Modes[number]>;
 export function defineTokenGraph(input: TokenGraphAuthoringInput): TokenGraphInput {
   const modes = "modes" in input && input.modes !== undefined ? input.modes : ["base"];
+  assertHelperModesCanUseShorthand(modes);
   const defaultMode =
     "defaultMode" in input && input.defaultMode !== undefined ? input.defaultMode : modes[0];
   return {
@@ -272,4 +273,13 @@ function isModeValueRecord(
   }
   const modeSet = new Set(modes);
   return entries.value.every((entry) => modeSet.has(entry.key));
+}
+
+function assertHelperModesCanUseShorthand(modes: readonly string[]): void {
+  const reserved = modes.filter((mode) => tokenDefinitionKeys.has(mode));
+  if (reserved.length > 0) {
+    throw new RangeError(
+      `defineTokenGraph mode names cannot use token-definition keys: ${reserved.join(", ")}.`,
+    );
+  }
 }

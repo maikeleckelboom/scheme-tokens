@@ -1,10 +1,24 @@
-// @ts-nocheck
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
+type ExportTarget = string | Readonly<Record<string, string>>;
+
+interface PackageManifest {
+  readonly dependencies?: Readonly<Record<string, string>>;
+  readonly exports: Readonly<Record<string, ExportTarget>>;
+}
+
+interface ApiManifest {
+  readonly name: string;
+  readonly modulePath: string;
+  readonly dtsPath: string;
+  readonly runtime: readonly string[];
+  readonly types: readonly string[];
+}
+
 const root = process.cwd();
-const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as PackageManifest;
 
 assertEqual(
   Object.keys(packageJson.exports).sort(),
@@ -29,7 +43,7 @@ assertEqual(
 );
 assertExportTargetsExist(packageJson.exports);
 
-const manifests = [
+const manifests: readonly ApiManifest[] = [
   {
     name: "root",
     modulePath: "dist/index.js",
@@ -93,7 +107,10 @@ const manifests = [
 ];
 
 for (const manifest of manifests) {
-  const module = await import(pathToFileURL(join(root, manifest.modulePath)).href);
+  const module = (await import(pathToFileURL(join(root, manifest.modulePath)).href)) as Record<
+    string,
+    unknown
+  >;
   const runtime = Object.keys(module).sort();
   assertEqual(runtime, manifest.runtime, `${manifest.name} runtime exports`);
 
@@ -121,7 +138,7 @@ if (
   throw new Error("Root import graph references optional engine dependencies");
 }
 
-function assertEqual(actual, expected, label) {
+function assertEqual(actual: readonly string[], expected: readonly string[], label: string): void {
   const expectedSorted = [...expected].sort();
   if (JSON.stringify(actual) !== JSON.stringify(expectedSorted)) {
     throw new Error(
@@ -130,7 +147,7 @@ function assertEqual(actual, expected, label) {
   }
 }
 
-function assertExportTargetsExist(exports) {
+function assertExportTargetsExist(exports: Readonly<Record<string, ExportTarget>>): void {
   for (const [subpath, target] of Object.entries(exports)) {
     if (typeof target === "string") {
       assertPackagePathExists(target, subpath);
@@ -146,7 +163,7 @@ function assertExportTargetsExist(exports) {
   }
 }
 
-function assertPackagePathExists(packagePath, label) {
+function assertPackagePathExists(packagePath: string, label: string): void {
   if (!packagePath.startsWith("./")) {
     throw new Error(`${label} points outside the package: ${packagePath}`);
   }
@@ -155,7 +172,7 @@ function assertPackagePathExists(packagePath, label) {
   }
 }
 
-function listFiles(directory) {
+function listFiles(directory: string): readonly string[] {
   return readdirSync(directory).flatMap((entry) => {
     const path = join(directory, entry);
     return statSync(path).isDirectory()

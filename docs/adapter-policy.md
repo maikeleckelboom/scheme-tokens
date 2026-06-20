@@ -11,6 +11,9 @@ interface TokenSource<I extends Issue = Issue> {
 
 Adapter packages may depend on engines. The core package must not.
 
+`TokenSource` is a structural adapter contract. A source object may include metadata beyond `id` and `build`; core
+validates those two members and invokes `build()` with the original source object as the receiver.
+
 ## Requirements
 
 - Adapter public inputs should be JSON-safe plain data.

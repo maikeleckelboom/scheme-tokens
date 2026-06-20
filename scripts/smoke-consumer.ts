@@ -1,12 +1,17 @@
-// @ts-nocheck
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+interface PackageManifest {
+  readonly name: string;
+}
+
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const manifest = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8"));
+const manifest = JSON.parse(
+  readFileSync(join(repoRoot, "package.json"), "utf8"),
+) as PackageManifest;
 const workspace = mkdtempSync(join(tmpdir(), "color-scheme-tokens-smoke-"));
 const packDirectory = join(workspace, "pack");
 const consumerDirectory = join(workspace, "consumer");
@@ -124,7 +129,7 @@ if (
   throw new Error("Packed root entry loads optional engines");
 }
 
-function pack(destination) {
+function pack(destination: string): string {
   const output = runPnpm(["pack", "--pack-destination", destination], repoRoot)
     .trim()
     .split(/\r?\n/)
@@ -135,14 +140,14 @@ function pack(destination) {
   return join(destination, basename(output));
 }
 
-function runPnpm(args, cwd) {
+function runPnpm(args: readonly string[], cwd: string): string {
   const npmExecPath = process.env.npm_execpath;
   return npmExecPath === undefined
     ? run("pnpm", args, cwd)
     : run(process.execPath, [npmExecPath, ...args], cwd);
 }
 
-function run(command, args, cwd) {
+function run(command: string, args: readonly string[], cwd: string): string {
   return execFileSync(command, args, {
     cwd,
     encoding: "utf8",
@@ -150,6 +155,6 @@ function run(command, args, cwd) {
   });
 }
 
-function writeJson(path, value) {
+function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 }

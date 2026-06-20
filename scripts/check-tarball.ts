@@ -1,9 +1,13 @@
-// @ts-nocheck
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+interface PackageManifest {
+  readonly dependencies?: Readonly<Record<string, string>>;
+  readonly files: readonly string[];
+}
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const workspace = mkdtempSync(join(tmpdir(), "color-scheme-tokens-tarball-"));
@@ -46,7 +50,9 @@ for (const file of files) {
   }
 }
 
-const packageJson = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8"));
+const packageJson = JSON.parse(
+  readFileSync(join(repoRoot, "package.json"), "utf8"),
+) as PackageManifest;
 if (packageJson.files.includes("docs")) {
   throw new Error("package files must not include docs");
 }
@@ -62,7 +68,7 @@ if (
   throw new Error("core package manifest leaks optional engine dependencies");
 }
 
-function runPnpm(args, cwd) {
+function runPnpm(args: readonly string[], cwd: string): string {
   const npmExecPath = process.env.npm_execpath;
   return npmExecPath === undefined
     ? execFileSync("pnpm", args, { cwd, encoding: "utf8" })

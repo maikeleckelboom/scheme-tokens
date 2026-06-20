@@ -111,12 +111,7 @@ Use current docs such as:
 * `docs/diagnostics.md`
 * `docs/color-policy.md`
 * `docs/semver.md`
-* `docs/decisions/`
-
-`docs/v1-migration/` is historical migration context only. Do not treat it as active implementation authority. Do not
-copy superseded API names, temporary migration wording, or old vocabulary from it.
-
-If migration documents remain in the repository, they must not be included in the published package tarball.
+* `docs/adr/`
 
 ## Validation
 

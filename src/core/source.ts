@@ -149,12 +149,10 @@ function parseSource<I extends Issue>(input: unknown): Result<TokenSource<I>, Bu
     return entries as Result<never, BuildTokenSetIssue>;
   }
   const record = new Map(entries.value.map((entry) => [entry.key, entry.value]));
-  if (record.size !== 2 || !record.has("id") || !record.has("build")) {
+  if (!record.has("id") || !record.has("build")) {
     return {
       ok: false,
-      issues: [
-        { code: "invalid-build-options", message: "source must contain only id and build." },
-      ],
+      issues: [{ code: "invalid-build-options", message: "source must contain id and build." }],
     };
   }
   const id = record.get("id");
@@ -173,7 +171,7 @@ function parseSource<I extends Issue>(input: unknown): Result<TokenSource<I>, Bu
       issues: [{ code: "invalid-build-options", message: "source.build must be a function." }],
     };
   }
-  return { ok: true, value: { id, build: build as TokenSource<I>["build"] } };
+  return { ok: true, value: input as TokenSource<I> };
 }
 
 function callSource<I extends Issue>(

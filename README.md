@@ -38,6 +38,9 @@ console.log(css.value);
 directly authored tokens to `public`. The parser remains strict: persisted wire-format graphs still spell out
 `formatVersion`, `modes`, `defaultMode`, `defaultVisibility`, and `tokens`.
 
+Mode names in `defineTokenGraph()` must not use token-definition keys such as `value`, `valueByMode`, `visibility`, or
+`description`; those keys are reserved so shorthand detection stays unambiguous.
+
 ## Multi-Mode Graphs
 
 ```ts
@@ -131,8 +134,10 @@ if (!built.ok) {
 }
 ```
 
-Core exposes the `TokenSource` interface only. Engine-backed behavior belongs in separate adapter packages, for example
-future `@color-scheme-tokens/source-material3` or `@color-scheme-tokens/conversion-texel` packages.
+Core exposes the `TokenSource` structural interface only. Source objects may carry adapter metadata in addition to `id`
+and `build`, and core calls `build()` with the source object as its receiver. Engine-backed behavior belongs in separate
+adapter packages, for example future `@color-scheme-tokens/source-material3` or
+`@color-scheme-tokens/conversion-texel` packages.
 
 ## Development
 

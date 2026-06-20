@@ -38,4 +38,13 @@ Token shorthands are normalized by the helpers:
 - `"token.key": { ref: "other.token" }` becomes `{ value: { ref: "other.token" } }`;
 - mode records such as `{ light: "#fff", dark: "#000" }` become `valueByMode` when modes are declared.
 
+Declared mode names must not be token-definition keys such as `value`, `valueByMode`, `visibility`, `description`,
+`deprecated`, or `extensions`. Those names are reserved so helper shorthand detection does not silently reinterpret
+token definitions.
+
 Strict parsing still requires the explicit wire-format shape.
+
+## Adapter Sources
+
+`TokenSource` is structural. Core accepts a safe source object with a valid string `id` and callable `build`, permits
+extra adapter metadata, and invokes `build()` with the original source object as `this`.

@@ -107,6 +107,21 @@ describe("v1 graph and compiler", () => {
     expect(compiled.tokens["app.foreground"]?.dependenciesByMode.base).toEqual(["app.background"]);
   });
 
+  test("rejects authoring-helper mode names that collide with token definition keys", () => {
+    expect(() =>
+      defineTokenGraph({
+        modes: ["value", "dark"],
+        defaultMode: "value",
+        tokens: {
+          "app.background": {
+            value: "#ffffff",
+            dark: "#000000",
+          },
+        },
+      }),
+    ).toThrow("defineTokenGraph mode names cannot use token-definition keys: value.");
+  });
+
   test("parses to an owned canonical graph", () => {
     const graph = makeGraph();
     const parsed = unwrap(parseTokenGraph(graph));
@@ -288,6 +303,33 @@ describe("v1 sources", () => {
     expect(value.graph.tokens["app.action"]?.origin).toEqual({
       kind: "fragment",
       id: "application",
+    });
+  });
+
+  test("buildTokenSet accepts structural source metadata and preserves build receiver", () => {
+    const source = {
+      id: "brand",
+      primary: "#1455d9",
+      build(): Result<TokenGraphInput, Issue> {
+        return {
+          ok: true,
+          value: defineTokenGraph({
+            tokens: {
+              "brand.primary": this.primary,
+            },
+          }),
+        };
+      },
+    };
+
+    const built = unwrap(buildTokenSet({ source }));
+
+    expect(built.graph.tokens["brand.primary"]?.valueByMode.base).toEqual({
+      colorSpace: "srgb",
+      r: 0.0784313725490196,
+      g: 0.3333333333333333,
+      b: 0.8509803921568627,
+      alpha: 1,
     });
   });
 });

@@ -1,14 +1,25 @@
-// @ts-nocheck
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+interface PackageManifest {
+  readonly name: string;
+}
+
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const manifest = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8"));
+const manifest = JSON.parse(
+  readFileSync(join(repoRoot, "package.json"), "utf8"),
+) as PackageManifest;
 const readme = readFileSync(join(repoRoot, "README.md"), "utf8");
-const blocks = [...readme.matchAll(/```ts\n([\s\S]*?)```/g)].map((match) => match[1]);
+const blocks: string[] = [];
+for (const match of readme.matchAll(/```ts\n([\s\S]*?)```/g)) {
+  const block = match[1];
+  if (block !== undefined) {
+    blocks.push(block);
+  }
+}
 if (blocks.length === 0) {
   throw new Error("README contains no executable TypeScript examples");
 }
@@ -50,7 +61,7 @@ run(
   consumerDirectory,
 );
 
-function pack(destination) {
+function pack(destination: string): string {
   const output = runPnpm(["pack", "--pack-destination", destination], repoRoot)
     .trim()
     .split(/\r?\n/)
@@ -61,14 +72,14 @@ function pack(destination) {
   return join(destination, basename(output));
 }
 
-function runPnpm(args, cwd) {
+function runPnpm(args: readonly string[], cwd: string): string {
   const npmExecPath = process.env.npm_execpath;
   return npmExecPath === undefined
     ? run("pnpm", args, cwd)
     : run(process.execPath, [npmExecPath, ...args], cwd);
 }
 
-function run(command, args, cwd) {
+function run(command: string, args: readonly string[], cwd: string): string {
   return execFileSync(command, args, {
     cwd,
     encoding: "utf8",
@@ -76,6 +87,6 @@ function run(command, args, cwd) {
   });
 }
 
-function writeJson(path, value) {
+function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 }
