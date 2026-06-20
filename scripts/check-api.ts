@@ -25,9 +25,9 @@ assertEqual(
   [
     ".",
     "./package.json",
-    "./schemas/compiled-scheme.v1.schema.json",
-    "./schemas/token-graph.v1.schema.json",
-    "./schemas/token-layer.v1.schema.json",
+    "./schemas/color-token-graph.v1.schema.json",
+    "./schemas/color-token-layer.v1.schema.json",
+    "./schemas/compiled-color-scheme.v1.schema.json",
   ],
   "package exports",
 );

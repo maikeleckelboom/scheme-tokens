@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scheme-tokens.dev/schemas/token-layer.v1.schema.json",
+  "$id": "https://scheme-tokens.dev/schemas/color-token-layer.v1.schema.json",
   "title": "scheme-tokens color token layer v1",
   "type": "object",
   "additionalProperties": false,
@@ -16,13 +16,13 @@
       "const": 1
     },
     "id": {
-      "$ref": "token-graph.v1.schema.json#/$defs/segment"
+      "$ref": "color-token-graph.v1.schema.json#/$defs/segment"
     },
     "defaultVisibility": {
-      "$ref": "token-graph.v1.schema.json#/$defs/visibility"
+      "$ref": "color-token-graph.v1.schema.json#/$defs/visibility"
     },
     "tokens": {
-      "$ref": "token-graph.v1.schema.json#/$defs/tokenRecord"
+      "$ref": "color-token-graph.v1.schema.json#/$defs/tokenRecord"
     }
   }
 }

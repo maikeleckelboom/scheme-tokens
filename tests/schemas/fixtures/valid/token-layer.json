@@ -1,5 +1,5 @@
 {
-  "$schema": "https://scheme-tokens.dev/schemas/token-layer.v1.schema.json",
+  "$schema": "https://scheme-tokens.dev/schemas/color-token-layer.v1.schema.json",
   "kind": "scheme-tokens/color-token-layer",
   "formatVersion": 1,
   "id": "application",

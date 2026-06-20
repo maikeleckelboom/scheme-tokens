@@ -17,9 +17,11 @@ import {
 const schemaDirectory = join(process.cwd(), "schemas");
 const fixtureDirectory = join(process.cwd(), "tests", "schemas", "fixtures");
 
-const graphSchema = readJsonObject(join(schemaDirectory, "token-graph.v1.schema.json"));
-const layerSchema = readJsonObject(join(schemaDirectory, "token-layer.v1.schema.json"));
-const compiledSchema = readJsonObject(join(schemaDirectory, "compiled-scheme.v1.schema.json"));
+const graphSchema = readJsonObject(join(schemaDirectory, "color-token-graph.v1.schema.json"));
+const layerSchema = readJsonObject(join(schemaDirectory, "color-token-layer.v1.schema.json"));
+const compiledSchema = readJsonObject(
+  join(schemaDirectory, "compiled-color-scheme.v1.schema.json"),
+);
 
 const strictGraphFixtureFiles = [
   "single-mode-strict-graph.json",

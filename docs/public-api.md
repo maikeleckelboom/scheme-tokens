@@ -27,9 +27,9 @@ The root API is intentionally small and explicit.
 The package exports only:
 
 - `.`
-- `./schemas/token-graph.v1.schema.json`
-- `./schemas/token-layer.v1.schema.json`
-- `./schemas/compiled-scheme.v1.schema.json`
+- `./schemas/color-token-graph.v1.schema.json`
+- `./schemas/color-token-layer.v1.schema.json`
+- `./schemas/compiled-color-scheme.v1.schema.json`
 - `./package.json`
 
 There are no core conversion, Material, source adapter, or engine subpaths.

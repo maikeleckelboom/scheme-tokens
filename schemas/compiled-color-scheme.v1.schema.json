@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scheme-tokens.dev/schemas/compiled-scheme.v1.schema.json",
+  "$id": "https://scheme-tokens.dev/schemas/compiled-color-scheme.v1.schema.json",
   "title": "scheme-tokens compiled color scheme v1",
   "type": "object",
   "additionalProperties": false,
@@ -17,17 +17,17 @@
       "minItems": 1,
       "uniqueItems": true,
       "items": {
-        "$ref": "token-graph.v1.schema.json#/$defs/segment"
+        "$ref": "color-token-graph.v1.schema.json#/$defs/segment"
       }
     },
     "defaultMode": {
-      "$ref": "token-graph.v1.schema.json#/$defs/segment"
+      "$ref": "color-token-graph.v1.schema.json#/$defs/segment"
     },
     "tokens": {
       "type": "object",
       "minProperties": 1,
       "propertyNames": {
-        "$ref": "token-graph.v1.schema.json#/$defs/tokenKey"
+        "$ref": "color-token-graph.v1.schema.json#/$defs/tokenKey"
       },
       "additionalProperties": {
         "type": "object",
@@ -35,16 +35,16 @@
         "required": ["visibility", "valueByMode", "origin", "dependenciesByMode"],
         "properties": {
           "visibility": {
-            "$ref": "token-graph.v1.schema.json#/$defs/visibility"
+            "$ref": "color-token-graph.v1.schema.json#/$defs/visibility"
           },
           "valueByMode": {
             "type": "object",
             "minProperties": 1,
             "propertyNames": {
-              "$ref": "token-graph.v1.schema.json#/$defs/segment"
+              "$ref": "color-token-graph.v1.schema.json#/$defs/segment"
             },
             "additionalProperties": {
-              "$ref": "token-graph.v1.schema.json#/$defs/colorValue"
+              "$ref": "color-token-graph.v1.schema.json#/$defs/colorValue"
             }
           },
           "origin": {
@@ -68,7 +68,7 @@
                     "const": "layer"
                   },
                   "id": {
-                    "$ref": "token-graph.v1.schema.json#/$defs/segment"
+                    "$ref": "color-token-graph.v1.schema.json#/$defs/segment"
                   }
                 }
               },
@@ -81,10 +81,10 @@
                     "const": "source"
                   },
                   "id": {
-                    "$ref": "token-graph.v1.schema.json#/$defs/segment"
+                    "$ref": "color-token-graph.v1.schema.json#/$defs/segment"
                   },
                   "sourceToken": {
-                    "$ref": "token-graph.v1.schema.json#/$defs/tokenKey"
+                    "$ref": "color-token-graph.v1.schema.json#/$defs/tokenKey"
                   }
                 }
               }
@@ -94,13 +94,13 @@
             "type": "object",
             "minProperties": 1,
             "propertyNames": {
-              "$ref": "token-graph.v1.schema.json#/$defs/segment"
+              "$ref": "color-token-graph.v1.schema.json#/$defs/segment"
             },
             "additionalProperties": {
               "type": "array",
               "uniqueItems": true,
               "items": {
-                "$ref": "token-graph.v1.schema.json#/$defs/tokenKey"
+                "$ref": "color-token-graph.v1.schema.json#/$defs/tokenKey"
               }
             }
           },
@@ -119,7 +119,7 @@
             ]
           },
           "extensions": {
-            "$ref": "token-graph.v1.schema.json#/$defs/extensions"
+            "$ref": "color-token-graph.v1.schema.json#/$defs/extensions"
           }
         }
       }

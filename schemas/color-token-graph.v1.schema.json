@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json",
+  "$id": "https://scheme-tokens.dev/schemas/color-token-graph.v1.schema.json",
   "title": "scheme-tokens color token graph v1",
   "type": "object",
   "additionalProperties": false,
@@ -35,7 +35,7 @@
     "layers": {
       "type": "array",
       "items": {
-        "$ref": "token-layer.v1.schema.json"
+        "$ref": "color-token-layer.v1.schema.json"
       }
     }
   },

@@ -130,9 +130,9 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const expectedSchemas = new Map([
-  ["schemas/token-graph.v1.schema.json", "scheme-tokens color token graph v1"],
-  ["schemas/token-layer.v1.schema.json", "scheme-tokens color token layer v1"],
-  ["schemas/compiled-scheme.v1.schema.json", "scheme-tokens compiled color scheme v1"],
+  ["schemas/color-token-graph.v1.schema.json", "scheme-tokens color token graph v1"],
+  ["schemas/color-token-layer.v1.schema.json", "scheme-tokens color token layer v1"],
+  ["schemas/compiled-color-scheme.v1.schema.json", "scheme-tokens compiled color scheme v1"],
 ]);
 
 for (const [subpath, title] of expectedSchemas) {

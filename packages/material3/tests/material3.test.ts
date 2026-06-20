@@ -839,7 +839,7 @@ describe("material3", () => {
     );
     const ajv = createAjv();
     const validateGraph = ajv.getSchema(
-      "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json",
+      "https://scheme-tokens.dev/schemas/color-token-graph.v1.schema.json",
     );
     if (validateGraph === undefined) {
       throw new Error("Expected root token graph schema to be registered.");
@@ -930,9 +930,9 @@ function createAjv(): Ajv2020 {
   return new Ajv2020({
     allErrors: true,
     schemas: [
-      readRootSchema("token-graph.v1.schema.json"),
-      readRootSchema("token-layer.v1.schema.json"),
-      readRootSchema("compiled-scheme.v1.schema.json"),
+      readRootSchema("color-token-graph.v1.schema.json"),
+      readRootSchema("color-token-layer.v1.schema.json"),
+      readRootSchema("compiled-color-scheme.v1.schema.json"),
     ],
   });
 }
