@@ -4,23 +4,27 @@ The root API is intentionally small and explicit.
 
 ## Runtime Exports
 
+- `buildScheme`
+- `colorSpaces`
+- `colorTokenGraphKind`
+- `colorTokenLayerKind`
+- `compileTokenGraph`
+- `compiledColorSchemeKind`
+- `createSchemeBuilder`
+- `defineAliases`
 - `defineTokenGraph`
 - `defineTokenLayer`
 - `defineTokens`
+- `exportCssVars`
+- `formatCssColor`
+- `parseColor`
+- `parseCompiledScheme`
 - `parseTokenGraph`
 - `parseTokenLayer`
-- `parseCompiledScheme`
+- `serializeCompiledScheme`
 - `serializeTokenGraph`
 - `serializeTokenLayer`
 - `tokenRef`
-- `defineAliases`
-- `parseColor`
-- `compileTokenGraph`
-- `buildScheme`
-- `createSchemeBuilder`
-- `exportCssVars`
-- `serializeCompiledScheme`
-- `formatCssColor`
 
 ## Package Subpaths
 

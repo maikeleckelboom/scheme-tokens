@@ -289,7 +289,7 @@ function unwind(
   stack: readonly string[],
   mode: string,
   leaf: ResolvedNode,
-  leafKey: string,
+  _leafKey: string,
   memo: Map<string, ResolvedNode>,
 ): ResolvedNode {
   let current = leaf;

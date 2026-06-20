@@ -294,7 +294,7 @@ function copyJsonValueInternal<Code extends string>(
     return output;
   }
 
-  if (input !== null && typeof input === "object") {
+  if (typeof input === "object") {
     if (seen.has(input)) {
       collector.add({
         code,

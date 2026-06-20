@@ -423,7 +423,7 @@ function copyMaterial3InputValueInternal(input: unknown, seen: Set<object>): unk
     return Object.freeze(output);
   }
 
-  if (input !== null && typeof input === "object") {
+  if (typeof input === "object") {
     if (seen.has(input)) {
       return input;
     }

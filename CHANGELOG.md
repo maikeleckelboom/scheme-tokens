@@ -10,7 +10,7 @@
   `--background`.
 - Keep authoring helpers ergonomic with JSON-safe manual token graphs and token layers while preserving strict persisted
   input behavior.
-- Keep references explicit through `ref("token.key")` or `{ ref: "token.key" }`; bare strings remain color authoring
+- Keep references explicit through `tokenRef("token.key")` or `{ ref: "token.key" }`; bare strings remain color authoring
   input and never become references based on spelling.
 - Store persisted graph, layer, and compiled colors as structured `ColorValue` objects with `colorSpace`, `components`,
   `alpha`, and optional `hex`.

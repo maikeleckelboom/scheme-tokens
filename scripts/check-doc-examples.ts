@@ -24,18 +24,16 @@ const adapterManifest = JSON.parse(
   readFileSync(join(adapterRoot, "package.json"), "utf8"),
 ) as PackageManifest;
 const readme = readFileSync(join(repoRoot, "README.md"), "utf8");
+const adapterReadme = readFileSync(join(adapterRoot, "README.md"), "utf8");
 assertNoRemovedPublicNames();
 assertTailwindRecipe(readme);
 
-const blocks: string[] = [];
-for (const match of readme.matchAll(/```ts\n([\s\S]*?)```/g)) {
-  const block = match[1];
-  if (block !== undefined) {
-    blocks.push(block);
-  }
-}
+const blocks = extractTypeScriptExamples([
+  { label: "README.md", text: readme },
+  { label: "packages/material3/README.md", text: adapterReadme },
+]);
 if (blocks.length === 0) {
-  throw new Error("README contains no executable TypeScript examples");
+  throw new Error("Public READMEs contain no executable TypeScript examples");
 }
 
 const workspace = mkdtempSync(join(tmpdir(), "scheme-tokens-docs-"));
@@ -48,7 +46,7 @@ const dependencies: Record<string, string> = {
   [manifest.name]: `file:${tarball.replaceAll("\\", "/")}`,
 };
 
-if (blocks.some((block) => block.includes(adapterManifest.name))) {
+if (blocks.some((block) => block.code.includes(adapterManifest.name))) {
   const adapterTarball = pack(adapterRoot, packDirectory);
   dependencies[adapterManifest.name] = `file:${adapterTarball.replaceAll("\\", "/")}`;
 }
@@ -68,10 +66,10 @@ writeJson(join(consumerDirectory, "tsconfig.json"), {
     noEmit: true,
     types: [],
   },
-  include: ["example-*.ts"],
+  include: ["example-*.ts", "example-*.tsx"],
 });
 blocks.forEach((block, index) => {
-  writeFileSync(join(consumerDirectory, `example-${index}.ts`), block);
+  writeFileSync(join(consumerDirectory, `example-${index}.${block.extension}`), block.code);
 });
 
 runPnpm(["install", "--ignore-scripts"], consumerDirectory);
@@ -111,6 +109,47 @@ function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+interface MarkdownFile {
+  readonly label: string;
+  readonly text: string;
+}
+
+interface TypeScriptExample {
+  readonly code: string;
+  readonly extension: "ts" | "tsx";
+}
+
+function extractTypeScriptExamples(files: readonly MarkdownFile[]): readonly TypeScriptExample[] {
+  const examples: TypeScriptExample[] = [];
+  const supportedInfos = new Set(["ts", "typescript", "ts twoslash", "tsx", "tsx twoslash"]);
+
+  for (const file of files) {
+    for (const match of file.text.matchAll(/^```([^\r\n]*)\r?\n([\s\S]*?)^```/gm)) {
+      const info = normalizeFenceInfo(match[1] ?? "");
+      const code = match[2];
+      if (code === undefined || info === "") {
+        continue;
+      }
+      if (supportedInfos.has(info)) {
+        examples.push({
+          code,
+          extension: info.startsWith("tsx") ? "tsx" : "ts",
+        });
+        continue;
+      }
+      if (/^(ts|tsx|typescript)\b/.test(info)) {
+        throw new Error(`Unsupported TypeScript fence info "${match[1]}" in ${file.label}`);
+      }
+    }
+  }
+
+  return examples;
+}
+
+function normalizeFenceInfo(info: string): string {
+  return info.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
 function assertNoRemovedPublicNames(): void {
   const removedRootPackageName = `color-${"scheme"}-tokens`;
   const removedAdapterScope = `@color-${"scheme"}-tokens`;
@@ -125,28 +164,54 @@ function assertNoRemovedPublicNames(): void {
     `compiled-${"token"}-${"set"}`,
     `exportCss${"Variables"}`,
     `exportCss${"Variable"}Blocks`,
+    `exportCss${"Var"}Blocks`,
+    `serialize${"Scheme"}`,
+    `material3${"Source"}`,
+    `source${"Color"}`,
   ] as const;
   const denied = [
     removedRootPackageName,
     removedAdapterScope,
     ...removedWholeArtifactNames,
+    `@scheme-tokens/source-material3`,
+    `@scheme-tokens/format-dtcg`,
+    `@scheme-tokens/conversion-texel`,
+    `@scheme-tokens/target-shadcn`,
   ] as const;
   const publicFiles = [
     join(repoRoot, "package.json"),
     join(adapterRoot, "package.json"),
     join(repoRoot, "README.md"),
     join(adapterRoot, "README.md"),
+    join(repoRoot, "CHANGELOG.md"),
+    join(repoRoot, "AGENTS.md"),
     ...listFiles(join(repoRoot, "docs")),
   ];
 
   for (const file of publicFiles) {
     const text = readFileSync(file, "utf8");
     for (const name of denied) {
-      if (text.includes(name)) {
-        throw new Error(`Public docs or package metadata contain a removed name in ${file}`);
+      if (containsExactName(text, name)) {
+        throw new Error(
+          `Public docs or package metadata contain a removed name "${name}" in ${file}`,
+        );
       }
     }
+    if (/\bref\s*\(/.test(text)) {
+      throw new Error(`Public docs must use tokenRef(...) instead of ref(...) in ${file}`);
+    }
   }
+}
+
+function containsExactName(text: string, name: string): boolean {
+  if (name.startsWith("@")) {
+    return text.includes(name);
+  }
+  return new RegExp(`(?<![A-Za-z0-9_$-])${escapeRegExp(name)}(?![A-Za-z0-9_$-])`).test(text);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function assertTailwindRecipe(readmeText: string): void {

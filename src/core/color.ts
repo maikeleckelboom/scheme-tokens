@@ -73,7 +73,7 @@ const nonNegativeComponentIndexes = new Map<ColorSpace, readonly number[]>([
   ["oklch", [1]],
 ]);
 const hexPattern = /^#(?:[0-9a-f]{6}|[0-9a-f]{8})$/i;
-const cssNumberPattern = /^[+-]?(?:(?:\d+\.\d*)|(?:\.\d+)|(?:\d+))(?:[eE][+-]?\d+)?$/u;
+const cssNumberPattern = /^[+-]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?$/u;
 
 export function parseColor(input: unknown): Result<ColorValue, ParseColorIssue> {
   return parseColorAt(input);

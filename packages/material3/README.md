@@ -303,7 +303,12 @@ if (!built.ok) {
   throw new Error(JSON.stringify(built.issues, null, 2));
 }
 
-const css = exportCssVars(built.value);
+const exported = exportCssVars(built.value);
+if (!exported.ok) {
+  throw new Error(JSON.stringify(exported.issues, null, 2));
+}
+
+console.log(exported.value.css);
 ```
 
 ## Compatibility

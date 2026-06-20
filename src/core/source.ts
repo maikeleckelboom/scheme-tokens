@@ -1,4 +1,4 @@
-import type { CompileTokenGraphIssue, CompiledColorScheme, TokenSelection } from "./compiled-types";
+import type { CompiledColorScheme, CompileTokenGraphIssue, TokenSelection } from "./compiled-types";
 import { compileParsedTokenGraph, parseCompileSelection } from "./compile-token-graph";
 import type {
   ColorTokenGraphInput,
@@ -277,7 +277,7 @@ function copyPreparedValue(input: unknown, seen: Set<object>): unknown {
     return Object.freeze(output);
   }
 
-  if (input !== null && typeof input === "object") {
+  if (typeof input === "object") {
     if (seen.has(input)) {
       return input;
     }
@@ -810,8 +810,7 @@ function callSource<I extends Issue>(
     };
   }
 
-  const checked = validateSourceResult<I>(result, source.id, sourceIndex);
-  return checked;
+  return validateSourceResult<I>(result, source.id, sourceIndex);
 }
 
 function validateSourceResult<I extends Issue>(
