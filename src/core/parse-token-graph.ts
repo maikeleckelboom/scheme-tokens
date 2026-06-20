@@ -26,6 +26,7 @@ interface ParseContext {
   readonly callerFragmentIds?: ReadonlySet<string>;
   readonly tokenSourceIds?: ReadonlyMap<string, string>;
   readonly fragmentSourceIds?: ReadonlyMap<string, string>;
+  readonly skipReferenceValidation?: boolean;
 }
 
 interface ParsedToken {
@@ -164,8 +165,10 @@ export function parseTokenGraphInternal(
   const tokenMap = new Map(
     declarations.map((declaration) => [declaration.key, declaration.token] as const),
   );
-  validateReferences(tokenMap, validModes, collector);
-  validateCycles(tokenMap, validModes, collector);
+  if (context.skipReferenceValidation !== true) {
+    validateReferences(tokenMap, validModes, collector);
+    validateCycles(tokenMap, validModes, collector);
+  }
 
   const issues = collector.issues();
   if (issues !== undefined) {

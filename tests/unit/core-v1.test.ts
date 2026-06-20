@@ -23,6 +23,40 @@ function unwrap<Value>(result: Result<Value, Issue>): Value {
   return result.value;
 }
 
+function fixedSource(id: string, graph: unknown): TokenSource {
+  return {
+    id,
+    build(): Result<TokenGraphInput, Issue> {
+      return { ok: true, value: graph as TokenGraphInput };
+    },
+  };
+}
+
+function strictSourceGraph(
+  tokenKey: string,
+  overrides: Readonly<Record<string, unknown>> = {},
+): Record<string, unknown> {
+  return {
+    formatVersion: 1,
+    modes: ["base"],
+    defaultMode: "base",
+    defaultVisibility: "public",
+    tokens: {
+      [tokenKey]: { value: "#ffffff" },
+    },
+    ...overrides,
+  };
+}
+
+function withoutProperty(
+  input: Readonly<Record<string, unknown>>,
+  key: string,
+): Record<string, unknown> {
+  const copy = { ...input };
+  delete copy[key];
+  return copy;
+}
+
 describe("v1 color parsing and formatting", () => {
   test("parses concrete strings and preserves precision", () => {
     expect(parseColor("#fff8")).toEqual({
@@ -370,9 +404,224 @@ describe("v1 sources", () => {
       kind: "source",
       id: "semantic",
     });
+    expect(value.graph.tokens["palette.primary"]?.visibility).toBe("internal");
+    expect(value.graph.tokens["semantic.action"]?.visibility).toBe("public");
     expect(value.tokenSet.tokens["semantic.action"]?.dependenciesByMode.base).toEqual([
       "palette.primary",
     ]);
+  });
+
+  test("buildTokenSet validates every source graph strict envelope before composition", () => {
+    const valid = fixedSource("valid", strictSourceGraph("valid.token"));
+    const invalidModes = strictSourceGraph("bad.modes", { modes: "base" });
+    const missingModes = withoutProperty(strictSourceGraph("bad.missing-modes"), "modes");
+    const invalidDefaultMode = strictSourceGraph("bad.default-mode", {
+      defaultMode: "missing",
+    });
+    const missingDefaultMode = withoutProperty(
+      strictSourceGraph("bad.missing-default-mode"),
+      "defaultMode",
+    );
+    const invalidDefaultVisibility = strictSourceGraph("bad.default-visibility", {
+      defaultVisibility: "hidden",
+    });
+    const missingDefaultVisibility = withoutProperty(
+      strictSourceGraph("bad.missing-default-visibility"),
+      "defaultVisibility",
+    );
+    const invalidTokens = strictSourceGraph("bad.tokens", { tokens: [] });
+    const missingTokens = withoutProperty(strictSourceGraph("bad.missing-tokens"), "tokens");
+    const invalidFragments = strictSourceGraph("bad.fragments", { fragments: {} });
+
+    const scenarios = [
+      {
+        graph: strictSourceGraph("bad.format-version", { formatVersion: 2 }),
+        issue: { code: "invalid-format-version", path: "/sources/1/formatVersion" },
+      },
+      {
+        graph: withoutProperty(strictSourceGraph("bad.missing-format-version"), "formatVersion"),
+        issue: { code: "missing-property", path: "/sources/1/formatVersion" },
+      },
+      {
+        graph: invalidModes,
+        issue: { code: "invalid-mode-key", path: "/sources/1/modes" },
+      },
+      {
+        graph: missingModes,
+        issue: { code: "missing-property", path: "/sources/1/modes" },
+      },
+      {
+        graph: invalidDefaultMode,
+        issue: { code: "default-mode-not-found", path: "/sources/1/defaultMode" },
+      },
+      {
+        graph: missingDefaultMode,
+        issue: { code: "missing-property", path: "/sources/1/defaultMode" },
+      },
+      {
+        graph: invalidDefaultVisibility,
+        issue: { code: "invalid-default-visibility", path: "/sources/1/defaultVisibility" },
+      },
+      {
+        graph: missingDefaultVisibility,
+        issue: { code: "invalid-default-visibility", path: "/sources/1/defaultVisibility" },
+      },
+      {
+        graph: invalidTokens,
+        issue: { code: "invalid-object", path: "/sources/1/tokens" },
+      },
+      {
+        graph: missingTokens,
+        issue: { code: "missing-property", path: "/sources/1/tokens" },
+      },
+      {
+        graph: strictSourceGraph("bad.unknown", { unexpected: true }),
+        issue: { code: "unknown-property", path: "/sources/1/unexpected" },
+      },
+      {
+        graph: invalidFragments,
+        issue: { code: "invalid-object", path: "/sources/1/fragments" },
+      },
+    ] as const;
+
+    for (const scenario of scenarios) {
+      expect(buildTokenSet({ sources: [valid, fixedSource("bad", scenario.graph)] })).toMatchObject(
+        {
+          ok: false,
+          issues: [scenario.issue],
+        },
+      );
+    }
+  });
+
+  test("buildTokenSet compares source modes by canonical semantics", () => {
+    const first = fixedSource("first", {
+      formatVersion: 1,
+      modes: ["dark", "light"],
+      defaultMode: "light",
+      defaultVisibility: "public",
+      tokens: {
+        "first.token": {
+          valueByMode: {
+            light: "#ffffff",
+            dark: "#000000",
+          },
+        },
+      },
+    });
+    const second = fixedSource("second", {
+      formatVersion: 1,
+      modes: ["light", "dark"],
+      defaultMode: "light",
+      defaultVisibility: "public",
+      tokens: {
+        "second.token": {
+          valueByMode: {
+            light: { ref: "first.token" },
+            dark: { ref: "first.token" },
+          },
+        },
+      },
+    });
+
+    const value = unwrap(buildTokenSet({ sources: [first, second] }));
+
+    expect(value.graph.modes).toEqual(["light", "dark"]);
+    expect(Object.keys(value.tokenSet.tokens)).toEqual(["first.token", "second.token"]);
+    expect(value.tokenSet.tokens["second.token"]?.dependenciesByMode.light).toEqual([
+      "first.token",
+    ]);
+  });
+
+  test("buildTokenSet rejects incompatible source mode sets and default modes", () => {
+    const first = fixedSource("first", {
+      formatVersion: 1,
+      modes: ["light", "dark"],
+      defaultMode: "light",
+      defaultVisibility: "public",
+      tokens: {
+        "first.token": {
+          valueByMode: {
+            light: "#ffffff",
+            dark: "#000000",
+          },
+        },
+      },
+    });
+    const differentModeSet = fixedSource("second", {
+      formatVersion: 1,
+      modes: ["light", "dim"],
+      defaultMode: "light",
+      defaultVisibility: "public",
+      tokens: {
+        "second.token": {
+          valueByMode: {
+            light: "#ffffff",
+            dim: "#eeeeee",
+          },
+        },
+      },
+    });
+    const differentDefaultMode = fixedSource("third", {
+      formatVersion: 1,
+      modes: ["dark", "light"],
+      defaultMode: "dark",
+      defaultVisibility: "public",
+      tokens: {
+        "third.token": {
+          valueByMode: {
+            light: "#ffffff",
+            dark: "#000000",
+          },
+        },
+      },
+    });
+
+    expect(buildTokenSet({ sources: [first, differentModeSet] })).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-source-result", path: "/sources/1/modes" }],
+    });
+    expect(buildTokenSet({ sources: [first, differentDefaultMode] })).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-source-result", path: "/sources/1/defaultMode" }],
+    });
+  });
+
+  test("buildTokenSet preserves source-local defaultVisibility and explicit visibility", () => {
+    const palette = fixedSource("palette", {
+      formatVersion: 1,
+      modes: ["base"],
+      defaultMode: "base",
+      defaultVisibility: "internal",
+      tokens: {
+        "palette.primary": { value: "#1455d9" },
+      },
+    });
+    const semantic = fixedSource("semantic", {
+      formatVersion: 1,
+      modes: ["base"],
+      defaultMode: "base",
+      defaultVisibility: "public",
+      tokens: {
+        "semantic.action": { value: { ref: "palette.primary" } },
+        "semantic.hidden": { visibility: "internal", value: "#000000" },
+      },
+    });
+
+    const value = unwrap(buildTokenSet({ sources: [palette, semantic] }));
+
+    expect(value.graph.tokens["palette.primary"]?.visibility).toBe("internal");
+    expect(value.graph.tokens["semantic.action"]?.visibility).toBe("public");
+    expect(value.graph.tokens["semantic.hidden"]?.visibility).toBe("internal");
+    expect(value.graph.tokens["palette.primary"]?.origin).toEqual({
+      kind: "source",
+      id: "palette",
+    });
+    expect(value.graph.tokens["semantic.action"]?.origin).toEqual({
+      kind: "source",
+      id: "semantic",
+    });
+    expect(Object.keys(value.tokenSet.tokens)).toEqual(["semantic.action"]);
   });
 
   test("buildTokenSet composes caller fragments after all sources", () => {

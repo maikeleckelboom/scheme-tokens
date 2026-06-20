@@ -53,11 +53,13 @@ const application = defineTokenFragment({
 });
 
 const built = buildTokenSet({
-  sources: [material3Source({
-    sourceColor: "#6750a4",
-    defaultVisibility: "internal",
-    extendedColors: [{ name: "success", color: "#2e7d32" }],
-  })],
+  sources: [
+    material3Source({
+      sourceColor: "#6750a4",
+      defaultVisibility: "internal",
+      extendedColors: [{ name: "success", color: "#2e7d32" }],
+    }),
+  ],
   fragments: [application],
 });
 

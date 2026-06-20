@@ -1,6 +1,12 @@
 import type { CompileTokenGraphIssue, CompiledTokenSet, TokenSelection } from "./compiled-types";
 import { compileParsedTokenGraph, parseCompileSelection } from "./compile-token-graph";
-import type { TokenFragmentInput, TokenGraph, TokenGraphInput, TokenGraphIssue } from "./graph";
+import type {
+  TokenFragmentInput,
+  TokenGraph,
+  TokenGraphInput,
+  TokenGraphIssue,
+  TokenVisibility,
+} from "./graph";
 import { isSingleSegmentIdentifier } from "./identifiers";
 import { defineRecordValue, escapePointerSegment, isJsonSafeIssue, readPlainRecord } from "./json";
 import { parseTokenGraphInternal } from "./parse-token-graph";
@@ -401,19 +407,24 @@ function composeSourceGraphs(
   sources: NonEmptyReadonlyArray<BuiltSourceGraph>,
   fragments: readonly TokenFragmentInput[] | undefined,
 ): Result<ComposedSourceGraphs, BuildTokenSetIssue> {
-  const first = readSourceGraph(sources[0]);
-  if (!first.ok) {
-    return first;
+  const sourceGraphs: SourceGraphParts[] = [];
+  for (const source of sources) {
+    const sourceGraph = validateSourceGraph(source);
+    if (!sourceGraph.ok) {
+      return sourceGraph;
+    }
+    sourceGraphs.push(sourceGraph.value);
   }
+  const first = sourceGraphs[0] as SourceGraphParts;
 
   const output: Record<string, unknown> = {};
-  if (first.value.schema !== undefined) {
-    defineRecordValue(output, "$schema", first.value.schema);
+  if (first.schema !== undefined) {
+    defineRecordValue(output, "$schema", first.schema);
   }
-  defineRecordValue(output, "formatVersion", first.value.formatVersion);
-  defineRecordValue(output, "modes", first.value.modes);
-  defineRecordValue(output, "defaultMode", first.value.defaultMode);
-  defineRecordValue(output, "defaultVisibility", first.value.defaultVisibility);
+  defineRecordValue(output, "formatVersion", first.formatVersion);
+  defineRecordValue(output, "modes", first.modes);
+  defineRecordValue(output, "defaultMode", first.defaultMode);
+  defineRecordValue(output, "defaultVisibility", first.defaultVisibility);
 
   const tokens: Record<string, unknown> = {};
   const tokenSourceIds = new Map<string, string>();
@@ -421,31 +432,22 @@ function composeSourceGraphs(
   const firstTokenPaths = new Map<string, string>();
   const composedFragments: unknown[] = [];
 
-  for (const source of sources) {
-    const sourceGraph = readSourceGraph(source);
-    if (!sourceGraph.ok) {
-      return sourceGraph;
-    }
-    const modeMatch = validateSourceModes(first.value, sourceGraph.value);
+  for (const sourceGraph of sourceGraphs) {
+    const modeMatch = validateSourceModes(first, sourceGraph);
     if (!modeMatch.ok) {
       return modeMatch;
     }
 
-    const addedTokens = appendSourceTokens(
-      tokens,
-      tokenSourceIds,
-      firstTokenPaths,
-      sourceGraph.value,
-    );
+    const addedTokens = appendSourceTokens(tokens, tokenSourceIds, firstTokenPaths, sourceGraph);
     if (!addedTokens.ok) {
       return addedTokens;
     }
 
-    if (sourceGraph.value.fragments !== undefined) {
-      for (const fragment of sourceGraph.value.fragments) {
+    if (sourceGraph.fragments !== undefined) {
+      for (const fragment of sourceGraph.fragments) {
         const fragmentId = readFragmentId(fragment);
         if (fragmentId !== undefined && !fragmentSourceIds.has(fragmentId)) {
-          fragmentSourceIds.set(fragmentId, sourceGraph.value.sourceId);
+          fragmentSourceIds.set(fragmentId, sourceGraph.sourceId);
         }
         composedFragments.push(fragment);
       }
@@ -470,19 +472,53 @@ function composeSourceGraphs(
   };
 }
 
-interface SourceGraphParts {
+interface RawSourceGraphParts {
   readonly sourceId: string;
   readonly sourceIndex: number;
   readonly schema?: unknown;
-  readonly formatVersion: unknown;
-  readonly modes: unknown;
-  readonly defaultMode: unknown;
   readonly defaultVisibility: unknown;
   readonly tokens: unknown;
   readonly fragments?: readonly unknown[];
 }
 
-function readSourceGraph(source: BuiltSourceGraph): Result<SourceGraphParts, BuildTokenSetIssue> {
+interface SourceGraphParts extends RawSourceGraphParts {
+  readonly formatVersion: 1;
+  readonly modes: readonly [string, ...string[]];
+  readonly defaultMode: string;
+  readonly defaultVisibility: TokenVisibility;
+}
+
+function validateSourceGraph(
+  source: BuiltSourceGraph,
+): Result<SourceGraphParts, BuildTokenSetIssue> {
+  const parsed = parseTokenGraphInternal(source.graph, { skipReferenceValidation: true });
+  if (!parsed.ok) {
+    return {
+      ok: false,
+      issues: prefixSourceGraphIssues(parsed.issues, source),
+    };
+  }
+
+  const parts = readSourceGraph(source);
+  if (!parts.ok) {
+    return parts;
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...parts.value,
+      formatVersion: 1,
+      modes: parsed.value.modes,
+      defaultMode: parsed.value.defaultMode,
+      defaultVisibility: parts.value.defaultVisibility as TokenVisibility,
+    },
+  };
+}
+
+function readSourceGraph(
+  source: BuiltSourceGraph,
+): Result<RawSourceGraphParts, BuildTokenSetIssue> {
   const sourcePath = `/sources/${source.sourceIndex}`;
   const entries = readPlainRecord(source.graph, {
     code: "invalid-source-result",
@@ -515,13 +551,32 @@ function readSourceGraph(source: BuiltSourceGraph): Result<SourceGraphParts, Bui
       sourceId: source.source.id,
       sourceIndex: source.sourceIndex,
       ...(record.has("$schema") ? { schema: record.get("$schema") } : {}),
-      formatVersion: record.get("formatVersion"),
-      modes: record.get("modes"),
-      defaultMode: record.get("defaultMode"),
       defaultVisibility: record.get("defaultVisibility"),
       tokens: record.get("tokens"),
       ...(fragments === undefined ? {} : { fragments }),
     },
+  };
+}
+
+function prefixSourceGraphIssues(
+  issues: readonly [TokenGraphIssue, ...TokenGraphIssue[]],
+  source: BuiltSourceGraph,
+): readonly [BuildTokenSetIssue, ...BuildTokenSetIssue[]] {
+  const [first, ...rest] = issues;
+  return [
+    prefixSourceGraphIssue(first, source),
+    ...rest.map((issue) => prefixSourceGraphIssue(issue, source)),
+  ];
+}
+
+function prefixSourceGraphIssue(
+  issue: TokenGraphIssue,
+  source: BuiltSourceGraph,
+): BuildTokenSetIssue {
+  const path = issue.path ?? "";
+  return {
+    ...issue,
+    path: path === "" ? `/sources/${source.sourceIndex}` : `/sources/${source.sourceIndex}${path}`,
   };
 }
 
@@ -564,10 +619,14 @@ function validateSourceModes(
 }
 
 function sameModes(left: unknown, right: unknown): boolean {
-  if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+  if (!Array.isArray(left) || !Array.isArray(right)) {
     return false;
   }
-  return left.every((mode, index) => mode === right[index]);
+  if (left.length !== right.length) {
+    return false;
+  }
+  const rightModes = new Set(right);
+  return left.every((mode) => rightModes.has(mode));
 }
 
 function appendSourceTokens(
