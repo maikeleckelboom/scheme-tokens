@@ -1,7 +1,7 @@
 # Architecture
 
-`color-scheme-tokens` is a dependency-light color-token graph core. The graph is the system of record; source adapters
-feed it, validation and compilation resolve it, and exporters project compiled sets.
+`color-scheme-tokens` is a dependency-light color-token graph core. The graph is the system of record; manual authoring
+helpers and future source adapters feed it, validation and compilation resolve it, and exporters project compiled sets.
 
 ## Core Ownership
 
@@ -19,23 +19,26 @@ The root package owns:
 The root package does not own Material 3, Texel, image extraction, browser canvas behavior, CSS parser engines,
 color-conversion engines, or any other optional capability engine.
 
-## Pipeline
+## Data Shapes
 
 ```text
-authoring helper or adapter source
-  -> strict token graph input
+helper input or strict graph input
   -> parse and validate
   -> compile selected tokens
-  -> serialize or export CSS
+  -> serialize compiled JSON or export CSS
 ```
 
-`defineTokenGraph()` and `defineTokenFragment()` are authoring helpers. They may fill safe defaults and normalize
-shorthands, but `parseTokenGraph()` remains the strict boundary for persisted wire-format data.
+`defineTokenGraph()` and `defineTokenFragment()` are authoring helpers for ordinary package use. They may fill safe
+defaults and normalize JSON-safe shorthand. `parseTokenGraph()` remains the strict boundary for persisted wire-format
+data.
+
+Compiled token sets are output artifacts. They contain resolved colors, selected tokens, origin metadata, and direct
+dependencies. Exporters consume compiled token sets only.
 
 ## Compilation
 
 Compilation validates first, then resolves selected tokens. The default selection is `public`; exact key selection and
-`all` selection are explicit options.
+`all` selection are explicit options. Public tokens may depend on internal tokens.
 
 Compiled tokens store direct dependencies by mode. Full transitive analysis is intentionally not stored in every compiled
 token; it can be added later as an on-demand analyzer without bloating the default compiled artifact.
@@ -47,6 +50,14 @@ sets.
 
 The CSS exporter is dependency-free and uses a conservative selector validator. It supports the generated root,
 data-attribute, class, and simple exact-selector workflows without making a CSS parser part of the core dependency graph.
+
+## Sources
+
+`buildTokenSet()` runs a `TokenSource`, composes caller fragments, validates the returned strict graph input, and compiles
+the selected token set. This is the core integration point for future adapter packages.
+
+Adapter packages may depend on engines. Core exposes the interface but does not provide Material 3, Texel, conversion, or
+image-backed behavior.
 
 ## Determinism
 

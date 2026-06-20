@@ -1,6 +1,7 @@
 # Color Policy
 
-Core color values are concrete authored color data, not computed colors.
+Core color values are concrete authored color data, not computed colors. Manual custom colors are a primary root-package
+use case.
 
 ## Supported Core Spaces
 
@@ -19,5 +20,5 @@ including extended sRGB or Display-P3 coordinates. Core does not convert between
 - other sRGB and Display-P3 values serialize with `color(...)`;
 - OKLCH values serialize with `oklch(...)`.
 
-Any conversion, gamut mapping, perceptual difference, contrast repair, or dynamic palette generation belongs in an
-adapter package or future optional package.
+Any conversion, gamut mapping, perceptual difference, contrast repair, or dynamic palette generation belongs in a future
+adapter or optional package.

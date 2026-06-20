@@ -1,6 +1,6 @@
 # Public API
 
-The root API is intentionally small.
+The root API is intentionally small and explicit.
 
 ## Runtime Exports
 
@@ -24,13 +24,26 @@ The package exports only:
 - `./schemas/compiled-token-set.v1.schema.json`
 - `./package.json`
 
-There are no core conversion or Material subpaths.
+There are no core conversion, Material, source adapter, or engine subpaths.
+
+## Ordinary Flow
+
+For manual custom colors:
+
+1. Use `defineTokenGraph()` to author a graph.
+2. Use `compileTokenGraph()` to validate and resolve the selected tokens.
+3. Use `exportCssVariables()` for CSS or `serializeTokenSet()` for deterministic compiled JSON.
+
+`compileTokenGraph()` defaults to `selection: "public"`. The CSS exporter emits variables for the compiled token set it
+receives; it does not apply visibility filtering itself.
 
 ## Authoring Helpers
 
 `defineTokenGraph()` and `defineTokenFragment()` are ergonomic authoring helpers. They default `formatVersion` to `1` and
-`defaultVisibility` to `public`. `defineTokenGraph()` also supports single-mode shorthand by defaulting to one `base`
-mode when `modes` is omitted.
+`defaultVisibility` to `public`. `defineTokenGraph()` also defaults to one `base` mode when `modes` is omitted.
+
+`base` is the single ordinary mode for simple graphs. It is not a generated scheme, Material role set, or hidden
+light/dark decision.
 
 Token shorthands are normalized by the helpers:
 
@@ -39,12 +52,27 @@ Token shorthands are normalized by the helpers:
 - mode records such as `{ light: "#fff", dark: "#000" }` become `valueByMode` when modes are declared.
 
 Declared mode names must not be token-definition keys such as `value`, `valueByMode`, `visibility`, `description`,
-`deprecated`, or `extensions`. Those names are reserved so helper shorthand detection does not silently reinterpret
-token definitions.
+`deprecated`, or `extensions`. Those names are reserved so helper shorthand detection does not silently reinterpret token
+definitions.
 
-Strict parsing still requires the explicit wire-format shape.
+## Strict Wire Format
+
+`parseTokenGraph()` accepts strict persisted graph input. Strict graph input spells out `formatVersion`, `modes`,
+`defaultMode`, `defaultVisibility`, and token definitions with `value` or `valueByMode`.
+
+Helper-only shorthand is intentionally not part of the strict wire format. Use `defineTokenGraph()` at authoring
+boundaries and `parseTokenGraph()` at persistence or untrusted-input boundaries.
+
+## Compiled Token Sets
+
+`compileTokenGraph()` returns a compiled token set with resolved colors, modes, token visibility, origin metadata, and
+direct dependency metadata. `serializeTokenSet()` serializes this compiled output in deterministic order.
 
 ## Adapter Sources
 
 `TokenSource` is structural. Core accepts a safe source object with a valid string `id` and callable `build`, permits
 extra adapter metadata, and invokes `build()` with the original source object as `this`.
+
+`buildTokenSet()` is the adapter runner. It calls a source, composes caller fragments, validates the returned graph, and
+compiles the selected tokens. Adapter packages are future scope; the root package does not implement Material 3, Texel,
+conversion, image, or CSS parser engines.

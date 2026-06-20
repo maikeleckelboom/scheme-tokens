@@ -2,9 +2,9 @@
 
 Dependency-light color token graphs for TypeScript and JavaScript applications.
 
-The root package owns JSON-safe authoring input, strict graph parsing, validation, compilation, deterministic
-serialization, CSS custom-property export, `Result` / `Issue` contracts, and adapter interfaces. It does not load or
-depend on Material 3, Texel, image extraction, browser canvas, CSS parser engines, or color-conversion engines.
+The primary core workflow is simple: define a few concrete custom colors, compile the graph, and export CSS custom
+properties. Material 3, Texel, image extraction, browser canvas, CSS parser engines, and color-conversion engines are not
+part of the root package and are not required for manual custom colors.
 
 This repository is still private at version `0.0.0` while the first public contract is being finalized.
 
@@ -15,9 +15,9 @@ import { compileTokenGraph, defineTokenGraph, exportCssVariables } from "color-s
 
 const graph = defineTokenGraph({
   tokens: {
-    "app.background": "#ffffff",
-    "app.text": "#111111",
-    "app.action": "#6750a4",
+    "brand.primary": "#6750a4",
+    "brand.on-primary": "#ffffff",
+    "surface.canvas": "#ffffff",
   },
 });
 
@@ -26,7 +26,7 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const css = exportCssVariables(compiled.value, { variablePrefix: "theme" });
+const css = exportCssVariables(compiled.value, { variablePrefix: "color" });
 if (!css.ok) {
   throw new Error(JSON.stringify(css.issues, null, 2));
 }
@@ -34,17 +34,40 @@ if (!css.ok) {
 console.log(css.value);
 ```
 
-`defineTokenGraph()` defaults `formatVersion` to `1`, creates a single `base` mode when modes are omitted, and defaults
-directly authored tokens to `public`. The parser remains strict: persisted wire-format graphs still spell out
-`formatVersion`, `modes`, `defaultMode`, `defaultVisibility`, and `tokens`.
+With no `modes` field, `defineTokenGraph()` creates one mode named `base`. In a single-mode graph, `base` means "the one
+ordinary value for this token." It is not a Material role, generated palette, light mode, or dark mode.
 
-Mode names in `defineTokenGraph()` must not use token-definition keys such as `value`, `valueByMode`, `visibility`, or
-`description`; those keys are reserved so shorthand detection stays unambiguous.
+The default CSS export uses `:root` for the default mode, so the graph above emits one block of variables. Directly
+authored tokens default to `public`, and compilation defaults to `selection: "public"`.
 
-## Multi-Mode Graphs
+## Serialize the Compiled Set
 
 ```ts
 import { compileTokenGraph, defineTokenGraph, serializeTokenSet } from "color-scheme-tokens";
+
+const graph = defineTokenGraph({
+  tokens: {
+    "brand.primary": "#6750a4",
+    "surface.canvas": "#ffffff",
+  },
+});
+
+const compiled = compileTokenGraph(graph);
+if (!compiled.ok) {
+  throw new Error(JSON.stringify(compiled.issues, null, 2));
+}
+
+const json = serializeTokenSet(compiled.value);
+console.log(json);
+```
+
+`serializeTokenSet()` serializes the compiled output, not the authoring input. The output is deterministic and includes
+resolved colors, modes, token visibility, origin metadata, and direct dependency metadata.
+
+## Light and Dark Values
+
+```ts
+import { compileTokenGraph, defineTokenGraph, exportCssVariables } from "color-scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
@@ -55,9 +78,17 @@ const graph = defineTokenGraph({
       light: "#6750a4",
       dark: "#d0bcff",
     },
-    "app.action": {
+    "brand.on-primary": {
+      light: "#ffffff",
+      dark: "#381e72",
+    },
+    "button.background": {
       visibility: "public",
       value: { ref: "brand.primary" },
+    },
+    "button.foreground": {
+      visibility: "public",
+      value: { ref: "brand.on-primary" },
     },
   },
 });
@@ -67,13 +98,66 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-console.log(serializeTokenSet(compiled.value));
+const css = exportCssVariables(compiled.value, { variablePrefix: "color" });
+if (!css.ok) {
+  throw new Error(JSON.stringify(css.issues, null, 2));
+}
+
+console.log(css.value);
 ```
 
-Compilation defaults to `selection: "public"`. Public tokens may reference internal tokens; compiled dependency metadata
-records direct dependencies by mode without expanding large transitive lists.
+`defaultVisibility: "internal"` keeps source tokens out of the ordinary compiled set unless a token opts into
+`visibility: "public"`. Public tokens may reference internal tokens. The compiler resolves those references, so the CSS
+exporter receives only the selected compiled tokens and writes variables for that set.
 
-## Adapter Interfaces
+To export every token, compile with `compileTokenGraph(graph, { selection: "all" })`. To export a named subset, compile
+with `compileTokenGraph(graph, { selection: { keys: ["button.background"] } })`.
+
+The default CSS selectors are `:root` for the default mode and `:root[data-color-scheme="dark"]` for the dark mode. You
+can pass `scope` and `modeSelectors` when your app uses classes or exact selectors instead.
+
+## Helper Input and Strict Input
+
+`defineTokenGraph()` is an ergonomic authoring helper. It accepts JSON-safe shorthand:
+
+- a color string such as `"#6750a4"`;
+- a reference such as `{ ref: "brand.primary" }`;
+- mode records such as `{ light: "#fff", dark: "#000" }` when modes are declared.
+
+The helper fills safe defaults and returns strict graph input. `parseTokenGraph()` is the persisted wire-format boundary
+and stays explicit.
+
+```ts
+import { parseTokenGraph } from "color-scheme-tokens";
+
+const strictGraph = {
+  formatVersion: 1,
+  modes: ["base"],
+  defaultMode: "base",
+  defaultVisibility: "public",
+  tokens: {
+    "brand.primary": { value: "#6750a4" },
+    "surface.canvas": { value: "#ffffff" },
+  },
+} as const;
+
+const parsed = parseTokenGraph(strictGraph);
+if (!parsed.ok) {
+  throw new Error(JSON.stringify(parsed.issues, null, 2));
+}
+```
+
+Strict graph input spells out `formatVersion`, `modes`, `defaultMode`, `defaultVisibility`, and token definitions with
+`value` or `valueByMode`. It does not accept helper-only shorthand.
+
+Compiled token sets are a third shape. They are produced by `compileTokenGraph()` or `buildTokenSet()` and contain
+resolved color values plus dependency and origin metadata for the selected tokens.
+
+## Adapter Runner
+
+`buildTokenSet()` is the core runner for future adapter packages. Core supplies the structural `TokenSource` interface,
+calls a source, composes caller fragments, validates the returned graph, and compiles the selected tokens. No adapter
+package exists in this slice.
 
 ```ts
 import {
@@ -108,7 +192,7 @@ function brandSource(primary?: string): TokenSource<BrandIssue> {
           tokens: {
             "brand.primary": {
               light: primary,
-              dark: "#b5c4ff",
+              dark: "#d0bcff",
             },
           },
         }),
@@ -117,15 +201,16 @@ function brandSource(primary?: string): TokenSource<BrandIssue> {
   };
 }
 
-const application = defineTokenFragment({
+const application = defineTokenFragment<"light" | "dark">({
   id: "application",
+  defaultVisibility: "public",
   tokens: {
-    "app.action": { ref: "brand.primary" },
+    "button.background": { ref: "brand.primary" },
   },
 });
 
 const built = buildTokenSet({
-  source: brandSource("#1455d9"),
+  source: brandSource("#6750a4"),
   fragments: [application],
 });
 
@@ -134,10 +219,9 @@ if (!built.ok) {
 }
 ```
 
-Core exposes the `TokenSource` structural interface only. Source objects may carry adapter metadata in addition to `id`
-and `build`, and core calls `build()` with the source object as its receiver. Engine-backed behavior belongs in separate
-adapter packages, for example future `@color-scheme-tokens/source-material3` or
-`@color-scheme-tokens/conversion-texel` packages.
+Engine-backed behavior belongs in separate packages, for example future `@color-scheme-tokens/source-material3` or
+`@color-scheme-tokens/conversion-texel` packages. Material 3 support must use a real Material algorithm through that
+adapter boundary, not an approximation inside core.
 
 ## Development
 

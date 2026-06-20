@@ -1,6 +1,6 @@
 # Adapter Policy
 
-Adapters plug into core by returning strict token graph input through `TokenSource`.
+Adapters are future packages that plug into core by returning strict token graph input through `TokenSource`.
 
 ```ts
 interface TokenSource<I extends Issue = Issue> {
@@ -27,4 +27,4 @@ validates those two members and invokes `build()` with the original source objec
 Material 3 support should live in a package such as `@color-scheme-tokens/source-material3` and use a real Material
 algorithm. Texel-backed conversion should live in a package such as `@color-scheme-tokens/conversion-texel`.
 
-Core must not ship approximated Material output as Material 3.
+No adapter package exists in the current root package. Core must not ship approximated Material output as Material 3.
