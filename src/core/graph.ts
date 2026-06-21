@@ -126,6 +126,7 @@ export interface ColorTokenLayerAuthoringInput<
   Mode extends string = string,
   Key extends string = string,
   SemanticKey extends string = string,
+  AliasKey extends string = string,
 > {
   readonly $schema?: string;
   readonly kind?: ColorTokenLayerKind;
@@ -136,6 +137,7 @@ export interface ColorTokenLayerAuthoringInput<
   readonly tokens?: Readonly<
     Record<Key, ColorTokenDefinitionAuthoringInput<Mode, Key | SemanticKey>>
   >;
+  readonly aliases?: Readonly<Record<AliasKey, string>>;
   readonly semanticTokens?: Readonly<
     Record<SemanticKey, ColorTokenDefinitionAuthoringInput<Mode, Key | SemanticKey>>
   >;
@@ -156,6 +158,7 @@ export type ColorTokenGraphAuthoringInput<
       readonly tokens?: Readonly<
         Record<Key, ColorTokenDefinitionAuthoringInput<"base", Key | SemanticKey>>
       >;
+      readonly aliases?: Readonly<Record<string, string>>;
       readonly semanticTokens?: Readonly<
         Record<SemanticKey, ColorTokenDefinitionAuthoringInput<"base", Key | SemanticKey>>
       >;
@@ -171,6 +174,7 @@ export type ColorTokenGraphAuthoringInput<
       readonly tokens?: Readonly<
         Record<Key, ColorTokenDefinitionAuthoringInput<Mode, Key | SemanticKey>>
       >;
+      readonly aliases?: Readonly<Record<string, string>>;
       readonly semanticTokens?: Readonly<
         Record<SemanticKey, ColorTokenDefinitionAuthoringInput<Mode, Key | SemanticKey>>
       >;
@@ -290,8 +294,11 @@ type TokenAuthoringRecord<Mode extends string> = Readonly<
   Record<string, ColorTokenDefinitionAuthoringInput<Mode, string>>
 >;
 
+type TokenAliasAuthoringRecord = Readonly<Record<string, string>>;
+
 export function defineTokenGraph<
   const Tokens extends TokenAuthoringRecord<"base"> = Record<never, never>,
+  const Aliases extends TokenAliasAuthoringRecord = Record<never, never>,
   const SemanticTokens extends TokenAuthoringRecord<"base"> = Record<never, never>,
   const Layers extends readonly ColorTokenLayerInput<"base", string>[] =
     readonly ColorTokenLayerInput<"base", string>[],
@@ -303,15 +310,17 @@ export function defineTokenGraph<
   readonly defaultMode?: never;
   readonly defaultVisibility?: TokenVisibility;
   readonly tokens?: Tokens;
+  readonly aliases?: Aliases;
   readonly semanticTokens?: SemanticTokens;
   readonly layers: Layers;
 }): ColorTokenGraphInput<
   "base",
-  Extract<keyof Tokens, string>,
+  Extract<keyof Tokens | keyof Aliases, string>,
   Extract<keyof SemanticTokens, string>
 > & { readonly layers: Layers };
 export function defineTokenGraph<
   const Tokens extends TokenAuthoringRecord<"base"> = Record<never, never>,
+  const Aliases extends TokenAliasAuthoringRecord = Record<never, never>,
   const SemanticTokens extends TokenAuthoringRecord<"base"> = Record<never, never>,
 >(input: {
   readonly $schema?: string;
@@ -321,16 +330,18 @@ export function defineTokenGraph<
   readonly defaultMode?: never;
   readonly defaultVisibility?: TokenVisibility;
   readonly tokens?: Tokens;
+  readonly aliases?: Aliases;
   readonly semanticTokens?: SemanticTokens;
   readonly layers?: readonly ColorTokenLayerInput<"base">[];
 }): ColorTokenGraphInput<
   "base",
-  Extract<keyof Tokens, string>,
+  Extract<keyof Tokens | keyof Aliases, string>,
   Extract<keyof SemanticTokens, string>
 >;
 export function defineTokenGraph<
   const Modes extends readonly [string, ...string[]],
   const Tokens extends TokenAuthoringRecord<NoInfer<Modes[number]>> = Record<never, never>,
+  const Aliases extends TokenAliasAuthoringRecord = Record<never, never>,
   const SemanticTokens extends TokenAuthoringRecord<NoInfer<Modes[number]>> = Record<never, never>,
   const Layers extends readonly ColorTokenLayerInput<NoInfer<Modes[number]>, string>[] =
     readonly ColorTokenLayerInput<NoInfer<Modes[number]>, string>[],
@@ -342,11 +353,12 @@ export function defineTokenGraph<
   readonly defaultMode: Modes[number];
   readonly defaultVisibility?: TokenVisibility;
   readonly tokens?: Tokens;
+  readonly aliases?: Aliases;
   readonly semanticTokens?: SemanticTokens;
   readonly layers: Layers;
 }): ColorTokenGraphInput<
   Modes[number],
-  Extract<keyof Tokens, string>,
+  Extract<keyof Tokens | keyof Aliases, string>,
   Extract<keyof SemanticTokens, string>
 > & {
   readonly layers: Layers;
@@ -354,6 +366,7 @@ export function defineTokenGraph<
 export function defineTokenGraph<
   const Modes extends readonly [string, ...string[]],
   const Tokens extends TokenAuthoringRecord<NoInfer<Modes[number]>> = Record<never, never>,
+  const Aliases extends TokenAliasAuthoringRecord = Record<never, never>,
   const SemanticTokens extends TokenAuthoringRecord<NoInfer<Modes[number]>> = Record<never, never>,
 >(input: {
   readonly $schema?: string;
@@ -363,11 +376,12 @@ export function defineTokenGraph<
   readonly defaultMode: Modes[number];
   readonly defaultVisibility?: TokenVisibility;
   readonly tokens?: Tokens;
+  readonly aliases?: Aliases;
   readonly semanticTokens?: SemanticTokens;
   readonly layers?: readonly ColorTokenLayerInput<NoInfer<Modes[number]>>[];
 }): ColorTokenGraphInput<
   Modes[number],
-  Extract<keyof Tokens, string>,
+  Extract<keyof Tokens | keyof Aliases, string>,
   Extract<keyof SemanticTokens, string>
 >;
 export function defineTokenGraph(input: ColorTokenGraphAuthoringInput): ColorTokenGraphInput {
@@ -393,7 +407,7 @@ function defineTokenGraphFromInput(
     modes: [...modes] as readonly [string, ...string[]],
     defaultMode,
     defaultVisibility: input.defaultVisibility ?? "public",
-    tokens: normalizeTokenRecord(input.tokens ?? {}, modes, helperName, "tokens"),
+    tokens: normalizeTokenAndAliasRecords(input.tokens ?? {}, input.aliases, modes, helperName),
     ...(input.semanticTokens === undefined
       ? {}
       : {
@@ -421,6 +435,7 @@ export function defineTokens<
     readonly defaultVisibility?: TokenVisibility;
     readonly layers?: readonly ColorTokenLayerInput<"base">[];
     readonly tokens?: never;
+    readonly aliases?: never;
   },
 ): ColorTokenGraphInput<"base", Extract<keyof Tokens, string>>;
 export function defineTokens<
@@ -439,11 +454,15 @@ export function defineTokens<
     readonly defaultVisibility?: TokenVisibility;
     readonly layers?: readonly ColorTokenLayerInput<NoInfer<Modes[number]>>[];
     readonly tokens?: never;
+    readonly aliases?: never;
   },
 ): ColorTokenGraphInput<Modes[number], Extract<keyof Tokens, string>>;
 export function defineTokens(
   tokens: Readonly<Record<string, ColorTokenDefinitionAuthoringInput>>,
-  options: Omit<ColorTokenGraphAuthoringInput, "tokens"> & { readonly tokens?: never } = {},
+  options: Omit<ColorTokenGraphAuthoringInput, "tokens" | "aliases"> & {
+    readonly tokens?: never;
+    readonly aliases?: never;
+  } = {},
 ): ColorTokenGraphInput {
   assertDefineTokensOptions(options);
   return defineTokenGraphFromInput(
@@ -456,17 +475,19 @@ export function defineTokenLayer<
   const Mode extends string = string,
   const Tokens extends Readonly<Record<string, ColorTokenDefinitionAuthoringInput<Mode, string>>> =
     Readonly<Record<string, ColorTokenDefinitionAuthoringInput<Mode>>>,
+  const Aliases extends TokenAliasAuthoringRecord = Record<never, never>,
   const SemanticTokens extends Readonly<
     Record<string, ColorTokenDefinitionAuthoringInput<Mode, string>>
   > = Readonly<Record<string, ColorTokenDefinitionAuthoringInput<Mode>>>,
 >(
-  input: ColorTokenLayerAuthoringInput<Mode, string, string> & {
+  input: ColorTokenLayerAuthoringInput<Mode, string, string, string> & {
     readonly tokens?: Tokens;
+    readonly aliases?: Aliases;
     readonly semanticTokens?: SemanticTokens;
   },
 ): ColorTokenLayerInput<
   Mode,
-  Extract<keyof Tokens, string>,
+  Extract<keyof Tokens | keyof Aliases, string>,
   Extract<keyof SemanticTokens, string>
 > {
   if (input.kind !== undefined && input.kind !== colorTokenLayerKind) {
@@ -482,11 +503,11 @@ export function defineTokenLayer<
     formatVersion: input.formatVersion ?? 1,
     id: input.id,
     defaultVisibility: input.defaultVisibility ?? "public",
-    tokens: normalizeTokenRecord(
+    tokens: normalizeTokenAndAliasRecords(
       input.tokens ?? {},
+      input.aliases,
       modes,
       "defineTokenLayer",
-      "tokens",
     ) as Readonly<Record<string, ColorTokenDefinitionInput<Mode>>>,
     ...(input.semanticTokens === undefined
       ? {}
@@ -500,7 +521,7 @@ export function defineTokenLayer<
         }),
   } as ColorTokenLayerInput<
     Mode,
-    Extract<keyof Tokens, string>,
+    Extract<keyof Tokens | keyof Aliases, string>,
     Extract<keyof SemanticTokens, string>
   >;
 }
@@ -554,6 +575,43 @@ function normalizeTokenRecord(
   return output;
 }
 
+function normalizeTokenAndAliasRecords(
+  tokensInput: unknown,
+  aliasesInput: unknown,
+  modes: readonly string[] | undefined,
+  helperName: string,
+): Readonly<Record<string, ColorTokenDefinitionInput>> {
+  const output = {
+    ...normalizeTokenRecord(tokensInput, modes, helperName, "tokens"),
+  };
+  if (aliasesInput === undefined) {
+    return output;
+  }
+
+  const entries = readPlainRecord(aliasesInput, {
+    code: "invalid-token-definition",
+    message: `${helperName} aliases must be a plain object record.`,
+  });
+  if (!entries.ok) {
+    throw new TypeError(`${helperName} aliases must be a plain object record.`);
+  }
+
+  for (const entry of entries.value) {
+    if (Object.hasOwn(output, entry.key)) {
+      throw new RangeError(
+        `${helperName} aliases cannot redefine token "${entry.key}" from tokens.`,
+      );
+    }
+    if (typeof entry.value !== "string") {
+      throw new TypeError(`${helperName} alias "${entry.key}" must target a token key string.`);
+    }
+    defineRecordValue(output, entry.key, {
+      value: normalizeReferenceInput({ ref: entry.value }, helperName, entry.key),
+    });
+  }
+  return output;
+}
+
 function assertGraphHelperInput(
   input: unknown,
   helperName: string,
@@ -567,9 +625,10 @@ function assertGraphHelperInput(
   }
   if (
     !entries.value.some((entry) => entry.key === "tokens") &&
+    !entries.value.some((entry) => entry.key === "aliases") &&
     !entries.value.some((entry) => entry.key === "semanticTokens")
   ) {
-    throw new TypeError(`${helperName} input must include tokens or semanticTokens.`);
+    throw new TypeError(`${helperName} input must include tokens, aliases, or semanticTokens.`);
   }
 }
 
@@ -761,5 +820,8 @@ function assertDefineTokensOptions(options: unknown): void {
   }
   if (entries.value.some((entry) => entry.key === "tokens")) {
     throw new RangeError("defineTokens options cannot include tokens.");
+  }
+  if (entries.value.some((entry) => entry.key === "aliases")) {
+    throw new RangeError("defineTokens options cannot include aliases.");
   }
 }

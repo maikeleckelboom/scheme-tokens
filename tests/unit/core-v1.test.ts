@@ -254,6 +254,103 @@ describe("v1 graph and compiler", () => {
     expect(compiled.tokens.foreground?.dependenciesByMode.base).toEqual(["background"]);
   });
 
+  test("defines alias fields through explicit reference values", () => {
+    const graph = defineTokenGraph({
+      tokens: {
+        "brand.primary": "#6750a4",
+      },
+      aliases: {
+        "app.primary": "brand.primary",
+      },
+    });
+    const layer = defineTokenLayer<"light" | "dark">({
+      id: "application",
+      aliases: {
+        "app.background": "material3.surface",
+        "app.foreground": "material3.on-surface",
+        "app.primary": "material3.primary",
+        "app.primary-foreground": "material3.on-primary",
+      },
+    });
+
+    expect(graph.tokens["app.primary"]).toEqual({ value: { ref: "brand.primary" } });
+    expect(layer.tokens["app.background"]).toEqual({ value: { ref: "material3.surface" } });
+  });
+
+  test("alias fields reject invalid alias records", () => {
+    expect(() =>
+      defineTokenGraph({
+        tokens: {},
+        aliases: null as never,
+      }),
+    ).toThrow("defineTokenGraph aliases must be a plain object record.");
+    expect(() =>
+      defineTokenLayer({
+        id: "application",
+        aliases: { primary: "#6750a4" },
+      }),
+    ).toThrow(
+      'defineTokenLayer token "primary" reference must be a dot-separated lower-kebab token key.',
+    );
+    expect(() =>
+      defineTokenLayer({
+        id: "application",
+        aliases: { primary: { ref: "brand.primary" } } as never,
+      }),
+    ).toThrow('defineTokenLayer alias "primary" must target a token key string.');
+    expect(() =>
+      defineTokenGraph({
+        tokens: {
+          primary: "#6750a4",
+        },
+        aliases: {
+          primary: "brand.primary",
+        },
+      }),
+    ).toThrow('defineTokenGraph aliases cannot redefine token "primary" from tokens.');
+    expect(() =>
+      defineTokenLayer({
+        id: "application",
+        tokens: {
+          primary: "#6750a4",
+        },
+        aliases: {
+          primary: "brand.primary",
+        },
+      }),
+    ).toThrow('defineTokenLayer aliases cannot redefine token "primary" from tokens.');
+  });
+
+  test("alias fields compile as references", () => {
+    const graph = defineTokenGraph({
+      tokens: {
+        "brand.primary": "#6750a4",
+      },
+      aliases: {
+        "app.primary": "brand.primary",
+      },
+    });
+
+    const compiled = unwrap(compileTokenGraph(graph, { selection: "all" }));
+
+    expect(compiled.tokens["app.primary"]?.dependenciesByMode.base).toEqual(["brand.primary"]);
+  });
+
+  test("defineTokens rejects aliases options", () => {
+    expect(() =>
+      defineTokens(
+        {
+          primary: "#6750a4",
+        },
+        {
+          aliases: {
+            "app.primary": "primary",
+          },
+        } as never,
+      ),
+    ).toThrow("defineTokens options cannot include aliases.");
+  });
+
   test.each(["red", "banana", "var(--x)", "brand.primary"])(
     "helper calls reject unsupported bare string %s before returning artifacts",
     (value) => {
@@ -554,7 +651,7 @@ describe("v1 graph and compiler", () => {
 
   test("defineTokenGraph does not accept ambiguous flat token records", () => {
     expect(() => defineTokenGraph({ background: "#ffffff" } as never)).toThrow(
-      "defineTokenGraph input must include tokens or semanticTokens.",
+      "defineTokenGraph input must include tokens, aliases, or semanticTokens.",
     );
   });
 

@@ -36,16 +36,16 @@ internal tooling, but Material roles do not naturally equal app-owned tokens.
 Keep generated Material roles internal by default, then expose app-owned tokens.
 
 ```ts
-import { buildScheme, defineTokenLayer, exportCssVars, tokenRef } from "scheme-tokens";
+import { buildScheme, defineTokenLayer, exportCssVars } from "scheme-tokens";
 import { material3 } from "@scheme-tokens/material3";
 
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
-  tokens: {
-    background: tokenRef("material3.surface"),
-    foreground: tokenRef("material3.on-surface"),
-    primary: tokenRef("material3.primary"),
-    "primary-foreground": tokenRef("material3.on-primary"),
+  aliases: {
+    "app.background": "material3.surface",
+    "app.foreground": "material3.on-surface",
+    "app.primary": "material3.primary",
+    "app.primary-foreground": "material3.on-primary",
   },
 });
 
@@ -75,9 +75,10 @@ export { appStylesheet };
 `material3()` creates a source input. `buildScheme()` runs that source, applies layers, validates references, and
 compiles the selected scheme.
 
-Use `tokens` when app tokens should point at generated role tokens. The app layer is the contract your app uses; the
-Material role names stay an implementation detail unless you deliberately export them. References stay explicit through
-`tokenRef("material3.role")` or `{ ref: "material3.role" }`.
+Use `aliases` when app tokens should point at generated role tokens. Use `tokens` for authored values. The app layer is
+the contract your app uses; the Material role names stay an implementation detail unless you deliberately export them.
+References stay explicit through `aliases: { "app.background": "material3.role" }`, `tokenRef("material3.role")`, or
+`{ ref: "material3.role" }`.
 
 ## Material Input
 

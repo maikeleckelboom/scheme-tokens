@@ -134,25 +134,31 @@ contracts. Core does not silently slugify external names.
 `defineTokenGraph({ ...options, tokens })`, while keeping token keys separate from graph-level fields such as `modes`,
 `defaultMode`, `defaultVisibility`, `tokens`, `formatVersion`, and `$schema`.
 
-`defineTokenGraph(input)` is the full graph helper. Its input remains graph-shaped and accepts `tokens`. It does not
-accept ambiguous flat top-level token records.
+`defineTokenGraph(input)` is the full graph helper. Its input remains graph-shaped and accepts `tokens` for authored
+values and `aliases` for token-key references. It does not accept ambiguous flat top-level token records.
 
-`defineTokenLayer(input)` accepts ordered layer material with `tokens`. Layer tokens are the public app/product role
-surface for mapping generated source tokens into app-owned token keys.
+`defineTokenLayer(input)` accepts ordered layer material with `tokens` and `aliases`. Layer tokens are the public
+app/product role surface for mapping generated source tokens into app-owned token keys.
+
+`aliases: { "app.background": "generated.role" }` is the first-path shape for alias maps. Helper input lowers aliases to
+explicit reference values and is intended for graph or layer tokens that rename generated or implementation tokens into
+project-owned token keys.
 
 `base` is the single ordinary mode for simple graphs. It is not a generated scheme, Material role set, or hidden
 light/dark decision.
 
 `tokens` contains authored color token definitions, generated source tokens, brand tokens, palette tokens, implementation
-tokens, and app-owned product roles. Token definitions are public by default; set implementation tokens to
-`visibility: "internal"` when they are only reference targets.
+tokens, and app-owned product roles. `aliases` contains token-key to token-key references. Token definitions are public
+by default; set implementation tokens to `visibility: "internal"` when they are only reference targets.
 
-Direct color values need no reference helper. References are explicit: use `tokenRef("other.token")` or
-`{ ref: "other.token" }` inside token definitions.
+Direct color values need no reference helper. Alias maps use `aliases: { "app.background": "other.token" }`. Individual
+references are explicit through `tokenRef("other.token")` or `{ ref: "other.token" }` inside token definitions.
 
 Token shorthands are normalized by the helpers:
 
 - `"token.key": "#ffffff"` becomes a structured color value;
+- `aliases: { "token.key": "other.token" }` becomes `{ "token.key": { value: { ref: "other.token" } } }` in the
+  normalized `tokens` record;
 - `"token.key": tokenRef("other.token")` becomes `{ value: { ref: "other.token" } }`;
 - `"token.key": { ref: "other.token" }` becomes `{ value: { ref: "other.token" } }`;
 - metadata plus mode records such as `{ visibility: "public", light: "#fff", dark: "#000" }` become strict

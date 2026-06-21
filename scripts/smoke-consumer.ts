@@ -74,6 +74,18 @@ if (!appCompiled.ok) throw new Error(JSON.stringify(appCompiled.issues));
 if (!("primary" in appCompiled.value.tokens) || "brand.primary" in appCompiled.value.tokens) {
   throw new Error("app token public selection failed");
 }
+const aliasGraph = defineTokenGraph({
+  tokens: {
+    "brand.primary": "#6750a4",
+  },
+  aliases: {
+    "app.primary": "brand.primary",
+  },
+});
+const aliasCompiled = compileTokenGraph(aliasGraph);
+if (!aliasCompiled.ok || !("app.primary" in aliasCompiled.value.tokens)) {
+  throw new Error("token aliases field compile failed");
+}
 const declarations = cssExport.value.blocks[0]?.declarations;
 if (declarations?.[0]?.property !== "--background" || declarations?.[0]?.value !== "#ffffff") {
   throw new Error("structured CSS export failed");
@@ -206,6 +218,14 @@ const ColorTokenGraph: ColorTokenGraphInput<"base"> = defineTokens({
   "app.background": "#ffffff",
   "app.foreground": tokenRef("app.background"),
 });
+const aliasGraph = defineTokenGraph({
+  tokens: {
+    "brand.primary": "#6750a4",
+  },
+  aliases: {
+    "app.primary": "brand.primary",
+  },
+});
 const layer: ColorTokenLayerInput = defineTokenLayer({
   id: "brand",
   tokens: { "brand.primary": "#6750a4" },
@@ -255,6 +275,10 @@ tokenKey.toUpperCase();
 mode.toUpperCase();
 if (compiled.ok) compiled.value.defaultMode.toUpperCase();
 ColorTokenGraph.defaultMode.toUpperCase();
+const aliasValue = aliasGraph.tokens["app.primary"].value;
+if (typeof aliasValue === "object" && aliasValue !== null && "ref" in aliasValue) {
+  aliasValue.ref.toUpperCase();
+}
 if (built.ok) built.value.defaultMode.toUpperCase();
 if (shorthandBuilt.ok) shorthandBuilt.value.defaultMode.toUpperCase();
 if (layerBuilt.ok) layerBuilt.value.defaultMode.toUpperCase();

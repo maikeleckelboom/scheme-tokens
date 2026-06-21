@@ -202,6 +202,21 @@ export type GraphWithLayerKeys = Expect<
   >
 >;
 
+const applicationLayer = defineTokenLayer<"light" | "dark">({
+  id: "application",
+  aliases: {
+    "app.background": "material3.surface",
+    "app.foreground": "material3.on-surface",
+    "app.primary": "material3.primary",
+    "app.primary-foreground": "material3.on-primary",
+  },
+});
+const typedApplicationLayer = applicationLayer satisfies ColorTokenLayerInput<"light" | "dark">;
+typedApplicationLayer.defaultVisibility.toUpperCase();
+export type ApplicationAliasKeys = Expect<
+  Equal<Extract<"app.background", keyof typeof applicationLayer.tokens>, "app.background">
+>;
+
 // @ts-expect-error raw strings are helper authoring input, not structured ColorValueInput.
 const unsupportedColorValueInput: ColorValueInput = "red";
 unsupportedColorValueInput.toString();

@@ -104,6 +104,15 @@ const refGraph = defineTokens({
   primary: tokenRef("brand.primary"),
 });
 expectOk(compileTokenGraph(refGraph, { selection: "all" }), "tokenRef compile");
+const aliasGraph = defineTokenGraph({
+  tokens: {
+    "brand.primary": "#6750a4",
+  },
+  aliases: {
+    primary: "brand.primary",
+  },
+});
+expectOk(compileTokenGraph(aliasGraph, { selection: "all" }), "aliases field compile");
 const appGraph = defineTokenGraph({
   tokens: {
     "brand.primary": {
@@ -116,10 +125,6 @@ const appGraph = defineTokenGraph({
 const appCompiled = expectOk(compileTokenGraph(appGraph), "app token compile");
 if (!("primary" in appCompiled.tokens) || "brand.primary" in appCompiled.tokens) {
   throw new Error("app token did not compile as the public product lane");
-}
-const rootModule = await import("scheme-tokens");
-if ("defineAliases" in rootModule) {
-  throw new Error("defineAliases must not be exported");
 }
 for (const value of ["red", "brand.primary", "var(--x)"]) {
   expectThrow(() => defineTokens({ sample: value }), "Use tokenRef");
@@ -270,7 +275,7 @@ function writeAdapterConsumer(): void {
     `
 import { readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { buildScheme, defineTokenLayer, exportCssVars, tokenRef } from "scheme-tokens";
+import { buildScheme, defineTokenLayer, exportCssVars } from "scheme-tokens";
 import { material3 } from "@scheme-tokens/material3";
 
 const require = createRequire(import.meta.url);
@@ -282,11 +287,11 @@ if (!("material3.primary" in materialOnly.tokens)) {
 const application = defineTokenLayer({
   id: "application",
   defaultVisibility: "public",
-  tokens: {
-    background: tokenRef("material3.surface"),
-    foreground: tokenRef("material3.on-surface"),
-    primary: tokenRef("material3.primary"),
-    "primary-foreground": tokenRef("material3.on-primary"),
+  aliases: {
+    "app.background": "material3.surface",
+    "app.foreground": "material3.on-surface",
+    "app.primary": "material3.primary",
+    "app.primary-foreground": "material3.on-primary",
   },
 });
 const layered = expectOk(
@@ -300,14 +305,17 @@ const layered = expectOk(
   ),
   "material3 layered build",
 );
-for (const key of ["background", "foreground", "primary", "primary-foreground"]) {
+for (const key of ["app.background", "app.foreground", "app.primary", "app.primary-foreground"]) {
   if (!(key in layered.tokens)) {
     throw new Error("application token missing: " + key);
   }
 }
 const cssExport = expectOk(exportCssVars(layered), "material3 CSS export");
 writeFileSync("material3.css", cssExport.css);
-if (!cssExport.css.includes("--primary:") || cssExport.variableByToken.background !== "--background") {
+if (
+  !cssExport.css.includes("--app--primary:") ||
+  cssExport.variableByToken["app.background"] !== "--app--background"
+) {
   throw new Error("material3 CSS export did not expose app-owned CSS custom properties");
 }
 

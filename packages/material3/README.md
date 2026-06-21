@@ -12,16 +12,16 @@ pnpm add scheme-tokens @scheme-tokens/material3
 ## Usage
 
 ```ts
-import { buildScheme, defineTokenLayer, exportCssVars, tokenRef } from "scheme-tokens";
+import { buildScheme, defineTokenLayer, exportCssVars } from "scheme-tokens";
 import { material3 } from "@scheme-tokens/material3";
 
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
-  tokens: {
-    background: tokenRef("material3.surface"),
-    foreground: tokenRef("material3.on-surface"),
-    primary: tokenRef("material3.primary"),
-    "primary-foreground": tokenRef("material3.on-primary"),
+  aliases: {
+    "app.background": "material3.surface",
+    "app.foreground": "material3.on-surface",
+    "app.primary": "material3.primary",
+    "app.primary-foreground": "material3.on-primary",
   },
 });
 

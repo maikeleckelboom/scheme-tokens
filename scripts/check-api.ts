@@ -61,7 +61,6 @@ const removedPublicNames = [
   `Srgb${"Color"}`,
   `DisplayP3${"Color"}`,
   `Oklch${"Color"}`,
-  `define${"Aliases"}`,
 ] as const;
 
 if (JSON.stringify(packageJson).includes(removedRootPackageName)) {

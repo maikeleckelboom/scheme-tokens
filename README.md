@@ -311,63 +311,37 @@ if (!built.ok) {
 Add an application layer when generated Material roles should feed project-owned tokens:
 
 ```ts
-import { buildScheme, defineTokenLayer, exportCssVars, tokenRef } from "scheme-tokens";
-import { material3 } from "@scheme-tokens/material3";
+import { defineTokenLayer } from "scheme-tokens";
 
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
-  tokens: {
-    background: tokenRef("material3.surface"),
-    foreground: tokenRef("material3.on-surface"),
-    primary: tokenRef("material3.primary"),
-    "primary-foreground": tokenRef("material3.on-primary"),
+  aliases: {
+    "app.background": "material3.surface",
+    "app.foreground": "material3.on-surface",
+    "app.success": "material3.extended.success.color",
   },
 });
-
-const built = buildScheme(
-  material3(
-    {
-      sourceColors: "#6750a4",
-    },
-    {
-      defaultVisibility: "internal",
-    },
-  ),
-  { layers: [application] },
-);
-
-if (!built.ok) {
-  throw new Error(JSON.stringify(built.issues, null, 2));
-}
-
-const cssExport = exportCssVars(built.value);
-if (!cssExport.ok) {
-  throw new Error(JSON.stringify(cssExport.issues, null, 2));
-}
-
-const stylesheet = cssExport.value.css;
-
-export { stylesheet };
 ```
 
 Generated-source tokens are often internal implementation detail. Public app tokens should be authored under `tokens`
-and reference generated roles explicitly. Direct color values stay simple; references require `tokenRef("other.token")`
-or `{ ref: "other.token" }`.
+or `aliases` and reference generated roles explicitly. Alias maps use `aliases: { "app.background": "generated.role" }`.
+Direct color values stay simple; individual explicit references use `tokenRef("other.token")` or
+`{ ref: "other.token" }`.
 
 Prepare a reusable builder when the same app layers are built repeatedly with changing base input:
 
 ```ts
-import { createSchemeBuilder, defineTokenLayer, exportCssVars, tokenRef } from "scheme-tokens";
+import { createSchemeBuilder, defineTokenLayer, exportCssVars } from "scheme-tokens";
 import { material3 } from "@scheme-tokens/material3";
 
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
   defaultVisibility: "public",
-  tokens: {
-    background: tokenRef("material3.surface"),
-    foreground: tokenRef("material3.on-surface"),
-    primary: tokenRef("material3.primary"),
-    "primary-foreground": tokenRef("material3.on-primary"),
+  aliases: {
+    "app.background": "material3.surface",
+    "app.foreground": "material3.on-surface",
+    "app.primary": "material3.primary",
+    "app.primary-foreground": "material3.on-primary",
   },
 });
 
