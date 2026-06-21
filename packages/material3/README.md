@@ -17,11 +17,11 @@ import { material3 } from "@scheme-tokens/material3";
 
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
-  semanticTokens: {
-    background: { value: tokenRef("material3.surface") },
-    foreground: { value: tokenRef("material3.on-surface") },
-    primary: { value: tokenRef("material3.primary") },
-    "primary-foreground": { value: tokenRef("material3.on-primary") },
+  tokens: {
+    background: tokenRef("material3.surface"),
+    foreground: tokenRef("material3.on-surface"),
+    primary: tokenRef("material3.primary"),
+    "primary-foreground": tokenRef("material3.on-primary"),
   },
 });
 
@@ -42,8 +42,8 @@ export { stylesheet };
 ```
 
 The adapter emits strict graph input with `light` and `dark` modes. Raw Material roles use adapter-owned `material3.*`
-token keys. App-owned product roles should be exposed through `semanticTokens`; raw Material role keys can still be
-exported when selected:
+token keys. App-owned product roles should be exposed as explicit `tokens` references; raw Material role keys can still
+be exported when selected:
 
 ```text
 material3.primary

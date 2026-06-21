@@ -28,7 +28,7 @@ The intended composed workflow is:
 ```text
 source adapters
 + authored token layers
-+ semantic-token mapping layers
++ app-token mapping layers
 + target mapping layers
 -> buildScheme()
 -> optional conversion projection
@@ -53,8 +53,8 @@ Source generation, conversion projection, target export, format export, and core
 Source adapters generate `ColorTokenGraphInput` from an engine or provider and may expose `ColorTokenSource` helpers for
 `buildScheme(source)` or `buildScheme({ base: source })`. Applications may add authored layers with
 `buildScheme(source, { layers })` or `buildScheme({ base: source, layers })`; those layers compose after source output
-and may override source tokens. App-owned public role names should be represented as layer `semanticTokens`, not as
-adapter role keys exported directly.
+and may override source tokens. App-owned public role names should be represented as layer `tokens` with explicit
+references, not as adapter role keys exported directly.
 
 ```ts
 interface ColorTokenSource<I extends Issue = Issue> {
@@ -158,7 +158,7 @@ package.
 Target adapters must keep mapping explicit and overridable. They must not pretend that Material 3 roles, or any other
 source roles, naturally equal target-specific tokens. For shadcn, a later `shadcnLayer()` should be source-agnostic, and a
 later `material3ShadcnLayer()` may only map known `material3.*` token keys into the `shadcn.*` target contract.
-Application-owned roles should pass through semantic tokens first when the product contract is not the target contract.
+Application-owned roles should pass through app-owned tokens first when the product contract is not the target contract.
 
 Target graph namespaces still use core-valid token keys. The shadcn namespace should use lower-kebab keys such as
 `shadcn.card-foreground`, `shadcn.primary-foreground`, `shadcn.sidebar-primary-foreground`, and `shadcn.chart-1`.

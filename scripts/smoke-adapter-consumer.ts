@@ -45,7 +45,7 @@ import { material3, material3Preset } from "@scheme-tokens/material3";
 const application = defineTokenLayer({
   id: "application",
   defaultVisibility: "public",
-  semanticTokens: {
+  tokens: {
     "app.background": tokenRef("material3.surface"),
     "app.foreground": tokenRef("material3.on-surface"),
     "app.success": tokenRef("material3.extended.success.color"),

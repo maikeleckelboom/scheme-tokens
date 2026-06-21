@@ -17,20 +17,21 @@ const graph = defineTokens({
 export { graph };
 ```
 
-## Semantic Tokens
+## App-Owned Tokens
 
-Semantic tokens are product, app, role, and context tokens. They may hold direct color values or reference implementation
-tokens. An alias is the mechanism. A semantic token is the product concept.
+App-owned tokens are product, app, role, and context tokens. They may hold direct color values or reference
+implementation tokens.
 
 ```ts
 import { defineTokenGraph, tokenRef } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   tokens: {
-    "brand.primary": "#6750a4",
-  },
-  semanticTokens: {
-    primary: { value: tokenRef("brand.primary") },
+    "brand.primary": {
+      value: "#6750a4",
+      visibility: "internal",
+    },
+    primary: tokenRef("brand.primary"),
   },
 });
 

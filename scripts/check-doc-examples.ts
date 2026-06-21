@@ -30,6 +30,7 @@ const authoredDocsSiteFiles = listFiles(join(repoRoot, "docs-site")).filter(
 );
 const docsSiteFiles = authoredDocsSiteFiles.filter((file) => file.endsWith(".md"));
 assertNoRemovedPublicNames();
+assertNoPublicSemanticTokens();
 assertTailwindRecipe(readme);
 
 const blocks = extractTypeScriptExamples([
@@ -210,6 +211,24 @@ function assertNoRemovedPublicNames(): void {
     }
     if (/\bref\s*\(/.test(text)) {
       throw new Error(`Public docs must use tokenRef(...) instead of ref(...) in ${file}`);
+    }
+  }
+}
+
+function assertNoPublicSemanticTokens(): void {
+  const publicDocsFiles = [
+    join(repoRoot, "README.md"),
+    join(adapterRoot, "README.md"),
+    ...listFiles(join(repoRoot, "docs")),
+    ...authoredDocsSiteFiles,
+  ].filter((file) => file.endsWith(".md"));
+
+  for (const file of publicDocsFiles) {
+    const text = readFileSync(file, "utf8");
+    if (/\bsemanticTokens\b|\bsemantic tokens\b|\bsemantic-token\b/i.test(text)) {
+      throw new Error(
+        `Public docs must use tokens-based authoring examples instead of semanticTokens in ${file}`,
+      );
     }
   }
 }

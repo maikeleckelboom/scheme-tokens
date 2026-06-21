@@ -40,7 +40,7 @@ Helper-only strings such as `"#6750a4"` are not strict persisted colors.
 ## Schema Versus Parser
 
 Schemas check shape: required properties, artifact kind, format version, token-definition structure, and structured color
-fields. `tokens` and `semanticTokens` use the same strict definition shape; helper-only strings are still rejected.
+fields. Helper-only strings are rejected in persisted artifacts.
 
 Parsers check semantics: default-mode membership, mode coverage, references, cycles, token key validity, and cross-field
 constraints. Use both when loading untrusted persisted artifacts.
@@ -54,8 +54,7 @@ constraints. Use both when loading untrusted persisted artifacts.
   "modes": ["base"],
   "defaultMode": "base",
   "defaultVisibility": "public",
-  "tokens": {},
-  "semanticTokens": {
+  "tokens": {
     "primary": {
       "value": {
         "colorSpace": "srgb",

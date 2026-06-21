@@ -67,8 +67,8 @@ Well-formed references still need an existing target.
 import { compileTokenGraph, defineTokenGraph, tokenRef } from "scheme-tokens";
 
 const graph = defineTokenGraph({
-  semanticTokens: {
-    primary: { value: tokenRef("brand.primary") },
+  tokens: {
+    primary: tokenRef("brand.primary"),
   },
 });
 

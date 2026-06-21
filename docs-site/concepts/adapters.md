@@ -17,7 +17,7 @@ conversion.
 
 Target adapters are future packages for framework or design-system contracts. A future `@scheme-tokens/shadcn` package
 may map compiled or core token material into shadcn's CSS-variable contract. Material roles should still be mapped
-explicitly into app-owned semantic tokens before target-specific export behavior.
+explicitly into app-owned tokens before target-specific export behavior.
 
 ## Format Adapters
 

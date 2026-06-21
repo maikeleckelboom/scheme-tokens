@@ -316,11 +316,11 @@ import { material3 } from "@scheme-tokens/material3";
 
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
-  semanticTokens: {
-    background: { value: tokenRef("material3.surface") },
-    foreground: { value: tokenRef("material3.on-surface") },
-    primary: { value: tokenRef("material3.primary") },
-    "primary-foreground": { value: tokenRef("material3.on-primary") },
+  tokens: {
+    background: tokenRef("material3.surface"),
+    foreground: tokenRef("material3.on-surface"),
+    primary: tokenRef("material3.primary"),
+    "primary-foreground": tokenRef("material3.on-primary"),
   },
 });
 
@@ -350,9 +350,9 @@ const stylesheet = cssExport.value.css;
 export { stylesheet };
 ```
 
-Generated-source tokens are often internal implementation detail. Public app tokens should be authored as
-`semanticTokens` that reference them explicitly. An alias is the mechanism. A semantic token is the product concept.
-Direct color values stay simple; references require `tokenRef("other.token")` or `{ ref: "other.token" }`.
+Generated-source tokens are often internal implementation detail. Public app tokens should be authored under `tokens`
+and reference generated roles explicitly. Direct color values stay simple; references require `tokenRef("other.token")`
+or `{ ref: "other.token" }`.
 
 Prepare a reusable builder when the same app layers are built repeatedly with changing base input:
 
@@ -363,11 +363,11 @@ import { material3 } from "@scheme-tokens/material3";
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
   defaultVisibility: "public",
-  semanticTokens: {
-    background: { value: tokenRef("material3.surface") },
-    foreground: { value: tokenRef("material3.on-surface") },
-    primary: { value: tokenRef("material3.primary") },
-    "primary-foreground": { value: tokenRef("material3.on-primary") },
+  tokens: {
+    background: tokenRef("material3.surface"),
+    foreground: tokenRef("material3.on-surface"),
+    primary: tokenRef("material3.primary"),
+    "primary-foreground": tokenRef("material3.on-primary"),
   },
 });
 
@@ -487,20 +487,19 @@ import { defineTokenGraph, tokenRef } from "scheme-tokens";
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
   defaultMode: "light",
-  defaultVisibility: "internal",
   tokens: {
     "brand.primary": {
+      visibility: "internal",
       light: "#6750a4",
       dark: "#d0bcff",
     },
     "brand.on-primary": {
+      visibility: "internal",
       light: "#ffffff",
       dark: "#381e72",
     },
-  },
-  semanticTokens: {
-    primary: { value: tokenRef("brand.primary") },
-    "primary-foreground": { value: tokenRef("brand.on-primary") },
+    primary: tokenRef("brand.primary"),
+    "primary-foreground": tokenRef("brand.on-primary"),
   },
 });
 ```
@@ -510,14 +509,13 @@ The authoring helpers accept JSON-safe shorthand:
 - a color string such as `"#6750a4"`;
 - an explicit reference helper such as `tokenRef("brand.primary")`;
 - an explicit reference such as `{ ref: "brand.primary" }`;
-- graph or layer `semanticTokens` for public product and app role tokens;
 - metadata plus mode keys such as `{ visibility: "public", light: "#fff", dark: "#000" }`;
 - mode records such as `{ light: "#fff", dark: "#000" }` when modes are declared.
 
 Bare strings are always treated as color authoring input. If a string is not supported by the color parser, it reports an
 actionable helper error instead of becoming a reference based on spelling. CSS named colors such as `"red"` are not
 currently supported by core color parsing. Direct color values need no reference helper. References are explicit:
-use `tokenRef("brand.primary")` or `{ ref: "brand.primary" }` inside token definitions and semantic token definitions.
+use `tokenRef("brand.primary")` or `{ ref: "brand.primary" }` inside token definitions.
 
 The helpers fill safe defaults and return strict graph input.
 
@@ -561,9 +559,8 @@ if (!parsed.ok) {
 ```
 
 Strict graph input spells out `kind`, `formatVersion`, `modes`, `defaultMode`, `defaultVisibility`, and token
-definitions with `value` or `valueByMode`. Public product roles may be persisted under `semanticTokens` with the same
-strict structured color and reference expressions. Persisted colors are structured values with `colorSpace`,
-`components`, `alpha`, and optional `hex`. It does not accept helper-only shorthand.
+definitions with `value` or `valueByMode`. Persisted colors are structured values with `colorSpace`, `components`,
+`alpha`, and optional `hex`. It does not accept helper-only shorthand.
 
 The published JSON Schemas describe this strict graph shape, strict layer input, and serialized compiled schemes.
 They do not describe `defineTokenGraph()` or `defineTokenLayer()` helper input.

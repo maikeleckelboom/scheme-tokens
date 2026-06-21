@@ -78,18 +78,18 @@ const graph = defineTokens({
 export { graph };
 ```
 
-## Semantic Tokens From Implementation Tokens
+## App Tokens From Implementation Tokens
 
 ```ts
 import { compileTokenGraph, defineTokenGraph, tokenRef } from "scheme-tokens";
 
 const graph = defineTokenGraph({
-  defaultVisibility: "internal",
   tokens: {
-    "brand.primary": "#6750a4",
-  },
-  semanticTokens: {
-    primary: { value: tokenRef("brand.primary") },
+    "brand.primary": {
+      value: "#6750a4",
+      visibility: "internal",
+    },
+    primary: tokenRef("brand.primary"),
   },
 });
 
@@ -109,11 +109,11 @@ import { material3 } from "@scheme-tokens/material3";
 
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
-  semanticTokens: {
-    background: { value: tokenRef("material3.surface") },
-    foreground: { value: tokenRef("material3.on-surface") },
-    primary: { value: tokenRef("material3.primary") },
-    "primary-foreground": { value: tokenRef("material3.on-primary") },
+  tokens: {
+    background: tokenRef("material3.surface"),
+    foreground: tokenRef("material3.on-surface"),
+    primary: tokenRef("material3.primary"),
+    "primary-foreground": tokenRef("material3.on-primary"),
   },
 });
 
@@ -337,9 +337,9 @@ import { material3 } from "@scheme-tokens/material3";
 
 const appLayer = defineTokenLayer<"light" | "dark">({
   id: "application",
-  semanticTokens: {
-    background: { value: tokenRef("material3.surface") },
-    foreground: { value: tokenRef("material3.on-surface") },
+  tokens: {
+    background: tokenRef("material3.surface"),
+    foreground: tokenRef("material3.on-surface"),
   },
 });
 

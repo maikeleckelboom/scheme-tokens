@@ -47,9 +47,9 @@ export, and core serialization stay explicit sibling operations around the compi
 
 `defineTokens()`, `defineTokenGraph()`, and `defineTokenLayer()` are authoring helpers for ordinary package use. They may
 fill safe defaults and normalize JSON-safe shorthand. `defineTokens()` is the simple token-record graph helper;
-`defineTokenGraph()` remains the full graph-shaped helper. Graphs and layers can carry both `tokens` and
-`semanticTokens`. `tokens` contains authored or generated implementation material; `semanticTokens` contains public
-product, app, role, and context tokens. `parseTokenGraph()` remains the strict boundary for persisted wire-format data.
+`defineTokenGraph()` remains the full graph-shaped helper. Graphs and layers carry `tokens`, which contain authored
+colors, generated implementation material, and app-owned product roles. `parseTokenGraph()` remains the strict boundary
+for persisted wire-format data.
 
 Compiled schemes are output artifacts. They contain resolved colors, selected tokens, origin metadata, and direct
 dependencies. Exporters consume compiled schemes only.
@@ -62,8 +62,7 @@ schemas are not authoring-helper schemas and do not accept helper shorthand.
 ## Compilation
 
 Compilation validates first, then resolves selected tokens. The default selection is `public`; exact key selection and
-`all` selection are explicit options. Semantic tokens are public compiled tokens by default and may depend on internal
-implementation tokens.
+`all` selection are explicit options. Public app tokens may depend on internal implementation tokens.
 
 Compiled tokens store direct dependencies by mode. Full transitive analysis is intentionally not stored in every compiled
 token; it can be added later as an on-demand analyzer without bloating the default compiled artifact.
@@ -84,11 +83,9 @@ making a CSS parser part of the core dependency graph.
 or external graph-material providers. Layers are ordered named authored token overlays.
 
 When several base inputs are provided, they compose first in array order. Duplicate token keys across base inputs are
-invalid. Layers compose after base inputs in array order. Later layers override earlier layers by token key within the
-same lane, and layers may override base tokens. Semantic token overrides follow the same ordered layer rule. An
-implementation token key and a semantic token key must not collide in the final composed graph. References,
-missing-reference validation, and circular-reference validation run after the final graph has been composed. Winning
-token origin metadata points at the winning base input or layer, and semantic tokens record an explicit semantic origin.
+invalid. Layers compose after base inputs in array order. Later layers override earlier layers by token key, and layers
+may override base tokens. References, missing-reference validation, and circular-reference validation run after the final
+graph has been composed. Winning token origin metadata points at the winning base input or layer.
 
 Layer composition is intentionally simpler than CSS cascade behavior. It has no selector specificity, no `!important`, no
 implicit CSS `@layer` behavior, no DOM behavior, and no runtime style injection helpers.

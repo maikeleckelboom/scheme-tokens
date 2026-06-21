@@ -104,18 +104,18 @@ const refGraph = defineTokens({
   primary: tokenRef("brand.primary"),
 });
 expectOk(compileTokenGraph(refGraph, { selection: "all" }), "tokenRef compile");
-const semanticGraph = defineTokenGraph({
-  defaultVisibility: "internal",
+const appGraph = defineTokenGraph({
   tokens: {
-    "brand.primary": "#6750a4",
-  },
-  semanticTokens: {
+    "brand.primary": {
+      value: "#6750a4",
+      visibility: "internal",
+    },
     primary: tokenRef("brand.primary"),
   },
 });
-const semanticCompiled = expectOk(compileTokenGraph(semanticGraph), "semanticTokens compile");
-if (!("primary" in semanticCompiled.tokens) || "brand.primary" in semanticCompiled.tokens) {
-  throw new Error("semanticTokens did not compile as the public product lane");
+const appCompiled = expectOk(compileTokenGraph(appGraph), "app token compile");
+if (!("primary" in appCompiled.tokens) || "brand.primary" in appCompiled.tokens) {
+  throw new Error("app token did not compile as the public product lane");
 }
 const rootModule = await import("scheme-tokens");
 if ("defineAliases" in rootModule) {
@@ -282,11 +282,11 @@ if (!("material3.primary" in materialOnly.tokens)) {
 const application = defineTokenLayer({
   id: "application",
   defaultVisibility: "public",
-  semanticTokens: {
-    background: { value: tokenRef("material3.surface") },
-    foreground: { value: tokenRef("material3.on-surface") },
-    primary: { value: tokenRef("material3.primary") },
-    "primary-foreground": { value: tokenRef("material3.on-primary") },
+  tokens: {
+    background: tokenRef("material3.surface"),
+    foreground: tokenRef("material3.on-surface"),
+    primary: tokenRef("material3.primary"),
+    "primary-foreground": tokenRef("material3.on-primary"),
   },
 });
 const layered = expectOk(
@@ -302,7 +302,7 @@ const layered = expectOk(
 );
 for (const key of ["background", "foreground", "primary", "primary-foreground"]) {
   if (!(key in layered.tokens)) {
-    throw new Error("application semantic token missing: " + key);
+    throw new Error("application token missing: " + key);
   }
 }
 const cssExport = expectOk(exportCssVars(layered), "material3 CSS export");

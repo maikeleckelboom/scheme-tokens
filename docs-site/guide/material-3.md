@@ -29,11 +29,11 @@ export { stylesheet };
 ```
 
 This exports Material role tokens such as `material3.primary` and `material3.surface`. That is useful for inspection or
-internal tooling, but Material roles do not naturally equal app semantic tokens.
+internal tooling, but Material roles do not naturally equal app-owned tokens.
 
 ## Map Roles Into App Tokens
 
-Keep generated Material roles internal by default, then expose app-owned semantic tokens.
+Keep generated Material roles internal by default, then expose app-owned tokens.
 
 ```ts
 import { buildScheme, defineTokenLayer, exportCssVars, tokenRef } from "scheme-tokens";
@@ -41,11 +41,11 @@ import { material3 } from "@scheme-tokens/material3";
 
 const application = defineTokenLayer<"light" | "dark">({
   id: "application",
-  semanticTokens: {
-    background: { value: tokenRef("material3.surface") },
-    foreground: { value: tokenRef("material3.on-surface") },
-    primary: { value: tokenRef("material3.primary") },
-    "primary-foreground": { value: tokenRef("material3.on-primary") },
+  tokens: {
+    background: tokenRef("material3.surface"),
+    foreground: tokenRef("material3.on-surface"),
+    primary: tokenRef("material3.primary"),
+    "primary-foreground": tokenRef("material3.on-primary"),
   },
 });
 
@@ -75,9 +75,9 @@ export { appStylesheet };
 `material3()` creates a source input. `buildScheme()` runs that source, applies layers, validates references, and
 compiles the selected scheme.
 
-Use `semanticTokens` when app tokens should point at generated role tokens. The semantic-token layer is the contract your
-app uses; the Material role names stay an implementation detail unless you deliberately export them. An alias is the
-mechanism. A semantic token is the product concept.
+Use `tokens` when app tokens should point at generated role tokens. The app layer is the contract your app uses; the
+Material role names stay an implementation detail unless you deliberately export them. References stay explicit through
+`tokenRef("material3.role")` or `{ ref: "material3.role" }`.
 
 ## Material Input
 
