@@ -14,30 +14,14 @@
         }
       },
       "valueByMode": {
-        "light": {
-          "colorSpace": "srgb",
-          "components": [0.4, 0.31, 0.64],
-          "alpha": 1
-        },
-        "dark": {
-          "colorSpace": "srgb",
-          "components": [0.82, 0.74, 1],
-          "alpha": 1
-        }
+        "light": "#6750a4",
+        "dark": "#d0bcff"
       }
     },
     "brand.on-primary": {
       "valueByMode": {
-        "light": {
-          "colorSpace": "srgb",
-          "components": [1, 1, 1],
-          "alpha": 1
-        },
-        "dark": {
-          "colorSpace": "srgb",
-          "components": [0.22, 0.12, 0.45],
-          "alpha": 1
-        }
+        "light": "#ffffff",
+        "dark": "#381e72"
       }
     },
     "button.background": {

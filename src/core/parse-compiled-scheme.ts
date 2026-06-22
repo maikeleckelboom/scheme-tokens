@@ -1,4 +1,3 @@
-import { cloneColor, parsePersistedColorAt } from "./color";
 import type {
   CompiledColorScheme,
   CompiledColorToken,
@@ -289,7 +288,7 @@ function parseValueByMode(
   path: string,
   modes: readonly string[],
   collector: IssueCollector<ParseCompiledSchemeIssue>,
-): Readonly<Record<string, ReturnType<typeof cloneColor>>> | undefined {
+): Readonly<Record<string, string>> | undefined {
   const entries = readPlainRecord(input, {
     code: "invalid-token-definition",
     message: "valueByMode must be a plain object.",
@@ -301,7 +300,7 @@ function parseValueByMode(
   }
   const modeSet = new Set(modes);
   const seen = new Set<string>();
-  const output: Record<string, ReturnType<typeof cloneColor>> = {};
+  const output: Record<string, string> = {};
   for (const entry of entries.value) {
     const valuePath = `${path}/${escapeTokenPath(entry.key)}`;
     if (!modeSet.has(entry.key)) {
@@ -314,12 +313,16 @@ function parseValueByMode(
       continue;
     }
     seen.add(entry.key);
-    const color = parsePersistedColorAt(entry.value, valuePath);
-    if (!color.ok) {
-      collector.addMany(color.issues as readonly ParseCompiledSchemeIssue[]);
+    if (typeof entry.value !== "string") {
+      collector.add({
+        code: "invalid-token-value",
+        message: "Compiled token values must be authored CSS color strings.",
+        path: valuePath,
+        mode: entry.key,
+      });
       continue;
     }
-    defineRecordValue(output, entry.key, cloneColor(color.value));
+    defineRecordValue(output, entry.key, entry.value);
   }
   for (const mode of modes) {
     if (!seen.has(mode)) {

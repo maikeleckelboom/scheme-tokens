@@ -1,4 +1,3 @@
-import type { ColorComponent, ColorValue, ColorValueInput } from "../core/color";
 import type { CompiledColorScheme } from "../core/compiled-types";
 import type {
   ColorTokenDefinitionInput,
@@ -105,7 +104,7 @@ function canonicalCompiledScheme(scheme: CompiledColorScheme): unknown {
     const valueByMode: Record<string, unknown> = {};
     const dependenciesByMode: Record<string, readonly string[]> = {};
     for (const mode of scheme.modes) {
-      defineRecordValue(valueByMode, mode, canonicalColor(token.valueByMode[mode] as ColorValue));
+      defineRecordValue(valueByMode, mode, token.valueByMode[mode]);
       defineRecordValue(
         dependenciesByMode,
         mode,
@@ -152,22 +151,7 @@ function canonicalOrigin(origin: CompiledColorScheme["tokens"][string]["origin"]
 }
 
 function canonicalExpression(expression: ColorTokenExpressionInput): unknown {
-  return isReferenceExpression(expression) ? { ref: expression.ref } : canonicalColor(expression);
-}
-
-function canonicalColor(color: ColorValue | ColorValueInput): unknown {
-  const output: Record<string, unknown> = {};
-  defineRecordValue(output, "colorSpace", color.colorSpace);
-  defineRecordValue(output, "components", color.components.map(canonicalComponent));
-  defineRecordValue(output, "alpha", normalizeNumber(color.alpha ?? 1));
-  if (color.hex !== undefined) {
-    defineRecordValue(output, "hex", color.hex.toLowerCase());
-  }
-  return output;
-}
-
-function canonicalComponent(component: ColorComponent): ColorComponent {
-  return component === "none" ? component : normalizeNumber(component);
+  return isReferenceExpression(expression) ? { ref: expression.ref } : expression;
 }
 
 function canonicalJson(value: JsonValue): JsonValue {
@@ -192,5 +176,5 @@ function canonicalJson(value: JsonValue): JsonValue {
 function isReferenceExpression(
   expression: ColorTokenExpressionInput,
 ): expression is ReferenceInput {
-  return "ref" in expression;
+  return typeof expression === "object" && expression !== null && "ref" in expression;
 }

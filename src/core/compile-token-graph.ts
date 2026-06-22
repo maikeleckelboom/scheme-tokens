@@ -1,4 +1,3 @@
-import { cloneColor, type ColorValue } from "./color";
 import type {
   CompileTokenGraphIssue,
   CompileTokenGraphOptions,
@@ -33,7 +32,7 @@ export type {
 } from "./compiled-types";
 
 interface ResolvedNode {
-  readonly value: ColorValue;
+  readonly value: string;
 }
 
 export function compileTokenGraph<const Input extends ColorTokenGraphInput>(
@@ -81,18 +80,18 @@ export function compileParsedTokenGraph<
 
   for (const key of selectedKeys.value) {
     const source = graph.tokens[key] as ParsedTokenGraphToken<Mode, Key>;
-    const valueByMode: Record<string, ColorValue> = {};
+    const valueByMode: Record<string, string> = {};
     const dependenciesByMode: Record<string, readonly string[]> = {};
 
     for (const mode of graph.modes) {
       const node = resolveNode(graph, key, mode, memo);
-      defineRecordValue(valueByMode, mode, cloneColor(node.value));
+      defineRecordValue(valueByMode, mode, node.value);
       defineRecordValue(dependenciesByMode, mode, directDependencies(source, mode));
     }
 
     const compiled: CompiledColorToken<Mode> = {
       visibility: source.visibility,
-      valueByMode: sortedRecord(Object.entries(valueByMode)) as Readonly<Record<Mode, ColorValue>>,
+      valueByMode: sortedRecord(Object.entries(valueByMode)) as Readonly<Record<Mode, string>>,
       origin: cloneOrigin(source.origin),
       dependenciesByMode: sortedRecord(Object.entries(dependenciesByMode)) as Readonly<
         Record<Mode, readonly string[]>
@@ -272,7 +271,7 @@ function resolveNode<Mode extends string, Key extends string>(
     const expression = (graph.tokens[currentKey as Key] as ParsedTokenGraphToken<Mode, Key>)
       .valueByMode[mode] as ParsedColorExpression<Key>;
     if (!isReferenceExpression(expression)) {
-      const resolved = { value: cloneColor(expression) };
+      const resolved = { value: expression };
       memo.set(currentId, resolved);
       return unwind(stack, mode, resolved, currentKey, memo);
     }
@@ -292,7 +291,7 @@ function unwind(
   let current = leaf;
   for (let index = stack.length - 1; index >= 0; index -= 1) {
     const key = stack[index] as string;
-    current = { value: cloneColor(current.value) };
+    current = { value: current.value };
     memo.set(nodeId(key, mode), current);
   }
   return current;
@@ -305,7 +304,7 @@ function nodeId(key: string, mode: string): string {
 function isReferenceExpression<Key extends string>(
   expression: ParsedColorExpression<Key>,
 ): expression is { readonly ref: Key } {
-  return "ref" in expression;
+  return typeof expression === "object" && expression !== null && "ref" in expression;
 }
 
 function cloneOrigin(origin: ParsedTokenGraphToken["origin"]): ParsedTokenGraphToken["origin"] {

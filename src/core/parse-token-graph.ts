@@ -1,4 +1,3 @@
-import { cloneColor, parsePersistedColorAt, type ColorValue } from "./color";
 import type {
   ColorTokenDefinitionInput,
   ColorTokenExpressionInput,
@@ -47,7 +46,7 @@ interface TokenDeclaration {
   readonly token: ParsedToken;
 }
 
-export type ParsedColorExpression<Key extends string = string> = ColorValue | ReferenceInput<Key>;
+export type ParsedColorExpression<Key extends string = string> = string | ReferenceInput<Key>;
 
 export interface ParsedTokenGraphToken<Mode extends string = string, Key extends string = string> {
   readonly visibility: TokenVisibility;
@@ -1196,12 +1195,15 @@ function parseExpression(
     return { ref: record.get("ref") as string };
   }
 
-  const color = parsePersistedColorAt(input, path);
-  if (!color.ok) {
-    collector.addMany(color.issues as readonly ColorTokenGraphIssue[]);
-    return undefined;
+  if (typeof input === "string") {
+    return input;
   }
-  return color.value;
+  collector.add({
+    code: "invalid-token-value",
+    message: "Token values must be authored CSS color strings or explicit references.",
+    path,
+  });
+  return undefined;
 }
 
 function validateReferences(
@@ -1382,7 +1384,7 @@ function layerOrigin(layerId: string, context: ParseContext): TokenOrigin {
 }
 
 function cloneExpression(expression: ParsedColorExpression): ParsedColorExpression {
-  return isReferenceExpression(expression) ? { ref: expression.ref } : cloneColor(expression);
+  return isReferenceExpression(expression) ? { ref: expression.ref } : expression;
 }
 
 function toPublicToken(token: ParsedToken): ParsedTokenGraphToken {
@@ -1397,7 +1399,7 @@ function toPublicToken(token: ParsedToken): ParsedTokenGraphToken {
 }
 
 function isReferenceExpression(expression: ParsedColorExpression): expression is ReferenceInput {
-  return "ref" in expression;
+  return typeof expression === "object" && expression !== null && "ref" in expression;
 }
 
 function escapeTokenPath(key: string): string {

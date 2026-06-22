@@ -123,7 +123,7 @@ const lightDarkBuilt = buildScheme({
   layers: [lightDarkLayer],
 });
 if (!lightDarkBuilt.ok) throw new Error(JSON.stringify(lightDarkBuilt.issues));
-if (lightDarkBuilt.value.tokens.background?.valueByMode.dark?.colorSpace !== "srgb") {
+if (lightDarkBuilt.value.tokens.background?.valueByMode.dark !== "#141218") {
   throw new Error("layer-only multi-mode build failed");
 }
 `,
@@ -192,7 +192,6 @@ import {
   type BuildSchemeSourceOptions,
   type CssVarBlock,
   type CssVarsExport,
-  type ColorValue,
   type CompiledColorScheme,
   type ExportCssVarsOptions,
   type Issue,
@@ -236,7 +235,6 @@ const legacyCssOptions: ExportCssVarsOptions = {
   // @ts-expect-error variablePrefix is not part of the public CSS export options.
   variablePrefix: "theme",
 };
-const color: ColorValue = { colorSpace: "srgb", components: [1, 1, 1], alpha: 1 };
 const tokenKey: TokenKeyOf<typeof graph> = "app.background";
 const mode: ModeOf<typeof graph> = "base";
 const cssExport = exportCssVars({} as never);
@@ -270,7 +268,6 @@ cssVarsExport?.css.toUpperCase();
 cssBlock?.declarations[0]?.property.toUpperCase();
 cssBlock?.declarations[0]?.value.toUpperCase();
 cssVarsExport?.variableByToken["app.background"]?.toUpperCase();
-color.colorSpace.toUpperCase();
 tokenKey.toUpperCase();
 mode.toUpperCase();
 if (compiled.ok) compiled.value.defaultMode.toUpperCase();

@@ -32,7 +32,7 @@ const authoredDocsSiteFiles = listFiles(join(repoRoot, "docs-site")).filter(
 const docsSiteFiles = authoredDocsSiteFiles.filter((file) => file.endsWith(".md"));
 assertNoRemovedPublicNames();
 assertNoPublicSemanticTokens();
-assertTailwindRecipe(readme);
+assertNoPublicColorParserSurface();
 
 const blocks = extractTypeScriptExamples([
   { label: "README.md", text: readme },
@@ -180,6 +180,14 @@ function assertNoRemovedPublicNames(): void {
     `serialize${"Scheme"}`,
     `material3${"Source"}`,
     `source${"Color"}`,
+    `parse${"Color"}`,
+    `format${"Css"}${"Color"}`,
+    `color${"Spaces"}`,
+    `Color${"Value"}`,
+    `Color${"Value"}Input`,
+    `Color${"Space"}`,
+    `Color${"Component"}`,
+    `Parse${"Color"}Issue`,
   ] as const;
   const denied = [
     removedRootPackageName,
@@ -254,25 +262,38 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function assertTailwindRecipe(readmeText: string): void {
-  const requiredSnippets = [
-    "## Tailwind v4",
-    ":root {\n  --background:",
-    "--primary-foreground:",
+function assertNoPublicColorParserSurface(): void {
+  const publicFiles = [
+    join(repoRoot, "README.md"),
+    join(adapterRoot, "README.md"),
+    join(repoRoot, "CHANGELOG.md"),
+    ...listFiles(join(repoRoot, "docs")).filter((file) => trackedWorkspaceFiles.has(file)),
+    ...authoredDocsSiteFiles,
+  ].filter((file) => file.endsWith(".md"));
+
+  const deniedSnippets = [
+    "parseColor",
+    "formatCssColor",
+    "colorSpaces",
+    "ColorValue",
+    "ColorValueInput",
+    "colorSpace",
+    "components",
+    "structured color",
+    "color parser",
+    "high-gamut",
+    "gamut mapping",
+    "Tailwind v4",
     "@theme inline",
-    "--color-background: var(--background);",
-    "--color-foreground: var(--foreground);",
-    "--color-primary: var(--primary);",
-    "--color-primary-foreground: var(--primary-foreground);",
-    "Do not derive Tailwind colors by blindly remapping every exported declaration",
   ] as const;
-  for (const snippet of requiredSnippets) {
-    if (!readmeText.includes(snippet)) {
-      throw new Error(`README Tailwind v4 recipe is missing: ${snippet}`);
+
+  for (const file of publicFiles) {
+    const text = readFileSync(file, "utf8");
+    for (const snippet of deniedSnippets) {
+      if (text.includes(snippet)) {
+        throw new Error(`Public docs contain removed color surface "${snippet}" in ${file}`);
+      }
     }
-  }
-  if (readmeText.includes('exportCssVars(compiled.value, { prefix: "color" })')) {
-    throw new Error("README must not teach Tailwind by prefixing runtime CSS variables");
   }
 }
 

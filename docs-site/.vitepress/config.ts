@@ -58,10 +58,9 @@ export default defineConfig({
   ],
   themeConfig: {
     nav: [
-      { text: "Guide", link: "/guide/getting-started" },
-      { text: "Recipes", link: "/recipes/" },
+      { text: "Getting Started", link: "/guide/getting-started" },
       { text: "API", link: "/reference/api" },
-      { text: "Schemas", link: "/reference/schemas" },
+      { text: "Diagnostics", link: "/reference/diagnostics" },
     ],
     sidebar: [
       {
@@ -69,34 +68,22 @@ export default defineConfig({
         items: [
           { text: "Overview", link: "/" },
           { text: "Getting Started", link: "/guide/getting-started" },
-          { text: "Light and Dark", link: "/guide/light-dark" },
         ],
       },
       {
         text: "Guides",
         items: [
+          { text: "Define Tokens", link: "/guide/define-tokens" },
+          { text: "Export CSS Variables", link: "/guide/export-css-variables" },
+          { text: "TypeScript Access", link: "/guide/typescript-access" },
           { text: "Material 3", link: "/guide/material-3" },
-          { text: "Tailwind", link: "/guide/tailwind" },
-          { text: "Persisted Artifacts", link: "/guide/persisted-artifacts" },
-          { text: "Errors", link: "/guide/errors" },
         ],
-      },
-      {
-        text: "Recipes",
-        items: [{ text: "Recipe Index", link: "/recipes/" }],
       },
       {
         text: "Reference",
         items: [
           { text: "API", link: "/reference/api" },
-          { text: "Schemas", link: "/reference/schemas" },
-        ],
-      },
-      {
-        text: "Concepts",
-        items: [
-          { text: "Model", link: "/concepts/model" },
-          { text: "Adapters", link: "/concepts/adapters" },
+          { text: "Diagnostics", link: "/reference/diagnostics" },
         ],
       },
     ],

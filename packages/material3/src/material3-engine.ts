@@ -18,10 +18,8 @@ import { SchemeVibrant } from "./vendor/material-color-utilities/scheme/scheme_v
 import { argbFromHex, hexFromArgb } from "./vendor/material-color-utilities/utils/string_utils";
 import {
   colorTokenGraphKind,
-  parseColor,
   type ColorTokenDefinitionInput,
   type ColorTokenGraphInput,
-  type ColorValue,
   type TokenVisibility,
 } from "scheme-tokens";
 import {
@@ -416,12 +414,8 @@ function readExtendedColorRoleHex(
   return hexFromArgb(value);
 }
 
-function materialColorValue(hex: string): ColorValue {
-  const parsed = parseColor(hex);
-  if (!parsed.ok) {
-    throw new Error(`Material engine emitted unsupported color output: ${hex}`);
-  }
-  return parsed.value;
+function materialColorValue(hex: string): string {
+  return hex.toLowerCase();
 }
 
 function material3ExtendedColorTokenKey(

@@ -17,7 +17,6 @@ describe("package boundary", () => {
   test("root runtime exports are exact", () => {
     expect(Object.keys(root).sort()).toEqual([
       "buildScheme",
-      "colorSpaces",
       "colorTokenGraphKind",
       "colorTokenLayerKind",
       "compileTokenGraph",
@@ -27,8 +26,6 @@ describe("package boundary", () => {
       "defineTokenLayer",
       "defineTokens",
       "exportCssVars",
-      "formatCssColor",
-      "parseColor",
       "parseCompiledScheme",
       "parseTokenGraph",
       "parseTokenLayer",
@@ -38,6 +35,8 @@ describe("package boundary", () => {
       "tokenRef",
     ]);
     expect(root).not.toHaveProperty(`defineToken${"Frag"}${"ment"}`);
+    expect(root).not.toHaveProperty("parseColor");
+    expect(root).not.toHaveProperty("formatCssColor");
   });
 
   test("package exports expose only root, schemas, and package metadata", () => {

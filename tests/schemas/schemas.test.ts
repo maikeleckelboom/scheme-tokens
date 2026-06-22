@@ -89,7 +89,7 @@ describe("JSON Schemas", () => {
       defaultMode: "base",
       defaultVisibility: "public",
       tokens: {
-        "brand.primary": { value: srgb(0.4, 0.31, 0.64), visibility: "internal" },
+        "brand.primary": { value: "#6750a4", visibility: "internal" },
         primary: { value: { ref: "brand.primary" } },
       },
     };
@@ -147,7 +147,7 @@ describe("JSON Schemas", () => {
 
   test("compiled scheme parser rejects removed token-lane origins", () => {
     const removedOriginKind = `semantic${"Token"}`;
-    const compiled = validCompiledWithColor(srgb(1, 1, 1));
+    const compiled = validCompiledWithColor("#ffffff");
     compiled.tokens["brand.primary"]!.origin = {
       kind: removedOriginKind,
       origin: { kind: "graph" },
@@ -172,7 +172,7 @@ describe("JSON Schemas", () => {
       defaultMode: "base",
       defaultVisibility: "internal",
       tokens: {
-        "brand.primary": { value: srgb(0.4, 0.31, 0.64) },
+        "brand.primary": { value: "#6750a4" },
       },
       [removedField]: {
         primary: { value: { ref: "brand.primary" } },
@@ -193,49 +193,44 @@ describe("JSON Schemas", () => {
     expectSchemaInvalid(ajv, layerSchema, layer, "layer removed token-lane field");
   });
 
-  test("token graph schema preflight and parser accept structured persisted colors", () => {
+  test("token graph schema preflight and parser preserve authored color strings", () => {
     expect.hasAssertions();
 
     const ajv = createAjv();
-    const graph = validGraphWithColor({
-      colorSpace: "oklch",
-      components: [0.7, 0.12, 265],
-      alpha: 1,
-    });
+    const graph = validGraphWithColor("oklch(0.7 0.12 265)");
 
-    expectSchemaValid(ajv, graphSchema, graph, "structured graph color");
-    expectParseTokenGraphOk(graph, "structured graph color");
+    expectSchemaValid(ajv, graphSchema, graph, "graph color string");
+    const parsed = expectParseTokenGraphOk(graph, "graph color string");
+    expect(parsed.tokens["brand.primary"]?.value).toBe("oklch(0.7 0.12 265)");
   });
 
-  test("token layer schema preflight and parser accept structured persisted colors", () => {
+  test("token layer schema preflight and parser preserve authored color strings", () => {
     const ajv = createAjv();
-    const layer = validLayerWithColor({
-      colorSpace: "display-p3",
-      components: [0.9, 0.3, 0.1],
-      alpha: 0.8,
-    });
+    const layer = validLayerWithColor("color(display-p3 0.9 0.3 0.1 / 0.8)");
 
-    expectSchemaValid(ajv, layerSchema, layer, "structured layer color");
-    expect(parseTokenLayer(layer).ok).toBe(true);
+    expectSchemaValid(ajv, layerSchema, layer, "layer color string");
+    expect(parseTokenLayer(layer)).toMatchObject({
+      ok: true,
+      value: { tokens: { "brand.primary": { value: "color(display-p3 0.9 0.3 0.1 / 0.8)" } } },
+    });
   });
 
-  test("compiled scheme schema preflight and parser accept structured persisted colors", () => {
+  test("compiled scheme schema preflight and parser preserve authored color strings", () => {
     const ajv = createAjv();
-    const compiled = validCompiledWithColor({
-      colorSpace: "lab",
-      components: [64, 12, -18],
-      alpha: 1,
-    });
+    const compiled = validCompiledWithColor("lab(64 12 -18)");
 
-    expectSchemaValid(ajv, compiledSchema, compiled, "structured compiled color");
-    expect(parseCompiledScheme(compiled).ok).toBe(true);
+    expectSchemaValid(ajv, compiledSchema, compiled, "compiled color string");
+    expect(parseCompiledScheme(compiled)).toMatchObject({
+      ok: true,
+      value: { tokens: { "brand.primary": { valueByMode: { base: "lab(64 12 -18)" } } } },
+    });
   });
 
   test.each([
     {
       label: "undeclared default mode",
       value: {
-        ...validGraphWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 }),
+        ...validGraphWithColor("#ffffff"),
         modes: ["base"],
         defaultMode: "dark",
       },
@@ -244,13 +239,13 @@ describe("JSON Schemas", () => {
     {
       label: "missing valueByMode coverage",
       value: {
-        ...validGraphWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 }),
+        ...validGraphWithColor("#ffffff"),
         modes: ["light", "dark"],
         defaultMode: "light",
         tokens: {
           "brand.primary": {
             valueByMode: {
-              light: { colorSpace: "srgb", components: [1, 1, 1], alpha: 1 },
+              light: "#ffffff",
             },
           },
         },
@@ -260,7 +255,7 @@ describe("JSON Schemas", () => {
     {
       label: "unknown reference target",
       value: {
-        ...validGraphWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 }),
+        ...validGraphWithColor("#ffffff"),
         tokens: {
           "brand.alias": {
             value: { ref: "brand.missing" },
@@ -276,67 +271,37 @@ describe("JSON Schemas", () => {
     expect(parseTokenGraph(value)).toMatchObject({ ok: false, issues: [{ code }] });
   });
 
-  test.each([
-    {
-      label: "invalid string color",
-      color: "#ffffff",
-      code: "unsupported-color-syntax",
-    },
-    {
-      label: "invalid color space",
-      color: { colorSpace: "unknown-rgb", components: [1, 1, 1], alpha: 1 },
-      code: "invalid-color-space",
-    },
-    {
-      label: "invalid component count",
-      color: { colorSpace: "srgb", components: [1, 1], alpha: 1 },
-      code: "invalid-color-components",
-    },
-    {
-      label: "invalid alpha",
-      color: { colorSpace: "srgb", components: [1, 1, 1], alpha: 1.2 },
-      code: "invalid-color-alpha",
-    },
-    {
-      label: "out-of-range hsl percentage",
-      color: { colorSpace: "hsl", components: [270, 101, 50], alpha: 1 },
-      code: "invalid-color-component",
-    },
-    {
-      label: "negative oklch chroma",
-      color: { colorSpace: "oklch", components: [0.7, -0.01, 265], alpha: 1 },
-      code: "invalid-color-component",
-    },
-    {
-      label: "invalid hex fallback",
-      color: { colorSpace: "srgb", components: [1, 1, 1], alpha: 1, hex: "#fff" },
-      code: "invalid-color-hex",
-    },
-  ] as const)("schemas and parsers reject $label in every color artifact", ({ color, code }) => {
+  test("schemas and parsers reject structured color objects in every artifact", () => {
     const ajv = createAjv();
-    const graph = validGraphWithColor(color);
-    const layer = validLayerWithColor(color);
-    const compiled = validCompiledWithColor(color);
+    const structuredColor = { colorSpace: "srgb", components: [1, 1, 1], alpha: 1 };
+    const graph = validGraphWithColor(structuredColor);
+    const layer = validLayerWithColor(structuredColor);
+    const compiled = validCompiledWithColor(structuredColor);
 
-    expectSchemaInvalid(ajv, graphSchema, graph, "graph invalid color");
-    expect(parseTokenGraph(graph)).toMatchObject({ ok: false, issues: [{ code }] });
-    expectSchemaInvalid(ajv, layerSchema, layer, "layer invalid color");
-    expect(parseTokenLayer(layer)).toMatchObject({ ok: false, issues: [{ code }] });
-    expectSchemaInvalid(ajv, compiledSchema, compiled, "compiled invalid color");
-    expect(parseCompiledScheme(compiled)).toMatchObject({ ok: false, issues: [{ code }] });
+    expectSchemaInvalid(ajv, graphSchema, graph, "graph structured color");
+    expect(parseTokenGraph(graph)).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-token-value" }],
+    });
+    expectSchemaInvalid(ajv, layerSchema, layer, "layer structured color");
+    expect(parseTokenLayer(layer)).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-token-value" }],
+    });
+    expectSchemaInvalid(ajv, compiledSchema, compiled, "compiled structured color");
+    expect(parseCompiledScheme(compiled)).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-token-value" }],
+    });
   });
 
   test("schemas and parsers reject invalid reference-bearing fields", () => {
     const ajv = createAjv();
-    const graph = validGraphWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 });
+    const graph = validGraphWithColor("#ffffff");
     graph.tokens["brand.alias"] = { value: { ref: "Bad Key" } };
-    const layer = validLayerWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 });
+    const layer = validLayerWithColor("#ffffff");
     layer.tokens["brand.alias"] = { value: { ref: "Bad Key" } };
-    const compiled = validCompiledWithColor({
-      colorSpace: "srgb",
-      components: [1, 1, 1],
-      alpha: 1,
-    });
+    const compiled = validCompiledWithColor("#ffffff");
     compiled.tokens["brand.primary"]!.dependenciesByMode.base = ["Bad Key"];
 
     expectSchemaInvalid(ajv, graphSchema, graph, "graph invalid ref");
@@ -361,15 +326,11 @@ describe("JSON Schemas", () => {
     const unusualExtensions = JSON.parse(
       '{"UPSTREAM vendor/key":{"safe":true},"__proto__":{"polluted":true}," spaced key ":["value",1,null]}',
     ) as Record<string, unknown>;
-    const graph = validGraphWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 });
+    const graph = validGraphWithColor("#ffffff");
     graph.tokens["brand.primary"]!.extensions = unusualExtensions;
-    const layer = validLayerWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 });
+    const layer = validLayerWithColor("#ffffff");
     layer.tokens["brand.primary"]!.extensions = unusualExtensions;
-    const compiled = validCompiledWithColor({
-      colorSpace: "srgb",
-      components: [1, 1, 1],
-      alpha: 1,
-    });
+    const compiled = validCompiledWithColor("#ffffff");
     compiled.tokens["brand.primary"]!.extensions = unusualExtensions;
 
     expectSchemaValid(ajv, graphSchema, graph, "graph unusual extensions");
@@ -391,29 +352,18 @@ describe("JSON Schemas", () => {
     expect((Object.prototype as { polluted?: unknown }).polluted).toBeUndefined();
   });
 
-  test("runtime parsers reject sparse arrays, accessors, and unsafe extension values without weakening JSON hardening", () => {
-    const sparseComponents = [1, undefined, 1];
-    delete sparseComponents[1];
-    const sparseGraph = validGraphWithColor({
-      colorSpace: "srgb",
-      components: sparseComponents,
-      alpha: 1,
-    });
-    expect(parseTokenGraph(sparseGraph)).toMatchObject({
-      ok: false,
-      issues: [{ code: "invalid-color-components" }],
-    });
-
+  test("runtime parsers reject object values and unsafe extension values without weakening JSON hardening", () => {
     const accessorColor = {};
-    Object.defineProperty(accessorColor, "colorSpace", {
+    Object.defineProperty(accessorColor, "ref", {
       enumerable: true,
       get() {
-        throw new Error("getter should not run");
+        throw new Error("token value getter should not run");
       },
     });
+    expect(() => parseTokenLayer(validLayerWithColor(accessorColor))).not.toThrow();
     expect(parseTokenLayer(validLayerWithColor(accessorColor))).toMatchObject({
       ok: false,
-      issues: [{ code: "invalid-color-input" }],
+      issues: [{ code: "invalid-token-value" }],
     });
 
     const accessorExtension = {};
@@ -423,7 +373,7 @@ describe("JSON Schemas", () => {
         throw new Error("extension getter should not run");
       },
     });
-    const graph = validGraphWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 });
+    const graph = validGraphWithColor("#ffffff");
     graph.tokens["brand.primary"]!.extensions = { "foreign/key": accessorExtension };
     expect(parseTokenGraph(graph)).toMatchObject({
       ok: false,
@@ -434,10 +384,7 @@ describe("JSON Schemas", () => {
   test.each([
     {
       label: "missing graph kind",
-      value: withoutProperty(
-        validGraphWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 }),
-        "kind",
-      ),
+      value: withoutProperty(validGraphWithColor("#ffffff"), "kind"),
       schema: graphSchema,
       parse: parseTokenGraph,
       code: "missing-property",
@@ -445,7 +392,7 @@ describe("JSON Schemas", () => {
     {
       label: "wrong graph kind",
       value: {
-        ...validGraphWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 }),
+        ...validGraphWithColor("#ffffff"),
         kind: colorTokenLayerKind,
       },
       schema: graphSchema,
@@ -455,7 +402,7 @@ describe("JSON Schemas", () => {
     {
       label: "wrong graph format version",
       value: {
-        ...validGraphWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 }),
+        ...validGraphWithColor("#ffffff"),
         formatVersion: 2,
       },
       schema: graphSchema,
@@ -464,24 +411,21 @@ describe("JSON Schemas", () => {
     },
     {
       label: "layer passed as graph",
-      value: validLayerWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 }),
+      value: validLayerWithColor("#ffffff"),
       schema: graphSchema,
       parse: parseTokenGraph,
       code: "invalid-artifact-kind",
     },
     {
       label: "compiled passed as graph",
-      value: validCompiledWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 }),
+      value: validCompiledWithColor("#ffffff"),
       schema: graphSchema,
       parse: parseTokenGraph,
       code: "invalid-artifact-kind",
     },
     {
       label: "missing compiled kind",
-      value: withoutProperty(
-        validCompiledWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 }),
-        "kind",
-      ),
+      value: withoutProperty(validCompiledWithColor("#ffffff"), "kind"),
       schema: compiledSchema,
       parse: parseCompiledScheme,
       code: "missing-property",
@@ -489,7 +433,7 @@ describe("JSON Schemas", () => {
     {
       label: "wrong compiled format version",
       value: {
-        ...validCompiledWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 }),
+        ...validCompiledWithColor("#ffffff"),
         formatVersion: 2,
       },
       schema: compiledSchema,
@@ -498,27 +442,21 @@ describe("JSON Schemas", () => {
     },
     {
       label: "missing compiled modes",
-      value: withoutProperty(
-        validCompiledWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 }),
-        "modes",
-      ),
+      value: withoutProperty(validCompiledWithColor("#ffffff"), "modes"),
       schema: compiledSchema,
       parse: parseCompiledScheme,
       code: "missing-property",
     },
     {
       label: "missing compiled tokens",
-      value: withoutProperty(
-        validCompiledWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 }),
-        "tokens",
-      ),
+      value: withoutProperty(validCompiledWithColor("#ffffff"), "tokens"),
       schema: compiledSchema,
       parse: parseCompiledScheme,
       code: "missing-property",
     },
     {
       label: "graph passed as compiled scheme",
-      value: validGraphWithColor({ colorSpace: "srgb", components: [1, 1, 1], alpha: 1 }),
+      value: validGraphWithColor("#ffffff"),
       schema: compiledSchema,
       parse: parseCompiledScheme,
       code: "invalid-artifact-kind",
@@ -587,7 +525,7 @@ describe("JSON Schemas", () => {
         defaultMode: "base",
         defaultVisibility: "public",
         tokens: {
-          [key]: { value: srgb(1, 1, 1) },
+          [key]: { value: "#ffffff" },
         },
       };
 
@@ -599,19 +537,19 @@ describe("JSON Schemas", () => {
     },
   );
 
-  test("compiled scheme schema rejects unresolved authoring color strings", () => {
+  test("compiled scheme schema rejects non-string token values", () => {
     expect.hasAssertions();
 
     const ajv = createAjv();
     const compiledFixture = readFixtureObject("valid", "compiled-scheme.json");
-    const unresolvedCompiled = {
+    const compiledWithObjectValue = {
       ...compiledFixture,
       tokens: {
         "button.background": {
           visibility: "public",
           valueByMode: {
             light: "#6750a4",
-            dark: "#d0bcff",
+            dark: { ref: "brand.primary" },
           },
           origin: {
             kind: "graph",
@@ -624,8 +562,8 @@ describe("JSON Schemas", () => {
       },
     };
 
-    expectSchemaInvalid(ajv, compiledSchema, unresolvedCompiled, "compiled authoring strings");
-    expectIssueCode(parseCompiledScheme(unresolvedCompiled), "unsupported-color-syntax");
+    expectSchemaInvalid(ajv, compiledSchema, compiledWithObjectValue, "compiled object value");
+    expectIssueCode(parseCompiledScheme(compiledWithObjectValue), "invalid-token-value");
   });
 });
 
@@ -653,10 +591,6 @@ function readFixtureObject(
   fixtureFile: string,
 ): Record<string, unknown> {
   return readJsonObject(join(fixtureDirectory, status, fixtureFile));
-}
-
-function srgb(red: number, green: number, blue: number): Record<string, unknown> {
-  return { colorSpace: "srgb", components: [red, green, blue], alpha: 1 };
 }
 
 function validGraphWithColor(color: unknown): {

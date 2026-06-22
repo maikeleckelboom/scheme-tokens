@@ -79,7 +79,7 @@ const graph = defineTokens(
   { modes: ["light", "dark"], defaultMode: "light" },
 );
 const compiled = expectOk(compileTokenGraph(graph), "compile default public selection");
-if (!("background" in compiled.tokens) || compiled.tokens.background.valueByMode.dark.colorSpace !== "oklch") {
+if (!("background" in compiled.tokens) || compiled.tokens.background.valueByMode.dark !== "oklch(0.18 0.02 285)") {
   throw new Error("root compile did not preserve light/dark public tokens");
 }
 const cssExport = expectOk(exportCssVars(compiled), "export root CSS");
@@ -127,15 +127,12 @@ if (!("primary" in appCompiled.tokens) || "brand.primary" in appCompiled.tokens)
   throw new Error("app token did not compile as the public product lane");
 }
 for (const value of ["red", "brand.primary", "var(--x)"]) {
-  expectThrow(() => defineTokens({ sample: value }), "Use tokenRef");
+  const authored = defineTokens({ sample: value });
+  if (authored.tokens.sample?.value !== value) {
+    throw new Error("authored color string was not preserved");
+  }
 }
 
-const structuredColor = {
-  colorSpace: "srgb",
-  components: [0.403921568627451, 0.3137254901960784, 0.6431372549019608],
-  alpha: 1,
-  hex: "#6750a4",
-};
 const persistedGraph = {
   kind: "scheme-tokens/color-token-graph",
   formatVersion: 1,
@@ -144,7 +141,7 @@ const persistedGraph = {
   defaultVisibility: "public",
   tokens: {
     primary: {
-      value: structuredColor,
+      value: "#6750a4",
       extensions: { owner: "audit", nested: { stable: true } },
     },
   },
@@ -155,13 +152,19 @@ if (parsedGraph.tokens.primary.extensions?.nested?.stable !== true) {
 }
 expectFail(parseTokenGraph({ tokens: { primary: "#6750a4" } }), "missing-property");
 expectFail(parseTokenGraph({ ...persistedGraph, kind: "scheme-tokens/token-graph" }), "invalid-artifact-kind");
-expectFail(parseTokenGraph({ ...persistedGraph, tokens: { primary: { value: "#6750a4" } } }), "unsupported-color-syntax");
+expectFail(
+  parseTokenGraph({
+    ...persistedGraph,
+    tokens: { primary: { value: { colorSpace: "srgb", components: [1, 1, 1], alpha: 1 } } },
+  }),
+  "invalid-token-value",
+);
 const layer = {
   kind: "scheme-tokens/color-token-layer",
   formatVersion: 1,
   id: "app",
   defaultVisibility: "public",
-  tokens: { primary: { value: structuredColor } },
+  tokens: { primary: { value: "#6750a4" } },
 };
 expectOk(parseTokenLayer(layer), "parse strict layer");
 expectFail(parseTokenLayer({ ...layer, kind: "scheme-tokens/token-layer" }), "invalid-artifact-kind");
@@ -234,17 +237,6 @@ function expectFail(result, code) {
   if (result.ok || !result.issues.some((issue) => issue.code === code)) {
     throw new Error("Expected issue code " + code + ", got " + JSON.stringify(result));
   }
-}
-function expectThrow(callback, message) {
-  try {
-    callback();
-  } catch (error) {
-    if (String(error?.message ?? error).includes(message)) {
-      return;
-    }
-    throw error;
-  }
-  throw new Error("Expected throw containing: " + message);
 }
 function expectPackagePathNotExported(callback) {
   try {

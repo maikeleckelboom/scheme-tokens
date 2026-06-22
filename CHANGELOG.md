@@ -12,8 +12,8 @@
   input behavior.
 - Keep references explicit through alias maps, `tokenRef("token.key")`, or `{ ref: "token.key" }`; bare strings remain
   color authoring input and never become references based on spelling.
-- Store persisted graph, layer, and compiled colors as structured `ColorValue` objects with `colorSpace`, `components`,
-  `alpha`, and optional `hex`.
+- Store graph, layer, and compiled token values as authored strings; root preserves and emits those strings without
+  parsing, normalization, formatting, or conversion.
 - Add artifact `kind` discriminators and public parse/serialize functions for token graphs, token layers, and compiled
   color schemes.
 - Release `@scheme-tokens/material3` as a separate Material 3 adapter package that owns all Material behavior, uses the
@@ -27,7 +27,6 @@
 - Support Material generation options `variant`, `contrastLevel`, `specVersion`, `platform`, `paletteOverrides`,
   `extendedColors`, and `paletteTones`, plus integration options `id` and `defaultVisibility`.
 - Add `material3Preset` for reusable Material generation defaults and fixed integration options.
-- Document the Tailwind v4 recipe as an explicit `@theme` mapping from unprefixed runtime CSS variables.
 - Bundle a pinned Material Color Utilities TypeScript snapshot inside `@scheme-tokens/material3` with Apache-2.0
   provenance documented in the adapter package.
 - Document the canonical core token-key language as dot-separated lower-kebab identifier segments, with external format
@@ -36,7 +35,5 @@
   DTCG runtime support remains deferred beyond 0.1.0.
 - Document `@scheme-tokens/texel` as a planned future Texel color conversion adapter using adapter-owned
   `@texel/color`, with no Texel runtime support in core.
-- Document `@scheme-tokens/shadcn` as a planned future shadcn target adapter for explicit, overridable shadcn CSS
-  variable contract mapping; shadcn runtime support remains deferred beyond 0.1.0.
 - Preserve the package boundary: the root package has no Material dependency, Material exports, Material subpaths, or
   Material schema branches.

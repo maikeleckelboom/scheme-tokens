@@ -9,7 +9,6 @@ export {
 } from "./core/graph";
 export { parseTokenGraph, parseTokenLayer } from "./core/parse-token-graph";
 export { parseCompiledScheme } from "./core/parse-compiled-scheme";
-export { colorSpaces, parseColor } from "./core/color";
 export { compileTokenGraph } from "./core/compile-token-graph";
 export { buildScheme, createSchemeBuilder } from "./core/source";
 export { exportCssVars } from "./exporters/export-css-variables";
@@ -18,18 +17,9 @@ export {
   serializeTokenGraph,
   serializeTokenLayer,
 } from "./exporters/serialize-scheme";
-export { formatCssColor } from "./exporters/format-css-color";
 
 export type { JsonPrimitive, JsonValue } from "./core/json";
 export type { Issue, NonEmptyIssues, Result } from "./core/result";
-export type {
-  ColorInput,
-  ColorComponent,
-  ColorSpace,
-  ColorValue,
-  ColorValueInput,
-  ParseColorIssue,
-} from "./core/color";
 export type {
   ColorExpressionInput,
   ColorTokenDefinitionAuthoringInput,

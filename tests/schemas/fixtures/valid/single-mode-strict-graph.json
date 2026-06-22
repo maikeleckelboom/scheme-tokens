@@ -8,18 +8,10 @@
   "tokens": {
     "brand.primary": {
       "description": "Primary brand color.",
-      "value": {
-        "colorSpace": "srgb",
-        "components": [0.4, 0.31, 0.64],
-        "alpha": 1
-      }
+      "value": "#6750a4"
     },
     "surface.canvas": {
-      "value": {
-        "colorSpace": "srgb",
-        "components": [1, 1, 1],
-        "alpha": 1
-      }
+      "value": "oklch(0.99 0.01 260)"
     }
   }
 }

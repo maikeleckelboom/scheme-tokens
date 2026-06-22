@@ -1,42 +1,40 @@
 # API Reference
 
-The root API is small. Guides show the full workflows; this page is a terse map.
+The root API is the graph/compiler/exporter surface.
 
 ## Authoring
 
-| API                | Use                                   | Example                                                                                | Input                                     | Output                      | Gotcha                                         |
-| ------------------ | ------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------- | --------------------------- | ---------------------------------------------- |
-| `defineTokens`     | Define a simple token record.         | `defineTokens({ background: "#fff" })`                                                 | Token record plus optional graph options. | Strict graph input.         | Bare strings are colors, not references.       |
-| `defineTokenGraph` | Define full graph-shaped input.       | `defineTokenGraph({ tokens: { primary: "#6750a4" }, aliases: { action: "primary" } })` | Graph object with `tokens` and `aliases`. | Strict graph input.         | Flat top-level token records are not accepted. |
-| `defineTokenLayer` | Define an ordered overlay layer.      | `defineTokenLayer({ id: "app", aliases: { primary: "brand.primary" } })`               | Layer object with `tokens` and `aliases`. | Strict layer input.         | Layers do not own graph modes.                 |
-| `tokenRef`         | Build an advanced explicit reference. | `tokenRef("brand.primary")`                                                            | Token key string.                         | `{ ref: "brand.primary" }`. | Prefer `aliases` for ordinary mapping.         |
+| API                | Use                                |
+| ------------------ | ---------------------------------- |
+| `defineTokens`     | Define a simple token record.      |
+| `defineTokenGraph` | Define full graph-shaped input.    |
+| `defineTokenLayer` | Define an ordered overlay layer.   |
+| `tokenRef`         | Build an explicit token reference. |
 
 ## Compile and Build
 
-| API                   | Use                             | Example                                         | Input                                   | Output                         | Gotcha                                              |
-| --------------------- | ------------------------------- | ----------------------------------------------- | --------------------------------------- | ------------------------------ | --------------------------------------------------- |
-| `compileTokenGraph`   | Validate and resolve a graph.   | `compileTokenGraph(graph)`                      | Graph input plus optional selection.    | `Result<CompiledColorScheme>`. | Defaults to public tokens.                          |
-| `buildScheme`         | Run source adapters and layers. | `buildScheme(material3("#6750a4"), { layers })` | Base source, layers, or options object. | `Result<CompiledColorScheme>`. | At least one base or layer is required.             |
-| `createSchemeBuilder` | Reuse the same build options.   | `createSchemeBuilder({ layers }).build(source)` | Build config without `base`.            | Immutable builder.             | Runtime Material options stay inside `material3()`. |
+| API                   | Use                             |
+| --------------------- | ------------------------------- |
+| `compileTokenGraph`   | Validate and resolve a graph.   |
+| `buildScheme`         | Run source adapters and layers. |
+| `createSchemeBuilder` | Reuse the same build options.   |
 
 ## Export and Serialize
 
-| API                       | Use                                    | Example                                   | Input                             | Output                                            | Gotcha                                                  |
-| ------------------------- | -------------------------------------- | ----------------------------------------- | --------------------------------- | ------------------------------------------------- | ------------------------------------------------------- |
-| `exportCssVars`           | Export CSS custom properties.          | `exportCssVars(compiled.value)`           | Compiled scheme plus CSS options. | `Result` with `css`, `blocks`, `variableByToken`. | Custom names must be unique.                            |
-| `serializeCompiledScheme` | Write deterministic compiled JSON.     | `serializeCompiledScheme(compiled.value)` | Compiled scheme.                  | JSON string.                                      | Serializes resolved output, not helper input.           |
-| `serializeTokenGraph`     | Write deterministic strict graph JSON. | `serializeTokenGraph(graph)`              | Strict graph input.               | JSON string.                                      | Helper shorthand is already normalized.                 |
-| `serializeTokenLayer`     | Write deterministic strict layer JSON. | `serializeTokenLayer(layer)`              | Strict layer input.               | JSON string.                                      | Layers are graph contributions, not standalone schemes. |
+| API                       | Use                                    |
+| ------------------------- | -------------------------------------- |
+| `exportCssVars`           | Export CSS custom properties.          |
+| `serializeCompiledScheme` | Write deterministic compiled JSON.     |
+| `serializeTokenGraph`     | Write deterministic strict graph JSON. |
+| `serializeTokenLayer`     | Write deterministic strict layer JSON. |
 
-## Parse
+## Parse Strict Artifacts
 
-| API                   | Use                            | Example                                 | Input                             | Output                          | Gotcha                                        |
-| --------------------- | ------------------------------ | --------------------------------------- | --------------------------------- | ------------------------------- | --------------------------------------------- |
-| `parseCompiledScheme` | Validate loaded compiled JSON. | `parseCompiledScheme(JSON.parse(text))` | Unknown value.                    | `Result<CompiledColorScheme>`.  | Use before exporting CSS from external data.  |
-| `parseTokenGraph`     | Validate loaded graph JSON.    | `parseTokenGraph(value)`                | Unknown value.                    | `Result<ColorTokenGraphInput>`. | Strict colors only.                           |
-| `parseTokenLayer`     | Validate loaded layer JSON.    | `parseTokenLayer(value)`                | Unknown value.                    | `Result<ColorTokenLayerInput>`. | Requires layer `kind` and `id`.               |
-| `parseColor`          | Parse one supported color.     | `parseColor("oklch(0.7 0.12 265)")`     | Color string or structured color. | `Result<ColorValue>`.           | CSS named colors are not supported.           |
-| `formatCssColor`      | Format a parsed color as CSS.  | `formatCssColor(color)`                 | `ColorValue`.                     | CSS color string.               | It formats; it does not convert color spaces. |
+| API                   | Use                            |
+| --------------------- | ------------------------------ |
+| `parseCompiledScheme` | Validate loaded compiled JSON. |
+| `parseTokenGraph`     | Validate loaded graph JSON.    |
+| `parseTokenLayer`     | Validate loaded layer JSON.    |
 
 ## Checked Example
 
@@ -47,8 +45,6 @@ import {
   defineTokenLayer,
   defineTokens,
   exportCssVars,
-  formatCssColor,
-  parseColor,
   parseCompiledScheme,
   parseTokenGraph,
   parseTokenLayer,
@@ -57,11 +53,11 @@ import {
   serializeTokenLayer,
 } from "scheme-tokens";
 
-const graph = defineTokens({
+const simpleGraph = defineTokens({
   "brand.primary": "#6750a4",
 });
 
-const explicitGraph = defineTokenGraph({
+const graph = defineTokenGraph({
   tokens: {
     "brand.primary": {
       value: "#6750a4",
@@ -70,7 +66,6 @@ const explicitGraph = defineTokenGraph({
   },
   aliases: {
     primary: "brand.primary",
-    "primary-foreground": "brand.primary",
   },
 });
 
@@ -81,7 +76,7 @@ const layer = defineTokenLayer({
   },
 });
 
-const compiled = compileTokenGraph(explicitGraph);
+const compiled = compileTokenGraph(graph);
 if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
@@ -91,28 +86,14 @@ if (!cssExport.ok) {
   throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const color = parseColor("#6750a4");
-if (!color.ok) {
-  throw new Error(JSON.stringify(color.issues, null, 2));
-}
-
-const cssColor = formatCssColor(color.value);
 const compiledJson = serializeCompiledScheme(compiled.value);
-const graphJson = serializeTokenGraph(graph);
+const graphJson = serializeTokenGraph(simpleGraph);
 const layerJson = serializeTokenLayer(layer);
 const parsedCompiled = parseCompiledScheme(JSON.parse(compiledJson));
 const parsedGraph = parseTokenGraph(JSON.parse(graphJson));
 const parsedLayer = parseTokenLayer(JSON.parse(layerJson));
-const reparsedGraphJson = parsedGraph.ok ? serializeTokenGraph(parsedGraph.value) : undefined;
-const reparsedCompiled = parsedGraph.ok ? compileTokenGraph(parsedGraph.value) : undefined;
 
-export {
-  cssColor,
-  cssExport,
-  parsedCompiled,
-  parsedGraph,
-  parsedLayer,
-  reparsedCompiled,
-  reparsedGraphJson,
-};
+export { cssExport, parsedCompiled, parsedGraph, parsedLayer };
 ```
+
+Root has no public CSS color parsing or formatting API. Token values are strings in the root contract.

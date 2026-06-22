@@ -4,7 +4,6 @@ import { compareCodeUnits, escapePointerSegment, readPlainRecord } from "../core
 import { parseCompiledScheme } from "../core/parse-compiled-scheme";
 import type { Issue, Result } from "../core/result";
 import { describeUnknown } from "../core/unknown-description";
-import { formatCssColor } from "./format-css-color";
 import { isAppendSafeCssSelector, isValidCssSelector } from "./selector-validation";
 
 export type CssScope =
@@ -238,7 +237,7 @@ function buildCssVarBlocks(
       declarations.push({
         tokenKey: key,
         property,
-        value: formatCssColor(value),
+        value,
       });
     }
     blocks.push({

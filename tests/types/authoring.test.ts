@@ -8,7 +8,6 @@ import {
   exportCssVars,
   tokenRef,
   type BuildSchemeSourceOptions,
-  type ColorValueInput,
   type CssVarBlock,
   type CssVarsExport,
   type ExportCssVarsOptions,
@@ -40,6 +39,14 @@ export type RemovedBuildHelper = RootModule[RemovedBuildName];
 type RemovedCompiledName = `Compiled${"Token"}${"Set"}`;
 // @ts-expect-error old compiled type is not exported.
 export type RemovedCompiledType = RootModule[RemovedCompiledName];
+// @ts-expect-error root no longer exports CSS color parsing.
+export type RemovedParseColor = RootModule["parseColor"];
+// @ts-expect-error root no longer exports CSS color formatting.
+export type RemovedFormatCssColor = RootModule["formatCssColor"];
+// @ts-expect-error structured color values are not part of the root public API.
+export type RemovedColorValue = Root.ColorValue;
+// @ts-expect-error structured color authoring input is not part of the root public API.
+export type RemovedColorValueInput = Root.ColorValueInput;
 
 const simpleGraph = defineTokenGraph({
   tokens: {
@@ -216,10 +223,6 @@ typedApplicationLayer.defaultVisibility.toUpperCase();
 export type ApplicationAliasKeys = Expect<
   Equal<Extract<"app.background", keyof typeof applicationLayer.tokens>, "app.background">
 >;
-
-// @ts-expect-error raw strings are helper authoring input, not structured ColorValueInput.
-const unsupportedColorValueInput: ColorValueInput = "red";
-unsupportedColorValueInput.toString();
 
 const sourceAndLayerBuilt = buildScheme(source, { layers: [layer], selection: "all" });
 if (sourceAndLayerBuilt.ok) {

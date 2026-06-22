@@ -44,7 +44,7 @@
               "$ref": "color-token-graph.v1.schema.json#/$defs/segment"
             },
             "additionalProperties": {
-              "$ref": "color-token-graph.v1.schema.json#/$defs/colorValue"
+              "type": "string"
             }
           },
           "origin": {

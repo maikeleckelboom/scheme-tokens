@@ -1,15 +1,10 @@
 # scheme-tokens
 
-Own your color token names. Compile the selected scheme. Export deterministic CSS custom properties.
+Define color tokens once. Compile the selected graph. Export deterministic CSS variables and keep typed data available
+to TypeScript.
 
-For apps that want stable color contracts without adopting a runtime theme engine. Start with manual colors, then add
-Material only when a real generator is needed.
-
-## Install
-
-```bash
-pnpm add scheme-tokens
-```
+Root values are authored CSS strings. They are preserved and emitted unchanged; root does not parse, normalize, convert,
+or format color values.
 
 ## First Path
 
@@ -39,51 +34,32 @@ const stylesheet = cssExport.value.css;
 export { stylesheet };
 ```
 
-## Why It Fits
+## What Root Owns
 
-- Author colors directly: keep product token names in the app contract from the first file.
-- Compile deterministic output: resolve the selected scheme before CSS or JSON leaves the package.
-- Add generators without coupling: optional engines live in adapter packages, not the root import.
+- Token graph contracts.
+- JSON-safe authoring helpers.
+- Graph parsing and validation.
+- Token compilation.
+- Deterministic serialization.
+- CSS custom-property export.
+- `Result` and `Issue` contracts.
+- Adapter interfaces.
 
-Use the stylesheet artifact in a build step, SSR response, or app CSS import:
+## What Root Does Not Own
 
-```css
-@import "./tokens.css";
+- CSS color grammar.
+- Color conversion.
+- Palette generation.
+- Browser style mutation.
+- Framework-specific scaffolds.
+- Optional engine dependencies.
 
-.button {
-  background: var(--primary);
-  color: var(--primary-foreground);
-}
+## Next
 
-.surface {
-  background: var(--background);
-  color: var(--foreground);
-}
-```
-
-The default export uses authored runtime custom-property names:
-
-```css
-:root {
-  --background: #ffffff;
-  --foreground: #111111;
-  --primary: #6750a4;
-  --primary-foreground: #ffffff;
-}
-```
-
-## Go Next
-
-- [Getting Started](./guide/getting-started.md) keeps the direct-token path short.
-- [Light and Dark](./guide/light-dark.md) adds modes and selector control.
-- [Material 3](./guide/material-3.md) uses the optional adapter without making it the default path.
-- [Tailwind](./guide/tailwind.md) maps runtime custom properties into Tailwind's `@theme` contract.
-- [Recipes](./recipes/index.md) gives compact copy-paste snippets.
-- [API Reference](./reference/api.md) lists the root exports.
-- [Schema Reference](./reference/schemas.md) covers strict persisted artifacts.
-
-## What It Owns
-
-The root package gives you the core color-token path: strict graph contracts, validation, compilation, deterministic
-serialization, and CSS custom-property export. It does not load Material 3, Texel, browser canvas, image extraction, or
-conversion engines. Optional capabilities live in adapter packages such as `@scheme-tokens/material3`.
+- [Getting Started](./guide/getting-started.md)
+- [Define Tokens](./guide/define-tokens.md)
+- [Export CSS Variables](./guide/export-css-variables.md)
+- [TypeScript Access](./guide/typescript-access.md)
+- [Material 3](./guide/material-3.md)
+- [API Reference](./reference/api.md)
+- [Diagnostics](./reference/diagnostics.md)

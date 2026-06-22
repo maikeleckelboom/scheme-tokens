@@ -1,10 +1,3 @@
-import {
-  cloneColor,
-  parseColor,
-  type ColorInput,
-  type ColorValueInput,
-  type ParseColorIssue,
-} from "./color";
 import type { JsonValue } from "./json";
 import { defineRecordValue, readPlainRecord } from "./json";
 import { isTokenKey } from "./identifiers";
@@ -25,10 +18,8 @@ export interface ReferenceInput<Key extends string = string> {
   readonly ref: Key;
 }
 
-export type ColorExpressionInput<Key extends string = string> = ColorInput | ReferenceInput<Key>;
-export type ColorTokenExpressionInput<Key extends string = string> =
-  | ColorValueInput
-  | ReferenceInput<Key>;
+export type ColorExpressionInput<Key extends string = string> = string | ReferenceInput<Key>;
+export type ColorTokenExpressionInput<Key extends string = string> = string | ReferenceInput<Key>;
 
 export type ColorTokenDefinitionInput<Mode extends string = string, Key extends string = string> = {
   readonly visibility?: TokenVisibility;
@@ -180,44 +171,43 @@ export type ModeOf<T> = T extends { readonly modes: readonly [infer First, ...in
     ? Extract<Mode, string>
     : never;
 
-export type ColorTokenGraphIssue =
-  | ParseColorIssue
-  | (Issue<
-      | "invalid-object"
-      | "unknown-property"
-      | "missing-property"
-      | "invalid-artifact-kind"
-      | "invalid-format-version"
-      | "invalid-schema-uri"
-      | "invalid-json-value"
-      | "empty-modes"
-      | "invalid-mode-key"
-      | "duplicate-mode-key"
-      | "default-mode-not-found"
-      | "invalid-default-visibility"
-      | "invalid-layer-id"
-      | "duplicate-layer-id"
-      | "invalid-token-key"
-      | "duplicate-token-key"
-      | "invalid-visibility"
-      | "invalid-token-definition"
-      | "missing-token-value"
-      | "conflicting-token-value"
-      | "missing-mode-value"
-      | "unknown-mode-value"
-      | "invalid-reference"
-      | "unknown-reference"
-      | "reference-cycle"
-      | "invalid-description"
-      | "invalid-deprecated"
-      | "invalid-extensions"
-    > & {
-      readonly key?: string;
-      readonly mode?: string;
-      readonly layerId?: string;
-      readonly firstPath?: string;
-      readonly cycle?: readonly string[];
-    });
+export type ColorTokenGraphIssue = Issue<
+  | "invalid-object"
+  | "unknown-property"
+  | "missing-property"
+  | "invalid-artifact-kind"
+  | "invalid-format-version"
+  | "invalid-schema-uri"
+  | "invalid-json-value"
+  | "empty-modes"
+  | "invalid-mode-key"
+  | "duplicate-mode-key"
+  | "default-mode-not-found"
+  | "invalid-default-visibility"
+  | "invalid-layer-id"
+  | "duplicate-layer-id"
+  | "invalid-token-key"
+  | "duplicate-token-key"
+  | "invalid-visibility"
+  | "invalid-token-definition"
+  | "missing-token-value"
+  | "conflicting-token-value"
+  | "invalid-token-value"
+  | "missing-mode-value"
+  | "unknown-mode-value"
+  | "invalid-reference"
+  | "unknown-reference"
+  | "reference-cycle"
+  | "invalid-description"
+  | "invalid-deprecated"
+  | "invalid-extensions"
+> & {
+  readonly key?: string;
+  readonly mode?: string;
+  readonly layerId?: string;
+  readonly firstPath?: string;
+  readonly cycle?: readonly string[];
+};
 
 export function tokenRef<const Key extends string>(key: Key): ReferenceInput<Key> {
   if (!isTokenKey(key)) {
@@ -620,15 +610,13 @@ function normalizeColorExpression(
   if (isReferenceInput(input)) {
     return normalizeReferenceInput(input, helperName, tokenKey);
   }
-  const color = parseColor(input);
-  if (color.ok) {
-    return cloneColor(color.value);
+  if (typeof input === "string") {
+    return input;
   }
-  const firstIssue = color.issues[0];
   throw new TypeError(
-    `${helperName} token "${tokenKey}" has unsupported color input (${describeUnknown(input)}). ${
-      firstIssue?.message ?? "Use a supported concrete CSS color string or structured color value."
-    } Use tokenRef("token.key") or { ref: "token.key" } for references.`,
+    `${helperName} token "${tokenKey}" must be an authored color string or explicit token reference (${describeUnknown(
+      input,
+    )}). Use tokenRef("token.key") or { ref: "token.key" } for references.`,
   );
 }
 

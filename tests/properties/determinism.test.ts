@@ -4,7 +4,6 @@ import {
   colorTokenGraphKind,
   compileTokenGraph,
   defineTokenGraph,
-  parseColor,
   parseTokenGraph,
   serializeCompiledScheme,
 } from "../../src";
@@ -13,7 +12,6 @@ describe("determinism and parser safety properties", () => {
   test("parse boundaries do not throw for JSON values", () => {
     fc.assert(
       fc.property(fc.jsonValue(), (value) => {
-        expect(() => parseColor(value)).not.toThrow();
         expect(() => parseTokenGraph(value)).not.toThrow();
       }),
       { numRuns: 100 },

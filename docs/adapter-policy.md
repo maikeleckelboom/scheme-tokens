@@ -16,10 +16,7 @@ same pipeline slot:
 - Source adapter packages contribute source graph material before build. They use plain capability names when the package
   is primarily a source adapter, such as `@scheme-tokens/material3`, and only use a prefix when the package role needs
   disambiguation.
-- `@scheme-tokens/texel` is the planned Texel color conversion adapter for explicit post-compile color conversion, gamut
-  mapping, color math, or projection.
-- `@scheme-tokens/shadcn` is the planned shadcn target adapter for mapping compiled or core token material into a
-  framework or design-system target contract.
+- `@scheme-tokens/texel` is the planned Texel conversion adapter for explicit post-compile conversion or projection.
 - `@scheme-tokens/dtcg` is the planned DTCG format adapter for importing or exporting external DTCG file and wire
   formats.
 
@@ -29,24 +26,22 @@ The intended composed workflow is:
 source adapters
 + authored token layers
 + app-token mapping layers
-+ target mapping layers
 -> buildScheme()
 -> optional conversion projection
 -> sibling exports
 ```
 
 Sibling exports consume the same compiled or projected scheme instead of depending on each other. Examples include CSS
-variables from core, shadcn CSS from a target adapter, DTCG documents from a format adapter, and serialized compiled
-schemes from core.
+variables from core, DTCG documents from a format adapter, and serialized compiled schemes from core.
 
 Do not model adapters as a transitive chain such as:
 
 ```text
-Material -> Texel -> shadcn -> DTCG
+Material -> Texel -> DTCG
 ```
 
 That shape creates hidden transitive adapter dependencies and makes downstream adapters depend on each other's artifacts.
-Source generation, conversion projection, target export, format export, and core export stay separate explicit steps.
+Source generation, conversion projection, format export, and core export stay separate explicit steps.
 
 ## Source Adapters
 
@@ -106,10 +101,9 @@ their own packages.
 
 ## Conversion Adapters
 
-Conversion adapters perform explicit color conversion, gamut mapping, color math, or engine-backed transformations. They
-are separate operations, not `ColorTokenSource` objects by default. They should export verb-based functions such as
-`convertColor(input)`, `mapGamut(input)`, and `projectScheme(input)` from their package root and return `Result` with
-adapter-owned issues.
+Conversion adapters perform explicit conversion, projection, or engine-backed transformations. They are separate
+operations, not `ColorTokenSource` objects by default. They should export verb-based functions such as
+`convertColor(input)` or `projectScheme(input)` from their package root and return `Result` with adapter-owned issues.
 
 Conversion output may be package-specific JSON-safe data or an explicit core artifact. If it claims to be a core graph,
 layer, or compiled scheme, it must satisfy the matching core parser and schema contract.
@@ -118,11 +112,8 @@ Texel belongs to conversion adapters, not source adapters or format adapters. Fu
 `@scheme-tokens/texel` and should depend on the upstream engine package `@texel/color` inside that
 adapter package only. Do not use `@texel/colors`.
 
-High-gamut authoring is not a Texel feature. Core already supports canonical color values in `srgb`, `display-p3`, and
-`oklch`, and high gamut should be modeled as token values rather than as fake modes such as `light-p3` or `dark-p3`.
-Texel should be used later only for explicit, auditable conversion, gamut mapping, or compiled scheme projection.
-`projectScheme()` should project a `CompiledColorScheme`; it should not replace source or target layers. Gamut mapping must
-never be silent; default out-of-gamut RGB behavior should fail instead of mapping or clipping.
+Texel should be used later only for explicit, auditable conversion or compiled scheme projection. `projectScheme()`
+should project a `CompiledColorScheme`; it should not replace source layers.
 
 ## Format Adapters
 
@@ -146,66 +137,6 @@ DTCG remains planned format adapter scope. A future `dtcgSource()` may import DT
 remains deferred because `ColorTokenLayerInput` does not own modes. External DTCG names are adapter-owned mapping concerns and
 must not loosen core token-key validation.
 
-## Target Adapters
-
-Target adapters map compiled or core token material into a target framework or design-system contract. They may export
-target-specific scaffolds when the target owns more than a plain token map.
-
-The planned shadcn target adapter belongs in `@scheme-tokens/shadcn`. Do not use
-`scheme-tokens/targets/shadcn`, do not add a root subpath export, and do not expose shadcn helpers from the root
-package.
-
-Target adapters must keep mapping explicit and overridable. They must not pretend that Material 3 roles, or any other
-source roles, naturally equal target-specific tokens. For shadcn, a later `shadcnLayer()` should be source-agnostic, and a
-later `material3ShadcnLayer()` may only map known `material3.*` token keys into the `shadcn.*` target contract.
-Application-owned roles should pass through app-owned tokens first when the product contract is not the target contract.
-
-Target graph namespaces still use core-valid token keys. The shadcn namespace should use lower-kebab keys such as
-`shadcn.card-foreground`, `shadcn.primary-foreground`, `shadcn.sidebar-primary-foreground`, and `shadcn.chart-1`.
-CamelCase adapter option fields may exist later for TypeScript ergonomics, but they must normalize to canonical graph
-keys internally.
-
-Target exporters must validate target readiness against the compiled scheme before emitting target output. For shadcn,
-`validateShadcnScheme()` should validate required token presence by exported mode, color value presence, missing required
-target tokens, invalid target contract mappings, CSS variable collisions, and mode-specific absence where relevant.
-`exportShadcnCss()` should run that validation internally for ergonomic one-call use. Normal missing-token and mapping
-failures return `Result` issues, not thrown exceptions.
-
-For planned shadcn, `shadcnLayer()` may create or map target contract tokens directly. `material3ShadcnLayer()` may help
-create `shadcn.*` target tokens from known `material3.*` roles, but it must not claim Material 3 roles naturally equal
-shadcn tokens.
-
-Target adapters export declared contracts, not namespaces. Base shadcn tokens are target-owned. Known optional modules
-such as sidebar or charts are target-owned explicit module selections. User-defined target contract extensions are
-consumer-owned and must be declared explicitly. Recommended future shape:
-
-```ts
-const commandExtension = defineShadcnExtension({
-  id: "command-menu",
-  variables: {
-    "--command-background": {
-      token: "app.command.background",
-      required: true,
-    },
-    "--command-accent": {
-      token: "app.command.accent",
-      required: false,
-    },
-  },
-});
-
-const shadcnStylesheet = exportShadcnCss(scheme, {
-  extensions: [commandExtension],
-});
-```
-
-Custom extension token keys must still be valid core token keys, but they should not be forced under `shadcn.*`.
-App-specific tokens may live under `app.*`, `brand.*`, `component.*`, or another explicit core-valid namespace. The
-extension maps those tokens into target CSS variable names. Required extension tokens must exist for exported modes;
-optional extension tokens may be omitted when absent. CSS variable collisions must be reported, not silently overwritten.
-Exporters must not export every `shadcn.*`, `app.*`, or matching namespace token by default. Future namespace scanning may
-be considered only as explicit opt-in and is not 0.1.0 scope.
-
 ## Dependency Rules
 
 - Adapter packages may depend on engines.
@@ -216,8 +147,7 @@ be considered only as explicit opt-in and is not 0.1.0 scope.
 
 Material 3 engine code belongs to `@scheme-tokens/material3`. Texel dependencies belong to future
 `@scheme-tokens/texel`. DTCG format behavior belongs to future
-`@scheme-tokens/dtcg`. shadcn target behavior belongs to future
-`@scheme-tokens/shadcn`.
+`@scheme-tokens/dtcg`.
 
 ## Issue and Schema Rules
 

@@ -5,11 +5,7 @@
   "defaultVisibility": "public",
   "tokens": {
     "brand.primary": {
-      "value": {
-        "colorSpace": "srgb",
-        "components": [0.4, 0.31, 0.64],
-        "alpha": 1
-      }
+      "value": "#6750a4"
     }
   }
 }

@@ -1,4 +1,3 @@
-import type { ColorValue, ParseColorIssue } from "./color";
 import type {
   ColorTokenGraphIssue,
   CompiledColorSchemeKind,
@@ -33,7 +32,7 @@ export type CompileTokenGraphIssue = Issue<
 
 export interface CompiledColorToken<Mode extends string = string> {
   readonly visibility: TokenVisibility;
-  readonly valueByMode: Readonly<Record<Mode, ColorValue>>;
+  readonly valueByMode: Readonly<Record<Mode, string>>;
   readonly origin: TokenOrigin;
   readonly dependenciesByMode: Readonly<Record<Mode, readonly string[]>>;
   readonly description?: string;
@@ -49,32 +48,31 @@ export interface CompiledColorScheme<Key extends string = string, Mode extends s
   readonly tokens: Readonly<Record<Key, CompiledColorToken<Mode>>>;
 }
 
-export type ParseCompiledSchemeIssue =
-  | ParseColorIssue
-  | (Issue<
-      | "invalid-object"
-      | "unknown-property"
-      | "missing-property"
-      | "invalid-artifact-kind"
-      | "invalid-format-version"
-      | "invalid-mode-key"
-      | "duplicate-mode-key"
-      | "default-mode-not-found"
-      | "invalid-token-key"
-      | "invalid-visibility"
-      | "invalid-token-definition"
-      | "missing-mode-value"
-      | "unknown-mode-value"
-      | "invalid-origin"
-      | "invalid-dependencies"
-      | "invalid-description"
-      | "invalid-deprecated"
-      | "invalid-extensions"
-      | "invalid-json-value"
-    > & {
-      readonly key?: string;
-      readonly mode?: string;
-    });
+export type ParseCompiledSchemeIssue = Issue<
+  | "invalid-object"
+  | "unknown-property"
+  | "missing-property"
+  | "invalid-artifact-kind"
+  | "invalid-format-version"
+  | "invalid-mode-key"
+  | "duplicate-mode-key"
+  | "default-mode-not-found"
+  | "invalid-token-key"
+  | "invalid-visibility"
+  | "invalid-token-definition"
+  | "invalid-token-value"
+  | "missing-mode-value"
+  | "unknown-mode-value"
+  | "invalid-origin"
+  | "invalid-dependencies"
+  | "invalid-description"
+  | "invalid-deprecated"
+  | "invalid-extensions"
+  | "invalid-json-value"
+> & {
+  readonly key?: string;
+  readonly mode?: string;
+};
 
 export type CompileTokenGraphResult<
   Key extends string = string,

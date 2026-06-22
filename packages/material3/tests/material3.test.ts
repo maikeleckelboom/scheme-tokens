@@ -5,7 +5,6 @@ import { describe, expect, test } from "vitest";
 import {
   buildScheme,
   defineTokenLayer,
-  formatCssColor,
   parseTokenGraph,
   tokenRef,
   type Issue,
@@ -890,9 +889,12 @@ function extractGraphTokenValues(graph: ColorTokenGraphInput): GraphValues {
     if (valueByMode === undefined) {
       throw new Error(`Expected valueByMode for ${key}`);
     }
+    if (typeof valueByMode.light !== "string" || typeof valueByMode.dark !== "string") {
+      throw new Error(`Expected string valueByMode for ${key}`);
+    }
     output[key] = {
-      light: formatCssColor(valueByMode.light as never),
-      dark: formatCssColor(valueByMode.dark as never),
+      light: valueByMode.light,
+      dark: valueByMode.dark,
     };
   }
   return output;
