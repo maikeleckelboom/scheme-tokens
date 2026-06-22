@@ -119,7 +119,7 @@ export function createMaterial3Graph(input: {
   readonly contrastLevel: number;
   readonly specVersion: Material3SpecVersion;
   readonly platform: Material3Platform;
-  readonly palettes: Material3PaletteOverrides;
+  readonly paletteOverrides: Material3PaletteOverrides;
   readonly extendedColors: readonly Material3ExtendedColor[];
   readonly paletteTones: readonly number[] | undefined;
 }): ColorTokenGraphInput<Material3Mode> {
@@ -153,7 +153,7 @@ function createDynamicScheme(
     readonly contrastLevel: number;
     readonly specVersion: Material3SpecVersion;
     readonly platform: Material3Platform;
-    readonly palettes: Material3PaletteOverrides;
+    readonly paletteOverrides: Material3PaletteOverrides;
   },
   sourceColorHcts: readonly Hct[],
   isDark: boolean,
@@ -167,7 +167,7 @@ function createDynamicScheme(
     input.platform,
   );
   const basePalettes = readPalettes(base);
-  const overridePalettes = createPaletteOverrides(input.palettes);
+  const overridePalettes = createPaletteOverrides(input.paletteOverrides);
   if (Object.values(overridePalettes).every((palette) => palette === undefined)) {
     return base;
   }
@@ -196,27 +196,27 @@ function createDynamicSchemeFromOptions(args: Readonly<Record<string, unknown>>)
 }
 
 function createPaletteOverrides(
-  palettes: Material3PaletteOverrides,
+  paletteOverrides: Material3PaletteOverrides,
 ): Readonly<Partial<Record<Material3PaletteName, TonalPalette>>> {
   return {
-    ...(palettes.primary === undefined
+    ...(paletteOverrides.primary === undefined
       ? {}
-      : { primary: TonalPalette.fromInt(argbFromHex(palettes.primary)) }),
-    ...(palettes.secondary === undefined
+      : { primary: TonalPalette.fromInt(argbFromHex(paletteOverrides.primary)) }),
+    ...(paletteOverrides.secondary === undefined
       ? {}
-      : { secondary: TonalPalette.fromInt(argbFromHex(palettes.secondary)) }),
-    ...(palettes.tertiary === undefined
+      : { secondary: TonalPalette.fromInt(argbFromHex(paletteOverrides.secondary)) }),
+    ...(paletteOverrides.tertiary === undefined
       ? {}
-      : { tertiary: TonalPalette.fromInt(argbFromHex(palettes.tertiary)) }),
-    ...(palettes.neutral === undefined
+      : { tertiary: TonalPalette.fromInt(argbFromHex(paletteOverrides.tertiary)) }),
+    ...(paletteOverrides.neutral === undefined
       ? {}
-      : { neutral: TonalPalette.fromInt(argbFromHex(palettes.neutral)) }),
-    ...(palettes.neutralVariant === undefined
+      : { neutral: TonalPalette.fromInt(argbFromHex(paletteOverrides.neutral)) }),
+    ...(paletteOverrides.neutralVariant === undefined
       ? {}
-      : { neutralVariant: TonalPalette.fromInt(argbFromHex(palettes.neutralVariant)) }),
-    ...(palettes.error === undefined
+      : { neutralVariant: TonalPalette.fromInt(argbFromHex(paletteOverrides.neutralVariant)) }),
+    ...(paletteOverrides.error === undefined
       ? {}
-      : { error: TonalPalette.fromInt(argbFromHex(palettes.error)) }),
+      : { error: TonalPalette.fromInt(argbFromHex(paletteOverrides.error)) }),
   };
 }
 

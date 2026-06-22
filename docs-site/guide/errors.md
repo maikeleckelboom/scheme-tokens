@@ -64,11 +64,11 @@ Core token keys are dot-separated lower-kebab segments, so `Brand.Primary` is in
 Well-formed references still need an existing target.
 
 ```ts
-import { compileTokenGraph, defineTokenGraph, tokenRef } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph } from "scheme-tokens";
 
 const graph = defineTokenGraph({
-  tokens: {
-    primary: tokenRef("brand.primary"),
+  aliases: {
+    primary: "brand.primary",
   },
 });
 

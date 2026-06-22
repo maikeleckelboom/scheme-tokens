@@ -177,14 +177,14 @@ const base = material3({
 
 ## Palette Overrides
 
-`palettes` overrides generated tonal palettes without changing Material role token keys:
+`paletteOverrides` overrides generated tonal palettes without changing Material role token keys:
 
 ```ts
 import { material3 } from "@scheme-tokens/material3";
 
 const base = material3({
   sourceColors: "#6750a4",
-  palettes: {
+  paletteOverrides: {
     primary: "#6750a4",
     secondary: "#006a60",
     tertiary: "#7d5260",

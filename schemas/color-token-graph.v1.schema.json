@@ -4,8 +4,7 @@
   "title": "scheme-tokens color token graph v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["kind", "formatVersion", "modes", "defaultMode", "defaultVisibility"],
-  "anyOf": [{ "required": ["tokens"] }, { "required": ["semanticTokens"] }],
+  "required": ["kind", "formatVersion", "modes", "defaultMode", "defaultVisibility", "tokens"],
   "properties": {
     "$schema": {
       "type": "string"
@@ -32,9 +31,6 @@
     },
     "tokens": {
       "$ref": "#/$defs/tokenRecord"
-    },
-    "semanticTokens": {
-      "$ref": "#/$defs/semanticTokenRecord"
     },
     "layers": {
       "type": "array",
@@ -63,29 +59,6 @@
       "additionalProperties": {
         "$ref": "#/$defs/tokenDefinition"
       }
-    },
-    "semanticTokenRecord": {
-      "type": "object",
-      "propertyNames": {
-        "$ref": "#/$defs/tokenKey"
-      },
-      "additionalProperties": {
-        "$ref": "#/$defs/semanticTokenDefinition"
-      }
-    },
-    "semanticTokenDefinition": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/tokenDefinition"
-        },
-        {
-          "properties": {
-            "visibility": {
-              "const": "public"
-            }
-          }
-        }
-      ]
     },
     "tokenDefinition": {
       "type": "object",

@@ -23,7 +23,7 @@ App-owned tokens are product, app, role, and context tokens. They may hold direc
 implementation tokens.
 
 ```ts
-import { defineTokenGraph, tokenRef } from "scheme-tokens";
+import { defineTokenGraph } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   tokens: {
@@ -31,7 +31,9 @@ const graph = defineTokenGraph({
       value: "#6750a4",
       visibility: "internal",
     },
-    primary: tokenRef("brand.primary"),
+  },
+  aliases: {
+    primary: "brand.primary",
   },
 });
 

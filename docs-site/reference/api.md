@@ -33,7 +33,7 @@ The root API is small. Guides show the full workflows; this page is a terse map.
 | API                   | Use                            | Example                                 | Input                             | Output                          | Gotcha                                        |
 | --------------------- | ------------------------------ | --------------------------------------- | --------------------------------- | ------------------------------- | --------------------------------------------- |
 | `parseCompiledScheme` | Validate loaded compiled JSON. | `parseCompiledScheme(JSON.parse(text))` | Unknown value.                    | `Result<CompiledColorScheme>`.  | Use before exporting CSS from external data.  |
-| `parseTokenGraph`     | Validate loaded graph JSON.    | `parseTokenGraph(value)`                | Unknown value.                    | `Result<ColorTokenGraph>`.      | Strict colors only.                           |
+| `parseTokenGraph`     | Validate loaded graph JSON.    | `parseTokenGraph(value)`                | Unknown value.                    | `Result<ColorTokenGraphInput>`. | Strict colors only.                           |
 | `parseTokenLayer`     | Validate loaded layer JSON.    | `parseTokenLayer(value)`                | Unknown value.                    | `Result<ColorTokenLayerInput>`. | Requires layer `kind` and `id`.               |
 | `parseColor`          | Parse one supported color.     | `parseColor("oklch(0.7 0.12 265)")`     | Color string or structured color. | `Result<ColorValue>`.           | CSS named colors are not supported.           |
 | `formatCssColor`      | Format a parsed color as CSS.  | `formatCssColor(color)`                 | `ColorValue`.                     | CSS color string.               | It formats; it does not convert color spaces. |
@@ -55,7 +55,6 @@ import {
   serializeCompiledScheme,
   serializeTokenGraph,
   serializeTokenLayer,
-  tokenRef,
 } from "scheme-tokens";
 
 const graph = defineTokens({
@@ -68,8 +67,10 @@ const explicitGraph = defineTokenGraph({
       value: "#6750a4",
       visibility: "internal",
     },
-    primary: tokenRef("brand.primary"),
-    "primary-foreground": tokenRef("brand.primary"),
+  },
+  aliases: {
+    primary: "brand.primary",
+    "primary-foreground": "brand.primary",
   },
 });
 
@@ -102,6 +103,16 @@ const layerJson = serializeTokenLayer(layer);
 const parsedCompiled = parseCompiledScheme(JSON.parse(compiledJson));
 const parsedGraph = parseTokenGraph(JSON.parse(graphJson));
 const parsedLayer = parseTokenLayer(JSON.parse(layerJson));
+const reparsedGraphJson = parsedGraph.ok ? serializeTokenGraph(parsedGraph.value) : undefined;
+const reparsedCompiled = parsedGraph.ok ? compileTokenGraph(parsedGraph.value) : undefined;
 
-export { cssColor, cssExport, parsedCompiled, parsedGraph, parsedLayer };
+export {
+  cssColor,
+  cssExport,
+  parsedCompiled,
+  parsedGraph,
+  parsedLayer,
+  reparsedCompiled,
+  reparsedGraphJson,
+};
 ```

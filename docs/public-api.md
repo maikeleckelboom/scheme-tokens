@@ -151,8 +151,10 @@ light/dark decision.
 tokens, and app-owned product roles. `aliases` contains token-key to token-key references. Token definitions are public
 by default; set implementation tokens to `visibility: "internal"` when they are only reference targets.
 
-Direct color values need no reference helper. Alias maps use `aliases: { "app.background": "other.token" }`. Individual
-references are explicit through `tokenRef("other.token")` or `{ ref: "other.token" }` inside token definitions.
+Direct color values need no reference helper. Alias maps use `aliases: { "app.background": "other.token" }` and are the
+ordinary token-key mapping path. Individual references remain explicit through `tokenRef("other.token")` or
+`{ ref: "other.token" }` inside advanced token definitions that need metadata, per-mode references, or low-level
+strict-style shape.
 
 Token shorthands are normalized by the helpers:
 
@@ -167,7 +169,7 @@ Token shorthands are normalized by the helpers:
 Supported color literals remain color values. Token-key-shaped non-color strings do not become references. If a helper
 string is not supported by the color parser, the helper throws an actionable authoring error before returning a strict
 artifact. CSS named colors such as `"red"` are not currently supported. References are always explicit through
-`tokenRef("other.token")` or `{ ref: "other.token" }`.
+`aliases`, `tokenRef("other.token")`, or `{ ref: "other.token" }`.
 
 Declared mode names must not be token-definition keys such as `value`, `valueByMode`, `visibility`, `description`,
 `deprecated`, or `extensions`. Those names are reserved so helper shorthand detection does not silently reinterpret token
@@ -232,8 +234,8 @@ returned builder accepts:
 - `builder.build({ base })` for the explicit object form.
 
 The builder is source-agnostic. Generic builder input uses the `base` property only. Material-specific fields such as
-`sourceColors`, `variant`, `contrastLevel`, `specVersion`, `platform`, `palettes`, `extendedColors`, and `paletteTones`
-belong inside `material3()` or another adapter helper, not on `builder.build()`.
+`sourceColors`, `variant`, `contrastLevel`, `specVersion`, `platform`, `paletteOverrides`, `extendedColors`, and
+`paletteTones` belong inside `material3()` or another adapter helper, not on `builder.build()`.
 
 Layers and build-envelope fields belong in the options object. Mixed source/layer positional arrays are intentionally
 unsupported; use `buildScheme({ base, layers })` or `buildScheme(source, { layers })` instead.
@@ -356,7 +358,7 @@ or deep-merged. Integration options are fixed at preset creation. Use a second p
 `id` or `defaultVisibility` should differ.
 
 `id` and `defaultVisibility` are integration options, not Material 3 generation input. `variant`, `contrastLevel`,
-`specVersion`, `platform`, `palettes`, `extendedColors`, and `paletteTones` are Material 3 generation options, not
+`specVersion`, `platform`, `paletteOverrides`, `extendedColors`, and `paletteTones` are Material 3 generation options, not
 integration options. Removed or older option names are rejected instead of being treated as aliases.
 
 Some newer Material role keys, including dim roles, are emitted only when the selected official `specVersion` exposes

@@ -339,37 +339,6 @@ function parseOrigin(
   path: string,
   collector: IssueCollector<ParseCompiledSchemeIssue>,
 ): TokenOrigin | undefined {
-  const semantic = readPlainRecord(input, {
-    code: "invalid-origin",
-    message: "origin must be a plain object.",
-    path,
-  });
-  if (!semantic.ok) {
-    collector.addMany(semantic.issues as readonly ParseCompiledSchemeIssue[]);
-    return undefined;
-  }
-  const semanticRecord = new Map(semantic.value.map((entry) => [entry.key, entry.value]));
-  if (semanticRecord.get("kind") === "semanticToken") {
-    const target = semanticRecord.get("target");
-    if (
-      (semantic.value.length !== 2 && semantic.value.length !== 3) ||
-      !semanticRecord.has("origin") ||
-      (semanticRecord.has("target") && (typeof target !== "string" || !isTokenKey(target)))
-    ) {
-      collector.add({ code: "invalid-origin", message: "Invalid compiled token origin.", path });
-      return undefined;
-    }
-    const origin = parseBaseOrigin(semanticRecord.get("origin"), `${path}/origin`, collector);
-    if (origin === undefined) {
-      return undefined;
-    }
-    return {
-      kind: "semanticToken",
-      origin,
-      ...(typeof target === "string" ? { target } : {}),
-    };
-  }
-
   return parseBaseOrigin(input, path, collector);
 }
 
@@ -377,7 +346,7 @@ function parseBaseOrigin(
   input: unknown,
   path: string,
   collector: IssueCollector<ParseCompiledSchemeIssue>,
-): Exclude<TokenOrigin, { readonly kind: "semanticToken" }> | undefined {
+): TokenOrigin | undefined {
   const entries = readPlainRecord(input, {
     code: "invalid-origin",
     message: "origin must be a plain object.",

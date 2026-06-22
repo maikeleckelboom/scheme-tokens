@@ -214,13 +214,13 @@ describe("material3", () => {
     const palettesGraph = unwrap(
       material3({
         sourceColors: "#6750a4",
-        palettes: { primary: undefined, secondary: "#006a60" },
+        paletteOverrides: { primary: undefined, secondary: "#006a60" },
       } as unknown as Material3Input).build(),
     );
     const explicitPalettesGraph = unwrap(
       material3({
         sourceColors: "#6750a4",
-        palettes: { secondary: "#006a60" },
+        paletteOverrides: { secondary: "#006a60" },
       }).build(),
     );
     const extendedGraph = unwrap(
@@ -280,13 +280,15 @@ describe("material3", () => {
         ["material3-invalid-platform"],
       ],
       [
-        material3("#6750a4", { palettes: null } as unknown as Material3GenerationOptions).build(),
-        ["material3-invalid-palettes"],
+        material3("#6750a4", {
+          paletteOverrides: null,
+        } as unknown as Material3GenerationOptions).build(),
+        ["material3-invalid-palette-overrides"],
       ],
       [
         material3({
           sourceColors: "#6750a4",
-          palettes: { primary: null },
+          paletteOverrides: { primary: null },
         } as unknown as Material3Input).build(),
         ["material3-unsupported-color-input"],
       ],
@@ -379,7 +381,7 @@ describe("material3", () => {
       } as unknown as Material3Input).build(),
       material3({
         sourceColors: "#6750a4",
-        palettes: { futurePalette: undefined },
+        paletteOverrides: { futurePalette: undefined },
       } as unknown as Material3Input).build(),
       material3({
         sourceColors: "#6750a4",
@@ -673,7 +675,7 @@ describe("material3", () => {
     const overridden = unwrap(
       material3({
         sourceColors: "#6750a4",
-        palettes: {
+        paletteOverrides: {
           primary: "#ba1a1a",
           secondary: "#006a60",
           tertiary: "#7d5260",

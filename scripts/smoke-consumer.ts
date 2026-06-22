@@ -214,7 +214,7 @@ const graph: ColorTokenGraphInput<"base"> = defineTokenGraph({
     "app.foreground": tokenRef("app.background"),
   },
 });
-const ColorTokenGraph: ColorTokenGraphInput<"base"> = defineTokens({
+const colorTokenGraph: ColorTokenGraphInput<"base"> = defineTokens({
   "app.background": "#ffffff",
   "app.foreground": tokenRef("app.background"),
 });
@@ -274,7 +274,7 @@ color.colorSpace.toUpperCase();
 tokenKey.toUpperCase();
 mode.toUpperCase();
 if (compiled.ok) compiled.value.defaultMode.toUpperCase();
-ColorTokenGraph.defaultMode.toUpperCase();
+colorTokenGraph.defaultMode.toUpperCase();
 const aliasValue = aliasGraph.tokens["app.primary"].value;
 if (typeof aliasValue === "object" && aliasValue !== null && "ref" in aliasValue) {
   aliasValue.ref.toUpperCase();

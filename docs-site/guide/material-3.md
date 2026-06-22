@@ -77,8 +77,8 @@ compiles the selected scheme.
 
 Use `aliases` when app tokens should point at generated role tokens. Use `tokens` for authored values. The app layer is
 the contract your app uses; the Material role names stay an implementation detail unless you deliberately export them.
-References stay explicit through `aliases: { "app.background": "material3.role" }`, `tokenRef("material3.role")`, or
-`{ ref: "material3.role" }`.
+References stay explicit through `aliases: { "app.background": "material3.role" }`. Use `tokenRef("material3.role")` or
+`{ ref: "material3.role" }` inside token definitions only when the reference needs metadata or per-mode values.
 
 ## Material Input
 
@@ -96,5 +96,5 @@ export { base };
 ```
 
 `sourceColors` accepts a strict `#rrggbb` string or a non-empty array for official multi-source paths. Material controls
-such as `variant`, `contrastLevel`, `specVersion`, `platform`, `palettes`, `extendedColors`, and `paletteTones` belong
+such as `variant`, `contrastLevel`, `specVersion`, `platform`, `paletteOverrides`, `extendedColors`, and `paletteTones` belong
 inside `material3()`, not on the root package.

@@ -19,11 +19,7 @@
         }
       },
       "origin": {
-        "kind": "semanticToken",
-        "origin": {
-          "kind": "graph"
-        },
-        "target": "brand.primary"
+        "kind": "graph"
       },
       "dependenciesByMode": {
         "light": ["brand.primary"],
@@ -45,11 +41,7 @@
         }
       },
       "origin": {
-        "kind": "semanticToken",
-        "origin": {
-          "kind": "graph"
-        },
-        "target": "brand.on-primary"
+        "kind": "graph"
       },
       "dependenciesByMode": {
         "light": ["brand.on-primary"],

@@ -57,7 +57,7 @@ export interface Material3Input {
   readonly contrastLevel?: number;
   readonly specVersion?: Material3SpecVersion;
   readonly platform?: Material3Platform;
-  readonly palettes?: Material3PaletteOverridesInput;
+  readonly paletteOverrides?: Material3PaletteOverridesInput;
   readonly extendedColors?: readonly Material3ExtendedColorInput[];
   readonly paletteTones?: true | readonly number[];
 }
@@ -80,7 +80,7 @@ export interface Material3Preset {
 type Material3ColorField =
   | "sourceColors"
   | "extendedColors.color"
-  | `palettes.${Material3PaletteName}`;
+  | `paletteOverrides.${Material3PaletteName}`;
 
 export type Material3Issue =
   | (Issue<"material3-invalid-input"> & {
@@ -119,7 +119,7 @@ export type Material3Issue =
       readonly receivedType?: string;
       readonly value?: string;
     })
-  | (Issue<"material3-invalid-palettes"> & {
+  | (Issue<"material3-invalid-palette-overrides"> & {
       readonly receivedType?: string;
     })
   | (Issue<"material3-invalid-extended-colors"> & {
@@ -184,7 +184,7 @@ interface ParsedMaterial3Input {
   readonly contrastLevel: number;
   readonly specVersion: Material3SpecVersion;
   readonly platform: Material3Platform;
-  readonly palettes: Material3PaletteOverrides;
+  readonly paletteOverrides: Material3PaletteOverrides;
   readonly extendedColors: readonly Material3ExtendedColor[];
   readonly paletteTones: readonly number[] | undefined;
   readonly issues: readonly Material3Issue[];
@@ -214,7 +214,7 @@ const material3InputKeys = new Set([
   "contrastLevel",
   "specVersion",
   "platform",
-  "palettes",
+  "paletteOverrides",
   "extendedColors",
   "paletteTones",
 ]);
@@ -224,7 +224,7 @@ const material3OptionalGenerationOptionKeys = new Set([
   "contrastLevel",
   "specVersion",
   "platform",
-  "palettes",
+  "paletteOverrides",
   "extendedColors",
   "paletteTones",
 ]);
@@ -296,7 +296,7 @@ export function material3(
             contrastLevel: parsedInput.contrastLevel,
             specVersion: parsedInput.specVersion,
             platform: parsedInput.platform,
-            palettes: parsedInput.palettes,
+            paletteOverrides: parsedInput.paletteOverrides,
             extendedColors: parsedInput.extendedColors,
             paletteTones: parsedInput.paletteTones,
           }),
@@ -484,7 +484,7 @@ function parseMaterial3Input(input: unknown): ParsedMaterial3Input {
       contrastLevel: defaultContrastLevel,
       specVersion: defaultSpecVersion,
       platform: defaultPlatform,
-      palettes: {},
+      paletteOverrides: {},
       extendedColors: [],
       paletteTones: undefined,
       issues: [entries.issue],
@@ -518,9 +518,9 @@ function parseMaterial3Input(input: unknown): ParsedMaterial3Input {
     hasDefinedRecordValue(record, "platform"),
     issues,
   );
-  const palettes = parsePalettes(
-    record.get("palettes"),
-    hasDefinedRecordValue(record, "palettes"),
+  const paletteOverrides = parsePaletteOverrides(
+    record.get("paletteOverrides"),
+    hasDefinedRecordValue(record, "paletteOverrides"),
     issues,
   );
   const extendedColors = parseExtendedColors(
@@ -560,7 +560,7 @@ function parseMaterial3Input(input: unknown): ParsedMaterial3Input {
     contrastLevel,
     specVersion,
     platform,
-    palettes,
+    paletteOverrides,
     extendedColors,
     paletteTones,
     issues,
@@ -791,7 +791,7 @@ function parsePlatform(
   return defaultPlatform;
 }
 
-function parsePalettes(
+function parsePaletteOverrides(
   value: unknown,
   hasValue: boolean,
   issues: Material3Issue[],
@@ -803,22 +803,22 @@ function parsePalettes(
   const entries = readPlainRecord(value);
   if (!entries.ok) {
     issues.push({
-      code: "material3-invalid-palettes",
-      message: "palettes must be a JSON-safe plain object.",
-      path: "/palettes",
+      code: "material3-invalid-palette-overrides",
+      message: "paletteOverrides must be a JSON-safe plain object.",
+      path: "/paletteOverrides",
       receivedType:
         "receivedType" in entries.issue ? entries.issue.receivedType : describeUnknown(value),
     });
     return {};
   }
 
-  const palettes: Partial<Record<Material3PaletteName, string>> = {};
+  const paletteOverrides: Partial<Record<Material3PaletteName, string>> = {};
   for (const entry of entries.value) {
     if (!paletteKeys.has(entry.key as Material3PaletteName)) {
       issues.push({
         code: "material3-invalid-input",
-        message: `Unknown material3 palettes property: ${entry.key}.`,
-        path: `/palettes/${jsonPointerSegment(entry.key)}`,
+        message: `Unknown material3 paletteOverrides property: ${entry.key}.`,
+        path: `/paletteOverrides/${jsonPointerSegment(entry.key)}`,
         receivedType: describeUnknown(entry.value),
       });
       continue;
@@ -829,15 +829,15 @@ function parsePalettes(
     }
     const color = parseHexColor(
       entry.value,
-      `/palettes/${jsonPointerSegment(entry.key)}`,
-      `palettes.${paletteName}`,
+      `/paletteOverrides/${jsonPointerSegment(entry.key)}`,
+      `paletteOverrides.${paletteName}`,
       issues,
     );
     if (color !== undefined) {
-      palettes[paletteName] = color;
+      paletteOverrides[paletteName] = color;
     }
   }
-  return palettes;
+  return paletteOverrides;
 }
 
 function parseExtendedColors(

@@ -15,6 +15,7 @@ interface ApiManifest {
   readonly dtsPath: string;
   readonly runtime: readonly string[];
   readonly types: readonly string[];
+  readonly forbiddenDeclarationText?: readonly string[];
 }
 
 const root = process.cwd();
@@ -61,6 +62,12 @@ const removedPublicNames = [
   `Srgb${"Color"}`,
   `DisplayP3${"Color"}`,
   `Oklch${"Color"}`,
+  `Base${"Token"}Origin`,
+  `Color${"Expression"}`,
+  `Color${"Token"}Graph`,
+  `Color${"Token"}GraphToken`,
+  `semantic${"Tokens"}`,
+  `semantic${"Token"}`,
 ] as const;
 
 if (JSON.stringify(packageJson).includes(removedRootPackageName)) {
@@ -120,20 +127,16 @@ const manifests: readonly ApiManifest[] = [
       "ReferenceInput",
       "ColorExpressionInput",
       "ColorTokenExpressionInput",
-      "ColorExpression",
       "ColorTokenDefinitionAuthoringInput",
       "ColorTokenDefinitionInput",
       "ColorTokenGraphAuthoringInput",
       "ColorTokenGraphKind",
       "ColorTokenGraphInput",
       "TokenOrigin",
-      "ColorTokenGraphToken",
-      "ColorTokenGraph",
       "ColorTokenGraphIssue",
       "ColorTokenLayerAuthoringInput",
       "ColorTokenLayerInput",
       "ColorTokenLayerKind",
-      "BaseTokenOrigin",
       "CompiledColorSchemeKind",
       "ModeOf",
       "TokenKeyOf",
@@ -159,6 +162,40 @@ const manifests: readonly ApiManifest[] = [
       "ExportCssVarsIssue",
       "CssVariableNameInput",
     ],
+    forbiddenDeclarationText: [
+      "@texel/color",
+      "@material/material-color-utilities",
+      "@scheme-tokens/material3",
+      "material3",
+      "Material3",
+      "css-tree",
+    ],
+  },
+  {
+    name: "material3",
+    modulePath: "packages/material3/dist/index.js",
+    dtsPath: "packages/material3/dist/index.d.ts",
+    runtime: [
+      "material3",
+      "material3Platforms",
+      "material3Preset",
+      "material3SpecVersions",
+      "material3Variants",
+    ],
+    types: [
+      "Material3ExtendedColorInput",
+      "Material3GenerationOptions",
+      "Material3Input",
+      "Material3IntegrationOptions",
+      "Material3Issue",
+      "Material3PaletteOverridesInput",
+      "Material3Platform",
+      "Material3Preset",
+      "Material3SourceColorsInput",
+      "Material3SpecVersion",
+      "Material3Variant",
+    ],
+    forbiddenDeclarationText: ["@material/material-color-utilities", "css-tree"],
   },
 ];
 
@@ -176,27 +213,21 @@ for (const manifest of manifests) {
   }
 
   const dts = readFileSync(join(root, manifest.dtsPath), "utf8");
-  for (const typeName of manifest.types) {
-    if (!new RegExp(`\\b${typeName}\\b`).test(dts)) {
-      throw new Error(`${manifest.name} declaration is missing ${typeName}`);
-    }
-  }
+  assertEqual(extractExportedTypeNames(dts), manifest.types, `${manifest.name} type exports`);
   for (const removedName of removedPublicNames) {
     if (new RegExp(`\\b${removedName}\\b`).test(dts)) {
       throw new Error(`${manifest.name} declaration exposes removed public name: ${removedName}`);
     }
   }
-  if (
-    dts.includes("@texel/color") ||
-    dts.includes("@material/material-color-utilities") ||
-    dts.includes("@scheme-tokens/material3") ||
-    dts.includes("material3") ||
-    dts.includes("Material3") ||
-    dts.includes("css-tree")
-  ) {
-    throw new Error(`${manifest.name} declaration leaks dependency types`);
+  for (const forbiddenText of manifest.forbiddenDeclarationText ?? []) {
+    if (dts.includes(forbiddenText)) {
+      throw new Error(`${manifest.name} declaration leaks forbidden text: ${forbiddenText}`);
+    }
   }
-  if (dts.includes("invalid-variable-prefix") || !dts.includes("invalid-css-prefix")) {
+  if (
+    manifest.name === "root" &&
+    (dts.includes("invalid-variable-prefix") || !dts.includes("invalid-css-prefix"))
+  ) {
     throw new Error(`${manifest.name} declaration exposes a stale CSS prefix issue code`);
   }
   if (/import\(["'][^)]+["']\)\./.test(dts)) {
@@ -248,6 +279,29 @@ function assertPackagePathExists(packagePath: string, label: string): void {
   if (!existsSync(join(root, packagePath))) {
     throw new Error(`${label} points to a missing file: ${packagePath}`);
   }
+}
+
+function extractExportedTypeNames(dts: string): readonly string[] {
+  const names = new Set<string>();
+  for (const match of dts.matchAll(/export\s*\{(?<body>[^}]*)\}/gs)) {
+    const body = match.groups?.body;
+    if (body === undefined) {
+      continue;
+    }
+    for (const rawPart of body.split(",")) {
+      const part = rawPart.trim();
+      if (!part.startsWith("type ")) {
+        continue;
+      }
+      names.add(
+        part
+          .slice("type ".length)
+          .split(/\s+as\s+/u)[0]!
+          .trim(),
+      );
+    }
+  }
+  return [...names].sort();
 }
 
 function listFiles(directory: string): readonly string[] {

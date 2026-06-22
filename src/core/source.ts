@@ -36,7 +36,7 @@ export interface BuildSchemeOptions<I extends Issue = Issue> {
   readonly selection?: TokenSelection;
 }
 
-export type BuildSchemeSourceOptions<I extends Issue = Issue> = Omit<BuildSchemeOptions<I>, "base">;
+export type BuildSchemeSourceOptions = Omit<BuildSchemeOptions, "base">;
 
 export type SchemeBuilderConfig = BuildSchemeSourceOptions;
 
@@ -81,21 +81,21 @@ export function buildScheme<I extends Issue>(
 ): Result<CompiledColorScheme, I | BuildSchemeIssue>;
 export function buildScheme<I extends Issue>(
   source: ColorTokenSource<I>,
-  options: BuildSchemeSourceOptions<I>,
+  options: BuildSchemeSourceOptions,
 ): Result<CompiledColorScheme, I | BuildSchemeIssue>;
 export function buildScheme<I extends Issue>(
   sources: readonly [ColorTokenSource<I>, ...ColorTokenSource<I>[]],
 ): Result<CompiledColorScheme, I | BuildSchemeIssue>;
 export function buildScheme<I extends Issue>(
   sources: readonly [ColorTokenSource<I>, ...ColorTokenSource<I>[]],
-  options: BuildSchemeSourceOptions<I>,
+  options: BuildSchemeSourceOptions,
 ): Result<CompiledColorScheme, I | BuildSchemeIssue>;
 export function buildScheme<I extends Issue>(
   input:
     | BuildSchemeOptions<I>
     | ColorTokenSource<I>
     | readonly [ColorTokenSource<I>, ...ColorTokenSource<I>[]],
-  options?: BuildSchemeSourceOptions<I>,
+  options?: BuildSchemeSourceOptions,
 ): Result<CompiledColorScheme, I | BuildSchemeIssue> {
   const normalizedOptions = normalizeBuildSchemeCall(input, options);
   if (!normalizedOptions.ok) {
@@ -307,7 +307,7 @@ function normalizeBuildSchemeCall<I extends Issue>(
     | BuildSchemeOptions<I>
     | ColorTokenSource<I>
     | readonly [ColorTokenSource<I>, ...ColorTokenSource<I>[]],
-  options: BuildSchemeSourceOptions<I> | undefined,
+  options: BuildSchemeSourceOptions | undefined,
 ): Result<BuildSchemeOptions<I>, BuildSchemeIssue> {
   if (options !== undefined) {
     const parsedOptions = parseBuildSourceOptions(options);
@@ -332,9 +332,9 @@ function normalizeBuildSchemeCall<I extends Issue>(
     : { ok: true, value: input as BuildSchemeOptions<I> };
 }
 
-function parseBuildSourceOptions<I extends Issue>(
-  input: BuildSchemeSourceOptions<I>,
-): Result<BuildSchemeSourceOptions<I>, BuildSchemeIssue> {
+function parseBuildSourceOptions(
+  input: BuildSchemeSourceOptions,
+): Result<BuildSchemeSourceOptions, BuildSchemeIssue> {
   const entries = readPlainRecord(input, {
     code: "invalid-build-options",
     message: "buildScheme source options must be a plain object.",
@@ -948,11 +948,9 @@ function composeSourceGraphs(
   }
 
   const tokens: Record<string, unknown> = {};
-  const semanticTokens: Record<string, unknown> = {};
   const tokenSourceIds = new Map<string, string>();
   const layerSourceIds = new Map<string, string>();
   const firstTokenPaths = new Map<string, string>();
-  const firstSemanticTokenPaths = new Map<string, string>();
   const composedLayers: unknown[] = [];
 
   for (const sourceGraph of sourceGraphs) {
@@ -967,23 +965,10 @@ function composeSourceGraphs(
       output: tokens,
       tokenSourceIds,
       firstPaths: firstTokenPaths,
-      otherLanePaths: firstSemanticTokenPaths,
       sourceGraph,
-      lane: "tokens",
     });
     if (!addedTokens.ok) {
       return addedTokens;
-    }
-    const addedSemanticTokens = appendSourceDefinitions({
-      output: semanticTokens,
-      tokenSourceIds,
-      firstPaths: firstSemanticTokenPaths,
-      otherLanePaths: firstTokenPaths,
-      sourceGraph,
-      lane: "semanticTokens",
-    });
-    if (!addedSemanticTokens.ok) {
-      return addedSemanticTokens;
     }
 
     if (sourceGraph.layers !== undefined) {
@@ -998,9 +983,6 @@ function composeSourceGraphs(
   }
 
   defineRecordValue(output, "tokens", tokens);
-  if (Object.keys(semanticTokens).length > 0) {
-    defineRecordValue(output, "semanticTokens", semanticTokens);
-  }
   if (layers !== undefined) {
     composedLayers.push(...layers);
   }
@@ -1070,7 +1052,6 @@ interface RawSourceGraphParts {
   readonly schema?: unknown;
   readonly defaultVisibility: unknown;
   readonly tokens: unknown;
-  readonly semanticTokens?: unknown;
   readonly layers?: readonly unknown[];
 }
 
@@ -1150,7 +1131,6 @@ function readSourceGraph(source: BuiltSourceGraph): Result<RawSourceGraphParts, 
       ...(record.has("$schema") ? { schema: record.get("$schema") } : {}),
       defaultVisibility: record.get("defaultVisibility"),
       tokens: record.get("tokens"),
-      ...(record.has("semanticTokens") ? { semanticTokens: record.get("semanticTokens") } : {}),
       ...(layerEntries === undefined
         ? {}
         : { layers: layerEntries.value.map((entry) => entry.value) }),
@@ -1241,20 +1221,17 @@ function appendSourceDefinitions(options: {
   readonly output: Record<string, unknown>;
   readonly tokenSourceIds: Map<string, string>;
   readonly firstPaths: Map<string, string>;
-  readonly otherLanePaths: ReadonlyMap<string, string>;
   readonly sourceGraph: SourceGraphParts;
-  readonly lane: "tokens" | "semanticTokens";
 }): Result<void, BuildSchemeIssue> {
-  const input =
-    options.lane === "tokens" ? options.sourceGraph.tokens : options.sourceGraph.semanticTokens;
+  const input = options.sourceGraph.tokens;
   if (input === undefined) {
     return { ok: true, value: undefined };
   }
 
-  const path = `/base/${options.sourceGraph.sourceIndex}/${options.lane}`;
+  const path = `/base/${options.sourceGraph.sourceIndex}/tokens`;
   const entries = readPlainRecord(input, {
     code: "invalid-source-result",
-    message: `Source graph ${options.lane} must be a plain object record.`,
+    message: "Source graph tokens must be a plain object record.",
     path,
   });
   if (!entries.ok) {
@@ -1263,21 +1240,6 @@ function appendSourceDefinitions(options: {
 
   for (const entry of entries.value) {
     const tokenPath = `${path}/${escapePointerSegment(entry.key)}`;
-    const collisionPath = options.otherLanePaths.get(entry.key);
-    if (collisionPath !== undefined) {
-      return {
-        ok: false,
-        issues: [
-          {
-            code: "duplicate-token-key",
-            message: `Semantic token and implementation token keys must not collide: ${entry.key}.`,
-            path: tokenPath,
-            key: entry.key,
-            firstPath: collisionPath,
-          },
-        ],
-      };
-    }
     const firstPath = options.firstPaths.get(entry.key);
     if (firstPath !== undefined) {
       return {
@@ -1298,9 +1260,7 @@ function appendSourceDefinitions(options: {
     defineRecordValue(
       options.output,
       entry.key,
-      options.lane === "tokens"
-        ? withDefaultVisibility(entry.value, options.sourceGraph.defaultVisibility)
-        : entry.value,
+      withDefaultVisibility(entry.value, options.sourceGraph.defaultVisibility),
     );
   }
 

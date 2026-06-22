@@ -87,62 +87,6 @@
                     "$ref": "color-token-graph.v1.schema.json#/$defs/tokenKey"
                   }
                 }
-              },
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["kind", "origin"],
-                "properties": {
-                  "kind": {
-                    "const": "semanticToken"
-                  },
-                  "origin": {
-                    "oneOf": [
-                      {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": ["kind"],
-                        "properties": {
-                          "kind": {
-                            "const": "graph"
-                          }
-                        }
-                      },
-                      {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": ["kind", "id"],
-                        "properties": {
-                          "kind": {
-                            "const": "layer"
-                          },
-                          "id": {
-                            "$ref": "color-token-graph.v1.schema.json#/$defs/segment"
-                          }
-                        }
-                      },
-                      {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": ["kind", "id"],
-                        "properties": {
-                          "kind": {
-                            "const": "source"
-                          },
-                          "id": {
-                            "$ref": "color-token-graph.v1.schema.json#/$defs/segment"
-                          },
-                          "sourceToken": {
-                            "$ref": "color-token-graph.v1.schema.json#/$defs/tokenKey"
-                          }
-                        }
-                      }
-                    ]
-                  },
-                  "target": {
-                    "$ref": "color-token-graph.v1.schema.json#/$defs/tokenKey"
-                  }
-                }
               }
             ]
           },

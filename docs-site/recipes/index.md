@@ -81,7 +81,7 @@ export { graph };
 ## App Tokens From Implementation Tokens
 
 ```ts
-import { compileTokenGraph, defineTokenGraph, tokenRef } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   tokens: {
@@ -89,7 +89,9 @@ const graph = defineTokenGraph({
       value: "#6750a4",
       visibility: "internal",
     },
-    primary: tokenRef("brand.primary"),
+  },
+  aliases: {
+    primary: "brand.primary",
   },
 });
 

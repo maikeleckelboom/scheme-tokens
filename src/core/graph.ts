@@ -2,7 +2,6 @@ import {
   cloneColor,
   parseColor,
   type ColorInput,
-  type ColorValue,
   type ColorValueInput,
   type ParseColorIssue,
 } from "./color";
@@ -30,7 +29,6 @@ export type ColorExpressionInput<Key extends string = string> = ColorInput | Ref
 export type ColorTokenExpressionInput<Key extends string = string> =
   | ColorValueInput
   | ReferenceInput<Key>;
-export type ColorExpression<Key extends string = string> = ColorValue | ReferenceInput<Key>;
 
 export type ColorTokenDefinitionInput<Mode extends string = string, Key extends string = string> = {
   readonly visibility?: TokenVisibility;
@@ -48,37 +46,23 @@ export type ColorTokenDefinitionInput<Mode extends string = string, Key extends 
     }
 );
 
-export interface ColorTokenLayerInput<
-  Mode extends string = string,
-  Key extends string = string,
-  SemanticKey extends string = string,
-> {
+export interface ColorTokenLayerInput<Mode extends string = string, Key extends string = string> {
   readonly $schema?: string;
   readonly kind: ColorTokenLayerKind;
   readonly formatVersion: 1;
   readonly id: string;
   readonly defaultVisibility: TokenVisibility;
-  readonly tokens: Readonly<Record<Key, ColorTokenDefinitionInput<Mode, Key | SemanticKey>>>;
-  readonly semanticTokens?: Readonly<
-    Record<SemanticKey, ColorTokenDefinitionInput<Mode, Key | SemanticKey>>
-  >;
+  readonly tokens: Readonly<Record<Key, ColorTokenDefinitionInput<Mode, Key>>>;
 }
 
-export interface ColorTokenGraphInput<
-  Mode extends string = string,
-  Key extends string = string,
-  SemanticKey extends string = string,
-> {
+export interface ColorTokenGraphInput<Mode extends string = string, Key extends string = string> {
   readonly $schema?: string;
   readonly kind: ColorTokenGraphKind;
   readonly formatVersion: 1;
   readonly modes: readonly [Mode, ...Mode[]];
   readonly defaultMode: Mode;
   readonly defaultVisibility: TokenVisibility;
-  readonly tokens: Readonly<Record<Key, ColorTokenDefinitionInput<Mode, Key | SemanticKey>>>;
-  readonly semanticTokens?: Readonly<
-    Record<SemanticKey, ColorTokenDefinitionInput<Mode, Key | SemanticKey>>
-  >;
+  readonly tokens: Readonly<Record<Key, ColorTokenDefinitionInput<Mode, Key>>>;
   readonly layers?: readonly ColorTokenLayerInput<Mode>[];
 }
 
@@ -125,7 +109,6 @@ export type ColorTokenDefinitionAuthoringInput<
 export interface ColorTokenLayerAuthoringInput<
   Mode extends string = string,
   Key extends string = string,
-  SemanticKey extends string = string,
   AliasKey extends string = string,
 > {
   readonly $schema?: string;
@@ -134,19 +117,13 @@ export interface ColorTokenLayerAuthoringInput<
   readonly id: string;
   readonly defaultVisibility?: TokenVisibility;
   readonly modes?: readonly [Mode, ...Mode[]];
-  readonly tokens?: Readonly<
-    Record<Key, ColorTokenDefinitionAuthoringInput<Mode, Key | SemanticKey>>
-  >;
+  readonly tokens?: Readonly<Record<Key, ColorTokenDefinitionAuthoringInput<Mode, Key>>>;
   readonly aliases?: Readonly<Record<AliasKey, string>>;
-  readonly semanticTokens?: Readonly<
-    Record<SemanticKey, ColorTokenDefinitionAuthoringInput<Mode, Key | SemanticKey>>
-  >;
 }
 
 export type ColorTokenGraphAuthoringInput<
   Mode extends string = string,
   Key extends string = string,
-  SemanticKey extends string = string,
 > =
   | {
       readonly $schema?: string;
@@ -155,13 +132,8 @@ export type ColorTokenGraphAuthoringInput<
       readonly modes?: never;
       readonly defaultMode?: never;
       readonly defaultVisibility?: TokenVisibility;
-      readonly tokens?: Readonly<
-        Record<Key, ColorTokenDefinitionAuthoringInput<"base", Key | SemanticKey>>
-      >;
+      readonly tokens?: Readonly<Record<Key, ColorTokenDefinitionAuthoringInput<"base", Key>>>;
       readonly aliases?: Readonly<Record<string, string>>;
-      readonly semanticTokens?: Readonly<
-        Record<SemanticKey, ColorTokenDefinitionAuthoringInput<"base", Key | SemanticKey>>
-      >;
       readonly layers?: readonly ColorTokenLayerInput<"base">[];
     }
   | {
@@ -171,17 +143,12 @@ export type ColorTokenGraphAuthoringInput<
       readonly modes: readonly [Mode, ...Mode[]];
       readonly defaultMode: Mode;
       readonly defaultVisibility?: TokenVisibility;
-      readonly tokens?: Readonly<
-        Record<Key, ColorTokenDefinitionAuthoringInput<Mode, Key | SemanticKey>>
-      >;
+      readonly tokens?: Readonly<Record<Key, ColorTokenDefinitionAuthoringInput<Mode, Key>>>;
       readonly aliases?: Readonly<Record<string, string>>;
-      readonly semanticTokens?: Readonly<
-        Record<SemanticKey, ColorTokenDefinitionAuthoringInput<Mode, Key | SemanticKey>>
-      >;
       readonly layers?: readonly ColorTokenLayerInput<Mode>[];
     };
 
-export type BaseTokenOrigin =
+export type TokenOrigin =
   | {
       readonly kind: "graph";
     }
@@ -195,38 +162,7 @@ export type BaseTokenOrigin =
       readonly sourceToken?: string;
     };
 
-export type TokenOrigin =
-  | BaseTokenOrigin
-  | {
-      readonly kind: "semanticToken";
-      readonly origin: BaseTokenOrigin;
-      readonly target?: string;
-    };
-
-export interface ColorTokenGraphToken<Mode extends string = string, Key extends string = string> {
-  readonly visibility: TokenVisibility;
-  readonly valueByMode: Readonly<Record<Mode, ColorExpression<Key>>>;
-  readonly origin: TokenOrigin;
-  readonly description?: string;
-  readonly deprecated?: boolean | string;
-  readonly extensions?: Readonly<Record<string, JsonValue>>;
-}
-
-export interface ColorTokenGraph<Mode extends string = string, Key extends string = string> {
-  readonly kind: ColorTokenGraphKind;
-  readonly formatVersion: 1;
-  readonly modes: readonly [Mode, ...Mode[]];
-  readonly defaultMode: Mode;
-  readonly tokens: Readonly<Record<Key, ColorTokenGraphToken<Mode, Key>>>;
-}
-
 type DirectTokenKeyOf<T> = T extends { readonly tokens: Readonly<Record<infer Key, unknown>> }
-  ? Extract<Key, string>
-  : never;
-
-type DirectSemanticTokenKeyOf<T> = T extends {
-  readonly semanticTokens?: Readonly<Record<infer Key, unknown>>;
-}
   ? Extract<Key, string>
   : never;
 
@@ -236,7 +172,7 @@ type LayerTokenKeyOf<T> = T extends { readonly layers: infer Layers }
     : never
   : never;
 
-export type TokenKeyOf<T> = DirectTokenKeyOf<T> | DirectSemanticTokenKeyOf<T> | LayerTokenKeyOf<T>;
+export type TokenKeyOf<T> = DirectTokenKeyOf<T> | LayerTokenKeyOf<T>;
 
 export type ModeOf<T> = T extends { readonly modes: readonly [infer First, ...infer Rest] }
   ? Extract<First | Rest[number], string>
@@ -299,7 +235,6 @@ type TokenAliasAuthoringRecord = Readonly<Record<string, string>>;
 export function defineTokenGraph<
   const Tokens extends TokenAuthoringRecord<"base"> = Record<never, never>,
   const Aliases extends TokenAliasAuthoringRecord = Record<never, never>,
-  const SemanticTokens extends TokenAuthoringRecord<"base"> = Record<never, never>,
   const Layers extends readonly ColorTokenLayerInput<"base", string>[] =
     readonly ColorTokenLayerInput<"base", string>[],
 >(input: {
@@ -311,17 +246,13 @@ export function defineTokenGraph<
   readonly defaultVisibility?: TokenVisibility;
   readonly tokens?: Tokens;
   readonly aliases?: Aliases;
-  readonly semanticTokens?: SemanticTokens;
   readonly layers: Layers;
-}): ColorTokenGraphInput<
-  "base",
-  Extract<keyof Tokens | keyof Aliases, string>,
-  Extract<keyof SemanticTokens, string>
-> & { readonly layers: Layers };
+}): ColorTokenGraphInput<"base", Extract<keyof Tokens | keyof Aliases, string>> & {
+  readonly layers: Layers;
+};
 export function defineTokenGraph<
   const Tokens extends TokenAuthoringRecord<"base"> = Record<never, never>,
   const Aliases extends TokenAliasAuthoringRecord = Record<never, never>,
-  const SemanticTokens extends TokenAuthoringRecord<"base"> = Record<never, never>,
 >(input: {
   readonly $schema?: string;
   readonly kind?: ColorTokenGraphKind;
@@ -331,18 +262,12 @@ export function defineTokenGraph<
   readonly defaultVisibility?: TokenVisibility;
   readonly tokens?: Tokens;
   readonly aliases?: Aliases;
-  readonly semanticTokens?: SemanticTokens;
   readonly layers?: readonly ColorTokenLayerInput<"base">[];
-}): ColorTokenGraphInput<
-  "base",
-  Extract<keyof Tokens | keyof Aliases, string>,
-  Extract<keyof SemanticTokens, string>
->;
+}): ColorTokenGraphInput<"base", Extract<keyof Tokens | keyof Aliases, string>>;
 export function defineTokenGraph<
   const Modes extends readonly [string, ...string[]],
   const Tokens extends TokenAuthoringRecord<NoInfer<Modes[number]>> = Record<never, never>,
   const Aliases extends TokenAliasAuthoringRecord = Record<never, never>,
-  const SemanticTokens extends TokenAuthoringRecord<NoInfer<Modes[number]>> = Record<never, never>,
   const Layers extends readonly ColorTokenLayerInput<NoInfer<Modes[number]>, string>[] =
     readonly ColorTokenLayerInput<NoInfer<Modes[number]>, string>[],
 >(input: {
@@ -354,20 +279,14 @@ export function defineTokenGraph<
   readonly defaultVisibility?: TokenVisibility;
   readonly tokens?: Tokens;
   readonly aliases?: Aliases;
-  readonly semanticTokens?: SemanticTokens;
   readonly layers: Layers;
-}): ColorTokenGraphInput<
-  Modes[number],
-  Extract<keyof Tokens | keyof Aliases, string>,
-  Extract<keyof SemanticTokens, string>
-> & {
+}): ColorTokenGraphInput<Modes[number], Extract<keyof Tokens | keyof Aliases, string>> & {
   readonly layers: Layers;
 };
 export function defineTokenGraph<
   const Modes extends readonly [string, ...string[]],
   const Tokens extends TokenAuthoringRecord<NoInfer<Modes[number]>> = Record<never, never>,
   const Aliases extends TokenAliasAuthoringRecord = Record<never, never>,
-  const SemanticTokens extends TokenAuthoringRecord<NoInfer<Modes[number]>> = Record<never, never>,
 >(input: {
   readonly $schema?: string;
   readonly kind?: ColorTokenGraphKind;
@@ -377,13 +296,8 @@ export function defineTokenGraph<
   readonly defaultVisibility?: TokenVisibility;
   readonly tokens?: Tokens;
   readonly aliases?: Aliases;
-  readonly semanticTokens?: SemanticTokens;
   readonly layers?: readonly ColorTokenLayerInput<NoInfer<Modes[number]>>[];
-}): ColorTokenGraphInput<
-  Modes[number],
-  Extract<keyof Tokens | keyof Aliases, string>,
-  Extract<keyof SemanticTokens, string>
->;
+}): ColorTokenGraphInput<Modes[number], Extract<keyof Tokens | keyof Aliases, string>>;
 export function defineTokenGraph(input: ColorTokenGraphAuthoringInput): ColorTokenGraphInput {
   return defineTokenGraphFromInput(input, "defineTokenGraph");
 }
@@ -408,16 +322,6 @@ function defineTokenGraphFromInput(
     defaultMode,
     defaultVisibility: input.defaultVisibility ?? "public",
     tokens: normalizeTokenAndAliasRecords(input.tokens ?? {}, input.aliases, modes, helperName),
-    ...(input.semanticTokens === undefined
-      ? {}
-      : {
-          semanticTokens: normalizeTokenRecord(
-            input.semanticTokens,
-            modes,
-            helperName,
-            "semanticTokens",
-          ),
-        }),
     ...(input.layers === undefined ? {} : { layers: input.layers }),
   };
 }
@@ -476,20 +380,12 @@ export function defineTokenLayer<
   const Tokens extends Readonly<Record<string, ColorTokenDefinitionAuthoringInput<Mode, string>>> =
     Readonly<Record<string, ColorTokenDefinitionAuthoringInput<Mode>>>,
   const Aliases extends TokenAliasAuthoringRecord = Record<never, never>,
-  const SemanticTokens extends Readonly<
-    Record<string, ColorTokenDefinitionAuthoringInput<Mode, string>>
-  > = Readonly<Record<string, ColorTokenDefinitionAuthoringInput<Mode>>>,
 >(
-  input: ColorTokenLayerAuthoringInput<Mode, string, string, string> & {
+  input: ColorTokenLayerAuthoringInput<Mode, string, string> & {
     readonly tokens?: Tokens;
     readonly aliases?: Aliases;
-    readonly semanticTokens?: SemanticTokens;
   },
-): ColorTokenLayerInput<
-  Mode,
-  Extract<keyof Tokens | keyof Aliases, string>,
-  Extract<keyof SemanticTokens, string>
-> {
+): ColorTokenLayerInput<Mode, Extract<keyof Tokens | keyof Aliases, string>> {
   if (input.kind !== undefined && input.kind !== colorTokenLayerKind) {
     throw new RangeError(`defineTokenLayer kind must be ${colorTokenLayerKind}.`);
   }
@@ -509,21 +405,7 @@ export function defineTokenLayer<
       modes,
       "defineTokenLayer",
     ) as Readonly<Record<string, ColorTokenDefinitionInput<Mode>>>,
-    ...(input.semanticTokens === undefined
-      ? {}
-      : {
-          semanticTokens: normalizeTokenRecord(
-            input.semanticTokens,
-            modes,
-            "defineTokenLayer",
-            "semanticTokens",
-          ) as Readonly<Record<string, ColorTokenDefinitionInput<Mode>>>,
-        }),
-  } as ColorTokenLayerInput<
-    Mode,
-    Extract<keyof Tokens | keyof Aliases, string>,
-    Extract<keyof SemanticTokens, string>
-  >;
+  } as ColorTokenLayerInput<Mode, Extract<keyof Tokens | keyof Aliases, string>>;
 }
 
 export function isReferenceInput(input: unknown): input is ReferenceInput {
@@ -534,7 +416,7 @@ export function isReferenceInput(input: unknown): input is ReferenceInput {
   return entries.ok && entries.value.some((entry) => entry.key === "ref");
 }
 
-export type ParseTokenGraphResult = Result<ColorTokenGraph, ColorTokenGraphIssue>;
+export type ParseTokenGraphResult = Result<ColorTokenGraphInput, ColorTokenGraphIssue>;
 
 const tokenDefinitionKeys = new Set([
   "visibility",
@@ -549,7 +431,7 @@ function normalizeTokenRecord(
   input: unknown,
   modes: readonly string[] | undefined,
   helperName: string,
-  laneName: "tokens" | "semanticTokens",
+  laneName: "tokens",
 ): Readonly<Record<string, ColorTokenDefinitionInput>> {
   const entries = readPlainRecord(input, {
     code: "invalid-token-definition",
@@ -625,10 +507,9 @@ function assertGraphHelperInput(
   }
   if (
     !entries.value.some((entry) => entry.key === "tokens") &&
-    !entries.value.some((entry) => entry.key === "aliases") &&
-    !entries.value.some((entry) => entry.key === "semanticTokens")
+    !entries.value.some((entry) => entry.key === "aliases")
   ) {
-    throw new TypeError(`${helperName} input must include tokens, aliases, or semanticTokens.`);
+    throw new TypeError(`${helperName} input must include tokens or aliases.`);
   }
 }
 

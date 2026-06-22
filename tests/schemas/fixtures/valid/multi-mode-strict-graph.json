@@ -39,15 +39,15 @@
           "alpha": 1
         }
       }
-    }
-  },
-  "semanticTokens": {
+    },
     "button.background": {
+      "visibility": "public",
       "value": {
         "ref": "brand.primary"
       }
     },
     "button.foreground": {
+      "visibility": "public",
       "value": {
         "ref": "brand.on-primary"
       }

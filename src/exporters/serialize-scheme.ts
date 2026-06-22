@@ -1,8 +1,8 @@
-import type { ColorComponent, ColorValue } from "../core/color";
+import type { ColorComponent, ColorValue, ColorValueInput } from "../core/color";
 import type { CompiledColorScheme } from "../core/compiled-types";
 import type {
-  ColorExpression,
   ColorTokenDefinitionInput,
+  ColorTokenExpressionInput,
   ColorTokenGraphInput,
   ColorTokenLayerInput,
   ReferenceInput,
@@ -34,9 +34,6 @@ function canonicalTokenGraph(graph: ColorTokenGraphInput): unknown {
   defineRecordValue(output, "defaultMode", graph.defaultMode);
   defineRecordValue(output, "defaultVisibility", graph.defaultVisibility);
   defineRecordValue(output, "tokens", canonicalDefinitions(graph.tokens));
-  if (graph.semanticTokens !== undefined) {
-    defineRecordValue(output, "semanticTokens", canonicalDefinitions(graph.semanticTokens));
-  }
   if (graph.layers !== undefined) {
     defineRecordValue(output, "layers", graph.layers.map(canonicalTokenLayer));
   }
@@ -53,9 +50,6 @@ function canonicalTokenLayer(layer: ColorTokenLayerInput): unknown {
   defineRecordValue(output, "id", layer.id);
   defineRecordValue(output, "defaultVisibility", layer.defaultVisibility);
   defineRecordValue(output, "tokens", canonicalDefinitions(layer.tokens));
-  if (layer.semanticTokens !== undefined) {
-    defineRecordValue(output, "semanticTokens", canonicalDefinitions(layer.semanticTokens));
-  }
   return output;
 }
 
@@ -78,15 +72,14 @@ function canonicalDefinition(token: ColorTokenDefinitionInput): unknown {
     defineRecordValue(output, "visibility", token.visibility);
   }
   if ("value" in token && token.value !== undefined) {
-    defineRecordValue(output, "value", canonicalExpression(token.value as ColorExpression));
+    defineRecordValue(output, "value", canonicalExpression(token.value));
   } else if ("valueByMode" in token && token.valueByMode !== undefined) {
     const values: Record<string, unknown> = {};
     for (const mode of Object.keys(token.valueByMode).sort(compareCodeUnits)) {
-      defineRecordValue(
-        values,
-        mode,
-        canonicalExpression(token.valueByMode[mode] as ColorExpression),
-      );
+      const expression = token.valueByMode[mode];
+      if (expression !== undefined) {
+        defineRecordValue(values, mode, canonicalExpression(expression));
+      }
     }
     defineRecordValue(output, "valueByMode", values);
   }
@@ -155,24 +148,18 @@ function canonicalOrigin(origin: CompiledColorScheme["tokens"][string]["origin"]
   if (origin.kind === "source" && origin.sourceToken !== undefined) {
     defineRecordValue(output, "sourceToken", origin.sourceToken);
   }
-  if (origin.kind === "semanticToken") {
-    defineRecordValue(output, "origin", canonicalOrigin(origin.origin));
-    if (origin.target !== undefined) {
-      defineRecordValue(output, "target", origin.target);
-    }
-  }
   return output;
 }
 
-function canonicalExpression(expression: ColorExpression): unknown {
+function canonicalExpression(expression: ColorTokenExpressionInput): unknown {
   return isReferenceExpression(expression) ? { ref: expression.ref } : canonicalColor(expression);
 }
 
-function canonicalColor(color: ColorValue): unknown {
+function canonicalColor(color: ColorValue | ColorValueInput): unknown {
   const output: Record<string, unknown> = {};
   defineRecordValue(output, "colorSpace", color.colorSpace);
   defineRecordValue(output, "components", color.components.map(canonicalComponent));
-  defineRecordValue(output, "alpha", normalizeNumber(color.alpha));
+  defineRecordValue(output, "alpha", normalizeNumber(color.alpha ?? 1));
   if (color.hex !== undefined) {
     defineRecordValue(output, "hex", color.hex.toLowerCase());
   }
@@ -202,6 +189,8 @@ function canonicalJson(value: JsonValue): JsonValue {
   return output;
 }
 
-function isReferenceExpression(expression: ColorExpression): expression is ReferenceInput {
+function isReferenceExpression(
+  expression: ColorTokenExpressionInput,
+): expression is ReferenceInput {
   return "ref" in expression;
 }

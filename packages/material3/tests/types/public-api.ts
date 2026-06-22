@@ -24,7 +24,7 @@ const platform: Material3Platform = material3Platforms[0];
 const scalarSourceColors: Material3SourceColorsInput = "#6750a4";
 const arraySourceColors: Material3SourceColorsInput = ["#6750a4", "#00a88f"];
 const mutableArraySourceColors: string[] = ["#6750a4", "#00a88f"];
-const palettes: Material3PaletteOverridesInput = {
+const paletteOverrides: Material3PaletteOverridesInput = {
   primary: "#6750a4",
   neutralVariant: "#605d66",
 };
@@ -41,7 +41,7 @@ const input: Material3Input = {
   contrastLevel: 0.5,
   specVersion,
   platform,
-  palettes,
+  paletteOverrides,
   extendedColors: [extendedColor],
   paletteTones: [40, 90],
 };

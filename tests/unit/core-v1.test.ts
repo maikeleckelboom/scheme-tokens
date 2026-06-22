@@ -14,11 +14,13 @@ import {
   parseCompiledScheme,
   parseTokenGraph,
   serializeCompiledScheme,
+  serializeTokenGraph,
   tokenRef,
   type ColorValue,
   type Issue,
   type Result,
   type ColorTokenGraphInput,
+  type ColorTokenLayerInput,
   type ColorTokenSource,
 } from "../../src";
 
@@ -196,24 +198,21 @@ describe("v1 graph and compiler", () => {
     defineTokenGraph({
       modes: ["dark", "light"],
       defaultMode: "light",
-      defaultVisibility: "internal",
       tokens: {
         "brand.primary": {
+          visibility: "internal",
           light: "#6750a4",
           dark: "#d0bcff",
         },
         "brand.on-primary": {
+          visibility: "internal",
           light: "#ffffff",
           dark: "#381e72",
         },
       },
-      semanticTokens: {
-        "app.action": {
-          value: { ref: "brand.primary" },
-        },
-        "app.action-text": {
-          value: { ref: "brand.on-primary" },
-        },
+      aliases: {
+        "app.action": "brand.primary",
+        "app.action-text": "brand.on-primary",
       },
     });
 
@@ -394,28 +393,29 @@ describe("v1 graph and compiler", () => {
     expect(compiled.tokens["app.alias"]?.dependenciesByMode.base).toEqual(["brand.primary"]);
   });
 
-  test("defines semantic tokens as public product tokens", () => {
+  test("defines aliases as public product tokens", () => {
     const graph = defineTokenGraph({
       modes: ["light", "dark"],
       defaultMode: "light",
-      defaultVisibility: "internal",
       tokens: {
         "brand.primary": {
+          visibility: "internal",
           light: "#6750a4",
           dark: "#d0bcff",
         },
         "brand.on-primary": {
+          visibility: "internal",
           light: "#ffffff",
           dark: "#381e72",
         },
       },
-      semanticTokens: {
-        primary: { value: tokenRef("brand.primary") },
-        "primary-foreground": { value: tokenRef("brand.on-primary") },
+      aliases: {
+        primary: "brand.primary",
+        "primary-foreground": "brand.on-primary",
       },
     });
 
-    expect(graph.semanticTokens).toEqual({
+    expect(graph.tokens).toMatchObject({
       primary: { value: { ref: "brand.primary" } },
       "primary-foreground": { value: { ref: "brand.on-primary" } },
     });
@@ -424,22 +424,18 @@ describe("v1 graph and compiler", () => {
     expect(Object.keys(compiled.tokens)).toEqual(["primary", "primary-foreground"]);
     expect(compiled.tokens.primary?.visibility).toBe("public");
     expect(compiled.tokens.primary?.dependenciesByMode.light).toEqual(["brand.primary"]);
-    expect(compiled.tokens.primary?.origin).toEqual({
-      kind: "semanticToken",
-      origin: { kind: "graph" },
-      target: "brand.primary",
-    });
+    expect(compiled.tokens.primary?.origin).toEqual({ kind: "graph" });
 
     const cssExport = unwrap(exportCssVars(compiled));
     expect(cssExport.variableByToken.primary).toBe("--primary");
     expect(cssExport.css).toContain("--primary: #6750a4;");
   });
 
-  test("accepts direct semantic tokens without implementation tokens", () => {
+  test("accepts direct public product tokens without implementation tokens", () => {
     const graph = defineTokenGraph({
       modes: ["light", "dark"],
       defaultMode: "light",
-      semanticTokens: {
+      tokens: {
         primary: {
           light: "#6750a4",
           dark: "#d0bcff",
@@ -451,24 +447,22 @@ describe("v1 graph and compiler", () => {
       },
     });
 
-    expect(graph.tokens).toEqual({});
     const compiled = unwrap(compileTokenGraph(graph));
     expect(Object.keys(compiled.tokens)).toEqual(["primary", "primary-foreground"]);
-    expect(compiled.tokens.primary?.origin).toEqual({
-      kind: "semanticToken",
-      origin: { kind: "graph" },
-    });
+    expect(compiled.tokens.primary?.origin).toEqual({ kind: "graph" });
   });
 
-  test("semantic token references can target semantic tokens", () => {
+  test("alias references can target alias tokens", () => {
     const graph = defineTokenGraph({
-      defaultVisibility: "internal",
       tokens: {
-        "brand.primary": "#6750a4",
+        "brand.primary": {
+          value: "#6750a4",
+          visibility: "internal",
+        },
       },
-      semanticTokens: {
-        primary: tokenRef("brand.primary"),
-        action: tokenRef("primary"),
+      aliases: {
+        primary: "brand.primary",
+        action: "primary",
       },
     });
 
@@ -478,14 +472,16 @@ describe("v1 graph and compiler", () => {
     expect(compiled.tokens.action?.valueByMode.base).toEqual(color("#6750a4"));
   });
 
-  test("exact and all selections include semantic tokens by key", () => {
+  test("exact and all selections include alias tokens by key", () => {
     const graph = defineTokenGraph({
-      defaultVisibility: "internal",
       tokens: {
-        "brand.primary": "#6750a4",
+        "brand.primary": {
+          value: "#6750a4",
+          visibility: "internal",
+        },
       },
-      semanticTokens: {
-        primary: tokenRef("brand.primary"),
+      aliases: {
+        primary: "brand.primary",
       },
     });
 
@@ -499,18 +495,18 @@ describe("v1 graph and compiler", () => {
     ).toEqual(["primary"]);
   });
 
-  test("semantic token diagnostics use precise semanticTokens paths", () => {
+  test("alias diagnostics use normalized token paths", () => {
     expect(
       compileTokenGraph(
         defineTokenGraph({
-          semanticTokens: {
-            "Bad Key": "#6750a4",
+          aliases: {
+            "Bad Key": "brand.primary",
           },
         }),
       ),
     ).toMatchObject({
       ok: false,
-      issues: [{ code: "invalid-token-key", path: "/semanticTokens/Bad Key" }],
+      issues: [{ code: "invalid-token-key", path: "/tokens/Bad Key" }],
     });
 
     expect(
@@ -520,55 +516,38 @@ describe("v1 graph and compiler", () => {
         modes: ["base"],
         defaultMode: "base",
         defaultVisibility: "public",
-        tokens: {},
-        semanticTokens: {
+        tokens: {
           primary: { value: { ref: "Bad Key" } },
         },
       }),
     ).toMatchObject({
       ok: false,
-      issues: [{ code: "invalid-reference", path: "/semanticTokens/primary/value" }],
+      issues: [{ code: "invalid-reference", path: "/tokens/primary/value" }],
     });
 
     expect(
       compileTokenGraph(
         defineTokenGraph({
-          semanticTokens: {
-            primary: tokenRef("brand.primary"),
+          aliases: {
+            primary: "brand.primary",
           },
         }),
       ),
     ).toMatchObject({
       ok: false,
-      issues: [{ code: "unknown-reference", path: "/semanticTokens/primary/value" }],
+      issues: [{ code: "unknown-reference", path: "/tokens/primary/value" }],
     });
   });
 
-  test("semantic tokens reject implementation token key collisions and cycles across lanes", () => {
-    expect(
-      compileTokenGraph(
-        defineTokenGraph({
-          tokens: {
-            primary: "#6750a4",
-          },
-          semanticTokens: {
-            primary: "#ff3b30",
-          },
-        }),
-      ),
-    ).toMatchObject({
-      ok: false,
-      issues: [{ code: "duplicate-token-key", path: "/semanticTokens/primary" }],
-    });
-
+  test("alias references participate in reference-cycle diagnostics", () => {
     expect(
       compileTokenGraph(
         defineTokenGraph({
           tokens: {
             "brand.primary": tokenRef("primary"),
           },
-          semanticTokens: {
-            primary: tokenRef("brand.primary"),
+          aliases: {
+            primary: "brand.primary",
           },
         }),
       ),
@@ -651,7 +630,7 @@ describe("v1 graph and compiler", () => {
 
   test("defineTokenGraph does not accept ambiguous flat token records", () => {
     expect(() => defineTokenGraph({ background: "#ffffff" } as never)).toThrow(
-      "defineTokenGraph input must include tokens, aliases, or semanticTokens.",
+      "defineTokenGraph input must include tokens or aliases.",
     );
   });
 
@@ -780,12 +759,85 @@ describe("v1 graph and compiler", () => {
     const parsed = unwrap(parseTokenGraph(graph));
 
     expect(parsed.modes).toEqual(["light", "dark"]);
-    expect(parsed.tokens["app.action"]?.visibility).toBe("public");
+    expect(parsed.defaultVisibility).toBe("public");
+    expect(parsed.tokens["app.action"]?.value).toEqual({ ref: "brand.primary" });
 
     (graph as never as { tokens: { "brand.primary": { valueByMode: { light: string } } } }).tokens[
       "brand.primary"
     ].valueByMode.light = "#000000";
-    expect(parsed.tokens["brand.primary"]?.valueByMode.light).toEqual(color("#6750a4"));
+    expect(
+      (parsed.tokens["brand.primary"] as { readonly valueByMode: { readonly light: unknown } })
+        .valueByMode.light,
+    ).toEqual(color("#6750a4"));
+  });
+
+  test("parseTokenGraph returns a strict artifact accepted by serialize and compile", () => {
+    const graph = {
+      $schema: "https://scheme-tokens.dev/schemas/color-token-graph.v1.schema.json",
+      kind: colorTokenGraphKind,
+      formatVersion: 1,
+      modes: ["dark", "light"],
+      defaultMode: "light",
+      defaultVisibility: "public",
+      tokens: {
+        "brand.primary": {
+          visibility: "internal",
+          valueByMode: {
+            light: color("#6750a4"),
+            dark: color("#d0bcff"),
+          },
+        },
+        primary: {
+          value: { ref: "brand.primary" },
+        },
+      },
+      layers: [
+        {
+          kind: colorTokenLayerKind,
+          formatVersion: 1,
+          id: "application",
+          defaultVisibility: "public",
+          tokens: {
+            action: {
+              value: { ref: "primary" },
+            },
+          },
+        },
+      ],
+    };
+
+    const parsed = unwrap(parseTokenGraph(graph));
+    const canonical = JSON.parse(serializeTokenGraph(parsed)) as unknown;
+    const compiled = unwrap(compileTokenGraph(parsed, { selection: "all" }));
+
+    expect(canonical).toMatchObject({
+      $schema: "https://scheme-tokens.dev/schemas/color-token-graph.v1.schema.json",
+      kind: colorTokenGraphKind,
+      formatVersion: 1,
+      modes: ["light", "dark"],
+      defaultMode: "light",
+      defaultVisibility: "public",
+      tokens: {
+        "brand.primary": {
+          visibility: "internal",
+        },
+        primary: {
+          value: { ref: "brand.primary" },
+        },
+      },
+      layers: [
+        {
+          id: "application",
+          tokens: {
+            action: {
+              value: { ref: "primary" },
+            },
+          },
+        },
+      ],
+    });
+    expect(compiled.tokens.action?.dependenciesByMode.light).toEqual(["primary"]);
+    expect(compiled.tokens.action?.origin).toEqual({ kind: "layer", id: "application" });
   });
 
   test("compiles public selection, dependencies, CSS, and canonical JSON", () => {
@@ -1280,8 +1332,10 @@ describe("v1 graph and compiler", () => {
     };
     expect(parseCompiledScheme(compiled)).toMatchObject({ ok: true });
 
+    const removedOriginKind = `semantic${"Token"}`;
+
     compiled.tokens.primary.origin = {
-      kind: "semanticToken",
+      kind: removedOriginKind,
       origin: { kind: "graph" },
       target: "Bad Key",
     };
@@ -1291,11 +1345,14 @@ describe("v1 graph and compiler", () => {
     });
 
     compiled.tokens.primary.origin = {
-      kind: "semanticToken",
+      kind: removedOriginKind,
       origin: { kind: "graph" },
       target: "brand.primary",
     };
-    expect(parseCompiledScheme(compiled)).toMatchObject({ ok: true });
+    expect(parseCompiledScheme(compiled)).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-origin" }],
+    });
   });
 
   test("reports exact-selection issues and cycles", () => {
@@ -1329,7 +1386,7 @@ describe("v1 graph and compiler", () => {
     });
   });
 
-  test("strict layers are ordered overlays and later layers win", () => {
+  test("strict layers are preserved by parsing and later layers win at compile time", () => {
     const parsed = unwrap(
       parseTokenGraph({
         kind: colorTokenGraphKind,
@@ -1363,8 +1420,10 @@ describe("v1 graph and compiler", () => {
       }),
     );
 
-    expect(parsed.tokens.primary?.origin).toEqual({ kind: "layer", id: "brand" });
-    expect(parsed.tokens.primary?.valueByMode.base).toEqual(color("#ff3b30"));
+    expect(parsed.layers?.[1]?.tokens.primary?.value).toEqual(color("#ff3b30"));
+    const compiled = unwrap(compileTokenGraph(parsed, { selection: "all" }));
+    expect(compiled.tokens.primary?.origin).toEqual({ kind: "layer", id: "brand" });
+    expect(compiled.tokens.primary?.valueByMode.base).toEqual(color("#ff3b30"));
   });
 
   test("references resolve against final layer winners", () => {
@@ -1728,7 +1787,7 @@ describe("v1 sources", () => {
         primary: "#6750a4",
       },
     });
-    const layers = [layer];
+    const layers: ColorTokenLayerInput[] = [layer];
     const builder = createSchemeBuilder({ layers });
 
     layers.push(
@@ -1853,7 +1912,7 @@ describe("v1 sources", () => {
     });
   });
 
-  test("buildScheme maps internal source roles through layer semantic tokens", () => {
+  test("buildScheme maps internal source roles through layer aliases", () => {
     const material = fixedSource(
       "material",
       defineTokenGraph({
@@ -1878,10 +1937,10 @@ describe("v1 sources", () => {
     );
     const application = defineTokenLayer<"light" | "dark">({
       id: "application",
-      semanticTokens: {
-        background: { value: tokenRef("material3.surface") },
-        foreground: { value: tokenRef("material3.on-surface") },
-        primary: { value: tokenRef("material3.primary") },
+      aliases: {
+        background: "material3.surface",
+        foreground: "material3.on-surface",
+        primary: "material3.primary",
       },
     });
 
@@ -1889,15 +1948,14 @@ describe("v1 sources", () => {
 
     expect(Object.keys(value.tokens)).toEqual(["background", "foreground", "primary"]);
     expect(value.tokens.background?.origin).toEqual({
-      kind: "semanticToken",
-      origin: { kind: "layer", id: "application" },
-      target: "material3.surface",
+      kind: "layer",
+      id: "application",
     });
     expect(value.tokens.background?.dependenciesByMode.light).toEqual(["material3.surface"]);
     expect(unwrap(exportCssVars(value)).variableByToken.background).toBe("--background");
   });
 
-  test("later layers deterministically override earlier semantic tokens", () => {
+  test("later layers deterministically override earlier alias tokens", () => {
     const foundation = defineTokenLayer({
       id: "foundation",
       defaultVisibility: "internal",
@@ -1905,14 +1963,14 @@ describe("v1 sources", () => {
         "brand.primary": "#6750a4",
         "brand.secondary": "#006a60",
       },
-      semanticTokens: {
-        primary: tokenRef("brand.primary"),
+      aliases: {
+        primary: "brand.primary",
       },
     });
     const product = defineTokenLayer({
       id: "product",
-      semanticTokens: {
-        primary: tokenRef("brand.secondary"),
+      aliases: {
+        primary: "brand.secondary",
       },
     });
 
@@ -1921,30 +1979,31 @@ describe("v1 sources", () => {
     expect(Object.keys(value.tokens)).toEqual(["primary"]);
     expect(value.tokens.primary?.valueByMode.base).toEqual(color("#006a60"));
     expect(value.tokens.primary?.origin).toEqual({
-      kind: "semanticToken",
-      origin: { kind: "layer", id: "product" },
-      target: "brand.secondary",
+      kind: "layer",
+      id: "product",
     });
   });
 
-  test("layers reject semantic token collisions with implementation tokens", () => {
+  test("layer aliases reject token collisions at authoring time", () => {
     const foundation = defineTokenLayer({
       id: "foundation",
-      semanticTokens: {
-        primary: "#6750a4",
-      },
-    });
-    const product = defineTokenLayer({
-      id: "product",
-      tokens: {
-        primary: "#ff3b30",
+      aliases: {
+        primary: "brand.primary",
       },
     });
 
-    expect(buildScheme({ layers: [foundation, product] })).toMatchObject({
-      ok: false,
-      issues: [{ code: "duplicate-token-key", path: "/layers/1/tokens/primary" }],
-    });
+    expect(foundation.tokens.primary).toEqual({ value: { ref: "brand.primary" } });
+    expect(() =>
+      defineTokenLayer({
+        id: "product",
+        tokens: {
+          primary: "#ff3b30",
+        },
+        aliases: {
+          primary: "brand.primary",
+        },
+      }),
+    ).toThrow('defineTokenLayer aliases cannot redefine token "primary" from tokens.');
   });
 
   test("buildScheme lets layers override source tokens", () => {
@@ -1985,35 +2044,36 @@ describe("v1 sources", () => {
         };
       },
     };
-    const semantic: ColorTokenSource = {
-      id: "semantic",
+    const application: ColorTokenSource = {
+      id: "application",
       build(): Result<ColorTokenGraphInput, Issue> {
         return {
           ok: true,
           value: defineTokenGraph({
-            semanticTokens: {
-              "semantic.action": tokenRef("palette.primary"),
+            aliases: {
+              "application.action": "palette.primary",
             },
           }),
         };
       },
     };
 
-    const value = unwrap(buildScheme({ base: [palette, semantic], selection: "all" }));
+    const value = unwrap(buildScheme({ base: [palette, application], selection: "all" }));
 
-    expect(Object.keys(value.tokens)).toEqual(["palette.primary", "semantic.action"]);
+    expect(Object.keys(value.tokens)).toEqual(["application.action", "palette.primary"]);
     expect(value.tokens["palette.primary"]?.origin).toEqual({
       kind: "source",
       id: "palette",
     });
-    expect(value.tokens["semantic.action"]?.origin).toEqual({
-      kind: "semanticToken",
-      origin: { kind: "source", id: "semantic" },
-      target: "palette.primary",
+    expect(value.tokens["application.action"]?.origin).toEqual({
+      kind: "source",
+      id: "application",
     });
     expect(value.tokens["palette.primary"]?.visibility).toBe("internal");
-    expect(value.tokens["semantic.action"]?.visibility).toBe("public");
-    expect(value.tokens["semantic.action"]?.dependenciesByMode.base).toEqual(["palette.primary"]);
+    expect(value.tokens["application.action"]?.visibility).toBe("public");
+    expect(value.tokens["application.action"]?.dependenciesByMode.base).toEqual([
+      "palette.primary",
+    ]);
   });
 
   test("buildScheme accepts source array shorthand", () => {

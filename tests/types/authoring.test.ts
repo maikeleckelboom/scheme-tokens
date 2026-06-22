@@ -62,16 +62,16 @@ const simpleTokensGraph = defineTokens({
 const typedSimpleTokensGraph = simpleTokensGraph satisfies ColorTokenGraphInput<"base">;
 typedSimpleTokensGraph.defaultMode.toUpperCase();
 
-const semanticGraph = defineTokenGraph({
+const aliasGraph = defineTokenGraph({
   tokens: {
     "brand.primary": "#6750a4",
   },
-  semanticTokens: {
-    primary: tokenRef("brand.primary"),
+  aliases: {
+    primary: "brand.primary",
   },
 });
-export type SemanticGraphKeys = Expect<
-  Equal<TokenKeyOf<typeof semanticGraph>, "brand.primary" | "primary">
+export type AliasGraphKeys = Expect<
+  Equal<TokenKeyOf<typeof aliasGraph>, "brand.primary" | "primary">
 >;
 
 const multiModeTokensGraph = defineTokens(
@@ -182,8 +182,8 @@ const layer = defineTokenLayer({
     "brand.primary": "#6750a4",
     "brand.on-primary": tokenRef("brand.primary"),
   },
-  semanticTokens: {
-    primary: tokenRef("brand.primary"),
+  aliases: {
+    primary: "brand.primary",
   },
 });
 const typedLayer = layer satisfies ColorTokenLayerInput;

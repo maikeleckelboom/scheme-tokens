@@ -17,6 +17,7 @@ interface PackageManifest {
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const adapterRoot = join(repoRoot, "packages", "material3");
+const trackedWorkspaceFiles = listTrackedFiles(repoRoot);
 const manifest = JSON.parse(
   readFileSync(join(repoRoot, "package.json"), "utf8"),
 ) as PackageManifest;
@@ -26,7 +27,7 @@ const adapterManifest = JSON.parse(
 const readme = readFileSync(join(repoRoot, "README.md"), "utf8");
 const adapterReadme = readFileSync(join(adapterRoot, "README.md"), "utf8");
 const authoredDocsSiteFiles = listFiles(join(repoRoot, "docs-site")).filter(
-  (file) => !isGeneratedDocsSiteFile(file),
+  (file) => trackedWorkspaceFiles.has(file) && !isGeneratedDocsSiteFile(file),
 );
 const docsSiteFiles = authoredDocsSiteFiles.filter((file) => file.endsWith(".md"));
 assertNoRemovedPublicNames();
@@ -196,7 +197,7 @@ function assertNoRemovedPublicNames(): void {
     join(adapterRoot, "README.md"),
     join(repoRoot, "CHANGELOG.md"),
     join(repoRoot, "AGENTS.md"),
-    ...listFiles(join(repoRoot, "docs")),
+    ...listFiles(join(repoRoot, "docs")).filter((file) => trackedWorkspaceFiles.has(file)),
     ...authoredDocsSiteFiles,
   ];
 
@@ -219,15 +220,24 @@ function assertNoPublicSemanticTokens(): void {
   const publicDocsFiles = [
     join(repoRoot, "README.md"),
     join(adapterRoot, "README.md"),
-    ...listFiles(join(repoRoot, "docs")),
+    ...listFiles(join(repoRoot, "docs")).filter((file) => trackedWorkspaceFiles.has(file)),
     ...authoredDocsSiteFiles,
   ].filter((file) => file.endsWith(".md"));
 
   for (const file of publicDocsFiles) {
     const text = readFileSync(file, "utf8");
-    if (/\bsemanticTokens\b|\bsemantic tokens\b|\bsemantic-token\b/i.test(text)) {
+    const removedTerms = [
+      `semantic${"Tokens"}`,
+      `semantic ${"tokens"}`,
+      `semantic-${"token"}`,
+    ] as const;
+    const removedTermPattern = new RegExp(
+      removedTerms.map((term) => `\\b${escapeRegExp(term)}\\b`).join("|"),
+      "i",
+    );
+    if (removedTermPattern.test(text)) {
       throw new Error(
-        `Public docs must use tokens-based authoring examples instead of semanticTokens in ${file}`,
+        `Public docs must use tokens-based authoring examples instead of the removed token lane in ${file}`,
       );
     }
   }
@@ -274,6 +284,20 @@ function listFiles(directory: string): readonly string[] {
     const path = join(directory, entry);
     return statSync(path).isDirectory() ? listFiles(path) : [path];
   });
+}
+
+function listTrackedFiles(root: string): ReadonlySet<string> {
+  const output = execFileSync("git", ["ls-files", "-z"], {
+    cwd: root,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "inherit"],
+  });
+  return new Set(
+    output
+      .split("\0")
+      .filter((file) => file.length > 0)
+      .map((file) => join(root, file)),
+  );
 }
 
 function isGeneratedDocsSiteFile(file: string): boolean {

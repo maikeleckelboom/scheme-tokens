@@ -246,7 +246,7 @@ Every adapter must prove before release:
   `material3({ sourceColors: "#6750a4" })`. The canonical field accepts one strict `#rrggbb` string or an array of
   strict `#rrggbb` strings, and the array form maps to official upstream multi-source behavior while preserving order.
   Empty arrays fail at runtime validation.
-- With object input, `variant`, `contrastLevel`, `specVersion`, `platform`, `palettes`, `extendedColors`, and
+- With object input, `variant`, `contrastLevel`, `specVersion`, `platform`, `paletteOverrides`, `extendedColors`, and
   `paletteTones` belong in the first `material3()` argument. `id` and `defaultVisibility` belong in the optional second
   argument. With shorthand input, the second argument is Material generation options and the third argument is integration
   options.

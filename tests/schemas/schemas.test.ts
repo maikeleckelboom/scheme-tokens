@@ -11,7 +11,7 @@ import {
   parseTokenGraph,
   parseTokenLayer,
   serializeCompiledScheme,
-  type ColorTokenGraph,
+  type ColorTokenGraphInput,
 } from "../../src";
 
 const schemaDirectory = join(process.cwd(), "schemas");
@@ -63,14 +63,108 @@ describe("JSON Schemas", () => {
     expectSchemaValid(ajv, graphSchema, graphWithLayer, "graph with layer");
 
     const parsed = expectParseTokenGraphOk(graphWithLayer, "graph with layer");
-    expect(parsed.tokens["card.background"]?.origin).toEqual({
-      kind: "layer",
-      id: "application",
+    expect(parsed.layers?.[0]?.tokens["card.background"]?.value).toEqual({ ref: "brand.primary" });
+    const compiled = compileTokenGraph(parsed, { selection: "all" });
+    expect(compiled).toMatchObject({
+      ok: true,
+      value: {
+        tokens: {
+          "card.background": {
+            origin: {
+              kind: "layer",
+              id: "application",
+            },
+          },
+        },
+      },
     });
   });
 
-  test("graph and layer schemas accept strict semanticTokens", () => {
+  test("graph and layer schemas accept strict token references", () => {
     const ajv = createAjv();
+    const graph = {
+      kind: colorTokenGraphKind,
+      formatVersion: 1,
+      modes: ["base"],
+      defaultMode: "base",
+      defaultVisibility: "public",
+      tokens: {
+        "brand.primary": { value: srgb(0.4, 0.31, 0.64), visibility: "internal" },
+        primary: { value: { ref: "brand.primary" } },
+      },
+    };
+    const layer = {
+      kind: colorTokenLayerKind,
+      formatVersion: 1,
+      id: "application",
+      defaultVisibility: "public",
+      tokens: {
+        background: { value: { ref: "brand.primary" } },
+      },
+    };
+
+    expectSchemaValid(ajv, graphSchema, graph, "graph token references");
+    expect(parseTokenGraph(graph)).toMatchObject({
+      ok: true,
+      value: {
+        tokens: {
+          primary: {
+            value: { ref: "brand.primary" },
+          },
+        },
+      },
+    });
+    expectSchemaValid(ajv, layerSchema, layer, "layer token references");
+    expect(parseTokenLayer(layer)).toMatchObject({
+      ok: true,
+      value: {
+        tokens: {
+          background: { value: { ref: "brand.primary" } },
+        },
+      },
+    });
+  });
+
+  test("parser rejects removed token-lane fields", () => {
+    const removedField = `semantic${"Tokens"}`;
+    const graph = {
+      kind: colorTokenGraphKind,
+      formatVersion: 1,
+      modes: ["base"],
+      defaultMode: "base",
+      defaultVisibility: "public",
+      tokens: {},
+      [removedField]: {
+        primary: { value: { ref: "brand.primary" } },
+      },
+    };
+
+    expect(parseTokenGraph(graph)).toMatchObject({
+      ok: false,
+      issues: [{ code: "unknown-property", path: `/${removedField}` }],
+    });
+  });
+
+  test("compiled scheme parser rejects removed token-lane origins", () => {
+    const removedOriginKind = `semantic${"Token"}`;
+    const compiled = validCompiledWithColor(srgb(1, 1, 1));
+    compiled.tokens["brand.primary"]!.origin = {
+      kind: removedOriginKind,
+      origin: { kind: "graph" },
+      target: "brand.primary",
+    } as never;
+
+    expect(parseCompiledScheme(compiled)).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-origin", path: "/tokens/brand.primary/origin" }],
+    });
+  });
+
+  test("graph and layer schemas reject removed token-lane fields", () => {
+    expect.hasAssertions();
+
+    const ajv = createAjv();
+    const removedField = `semantic${"Tokens"}`;
     const graph = {
       kind: colorTokenGraphKind,
       formatVersion: 1,
@@ -80,7 +174,7 @@ describe("JSON Schemas", () => {
       tokens: {
         "brand.primary": { value: srgb(0.4, 0.31, 0.64) },
       },
-      semanticTokens: {
+      [removedField]: {
         primary: { value: { ref: "brand.primary" } },
       },
     };
@@ -89,56 +183,14 @@ describe("JSON Schemas", () => {
       formatVersion: 1,
       id: "application",
       defaultVisibility: "internal",
-      semanticTokens: {
+      tokens: {},
+      [removedField]: {
         background: { value: { ref: "brand.primary" } },
       },
     };
 
-    expectSchemaValid(ajv, graphSchema, graph, "graph semanticTokens");
-    expect(parseTokenGraph(graph)).toMatchObject({
-      ok: true,
-      value: {
-        tokens: {
-          primary: {
-            visibility: "public",
-            origin: {
-              kind: "semanticToken",
-              origin: { kind: "graph" },
-              target: "brand.primary",
-            },
-          },
-        },
-      },
-    });
-    expectSchemaValid(ajv, layerSchema, layer, "layer semanticTokens");
-    expect(parseTokenLayer(layer)).toMatchObject({
-      ok: true,
-      value: {
-        tokens: {},
-        semanticTokens: {
-          background: { value: { ref: "brand.primary" } },
-        },
-      },
-    });
-  });
-
-  test("parser rejects malformed semanticTokens", () => {
-    const graph = {
-      kind: colorTokenGraphKind,
-      formatVersion: 1,
-      modes: ["base"],
-      defaultMode: "base",
-      defaultVisibility: "public",
-      tokens: {},
-      semanticTokens: {
-        primary: "#6750a4",
-      },
-    };
-
-    expect(parseTokenGraph(graph)).toMatchObject({
-      ok: false,
-      issues: [{ code: "invalid-token-definition", path: "/semanticTokens/primary" }],
-    });
+    expectSchemaInvalid(ajv, graphSchema, graph, "graph removed token-lane field");
+    expectSchemaInvalid(ajv, layerSchema, layer, "layer removed token-lane field");
   });
 
   test("token graph schema preflight and parser accept structured persisted colors", () => {
@@ -686,7 +738,7 @@ function withoutProperty<T extends Record<string, unknown>>(
   return copy;
 }
 
-function expectParseTokenGraphOk(graph: unknown, label: string): ColorTokenGraph {
+function expectParseTokenGraphOk(graph: unknown, label: string): ColorTokenGraphInput {
   const parsed = parseTokenGraph(graph);
   expect(parsed.ok).toBe(true);
   if (!parsed.ok) {

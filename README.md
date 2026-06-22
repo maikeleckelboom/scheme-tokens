@@ -379,9 +379,9 @@ mutable runtime theme engine.
 `sourceColors` is the canonical Material source-color field. `material3("#6750a4")` is shorthand for
 `material3({ sourceColors: "#6750a4" })`. The canonical field accepts a single `#rrggbb` string for the ordinary
 one-brand-color case or an array for official multi-source paths such as CMF; empty arrays fail at runtime validation.
-Material controls such as `variant`, `contrastLevel`, `specVersion`, `platform`, `palettes`, `extendedColors`, and
-`paletteTones` belong with Material generation input. Integration policy such as `id` and `defaultVisibility` belongs in
-integration options, not in Material generation input.
+Material controls such as `variant`, `contrastLevel`, `specVersion`, `platform`, `paletteOverrides`, `extendedColors`,
+and `paletteTones` belong with Material generation input. Integration policy such as `id` and `defaultVisibility`
+belongs in integration options, not in Material generation input.
 
 Use `material3Preset()` when repeated Material builds share generation defaults or integration policy:
 
@@ -456,7 +456,7 @@ const graph = defineTokens(
 `defineTokenGraph()` is the full graph-shaped helper for explicit graph authoring:
 
 ```ts
-import { defineTokenGraph, tokenRef } from "scheme-tokens";
+import { defineTokenGraph } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
@@ -472,8 +472,10 @@ const graph = defineTokenGraph({
       light: "#ffffff",
       dark: "#381e72",
     },
-    primary: tokenRef("brand.primary"),
-    "primary-foreground": tokenRef("brand.on-primary"),
+  },
+  aliases: {
+    primary: "brand.primary",
+    "primary-foreground": "brand.on-primary",
   },
 });
 ```
@@ -481,15 +483,17 @@ const graph = defineTokenGraph({
 The authoring helpers accept JSON-safe shorthand:
 
 - a color string such as `"#6750a4"`;
-- an explicit reference helper such as `tokenRef("brand.primary")`;
-- an explicit reference such as `{ ref: "brand.primary" }`;
+- alias maps such as `aliases: { primary: "brand.primary" }`;
+- explicit references such as `tokenRef("brand.primary")` or `{ ref: "brand.primary" }` inside advanced token
+  definitions;
 - metadata plus mode keys such as `{ visibility: "public", light: "#fff", dark: "#000" }`;
 - mode records such as `{ light: "#fff", dark: "#000" }` when modes are declared.
 
 Bare strings are always treated as color authoring input. If a string is not supported by the color parser, it reports an
 actionable helper error instead of becoming a reference based on spelling. CSS named colors such as `"red"` are not
-currently supported by core color parsing. Direct color values need no reference helper. References are explicit:
-use `tokenRef("brand.primary")` or `{ ref: "brand.primary" }` inside token definitions.
+currently supported by core color parsing. Direct color values need no reference helper. Use `aliases` for ordinary
+token-key mapping. Use `tokenRef("brand.primary")` or `{ ref: "brand.primary" }` inside token definitions when the
+reference needs token metadata, per-mode references, or strict-style low-level shape.
 
 The helpers fill safe defaults and return strict graph input.
 
@@ -498,7 +502,7 @@ The helpers fill safe defaults and return strict graph input.
 `parseTokenGraph()` is the persisted wire-format boundary and stays explicit.
 
 ```ts
-import { parseTokenGraph } from "scheme-tokens";
+import { compileTokenGraph, parseTokenGraph, serializeTokenGraph } from "scheme-tokens";
 
 const strictGraph = {
   kind: "scheme-tokens/color-token-graph",
@@ -530,6 +534,11 @@ const parsed = parseTokenGraph(strictGraph);
 if (!parsed.ok) {
   throw new Error(JSON.stringify(parsed.issues, null, 2));
 }
+
+const canonicalJson = serializeTokenGraph(parsed.value);
+const compiled = compileTokenGraph(parsed.value);
+
+export { canonicalJson, compiled };
 ```
 
 Strict graph input spells out `kind`, `formatVersion`, `modes`, `defaultMode`, `defaultVisibility`, and token
