@@ -54,7 +54,7 @@ scheme it receives; it does not apply visibility filtering itself.
 
 `exportCssVars()` returns one `Result` whose success value contains `css`, `blocks`, and `variableByToken`. `css` is the
 serialized stylesheet string. `blocks` contains one structured block per compiled mode. Each block's `declarations` is
-an ordered list of `{ tokenKey, property, value }` entries for runtime application, previews, or custom renderers. The
+an ordered list of `{ tokenKey, property, value }` entries for previews, style application code, or custom renderers. The
 stylesheet is formatted from the same blocks returned in `value.blocks`. `variableByToken` is the direct token-key to CSS
 custom-property lookup for consumers that need one. Declaration arrays are ordered renderer/exporter data; token lookup
 should use `variableByToken`.

@@ -127,8 +127,8 @@ descendant selectors, or other complex scopes.
 
 `exportCssVars()` returns one `Result` whose success value contains the stylesheet string, structured declaration
 blocks, and `variableByToken`. `variableByToken` is a token-key to CSS custom-property map for programmatic lookup.
-`blocks` is ordered renderer/exporter data for runtime application, previews, or custom renderers that should not parse
-CSS text.
+`blocks` is ordered renderer/exporter data for previews, style application code, or custom renderers that should not
+parse CSS text.
 
 ```ts
 import { compileTokenGraph, defineTokenGraph, exportCssVars } from "scheme-tokens";

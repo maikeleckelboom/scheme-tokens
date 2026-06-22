@@ -4,12 +4,12 @@ The root API is small. Guides show the full workflows; this page is a terse map.
 
 ## Authoring
 
-| API                | Use                               | Example                                                                                | Input                                     | Output                      | Gotcha                                         |
-| ------------------ | --------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------- | --------------------------- | ---------------------------------------------- |
-| `defineTokens`     | Define a simple token record.     | `defineTokens({ background: "#fff" })`                                                 | Token record plus optional graph options. | Strict graph input.         | Bare strings are colors, not references.       |
-| `defineTokenGraph` | Define full graph-shaped input.   | `defineTokenGraph({ tokens: { primary: "#6750a4" }, aliases: { action: "primary" } })` | Graph object with `tokens` and `aliases`. | Strict graph input.         | Flat top-level token records are not accepted. |
-| `defineTokenLayer` | Define an ordered overlay layer.  | `defineTokenLayer({ id: "app", aliases: { primary: "brand.primary" } })`               | Layer object with `tokens` and `aliases`. | Strict layer input.         | Layers do not own graph modes.                 |
-| `tokenRef`         | Reference one token from another. | `tokenRef("brand.primary")`                                                            | Token key string.                         | `{ ref: "brand.primary" }`. | Invalid keys throw at authoring time.          |
+| API                | Use                                   | Example                                                                                | Input                                     | Output                      | Gotcha                                         |
+| ------------------ | ------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------- | --------------------------- | ---------------------------------------------- |
+| `defineTokens`     | Define a simple token record.         | `defineTokens({ background: "#fff" })`                                                 | Token record plus optional graph options. | Strict graph input.         | Bare strings are colors, not references.       |
+| `defineTokenGraph` | Define full graph-shaped input.       | `defineTokenGraph({ tokens: { primary: "#6750a4" }, aliases: { action: "primary" } })` | Graph object with `tokens` and `aliases`. | Strict graph input.         | Flat top-level token records are not accepted. |
+| `defineTokenLayer` | Define an ordered overlay layer.      | `defineTokenLayer({ id: "app", aliases: { primary: "brand.primary" } })`               | Layer object with `tokens` and `aliases`. | Strict layer input.         | Layers do not own graph modes.                 |
+| `tokenRef`         | Build an advanced explicit reference. | `tokenRef("brand.primary")`                                                            | Token key string.                         | `{ ref: "brand.primary" }`. | Prefer `aliases` for ordinary mapping.         |
 
 ## Compile and Build
 
