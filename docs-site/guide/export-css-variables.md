@@ -1,52 +1,42 @@
 # Export CSS Variables
 
-Compile first, then export CSS variables from the compiled scheme.
+`exportCssVars()` accepts a compiled scheme and returns direct CSS export fields.
 
 ```ts
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
 
-const graph = defineTokens({
-  background: "#ffffff",
-  foreground: "#111111",
-  primary: "#6750a4",
-});
+const compiled = compileTokenGraph(
+  defineTokens({
+    background: {
+      base: "#ffffff",
+      dark: "#111111",
+    },
+  }),
+);
 
-const compiled = compileTokenGraph(graph);
 if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const cssExport = exportCssVars(compiled.value);
+const cssExport = exportCssVars(compiled.scheme);
+
 if (!cssExport.ok) {
   throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const css = cssExport.value.css;
-const blocks = cssExport.value.blocks;
-const variableByToken = cssExport.value.variableByToken;
-
-export { blocks, css, variableByToken };
+const css = cssExport.css;
+const blocks = cssExport.blocks;
+const variableByToken = cssExport.variableByToken;
 ```
 
-The default output uses token keys directly:
+Use a prefix when the emitted custom properties need a namespace.
 
-```css
-:root {
-  --background: #ffffff;
-  --foreground: #111111;
-  --primary: #6750a4;
-}
-```
-
-Pass a prefix when a project needs namespaced variables:
-
-```ts
-const prefixed = exportCssVars(compiled.value, {
+```text
+const prefixed = exportCssVars(compiled.scheme, {
   prefix: "theme",
 });
 
-export { prefixed };
+if (prefixed.ok) {
+  prefixed.variableByToken.background;
+}
 ```
-
-The exporter validates CSS custom-property names and duplicate generated names. It emits compiled string values without
-rewriting them.

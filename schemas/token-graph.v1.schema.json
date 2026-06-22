@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scheme-tokens.dev/schemas/color-token-graph.v1.schema.json",
-  "title": "scheme-tokens color token graph v1",
+  "$id": "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json",
+  "title": "scheme-tokens token graph v1",
   "type": "object",
   "additionalProperties": false,
   "required": ["kind", "formatVersion", "modes", "defaultMode", "defaultVisibility", "tokens"],
@@ -10,7 +10,7 @@
       "type": "string"
     },
     "kind": {
-      "const": "scheme-tokens/color-token-graph"
+      "const": "scheme-tokens/token-graph"
     },
     "formatVersion": {
       "const": 1
@@ -35,7 +35,7 @@
     "layers": {
       "type": "array",
       "items": {
-        "$ref": "color-token-layer.v1.schema.json"
+        "$ref": "token-layer.v1.schema.json"
       }
     }
   },

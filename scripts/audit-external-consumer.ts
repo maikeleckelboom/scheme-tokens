@@ -4,63 +4,34 @@ import { tmpdir } from "node:os";
 import { basename, join, relative } from "node:path";
 
 const repoRoot = process.cwd();
-const adapterRoot = join(repoRoot, "packages", "material3");
 const workspace = mkdtempSync(join(tmpdir(), "scheme-tokens-external-audit-"));
 const packDirectory = join(workspace, "pack");
-const rootConsumerDirectory = join(workspace, "root-consumer");
-const adapterConsumerDirectory = join(workspace, "adapter-consumer");
+const consumerDirectory = join(workspace, "consumer");
 
 mkdirSync(packDirectory, { recursive: true });
-mkdirSync(rootConsumerDirectory, { recursive: true });
-mkdirSync(adapterConsumerDirectory, { recursive: true });
+mkdirSync(consumerDirectory, { recursive: true });
 
 const rootTarball = pack(repoRoot, packDirectory);
-const adapterTarball = pack(adapterRoot, packDirectory);
 
-writeRootConsumer();
-runPnpm(["install", "--ignore-scripts"], rootConsumerDirectory);
-run("node", ["root-audit.mjs"], rootConsumerDirectory);
-
-writeAdapterConsumer();
-runPnpm(["install", "--ignore-scripts"], adapterConsumerDirectory);
-run("node", ["adapter-audit.mjs"], adapterConsumerDirectory);
-
-nodeWrite(
-  JSON.stringify(
-    {
-      workspace,
-      rootConsumerDirectory,
-      adapterConsumerDirectory,
-      rootTarball,
-      adapterTarball,
-    },
-    null,
-    2,
-  ),
-);
-
-function writeRootConsumer(): void {
-  writeJson(join(rootConsumerDirectory, "package.json"), {
-    private: true,
-    type: "module",
-    dependencies: {
-      "scheme-tokens": fileDependencySpec(rootConsumerDirectory, rootTarball),
-    },
-  });
-  writeFileSync(
-    join(rootConsumerDirectory, "root-audit.mjs"),
-    `
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+writeJson(join(consumerDirectory, "package.json"), {
+  private: true,
+  type: "module",
+  dependencies: {
+    "scheme-tokens": fileDependencySpec(consumerDirectory, rootTarball),
+  },
+});
+writeFileSync(
+  join(consumerDirectory, "audit.mjs"),
+  `
+import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import {
   compileTokenGraph,
-  defineTokenLayer,
   defineTokenGraph,
   defineTokens,
   exportCssVars,
   parseCompiledScheme,
   parseTokenGraph,
-  parseTokenLayer,
   serializeCompiledScheme,
   tokenRef,
 } from "scheme-tokens";
@@ -79,12 +50,11 @@ const graph = defineTokens(
   { modes: ["light", "dark"], defaultMode: "light" },
 );
 const compiled = expectOk(compileTokenGraph(graph), "compile default public selection");
-if (!("background" in compiled.tokens) || compiled.tokens.background.valueByMode.dark !== "oklch(0.18 0.02 285)") {
-  throw new Error("root compile did not preserve light/dark public tokens");
+if (!("background" in compiled.tokens) || compiled.tokens.background.dark !== "oklch(0.18 0.02 285)") {
+  throw new Error("root compile did not preserve public token mode maps");
 }
 const cssExport = expectOk(exportCssVars(compiled), "export root CSS");
-writeFileSync("tokens.css", cssExport.css);
-if (!cssExport.css.includes(":root {") || !cssExport.css.includes(':root[data-color-scheme="dark"] {')) {
+if (!cssExport.css.includes(":root {") || !cssExport.css.includes(':root[data-scheme="dark"] {')) {
   throw new Error("default selectors were not emitted");
 }
 if (cssExport.blocks.length !== 2 || cssExport.blocks[0].selector !== ":root") {
@@ -95,15 +65,19 @@ if (cssExport.variableByToken.primary !== "--primary") {
 }
 const serialized = serializeCompiledScheme(compiled);
 const parsedCompiled = expectOk(parseCompiledScheme(JSON.parse(serialized)), "parse compiled scheme");
-if (parsedCompiled.kind !== "scheme-tokens/compiled-color-scheme") {
+if (parsedCompiled.kind !== "scheme-tokens/compiled-scheme") {
   throw new Error("compiled artifact kind was not preserved");
 }
 
 const refGraph = defineTokens({
   "brand.primary": "#6750a4",
   primary: tokenRef("brand.primary"),
+  literal: "brand.primary",
 });
-expectOk(compileTokenGraph(refGraph, { selection: "all" }), "tokenRef compile");
+const refCompiled = expectOk(compileTokenGraph(refGraph, { selection: "all" }), "tokenRef compile");
+if (refCompiled.tokens.literal.base !== "brand.primary") {
+  throw new Error("bare strings were inferred as references");
+}
 const aliasGraph = defineTokenGraph({
   tokens: {
     "brand.primary": "#6750a4",
@@ -113,28 +87,9 @@ const aliasGraph = defineTokenGraph({
   },
 });
 expectOk(compileTokenGraph(aliasGraph, { selection: "all" }), "aliases field compile");
-const appGraph = defineTokenGraph({
-  tokens: {
-    "brand.primary": {
-      value: "#6750a4",
-      visibility: "internal",
-    },
-    primary: tokenRef("brand.primary"),
-  },
-});
-const appCompiled = expectOk(compileTokenGraph(appGraph), "app token compile");
-if (!("primary" in appCompiled.tokens) || "brand.primary" in appCompiled.tokens) {
-  throw new Error("app token did not compile as the public product lane");
-}
-for (const value of ["red", "brand.primary", "var(--x)"]) {
-  const authored = defineTokens({ sample: value });
-  if (authored.tokens.sample?.value !== value) {
-    throw new Error("authored color string was not preserved");
-  }
-}
 
 const persistedGraph = {
-  kind: "scheme-tokens/color-token-graph",
+  kind: "scheme-tokens/token-graph",
   formatVersion: 1,
   modes: ["base"],
   defaultMode: "base",
@@ -151,7 +106,6 @@ if (parsedGraph.tokens.primary.extensions?.nested?.stable !== true) {
   throw new Error("opaque extensions were not preserved");
 }
 expectFail(parseTokenGraph({ tokens: { primary: "#6750a4" } }), "missing-property");
-expectFail(parseTokenGraph({ ...persistedGraph, kind: "scheme-tokens/token-graph" }), "invalid-artifact-kind");
 expectFail(
   parseTokenGraph({
     ...persistedGraph,
@@ -159,49 +113,11 @@ expectFail(
   }),
   "invalid-token-value",
 );
-const layer = {
-  kind: "scheme-tokens/color-token-layer",
-  formatVersion: 1,
-  id: "app",
-  defaultVisibility: "public",
-  tokens: { primary: { value: "#6750a4" } },
-};
-expectOk(parseTokenLayer(layer), "parse strict layer");
-expectFail(parseTokenLayer({ ...layer, kind: "scheme-tokens/token-layer" }), "invalid-artifact-kind");
-expectFail(parseCompiledScheme({ ...JSON.parse(serialized), kind: "scheme-tokens/compiled-scheme" }), "invalid-artifact-kind");
-
-const exactCssExport = expectOk(
-  exportCssVars(compiled, {
-    modeSelectors: {
-      strategy: "selectors",
-      selectors: { light: ".theme-light, :root", dark: ".theme-dark .surface" },
-    },
-  }),
-  "exact selectors",
-);
-if (!exactCssExport.css.includes(".theme-dark .surface {")) {
-  throw new Error("exact mode selectors were not emitted");
-}
-expectFail(
-  exportCssVars(compiled, {
-    scope: { strategy: "selector", selector: ".app .preview" },
-    modeSelectors: { strategy: "data-attribute", attribute: "data-theme" },
-  }),
-  "invalid-scope",
-);
-expectFail(
-  exportCssVars(compiled, {
-    scope: { strategy: "selector", selector: ".app:hover" },
-    modeSelectors: { strategy: "class", classPrefix: "theme-" },
-  }),
-  "invalid-scope",
-);
-expectFail(exportCssVars(compiled, { variableName: () => "--same" }), "duplicate-css-variable");
 
 for (const subpath of [
-  "schemas/color-token-graph.v1.schema.json",
-  "schemas/color-token-layer.v1.schema.json",
-  "schemas/compiled-color-scheme.v1.schema.json",
+  "schemas/token-graph.v1.schema.json",
+  "schemas/token-layer.v1.schema.json",
+  "schemas/compiled-scheme.v1.schema.json",
 ]) {
   const schema = require("scheme-tokens/" + subpath);
   if (schema.$schema !== "https://json-schema.org/draft/2020-12/schema") {
@@ -209,15 +125,15 @@ for (const subpath of [
   }
 }
 for (const oldSubpath of [
-  "schemas/token-graph.v1.schema.json",
-  "schemas/token-layer.v1.schema.json",
-  "schemas/compiled-scheme.v1.schema.json",
+  "schemas/color-token-graph.v1.schema.json",
+  "schemas/color-token-layer.v1.schema.json",
+  "schemas/compiled-color-scheme.v1.schema.json",
 ]) {
   expectPackagePathNotExported(() => require("scheme-tokens/" + oldSubpath));
 }
 
 if (existsSync("node_modules/@scheme-tokens/material3")) {
-  throw new Error("root-only consumer installed the Material adapter");
+  throw new Error("root-only consumer installed the Material package");
 }
 if (existsSync("node_modules/@material/material-color-utilities")) {
   throw new Error("root-only consumer installed the Material engine");
@@ -231,7 +147,7 @@ function expectOk(result, label) {
   if (!result.ok) {
     throw new Error(label + " failed: " + JSON.stringify(result.issues));
   }
-  return result.value;
+  return result.scheme ?? result.graph ?? result.layer ?? result;
 }
 function expectFail(result, code) {
   if (result.ok || !result.issues.some((issue) => issue.code === code)) {
@@ -250,88 +166,22 @@ function expectPackagePathNotExported(callback) {
   throw new Error("Expected package path not exported");
 }
 `,
-  );
-}
-
-function writeAdapterConsumer(): void {
-  writeJson(join(adapterConsumerDirectory, "package.json"), {
-    private: true,
-    type: "module",
-    dependencies: {
-      "scheme-tokens": fileDependencySpec(adapterConsumerDirectory, rootTarball),
-      "@scheme-tokens/material3": fileDependencySpec(adapterConsumerDirectory, adapterTarball),
-    },
-  });
-  writeFileSync(
-    join(adapterConsumerDirectory, "adapter-audit.mjs"),
-    `
-import { readFileSync, writeFileSync } from "node:fs";
-import { createRequire } from "node:module";
-import { buildScheme, defineTokenLayer, exportCssVars } from "scheme-tokens";
-import { material3 } from "@scheme-tokens/material3";
-
-const require = createRequire(import.meta.url);
-const materialOnly = expectOk(buildScheme(material3("#6750a4")), "material3 base build");
-if (!("material3.primary" in materialOnly.tokens)) {
-  throw new Error("material3 base did not emit Material role tokens");
-}
-
-const application = defineTokenLayer({
-  id: "application",
-  defaultVisibility: "public",
-  aliases: {
-    "app.background": "material3.surface",
-    "app.foreground": "material3.on-surface",
-    "app.primary": "material3.primary",
-    "app.primary-foreground": "material3.on-primary",
-  },
-});
-const layered = expectOk(
-  buildScheme(
-    material3(
-      "#6750a4",
-      { variant: "expressive", extendedColors: [{ name: "success", color: "#2e7d32" }] },
-      { defaultVisibility: "internal" },
-    ),
-    { layers: [application] },
-  ),
-  "material3 layered build",
 );
-for (const key of ["app.background", "app.foreground", "app.primary", "app.primary-foreground"]) {
-  if (!(key in layered.tokens)) {
-    throw new Error("application token missing: " + key);
-  }
-}
-const cssExport = expectOk(exportCssVars(layered), "material3 CSS export");
-writeFileSync("material3.css", cssExport.css);
-if (
-  !cssExport.css.includes("--app--primary:") ||
-  cssExport.variableByToken["app.background"] !== "--app--background"
-) {
-  throw new Error("material3 CSS export did not expose app-owned CSS custom properties");
-}
 
-const adapterManifest = require("@scheme-tokens/material3/package.json");
-if (adapterManifest.peerDependencies?.["scheme-tokens"] !== "^0.1.0") {
-  throw new Error("Material adapter does not declare scheme-tokens as a peer dependency");
-}
-if (adapterManifest.dependencies?.["scheme-tokens"] !== undefined) {
-  throw new Error("Material adapter must not depend on core as a runtime dependency");
-}
-const rootEntry = readFileSync(new URL(await import.meta.resolve("scheme-tokens")), "utf8");
-if (rootEntry.includes("@material") || rootEntry.includes("material3") || rootEntry.includes("@texel")) {
-  throw new Error("root import contains optional engine code");
-}
+runPnpm(["install", "--ignore-scripts"], consumerDirectory);
+run("node", ["audit.mjs"], consumerDirectory);
 
-function expectOk(result, label) {
-  if (!result.ok) {
-    throw new Error(label + " failed: " + JSON.stringify(result.issues));
-  }
-  return result.value;
-}
-`,
-  );
-}
+process.stdout.write(
+  `${JSON.stringify(
+    {
+      workspace,
+      consumerDirectory,
+      rootTarball,
+    },
+    null,
+    2,
+  )}\n`,
+);
 
 function pack(cwd: string, destination: string): string {
   const output = runPnpm(["pack", "--pack-destination", destination], cwd)
@@ -368,8 +218,4 @@ function run(command: string, args: readonly string[], cwd: string): string {
 
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
-}
-
-function nodeWrite(value: string): void {
-  process.stdout.write(`${value}\n`);
 }

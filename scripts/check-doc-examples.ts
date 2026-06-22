@@ -16,34 +16,28 @@ interface PackageManifest {
 }
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const adapterRoot = join(repoRoot, "packages", "material3");
 const trackedWorkspaceFiles = listTrackedFiles(repoRoot);
 const manifest = JSON.parse(
   readFileSync(join(repoRoot, "package.json"), "utf8"),
 ) as PackageManifest;
-const adapterManifest = JSON.parse(
-  readFileSync(join(adapterRoot, "package.json"), "utf8"),
-) as PackageManifest;
 const readme = readFileSync(join(repoRoot, "README.md"), "utf8");
-const adapterReadme = readFileSync(join(adapterRoot, "README.md"), "utf8");
 const authoredDocsSiteFiles = listFiles(join(repoRoot, "docs-site")).filter(
   (file) => trackedWorkspaceFiles.has(file) && !isGeneratedDocsSiteFile(file),
 );
 const docsSiteFiles = authoredDocsSiteFiles.filter((file) => file.endsWith(".md"));
 assertNoRemovedPublicNames();
-assertNoPublicSemanticTokens();
 assertNoPublicColorParserSurface();
+assertNoCompiledValueWrappers();
 
 const blocks = extractTypeScriptExamples([
   { label: "README.md", text: readme },
-  { label: "packages/material3/README.md", text: adapterReadme },
   ...docsSiteFiles.map((file) => ({
     label: file,
     text: readFileSync(file, "utf8"),
   })),
 ]);
 if (blocks.length === 0) {
-  throw new Error("Public READMEs contain no executable TypeScript examples");
+  throw new Error("Public docs contain no executable TypeScript examples");
 }
 
 const workspace = mkdtempSync(join(tmpdir(), "scheme-tokens-docs-"));
@@ -52,19 +46,13 @@ const consumerDirectory = join(workspace, "consumer");
 mkdirSync(packDirectory, { recursive: true });
 mkdirSync(consumerDirectory, { recursive: true });
 const tarball = pack(repoRoot, packDirectory);
-const dependencies: Record<string, string> = {
-  [manifest.name]: `file:${tarball.replaceAll("\\", "/")}`,
-};
-
-if (blocks.some((block) => block.code.includes(adapterManifest.name))) {
-  const adapterTarball = pack(adapterRoot, packDirectory);
-  dependencies[adapterManifest.name] = `file:${adapterTarball.replaceAll("\\", "/")}`;
-}
 
 writeJson(join(consumerDirectory, "package.json"), {
   private: true,
   type: "module",
-  dependencies,
+  dependencies: {
+    [manifest.name]: `file:${tarball.replaceAll("\\", "/")}`,
+  },
 });
 writeJson(join(consumerDirectory, "tsconfig.json"), {
   compilerOptions: {
@@ -165,46 +153,26 @@ function normalizeFenceInfo(info: string): string {
 function assertNoRemovedPublicNames(): void {
   const removedRootPackageName = `color-${"scheme"}-tokens`;
   const removedAdapterScope = `@color-${"scheme"}-tokens`;
-  const removedWholeArtifactNames = [
-    `build${"Token"}${"Set"}`,
-    `serialize${"Token"}${"Set"}`,
-    `Compiled${"Token"}${"Set"}`,
-    `Build${"Token"}${"Set"}`,
-    `token${"Set"}`,
-    `token ${"set"}`,
-    `token-${"set"}`,
-    `compiled-${"token"}-${"set"}`,
-    `exportCss${"Variables"}`,
-    `exportCss${"Variable"}Blocks`,
-    `exportCss${"Var"}Blocks`,
-    `serialize${"Scheme"}`,
-    `material3${"Source"}`,
-    `source${"Color"}`,
-    `parse${"Color"}`,
-    `format${"Css"}${"Color"}`,
-    `color${"Spaces"}`,
-    `Color${"Value"}`,
-    `Color${"Value"}Input`,
-    `Color${"Space"}`,
-    `Color${"Component"}`,
-    `Parse${"Color"}Issue`,
-  ] as const;
   const denied = [
     removedRootPackageName,
     removedAdapterScope,
-    ...removedWholeArtifactNames,
+    `@scheme-tokens/material3`,
     `@scheme-tokens/source-material3`,
-    `@scheme-tokens/format-dtcg`,
-    `@scheme-tokens/conversion-texel`,
-    `@scheme-tokens/target-shadcn`,
+    `build${"Scheme"}`,
+    `create${"Scheme"}Builder`,
+    `Color${"Token"}Source`,
+    `Color${"Token"}GraphInput`,
+    `Color${"Token"}LayerInput`,
+    `Color${"Expression"}Input`,
+    `Compiled${"Color"}Scheme`,
+    `Result<`,
+    `parse${"Color"}`,
+    `format${"Css"}${"Color"}`,
   ] as const;
   const publicFiles = [
     join(repoRoot, "package.json"),
-    join(adapterRoot, "package.json"),
     join(repoRoot, "README.md"),
-    join(adapterRoot, "README.md"),
     join(repoRoot, "CHANGELOG.md"),
-    join(repoRoot, "AGENTS.md"),
     ...listFiles(join(repoRoot, "docs")).filter((file) => trackedWorkspaceFiles.has(file)),
     ...authoredDocsSiteFiles,
   ];
@@ -218,41 +186,28 @@ function assertNoRemovedPublicNames(): void {
         );
       }
     }
-    if (/\bref\s*\(/.test(text)) {
-      throw new Error(`Public docs must use tokenRef(...) instead of ref(...) in ${file}`);
-    }
   }
 }
 
-function assertNoPublicSemanticTokens(): void {
-  const publicDocsFiles = [
+function assertNoCompiledValueWrappers(): void {
+  const publicFiles = [
     join(repoRoot, "README.md"),
-    join(adapterRoot, "README.md"),
     ...listFiles(join(repoRoot, "docs")).filter((file) => trackedWorkspaceFiles.has(file)),
     ...authoredDocsSiteFiles,
   ].filter((file) => file.endsWith(".md"));
 
-  for (const file of publicDocsFiles) {
+  for (const file of publicFiles) {
     const text = readFileSync(file, "utf8");
-    const removedTerms = [
-      `semantic${"Tokens"}`,
-      `semantic ${"tokens"}`,
-      `semantic-${"token"}`,
-    ] as const;
-    const removedTermPattern = new RegExp(
-      removedTerms.map((term) => `\\b${escapeRegExp(term)}\\b`).join("|"),
-      "i",
-    );
-    if (removedTermPattern.test(text)) {
-      throw new Error(
-        `Public docs must use tokens-based authoring examples instead of the removed token lane in ${file}`,
-      );
+    for (const denied of [".valueByMode", ".value.css", ".value.tokens", "compiled.value"]) {
+      if (text.includes(denied)) {
+        throw new Error(`Public docs contain removed value wrapper "${denied}" in ${file}`);
+      }
     }
   }
 }
 
 function containsExactName(text: string, name: string): boolean {
-  if (name.startsWith("@")) {
+  if (name.startsWith("@") || name.endsWith("<")) {
     return text.includes(name);
   }
   return new RegExp(`(?<![A-Za-z0-9_$-])${escapeRegExp(name)}(?![A-Za-z0-9_$-])`).test(text);
@@ -265,7 +220,6 @@ function escapeRegExp(value: string): string {
 function assertNoPublicColorParserSurface(): void {
   const publicFiles = [
     join(repoRoot, "README.md"),
-    join(adapterRoot, "README.md"),
     join(repoRoot, "CHANGELOG.md"),
     ...listFiles(join(repoRoot, "docs")).filter((file) => trackedWorkspaceFiles.has(file)),
     ...authoredDocsSiteFiles,
@@ -277,14 +231,9 @@ function assertNoPublicColorParserSurface(): void {
     "colorSpaces",
     "ColorValue",
     "ColorValueInput",
-    "colorSpace",
-    "components",
-    "structured color",
     "color parser",
     "high-gamut",
     "gamut mapping",
-    "Tailwind v4",
-    "@theme inline",
   ] as const;
 
   for (const file of publicFiles) {

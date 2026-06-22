@@ -1,37 +1,56 @@
 # Diagnostics
 
-Recoverable public failures return `Result` objects.
+Recoverable public failures return issues.
 
 ```ts
-type Result<Value, I extends Issue = Issue> =
-  | { readonly ok: true; readonly value: Value }
-  | { readonly ok: false; readonly issues: readonly [I, ...I[]] };
+const compiled = compileTokenGraph(graph);
+
+if (!compiled.ok) {
+  compiled.issues;
+}
 ```
 
-`Issue.code` and JSON Pointer `path` values are contractual. Message text is explanatory and may be refined without
-changing the machine contract.
+Each issue has:
 
-## Rules
+- `code`: a stable string identifier;
+- `message`: a human-readable explanation;
+- `path`: a JSON Pointer when a specific input location exists;
+- optional structured fields such as `key`, `mode`, `layerId`, `firstPath`, or `cycle`.
 
-- Public parse, compile, source, and export failures return non-empty `issues`.
-- Parse boundaries and option validators that accept `unknown` do not throw for malformed unknown input.
-- Diagnostics are deterministic across object insertion order.
-- Paths point at the narrowest stable input location the parser can identify.
-- Layer diagnostics use layer vocabulary and `/layers/...` JSON Pointer paths, including `invalid-layer-id` and
-  `duplicate-layer-id`.
-- Unknown-value descriptions are bounded and avoid user-code coercion.
-- Internal thrown errors are reserved for impossible library states, not normal input failure.
-- Adapter-specific issue codes are owned by adapter packages. `buildScheme()` may surface adapter issues, but adapters
-  must not cast their issue codes into core issue unions.
+Issue objects are JSON-safe. Diagnostic construction must not call user-defined coercion methods on unknown input.
 
-## Common Core Codes
+## Contract Rules
 
-- `missing-property`: a strict artifact is missing a required field.
-- `unknown-property`: a strict artifact contains a field outside the current contract.
-- `invalid-token-key`: a token key is not dot-separated lower-kebab.
-- `invalid-token-value`: a token value is not an authored string or explicit reference in a position that allows
-  references.
-- `invalid-reference`: a reference shape or target key is invalid.
-- `unknown-reference`: a reference target is not present in the composed graph.
-- `circular-reference`: references form a cycle.
-- `duplicate-css-variable`: two exported token keys would produce the same CSS custom-property name.
+- Public issue codes are part of the API contract.
+- JSON Pointer paths are part of the API contract.
+- Generated issue-code unions must represent the real codes.
+- Public failures use `{ ok: false, issues }`.
+- Public successes use named payload fields such as `scheme`, `graph`, `layer`, `css`, `blocks`, and `variableByToken`.
+
+## Common Codes
+
+Graph parsing can report codes such as:
+
+- `invalid-object`
+- `unknown-property`
+- `missing-property`
+- `invalid-token-key`
+- `invalid-token-value`
+- `invalid-reference`
+- `unknown-reference`
+- `reference-cycle`
+
+Compilation can report codes such as:
+
+- `invalid-compile-options`
+- `invalid-selection`
+- `unknown-selection-key`
+- `no-selected-tokens`
+
+CSS export can report codes such as:
+
+- `invalid-css-options`
+- `invalid-css-prefix`
+- `duplicate-css-variable`
+- `invalid-scope`
+- `missing-mode-selector`

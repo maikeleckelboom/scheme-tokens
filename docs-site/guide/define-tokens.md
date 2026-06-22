@@ -8,13 +8,14 @@ import { defineTokens } from "scheme-tokens";
 const graph = defineTokens({
   background: "#ffffff",
   foreground: "#111111",
+  gap: "1rem",
   primary: "#6750a4",
 });
 
 export { graph };
 ```
 
-Strings are color values. They are not inferred as references based on spelling.
+Strings are CSS-ready token values. They are not inferred as references based on spelling.
 
 Use explicit graph input when tokens need metadata or aliases:
 

@@ -1,7 +1,7 @@
 export {
-  colorTokenGraphKind,
-  colorTokenLayerKind,
-  compiledColorSchemeKind,
+  tokenGraphKind,
+  tokenLayerKind,
+  compiledSchemeKind,
   defineTokenGraph,
   defineTokenLayer,
   defineTokens,
@@ -10,7 +10,6 @@ export {
 export { parseTokenGraph, parseTokenLayer } from "./core/parse-token-graph";
 export { parseCompiledScheme } from "./core/parse-compiled-scheme";
 export { compileTokenGraph } from "./core/compile-token-graph";
-export { buildScheme, createSchemeBuilder } from "./core/source";
 export { exportCssVars } from "./exporters/export-css-variables";
 export {
   serializeCompiledScheme,
@@ -19,21 +18,22 @@ export {
 } from "./exporters/serialize-scheme";
 
 export type { JsonPrimitive, JsonValue } from "./core/json";
-export type { Issue, NonEmptyIssues, Result } from "./core/result";
+export type { FailureResult, Issue, NonEmptyIssues } from "./core/result";
 export type {
-  ColorExpressionInput,
-  ColorTokenDefinitionAuthoringInput,
-  ColorTokenDefinitionInput,
-  ColorTokenExpressionInput,
-  ColorTokenGraphAuthoringInput,
-  ColorTokenGraphInput,
-  ColorTokenGraphIssue,
-  ColorTokenGraphKind,
-  ColorTokenLayerAuthoringInput,
-  ColorTokenLayerInput,
-  ColorTokenLayerKind,
-  CompiledColorSchemeKind,
+  TokenDefinitionAuthoringInput,
+  TokenDefinitionInput,
+  TokenExpressionInput,
+  TokenGraphAuthoringInput,
+  TokenGraphInput,
+  TokenGraphIssue,
+  TokenGraphKind,
+  TokenLayerAuthoringInput,
+  TokenLayerInput,
+  TokenLayerKind,
+  CompiledSchemeKind,
   ModeOf,
+  ParseTokenGraphResult,
+  ParseTokenLayerResult,
   ReferenceInput,
   TokenOrigin,
   TokenKeyOf,
@@ -42,26 +42,21 @@ export type {
 export type {
   CompileTokenGraphIssue,
   CompileTokenGraphOptions,
-  CompiledColorScheme,
-  CompiledColorToken,
+  CompileTokenGraphResult,
+  CompiledScheme,
+  CompiledToken,
+  CompiledTokenMetadata,
   ParseCompiledSchemeIssue,
+  ParseCompiledSchemeResult,
   TokenSelection,
 } from "./core/compiled-types";
-export type {
-  BuildSchemeIssue,
-  BuildSchemeOptions,
-  BuildSchemeSourceOptions,
-  SchemeBuilder,
-  SchemeBuilderBuildOptions,
-  SchemeBuilderConfig,
-  ColorTokenSource,
-} from "./core/source";
 export type {
   CssVarDeclaration,
   CssVarBlock,
   CssVarsExport,
   CssModeSelectors,
   CssScope,
+  ExportCssVarsResult,
   ExportCssVarsIssue,
   ExportCssVarsOptions,
   CssVariableNameInput,

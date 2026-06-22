@@ -26,9 +26,9 @@ if (output === undefined) {
 const tarball = join(packDirectory, basename(output));
 const files = execFileSync("tar", ["-tf", tarball], { encoding: "utf8" }).trim().split(/\r?\n/);
 const requiredSchemaFiles = new Set([
-  "package/schemas/compiled-color-scheme.v1.schema.json",
-  "package/schemas/color-token-graph.v1.schema.json",
-  "package/schemas/color-token-layer.v1.schema.json",
+  "package/schemas/compiled-scheme.v1.schema.json",
+  "package/schemas/token-graph.v1.schema.json",
+  "package/schemas/token-layer.v1.schema.json",
 ]);
 
 const denied = [

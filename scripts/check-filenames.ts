@@ -1,7 +1,7 @@
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { readdirSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 
-const checkedRoots = ["src", "tests", "scripts", "docs", "docs-site", "packages"] as const;
+const checkedRoots = ["src", "tests", "scripts", "docs", "docs-site"] as const;
 const conventionalNames = new Set([
   "AGENTS.md",
   "CHANGELOG.md",
@@ -14,13 +14,6 @@ const conventionalNames = new Set([
   "tsconfig.json",
 ]);
 const kebabCaseFileName = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)*$/;
-const vendoredMaterialPath = join(
-  "packages",
-  "material3",
-  "src",
-  "vendor",
-  "material-color-utilities",
-);
 const failures: string[] = [];
 
 for (const root of checkedRoots) {
@@ -33,14 +26,6 @@ if (failures.length > 0) {
 
 function checkDirectory(directory: string): void {
   if (isGeneratedDocsSiteDirectory(directory)) {
-    return;
-  }
-
-  if (directory === vendoredMaterialPath) {
-    const governanceFile = join(directory, "README.md");
-    if (!existsSync(governanceFile)) {
-      failures.push(`${directory} must document why vendored filenames are excluded`);
-    }
     return;
   }
 

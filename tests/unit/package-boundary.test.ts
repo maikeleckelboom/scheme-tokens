@@ -16,12 +16,8 @@ describe("package boundary", () => {
 
   test("root runtime exports are exact", () => {
     expect(Object.keys(root).sort()).toEqual([
-      "buildScheme",
-      "colorTokenGraphKind",
-      "colorTokenLayerKind",
       "compileTokenGraph",
-      "compiledColorSchemeKind",
-      "createSchemeBuilder",
+      "compiledSchemeKind",
       "defineTokenGraph",
       "defineTokenLayer",
       "defineTokens",
@@ -32,6 +28,8 @@ describe("package boundary", () => {
       "serializeCompiledScheme",
       "serializeTokenGraph",
       "serializeTokenLayer",
+      "tokenGraphKind",
+      "tokenLayerKind",
       "tokenRef",
     ]);
     expect(root).not.toHaveProperty(`defineToken${"Frag"}${"ment"}`);
@@ -44,9 +42,9 @@ describe("package boundary", () => {
     expect(Object.keys(manifest.exports).sort()).toEqual([
       ".",
       "./package.json",
-      "./schemas/color-token-graph.v1.schema.json",
-      "./schemas/color-token-layer.v1.schema.json",
-      "./schemas/compiled-color-scheme.v1.schema.json",
+      "./schemas/compiled-scheme.v1.schema.json",
+      "./schemas/token-graph.v1.schema.json",
+      "./schemas/token-layer.v1.schema.json",
     ]);
   });
 
@@ -63,6 +61,7 @@ describe("package boundary", () => {
   test("root source tree does not contain engine-backed adapter paths, imports, or Material contracts", () => {
     expect(existsSync(join(repoRoot, "src", "conversion"))).toBe(false);
     expect(existsSync(join(repoRoot, "src", "sources", "material3"))).toBe(false);
+    expect(existsSync(join(repoRoot, "packages", "material3"))).toBe(false);
 
     const sourceText = listFiles(join(repoRoot, "src"))
       .map((path) => readFileSync(path, "utf8"))

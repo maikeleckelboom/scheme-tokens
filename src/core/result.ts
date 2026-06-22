@@ -6,15 +6,17 @@ export interface Issue<Code extends string = string> {
 
 export type NonEmptyIssues<I> = readonly [I, ...I[]];
 
+export type FailureResult<I extends Issue = Issue> = {
+  readonly ok: false;
+  readonly issues: NonEmptyIssues<I>;
+};
+
 export type Result<Value, I extends Issue = Issue> =
   | {
       readonly ok: true;
       readonly value: Value;
     }
-  | {
-      readonly ok: false;
-      readonly issues: NonEmptyIssues<I>;
-    };
+  | FailureResult<I>;
 
 export function ok<Value>(value: Value): Result<Value, never> {
   return { ok: true, value };

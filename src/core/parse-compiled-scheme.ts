@@ -1,9 +1,11 @@
 import type {
-  CompiledColorScheme,
-  CompiledColorToken,
+  CompiledScheme,
+  CompiledToken,
+  CompiledTokenMetadata,
   ParseCompiledSchemeIssue,
+  ParseCompiledSchemeResult,
 } from "./compiled-types";
-import { compiledColorSchemeKind, type TokenOrigin, type TokenVisibility } from "./graph";
+import { compiledSchemeKind, type TokenOrigin, type TokenVisibility } from "./graph";
 import { isSingleSegmentIdentifier, isTokenKey } from "./identifiers";
 import {
   compareCodeUnits,
@@ -17,10 +19,16 @@ import {
 import type { JsonValue } from "./json";
 import { IssueCollector, type Result } from "./result";
 
-const topLevelKeys = new Set(["kind", "formatVersion", "modes", "defaultMode", "tokens"]);
-const tokenKeys = new Set([
+const topLevelKeys = new Set([
+  "kind",
+  "formatVersion",
+  "modes",
+  "defaultMode",
+  "tokens",
+  "metadataByToken",
+]);
+const metadataKeys = new Set([
   "visibility",
-  "valueByMode",
   "origin",
   "dependenciesByMode",
   "description",
@@ -28,13 +36,18 @@ const tokenKeys = new Set([
   "extensions",
 ]);
 
-export function parseCompiledScheme(
+export function parseCompiledScheme(input: unknown): ParseCompiledSchemeResult {
+  const parsed = parseCompiledSchemeInternal(input);
+  return parsed.ok ? { ok: true, scheme: parsed.value } : parsed;
+}
+
+export function parseCompiledSchemeInternal(
   input: unknown,
-): Result<CompiledColorScheme, ParseCompiledSchemeIssue> {
+): Result<CompiledScheme, ParseCompiledSchemeIssue> {
   const collector = new IssueCollector<ParseCompiledSchemeIssue>();
   const top = readPlainRecord(input, {
     code: "invalid-object",
-    message: "Compiled color scheme must be a plain object.",
+    message: "Compiled scheme must be a plain object.",
   });
   if (!top.ok) {
     return top as Result<never, ParseCompiledSchemeIssue>;
@@ -46,7 +59,7 @@ export function parseCompiledScheme(
   if (record.get("formatVersion") !== 1) {
     collector.add({
       code: record.has("formatVersion") ? "invalid-format-version" : "missing-property",
-      message: "Compiled color scheme formatVersion must be numeric 1.",
+      message: "Compiled scheme formatVersion must be numeric 1.",
       path: pointer("formatVersion"),
     });
   }
@@ -58,18 +71,29 @@ export function parseCompiledScheme(
       ? undefined
       : canonicalizeModes(modes, defaultMode);
   const tokens = parseTokens(record.get("tokens"), canonicalModes ?? [], collector);
+  const metadataByToken = parseMetadataByToken(
+    record.get("metadataByToken"),
+    tokens === undefined ? undefined : Object.keys(tokens),
+    canonicalModes ?? [],
+    collector,
+  );
 
   const issues = collector.issues();
   if (issues !== undefined) {
     return { ok: false, issues };
   }
-  if (canonicalModes === undefined || defaultMode === undefined || tokens === undefined) {
+  if (
+    canonicalModes === undefined ||
+    defaultMode === undefined ||
+    tokens === undefined ||
+    metadataByToken === undefined
+  ) {
     return {
       ok: false,
       issues: [
         {
           code: "invalid-object",
-          message: "Compiled color scheme could not be parsed.",
+          message: "Compiled scheme could not be parsed.",
         },
       ],
     };
@@ -78,22 +102,23 @@ export function parseCompiledScheme(
   return {
     ok: true,
     value: {
-      kind: compiledColorSchemeKind,
+      kind: compiledSchemeKind,
       formatVersion: 1,
       modes: canonicalModes as readonly [string, ...string[]],
       defaultMode,
       tokens,
+      metadataByToken,
     },
   };
 }
 
 function parseKind(input: unknown, collector: IssueCollector<ParseCompiledSchemeIssue>): void {
-  if (input === compiledColorSchemeKind) {
+  if (input === compiledSchemeKind) {
     return;
   }
   collector.add({
     code: input === undefined ? "missing-property" : "invalid-artifact-kind",
-    message: `Artifact kind must be ${compiledColorSchemeKind}.`,
+    message: `Artifact kind must be ${compiledSchemeKind}.`,
     path: pointer("kind"),
   });
 }
@@ -105,7 +130,7 @@ function parseModes(
   if (input === undefined) {
     collector.add({
       code: "missing-property",
-      message: "Compiled color scheme requires modes.",
+      message: "Compiled scheme requires modes.",
       path: pointer("modes"),
     });
     return undefined;
@@ -180,11 +205,11 @@ function parseTokens(
   input: unknown,
   modes: readonly string[],
   collector: IssueCollector<ParseCompiledSchemeIssue>,
-): Readonly<Record<string, CompiledColorToken>> | undefined {
+): Readonly<Record<string, CompiledToken>> | undefined {
   if (input === undefined) {
     collector.add({
       code: "missing-property",
-      message: "Compiled color scheme requires tokens.",
+      message: "Compiled scheme requires tokens.",
       path: pointer("tokens"),
     });
     return undefined;
@@ -198,7 +223,7 @@ function parseTokens(
     collector.addMany(entries.issues as readonly ParseCompiledSchemeIssue[]);
     return undefined;
   }
-  const tokens: Record<string, CompiledColorToken> = {};
+  const tokens: Record<string, CompiledToken> = {};
   for (const entry of entries.value) {
     const tokenPath = `${pointer("tokens")}/${escapeTokenPath(entry.key)}`;
     if (!isTokenKey(entry.key)) {
@@ -210,7 +235,7 @@ function parseTokens(
       });
       continue;
     }
-    const token = parseToken(entry.value, tokenPath, modes, collector);
+    const token = parseTokenModeValues(entry.value, tokenPath, modes, collector);
     if (token !== undefined) {
       defineRecordValue(tokens, entry.key, token);
     }
@@ -218,30 +243,148 @@ function parseTokens(
   return sortedRecord(Object.entries(tokens));
 }
 
-function parseToken(
+function parseTokenModeValues(
   input: unknown,
   path: string,
   modes: readonly string[],
   collector: IssueCollector<ParseCompiledSchemeIssue>,
-): CompiledColorToken | undefined {
+): CompiledToken | undefined {
   const entries = readPlainRecord(input, {
     code: "invalid-token-definition",
-    message: "Compiled token must be a plain object.",
+    message: "Compiled token must be a plain mode-value object.",
     path,
   });
   if (!entries.ok) {
     collector.addMany(entries.issues as readonly ParseCompiledSchemeIssue[]);
     return undefined;
   }
-  rejectUnknownKeys(entries.value, tokenKeys, path, collector);
+  const modeSet = new Set(modes);
+  const seen = new Set<string>();
+  const output: Record<string, string> = {};
+  for (const entry of entries.value) {
+    const valuePath = `${path}/${escapeTokenPath(entry.key)}`;
+    if (!modeSet.has(entry.key)) {
+      collector.add({
+        code: "unknown-mode-value",
+        message: `Compiled token contains unknown mode: ${entry.key}.`,
+        path: valuePath,
+        mode: entry.key,
+      });
+      continue;
+    }
+    seen.add(entry.key);
+    if (typeof entry.value !== "string") {
+      collector.add({
+        code: "invalid-token-value",
+        message: "Compiled token values must be CSS strings.",
+        path: valuePath,
+        mode: entry.key,
+      });
+      continue;
+    }
+    defineRecordValue(output, entry.key, entry.value);
+  }
+  for (const mode of modes) {
+    if (!seen.has(mode)) {
+      collector.add({
+        code: "missing-mode-value",
+        message: `Compiled token is missing mode: ${mode}.`,
+        path,
+        mode,
+      });
+    }
+  }
+  return sortedRecord(Object.entries(output));
+}
+
+function parseMetadataByToken(
+  input: unknown,
+  tokenKeys: readonly string[] | undefined,
+  modes: readonly string[],
+  collector: IssueCollector<ParseCompiledSchemeIssue>,
+): Readonly<Record<string, CompiledTokenMetadata>> | undefined {
+  if (input === undefined) {
+    collector.add({
+      code: "missing-property",
+      message: "Compiled scheme requires metadataByToken.",
+      path: pointer("metadataByToken"),
+    });
+    return undefined;
+  }
+  const entries = readPlainRecord(input, {
+    code: "invalid-object",
+    message: "metadataByToken must be a plain object record.",
+    path: pointer("metadataByToken"),
+  });
+  if (!entries.ok) {
+    collector.addMany(entries.issues as readonly ParseCompiledSchemeIssue[]);
+    return undefined;
+  }
+
+  const expected = tokenKeys === undefined ? undefined : new Set(tokenKeys);
+  const seen = new Set<string>();
+  const metadataByToken: Record<string, CompiledTokenMetadata> = {};
+  for (const entry of entries.value) {
+    const tokenPath = `${pointer("metadataByToken")}/${escapeTokenPath(entry.key)}`;
+    if (!isTokenKey(entry.key)) {
+      collector.add({
+        code: "invalid-token-key",
+        message: "Token metadata keys must be dot-separated lower-kebab identifiers.",
+        path: tokenPath,
+        key: entry.key,
+      });
+      continue;
+    }
+    if (expected !== undefined && !expected.has(entry.key)) {
+      collector.add({
+        code: "unknown-property",
+        message: `metadataByToken contains unknown token: ${entry.key}.`,
+        path: tokenPath,
+        key: entry.key,
+      });
+      continue;
+    }
+    seen.add(entry.key);
+    const metadata = parseTokenMetadata(entry.value, tokenPath, modes, collector);
+    if (metadata !== undefined) {
+      defineRecordValue(metadataByToken, entry.key, metadata);
+    }
+  }
+
+  if (expected !== undefined) {
+    for (const key of [...expected].sort(compareCodeUnits)) {
+      if (!seen.has(key)) {
+        collector.add({
+          code: "missing-property",
+          message: `metadataByToken is missing token: ${key}.`,
+          path: `${pointer("metadataByToken")}/${escapeTokenPath(key)}`,
+          key,
+        });
+      }
+    }
+  }
+
+  return sortedRecord(Object.entries(metadataByToken));
+}
+
+function parseTokenMetadata(
+  input: unknown,
+  path: string,
+  modes: readonly string[],
+  collector: IssueCollector<ParseCompiledSchemeIssue>,
+): CompiledTokenMetadata | undefined {
+  const entries = readPlainRecord(input, {
+    code: "invalid-token-definition",
+    message: "Compiled token metadata must be a plain object.",
+    path,
+  });
+  if (!entries.ok) {
+    collector.addMany(entries.issues as readonly ParseCompiledSchemeIssue[]);
+    return undefined;
+  }
+  rejectUnknownKeys(entries.value, metadataKeys, path, collector);
   const record = new Map(entries.value.map((entry) => [entry.key, entry.value]));
   const visibility = parseVisibility(record.get("visibility"), `${path}/visibility`, collector);
-  const valueByMode = parseValueByMode(
-    record.get("valueByMode"),
-    `${path}/valueByMode`,
-    modes,
-    collector,
-  );
   const origin = parseOrigin(record.get("origin"), `${path}/origin`, collector);
   const dependenciesByMode = parseDependenciesByMode(
     record.get("dependenciesByMode"),
@@ -249,18 +392,12 @@ function parseToken(
     modes,
     collector,
   );
-  const metadata = parseMetadata(record, path, collector);
-  if (
-    visibility === undefined ||
-    valueByMode === undefined ||
-    origin === undefined ||
-    dependenciesByMode === undefined
-  ) {
+  const metadata = parseOptionalMetadata(record, path, collector);
+  if (visibility === undefined || origin === undefined || dependenciesByMode === undefined) {
     return undefined;
   }
   return {
     visibility,
-    valueByMode,
     origin,
     dependenciesByMode,
     ...metadata,
@@ -283,69 +420,7 @@ function parseVisibility(
   return undefined;
 }
 
-function parseValueByMode(
-  input: unknown,
-  path: string,
-  modes: readonly string[],
-  collector: IssueCollector<ParseCompiledSchemeIssue>,
-): Readonly<Record<string, string>> | undefined {
-  const entries = readPlainRecord(input, {
-    code: "invalid-token-definition",
-    message: "valueByMode must be a plain object.",
-    path,
-  });
-  if (!entries.ok) {
-    collector.addMany(entries.issues as readonly ParseCompiledSchemeIssue[]);
-    return undefined;
-  }
-  const modeSet = new Set(modes);
-  const seen = new Set<string>();
-  const output: Record<string, string> = {};
-  for (const entry of entries.value) {
-    const valuePath = `${path}/${escapeTokenPath(entry.key)}`;
-    if (!modeSet.has(entry.key)) {
-      collector.add({
-        code: "unknown-mode-value",
-        message: `valueByMode contains unknown mode: ${entry.key}.`,
-        path: valuePath,
-        mode: entry.key,
-      });
-      continue;
-    }
-    seen.add(entry.key);
-    if (typeof entry.value !== "string") {
-      collector.add({
-        code: "invalid-token-value",
-        message: "Compiled token values must be authored CSS color strings.",
-        path: valuePath,
-        mode: entry.key,
-      });
-      continue;
-    }
-    defineRecordValue(output, entry.key, entry.value);
-  }
-  for (const mode of modes) {
-    if (!seen.has(mode)) {
-      collector.add({
-        code: "missing-mode-value",
-        message: `valueByMode is missing mode: ${mode}.`,
-        path,
-        mode,
-      });
-    }
-  }
-  return sortedRecord(Object.entries(output));
-}
-
 function parseOrigin(
-  input: unknown,
-  path: string,
-  collector: IssueCollector<ParseCompiledSchemeIssue>,
-): TokenOrigin | undefined {
-  return parseBaseOrigin(input, path, collector);
-}
-
-function parseBaseOrigin(
   input: unknown,
   path: string,
   collector: IssueCollector<ParseCompiledSchemeIssue>,
@@ -371,23 +446,6 @@ function parseBaseOrigin(
     isSingleSegmentIdentifier(record.get("id") as string)
   ) {
     return { kind, id: record.get("id") as string };
-  }
-  if (
-    kind === "source" &&
-    (entries.value.length === 2 || entries.value.length === 3) &&
-    typeof record.get("id") === "string" &&
-    isSingleSegmentIdentifier(record.get("id") as string) &&
-    (!record.has("sourceToken") ||
-      (typeof record.get("sourceToken") === "string" &&
-        isTokenKey(record.get("sourceToken") as string)))
-  ) {
-    return {
-      kind,
-      id: record.get("id") as string,
-      ...(typeof record.get("sourceToken") === "string"
-        ? { sourceToken: record.get("sourceToken") as string }
-        : {}),
-    };
   }
   collector.add({ code: "invalid-origin", message: "Invalid compiled token origin.", path });
   return undefined;
@@ -465,11 +523,11 @@ function parseDependenciesByMode(
   return sortedRecord(Object.entries(output));
 }
 
-function parseMetadata(
+function parseOptionalMetadata(
   record: ReadonlyMap<string, unknown>,
   path: string,
   collector: IssueCollector<ParseCompiledSchemeIssue>,
-): Pick<CompiledColorToken, "description" | "deprecated" | "extensions"> {
+): Pick<CompiledTokenMetadata, "description" | "deprecated" | "extensions"> {
   const output: {
     description?: string;
     deprecated?: boolean | string;

@@ -1,11 +1,11 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
 import {
-  colorTokenGraphKind,
   compileTokenGraph,
   defineTokenGraph,
   parseTokenGraph,
   serializeCompiledScheme,
+  tokenGraphKind,
 } from "../../src";
 
 describe("determinism and parser safety properties", () => {
@@ -44,12 +44,12 @@ describe("determinism and parser safety properties", () => {
     if (!left.ok || !right.ok) {
       throw new Error("Expected both graphs to compile");
     }
-    expect(serializeCompiledScheme(left.value)).toBe(serializeCompiledScheme(right.value));
+    expect(serializeCompiledScheme(left.scheme)).toBe(serializeCompiledScheme(right.scheme));
   });
 
   test("token insertion order does not change diagnostic order", () => {
     const left = parseTokenGraph({
-      kind: colorTokenGraphKind,
+      kind: tokenGraphKind,
       formatVersion: 1,
       modes: ["base"],
       defaultMode: "base",
@@ -60,7 +60,7 @@ describe("determinism and parser safety properties", () => {
       },
     });
     const right = parseTokenGraph({
-      kind: colorTokenGraphKind,
+      kind: tokenGraphKind,
       formatVersion: 1,
       modes: ["base"],
       defaultMode: "base",
@@ -88,7 +88,9 @@ describe("determinism and parser safety properties", () => {
     if (!result.ok) {
       throw new Error("Expected chain graph to compile");
     }
-    expect(Object.keys(result.value.tokens)).toHaveLength(10_001);
-    expect(result.value.tokens["chain.t10000"]?.dependenciesByMode.base).toEqual(["chain.t09999"]);
+    expect(Object.keys(result.scheme.tokens)).toHaveLength(10_001);
+    expect(result.scheme.metadataByToken["chain.t10000"]?.dependenciesByMode.base).toEqual([
+      "chain.t09999",
+    ]);
   }, 20_000);
 });

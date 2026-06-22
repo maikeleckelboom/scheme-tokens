@@ -1,6 +1,6 @@
 {
-  "$schema": "https://scheme-tokens.dev/schemas/color-token-graph.v1.schema.json",
-  "kind": "scheme-tokens/color-token-graph",
+  "$schema": "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json",
+  "kind": "scheme-tokens/token-graph",
   "formatVersion": 1,
   "modes": ["light", "dark"],
   "defaultMode": "light",

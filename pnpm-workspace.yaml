@@ -1,7 +1,6 @@
 packages:
   - "."
   - "docs-site"
-  - "packages/*"
 
 allowBuilds:
   "esbuild@0.21.5": true

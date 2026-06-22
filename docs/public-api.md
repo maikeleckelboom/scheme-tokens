@@ -1,139 +1,112 @@
 # Public API
 
-The root API is the dependency-light token graph and CSS-variable compiler. It does not own CSS color parsing,
-formatting, conversion, or optional engines.
-
-## Runtime Exports
-
-- `buildScheme`
-- `colorTokenGraphKind`
-- `colorTokenLayerKind`
-- `compileTokenGraph`
-- `compiledColorSchemeKind`
-- `createSchemeBuilder`
-- `defineTokenGraph`
-- `defineTokenLayer`
-- `defineTokens`
-- `exportCssVars`
-- `parseCompiledScheme`
-- `parseTokenGraph`
-- `parseTokenLayer`
-- `serializeCompiledScheme`
-- `serializeTokenGraph`
-- `serializeTokenLayer`
-- `tokenRef`
-
-## Package Subpaths
-
-The package exports only:
-
-- `.`
-- `./schemas/color-token-graph.v1.schema.json`
-- `./schemas/color-token-layer.v1.schema.json`
-- `./schemas/compiled-color-scheme.v1.schema.json`
-- `./package.json`
-
-There are no core Material, Texel, conversion, framework target, or CSS color utility subpaths.
-
-## Ordinary Flow
-
-1. Define token graph input with `defineTokens()` or `defineTokenGraph()`.
-2. Resolve the selected tokens with `compileTokenGraph()`.
-3. Export CSS custom properties with `exportCssVars()` or serialize deterministic JSON with
-   `serializeCompiledScheme()`.
+The root package is the core token compiler.
 
 ```ts
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
 
 const graph = defineTokens({
-  background: "#ffffff",
-  foreground: "#111111",
-  primary: "#6750a4",
+  background: {
+    base: "#ffffff",
+    dark: "#111111",
+  },
+  foreground: {
+    base: "#111111",
+    dark: "#ffffff",
+  },
 });
 
 const compiled = compileTokenGraph(graph);
+
 if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const cssExport = exportCssVars(compiled.value);
-if (!cssExport.ok) {
-  throw new Error(JSON.stringify(cssExport.issues, null, 2));
-}
-
-const stylesheet = cssExport.value.css;
-
-export { stylesheet };
+const stylesheet = exportCssVars(compiled.scheme);
 ```
 
-`compileTokenGraph()` defaults to `selection: "public"`. Public tokens may depend on internal implementation tokens.
+## Runtime Exports
 
-## Color Values
+- `defineTokens(tokens, options?)`
+- `defineTokenGraph(input)`
+- `defineTokenLayer(input)`
+- `tokenRef(key)`
+- `parseTokenGraph(input)`
+- `parseTokenLayer(input)`
+- `compileTokenGraph(graph, options?)`
+- `parseCompiledScheme(input)`
+- `serializeTokenGraph(graph)`
+- `serializeTokenLayer(layer)`
+- `serializeCompiledScheme(scheme)`
+- `exportCssVars(scheme, options?)`
 
-Color token values are authored strings. Root preserves and emits the string it receives. It may reject malformed token
-artifacts, references, unsafe CSS declarations, or duplicate CSS variable names, but it does not validate whether a color
-string is meaningful CSS.
+## Result Payloads
 
-Bare strings are always color values. They are not inferred as references based on spelling. References are explicit
-through:
+Public success payloads use named fields.
 
-- `aliases: { "app.primary": "brand.primary" }`;
-- `tokenRef("brand.primary")`;
-- `{ ref: "brand.primary" }`.
+```ts
+const compiled = compileTokenGraph(graph);
 
-## Authoring Helpers
+if (compiled.ok) {
+  compiled.scheme.tokens.background.base;
+}
 
-`defineTokens(tokens, options?)` is the smallest helper. With no options it creates a one-mode graph with `base` as the
-mode.
+const cssExport = compiled.ok ? exportCssVars(compiled.scheme) : undefined;
 
-`defineTokenGraph(input)` is the full graph-shaped helper. It accepts `tokens` for authored values and `aliases` for
-token-key mappings. It does not accept ambiguous flat top-level token records.
+if (cssExport?.ok) {
+  cssExport.css;
+  cssExport.blocks;
+  cssExport.variableByToken;
+}
+```
 
-`defineTokenLayer(input)` defines an ordered overlay layer with `tokens` and `aliases`. Layers are graph contributions;
-they do not own the graph mode envelope.
+Parser success fields are also named:
 
-Helper input fills safe defaults and returns strict graph or layer input. Helper shorthand is not the persisted wire
-format.
+- `parseTokenGraph(...)` returns `{ ok: true, graph }`.
+- `parseTokenLayer(...)` returns `{ ok: true, layer }`.
+- `parseCompiledScheme(...)` returns `{ ok: true, scheme }`.
+
+Failures return `{ ok: false, issues }` with deterministic, JSON-safe issue objects.
+
+## Compiled Scheme
+
+`CompiledScheme.tokens` is a record of token keys to mode maps.
+
+```ts
+compiled.scheme.tokens.background.base;
+compiled.scheme.tokens.background.dark;
+```
+
+Advanced data is stored separately:
+
+```ts
+compiled.scheme.metadataByToken.background.visibility;
+compiled.scheme.metadataByToken.background.origin;
+compiled.scheme.metadataByToken.background.dependenciesByMode.dark;
+```
+
+## Authored Data
+
+Authoring helpers accept CSS-ready strings and explicit references.
+
+```ts
+import { defineTokens, tokenRef } from "scheme-tokens";
+
+const graph = defineTokens({
+  "brand.primary": "#6750a4",
+  primary: tokenRef("brand.primary"),
+  literal: "brand.primary",
+});
+```
+
+Bare strings are literal values. References use `tokenRef("token.key")` or strict `{ ref: "token.key" }` objects.
 
 ## Strict Wire Format
 
-`parseTokenGraph()`, `parseTokenLayer()`, and `parseCompiledScheme()` validate strict persisted artifacts. Strict
-artifacts carry a `kind` discriminator and `formatVersion: 1`.
+Strict graph and layer artifacts use explicit `kind`, `formatVersion`, `modes`, `defaultMode`, `defaultVisibility`, and token definitions.
 
-Strict graph and layer token definitions use `value` or `valueByMode`. Values are strings or explicit references.
-Compiled scheme values are resolved strings.
+Schemas are exported at:
 
-JSON Schema subpaths validate these strict artifact shapes. Runtime parsers remain the semantic authority for
-default-mode membership, per-mode coverage, reference existence, reference cycles, and cross-field constraints.
-
-## CSS Export
-
-`exportCssVars()` consumes compiled schemes only. It does not resolve references, load engines, or mutate browser state.
-Its success value contains:
-
-- `css`: stylesheet text;
-- `blocks`: ordered `{ mode, selector, declarations }` data;
-- `variableByToken`: token key to custom-property lookup.
-
-Omitting `prefix`, passing `undefined`, or passing `""` emits unprefixed custom properties such as `--background`.
-Passing `prefix: "color"` emits namespaced properties such as `--color-background`.
-
-The exporter validates CSS custom-property names, variable uniqueness, selectors, and declaration safety. It does not
-parse or rewrite color values.
-
-## Build Scheme
-
-`buildScheme()` is the adapter runner and layer composer. It accepts generated base inputs, authored layers, or both,
-then compiles the composed graph.
-
-`createSchemeBuilder(config)` prepares reusable build options except `base`. The returned builder accepts no base,
-source shorthand, or `{ base }` for the same path as `buildScheme()`.
-
-Base inputs compose first. Layers compose after base inputs in array order. Later layers win by token key. Layer
-composition is deterministic token overlay behavior, not CSS cascade behavior.
-
-## Material 3
-
-Material 3 lives in `@scheme-tokens/material3`. The adapter owns Material generation, strict `#rrggbb` source-color
-validation, Material-specific issue codes, and its engine dependency. The root package imports only generic source
-contracts.
+- `scheme-tokens/schemas/token-graph.v1.schema.json`
+- `scheme-tokens/schemas/token-layer.v1.schema.json`
+- `scheme-tokens/schemas/compiled-scheme.v1.schema.json`

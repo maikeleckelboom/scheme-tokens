@@ -24,3 +24,39 @@
 .vp-doc td {
   vertical-align: top;
 }
+
+.twoslash .twoslash-hover {
+  border-bottom-color: color-mix(in srgb, var(--vp-c-brand-1), transparent 68%);
+  border-bottom-style: solid;
+}
+
+.twoslash:hover .twoslash-hover {
+  border-bottom-color: var(--vp-c-brand-2);
+}
+
+.v-popper--theme-twoslash .v-popper__inner {
+  max-width: min(760px, calc(100vw - 32px));
+  border-radius: 8px;
+  border-color: color-mix(in srgb, var(--vp-c-border), var(--vp-c-bg-soft) 35%);
+  box-shadow:
+    0 16px 48px rgb(0 0 0 / 18%),
+    0 2px 8px rgb(0 0 0 / 10%);
+}
+
+.twoslash-floating .twoslash-popup-code {
+  padding: 12px 14px !important;
+  font-size: 0.82rem !important;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.twoslash-floating .twoslash-popup-code .line {
+  min-height: 1.7em;
+}
+
+.twoslash-floating .twoslash-popup-docs,
+.twoslash-floating .twoslash-popup-error {
+  padding: 10px 14px !important;
+  line-height: 1.55;
+}

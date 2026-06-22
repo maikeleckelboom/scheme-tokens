@@ -1,15 +1,21 @@
 {
-  "kind": "scheme-tokens/compiled-color-scheme",
+  "kind": "scheme-tokens/compiled-scheme",
   "formatVersion": 1,
   "modes": ["light", "dark"],
   "defaultMode": "light",
   "tokens": {
     "button.background": {
+      "light": "#6750a4",
+      "dark": "#d0bcff"
+    },
+    "button.foreground": {
+      "light": "#ffffff",
+      "dark": "#381e72"
+    }
+  },
+  "metadataByToken": {
+    "button.background": {
       "visibility": "public",
-      "valueByMode": {
-        "light": "#6750a4",
-        "dark": "#d0bcff"
-      },
       "origin": {
         "kind": "graph"
       },
@@ -20,10 +26,6 @@
     },
     "button.foreground": {
       "visibility": "public",
-      "valueByMode": {
-        "light": "#ffffff",
-        "dark": "#381e72"
-      },
       "origin": {
         "kind": "graph"
       },

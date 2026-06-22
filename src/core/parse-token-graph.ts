@@ -1,14 +1,16 @@
 import type {
-  ColorTokenDefinitionInput,
-  ColorTokenExpressionInput,
-  ColorTokenGraphInput,
-  ColorTokenGraphIssue,
-  ColorTokenLayerInput,
+  TokenDefinitionInput,
+  TokenExpressionInput,
+  TokenGraphInput,
+  TokenGraphIssue,
+  ParseTokenGraphResult,
+  ParseTokenLayerResult,
+  TokenLayerInput,
   ReferenceInput,
   TokenOrigin,
   TokenVisibility,
 } from "./graph";
-import { colorTokenGraphKind, colorTokenLayerKind, isReferenceInput } from "./graph";
+import { tokenGraphKind, tokenLayerKind, isReferenceInput } from "./graph";
 import { isSingleSegmentIdentifier, isTokenKey } from "./identifiers";
 import {
   compareCodeUnits,
@@ -20,19 +22,11 @@ import {
   sortedRecord,
 } from "./json";
 import type { JsonValue } from "./json";
-import { IssueCollector, type Result } from "./result";
-
-interface ParseContext {
-  readonly sourceId?: string;
-  readonly callerLayerIds?: ReadonlySet<string>;
-  readonly tokenSourceIds?: ReadonlyMap<string, string>;
-  readonly layerSourceIds?: ReadonlyMap<string, string>;
-  readonly skipReferenceValidation?: boolean;
-}
+import { IssueCollector, type FailureResult, type Result } from "./result";
 
 interface ParsedToken {
   readonly visibility: TokenVisibility;
-  readonly valueByMode: Readonly<Record<string, ParsedColorExpression>>;
+  readonly valueByMode: Readonly<Record<string, ParsedTokenExpression>>;
   readonly expressionPathsByMode: Readonly<Record<string, string>>;
   readonly origin: TokenOrigin;
   readonly description?: string;
@@ -46,11 +40,11 @@ interface TokenDeclaration {
   readonly token: ParsedToken;
 }
 
-export type ParsedColorExpression<Key extends string = string> = string | ReferenceInput<Key>;
+export type ParsedTokenExpression<Key extends string = string> = string | ReferenceInput<Key>;
 
 export interface ParsedTokenGraphToken<Mode extends string = string, Key extends string = string> {
   readonly visibility: TokenVisibility;
-  readonly valueByMode: Readonly<Record<Mode, ParsedColorExpression<Key>>>;
+  readonly valueByMode: Readonly<Record<Mode, ParsedTokenExpression<Key>>>;
   readonly origin: TokenOrigin;
   readonly description?: string;
   readonly deprecated?: boolean | string;
@@ -58,7 +52,7 @@ export interface ParsedTokenGraphToken<Mode extends string = string, Key extends
 }
 
 export interface ParsedTokenGraph<Mode extends string = string, Key extends string = string> {
-  readonly kind: typeof colorTokenGraphKind;
+  readonly kind: typeof tokenGraphKind;
   readonly formatVersion: 1;
   readonly modes: readonly [Mode, ...Mode[]];
   readonly defaultMode: Mode;
@@ -93,42 +87,37 @@ const tokenKeys = new Set([
   "valueByMode",
 ]);
 
-export function parseTokenGraph(
-  input: unknown,
-): Result<ColorTokenGraphInput, ColorTokenGraphIssue> {
-  return parseTokenGraphArtifact(input);
+export function parseTokenGraph(input: unknown): ParseTokenGraphResult {
+  const parsed = parseTokenGraphArtifact(input);
+  return parsed.ok ? { ok: true, graph: parsed.value } : parsed;
 }
 
-export function parseTokenLayer(
-  input: unknown,
-): Result<ColorTokenLayerInput, ColorTokenGraphIssue> {
-  const collector = new IssueCollector<ColorTokenGraphIssue>();
+export function parseTokenLayer(input: unknown): ParseTokenLayerResult {
+  const collector = new IssueCollector<TokenGraphIssue>();
   const layer = parseStandaloneLayer(input, collector);
   const issues = collector.issues();
-  return issues === undefined && layer !== undefined ? { ok: true, value: layer } : fail(issues);
+  return issues === undefined && layer !== undefined ? { ok: true, layer } : fail(issues);
 }
 
-function parseTokenGraphArtifact(
-  input: unknown,
-): Result<ColorTokenGraphInput, ColorTokenGraphIssue> {
-  const collector = new IssueCollector<ColorTokenGraphIssue>();
+function parseTokenGraphArtifact(input: unknown): Result<TokenGraphInput, TokenGraphIssue> {
+  const collector = new IssueCollector<TokenGraphIssue>();
   const top = readPlainRecord(input, {
     code: "invalid-object",
-    message: "Color token graph must be a plain object.",
+    message: "Token graph must be a plain object.",
   });
   if (!top.ok) {
-    return top as Result<never, ColorTokenGraphIssue>;
+    return top as Result<never, TokenGraphIssue>;
   }
 
   const graphRecord = new Map(top.value.map((entry) => [entry.key, entry.value]));
   rejectUnknownKeys(top.value, topLevelKeys, "", collector);
-  parseKind(graphRecord.get("kind"), colorTokenGraphKind, pointer("kind"), collector);
+  parseKind(graphRecord.get("kind"), tokenGraphKind, pointer("kind"), collector);
 
   const formatVersion = graphRecord.get("formatVersion");
   if (formatVersion !== 1) {
     collector.add({
       code: formatVersion === undefined ? "missing-property" : "invalid-format-version",
-      message: "Color token graph formatVersion must be numeric 1.",
+      message: "Token graph formatVersion must be numeric 1.",
       path: pointer("formatVersion"),
     });
   }
@@ -159,7 +148,7 @@ function parseTokenGraphArtifact(
   if (tokensInput === undefined) {
     collector.add({
       code: "missing-property",
-      message: "Color token graph requires tokens.",
+      message: "Token graph requires tokens.",
       path: pointer("tokens"),
     });
   }
@@ -182,9 +171,9 @@ function parseTokenGraphArtifact(
     return fail(undefined);
   }
 
-  const artifact: ColorTokenGraphInput = {
+  const artifact: TokenGraphInput = {
     ...(typeof schema === "string" ? { $schema: schema } : {}),
-    kind: colorTokenGraphKind,
+    kind: tokenGraphKind,
     formatVersion: 1,
     modes: canonicalModes as readonly [string, ...string[]],
     defaultMode,
@@ -192,32 +181,29 @@ function parseTokenGraphArtifact(
     tokens,
     ...(layers === undefined ? {} : { layers }),
   };
-  const internal = parseTokenGraphInternal(artifact, {});
+  const internal = parseTokenGraphInternal(artifact);
   return internal.ok ? { ok: true, value: artifact } : internal;
 }
 
-export function parseTokenGraphInternal(
-  input: unknown,
-  context: ParseContext,
-): Result<ParsedTokenGraph, ColorTokenGraphIssue> {
-  const collector = new IssueCollector<ColorTokenGraphIssue>();
+export function parseTokenGraphInternal(input: unknown): Result<ParsedTokenGraph, TokenGraphIssue> {
+  const collector = new IssueCollector<TokenGraphIssue>();
   const top = readPlainRecord(input, {
     code: "invalid-object",
-    message: "Color token graph must be a plain object.",
+    message: "Token graph must be a plain object.",
   });
   if (!top.ok) {
-    return top as Result<never, ColorTokenGraphIssue>;
+    return top as Result<never, TokenGraphIssue>;
   }
 
   const graphRecord = new Map(top.value.map((entry) => [entry.key, entry.value]));
   rejectUnknownKeys(top.value, topLevelKeys, "", collector);
-  parseKind(graphRecord.get("kind"), colorTokenGraphKind, pointer("kind"), collector);
+  parseKind(graphRecord.get("kind"), tokenGraphKind, pointer("kind"), collector);
 
   const formatVersion = graphRecord.get("formatVersion");
   if (formatVersion !== 1) {
     collector.add({
       code: formatVersion === undefined ? "missing-property" : "invalid-format-version",
-      message: "Color token graph formatVersion must be numeric 1.",
+      message: "Token graph formatVersion must be numeric 1.",
       path: pointer("formatVersion"),
     });
   }
@@ -252,7 +238,7 @@ export function parseTokenGraphInternal(
   if (tokensInput === undefined) {
     collector.add({
       code: "missing-property",
-      message: "Color token graph requires tokens.",
+      message: "Token graph requires tokens.",
       path: pointer("tokens"),
     });
   }
@@ -261,7 +247,7 @@ export function parseTokenGraphInternal(
       path: pointer("tokens"),
       modes: validModes,
       defaultVisibility,
-      originForKey: (key) => directOrigin(context, key),
+      originForKey: () => ({ kind: "graph" }),
       collector,
       declarations,
       firstTokenPaths: graphTokenPaths,
@@ -285,7 +271,6 @@ export function parseTokenGraphInternal(
     } else {
       for (const entry of layers.value) {
         parseGraphLayer(entry.value, entry.index, {
-          context,
           modes: validModes,
           collector,
           declarations,
@@ -298,10 +283,8 @@ export function parseTokenGraphInternal(
   const tokenMap = new Map(
     [...declarations.values()].map((declaration) => [declaration.key, declaration.token] as const),
   );
-  if (context.skipReferenceValidation !== true) {
-    validateReferences(tokenMap, validModes, collector);
-    validateCycles(tokenMap, validModes, collector);
-  }
+  validateReferences(tokenMap, validModes, collector);
+  validateCycles(tokenMap, validModes, collector);
 
   const issues = collector.issues();
   if (issues !== undefined) {
@@ -311,14 +294,14 @@ export function parseTokenGraphInternal(
   if (canonicalModes === undefined || defaultMode === undefined) {
     return {
       ok: false,
-      issues: [{ code: "empty-modes", message: "Color token graph requires valid modes." }],
+      issues: [{ code: "empty-modes", message: "Token graph requires valid modes." }],
     };
   }
 
   return {
     ok: true,
     value: {
-      kind: colorTokenGraphKind,
+      kind: tokenGraphKind,
       formatVersion: 1,
       modes: canonicalModes as readonly [string, ...string[]],
       defaultMode,
@@ -333,24 +316,24 @@ export function parseTokenGraphInternal(
 
 function parseStandaloneLayer(
   input: unknown,
-  collector: IssueCollector<ColorTokenGraphIssue>,
-): ColorTokenLayerInput | undefined {
+  collector: IssueCollector<TokenGraphIssue>,
+): TokenLayerInput | undefined {
   const entries = readPlainRecord(input, {
     code: "invalid-object",
-    message: "Color token layer must be a plain object.",
+    message: "Token layer must be a plain object.",
   });
   if (!entries.ok) {
-    collector.addMany(entries.issues as readonly ColorTokenGraphIssue[]);
+    collector.addMany(entries.issues as readonly TokenGraphIssue[]);
     return undefined;
   }
   rejectUnknownKeys(entries.value, layerKeys, "", collector);
 
   const record = new Map(entries.value.map((entry) => [entry.key, entry.value]));
-  parseKind(record.get("kind"), colorTokenLayerKind, pointer("kind"), collector);
+  parseKind(record.get("kind"), tokenLayerKind, pointer("kind"), collector);
   if (record.get("formatVersion") !== 1) {
     collector.add({
       code: record.has("formatVersion") ? "invalid-format-version" : "missing-property",
-      message: "Color token layer formatVersion must be numeric 1.",
+      message: "Token layer formatVersion must be numeric 1.",
       path: pointer("formatVersion"),
     });
   }
@@ -384,7 +367,7 @@ function parseStandaloneLayer(
   }
   return {
     ...(typeof schema === "string" ? { $schema: schema } : {}),
-    kind: colorTokenLayerKind,
+    kind: tokenLayerKind,
     formatVersion: 1,
     id,
     defaultVisibility,
@@ -395,8 +378,8 @@ function parseStandaloneLayer(
 function parseGraphLayersArtifact(
   input: unknown,
   modes: readonly string[] | undefined,
-  collector: IssueCollector<ColorTokenGraphIssue>,
-): readonly ColorTokenLayerInput[] | undefined {
+  collector: IssueCollector<TokenGraphIssue>,
+): readonly TokenLayerInput[] | undefined {
   if (input === undefined) {
     return undefined;
   }
@@ -414,7 +397,7 @@ function parseGraphLayersArtifact(
     return undefined;
   }
 
-  const output: ColorTokenLayerInput[] = [];
+  const output: TokenLayerInput[] = [];
   const layerIds = new Map<string, string>();
   for (const entry of layers.value) {
     const layer = parseLayerArtifact(
@@ -436,21 +419,21 @@ function parseLayerArtifact(
   path: string,
   modes: readonly string[] | undefined,
   layerIds: Map<string, string>,
-  collector: IssueCollector<ColorTokenGraphIssue>,
-): ColorTokenLayerInput | undefined {
+  collector: IssueCollector<TokenGraphIssue>,
+): TokenLayerInput | undefined {
   const entries = readPlainRecord(input, {
     code: "invalid-object",
     message: "Layer must be a plain object.",
     path,
   });
   if (!entries.ok) {
-    collector.addMany(entries.issues as readonly ColorTokenGraphIssue[]);
+    collector.addMany(entries.issues as readonly TokenGraphIssue[]);
     return undefined;
   }
   rejectUnknownKeys(entries.value, layerKeys, path, collector);
 
   const record = new Map(entries.value.map((entry) => [entry.key, entry.value]));
-  parseKind(record.get("kind"), colorTokenLayerKind, `${path}/kind`, collector);
+  parseKind(record.get("kind"), tokenLayerKind, `${path}/kind`, collector);
   if (record.get("formatVersion") !== 1) {
     collector.add({
       code: record.has("formatVersion") ? "invalid-format-version" : "missing-property",
@@ -507,7 +490,7 @@ function parseLayerArtifact(
   }
   return {
     ...(typeof schema === "string" ? { $schema: schema } : {}),
-    kind: colorTokenLayerKind,
+    kind: tokenLayerKind,
     formatVersion: 1,
     id,
     defaultVisibility,
@@ -518,9 +501,9 @@ function parseLayerArtifact(
 function parseStandaloneLayerTokens(
   input: unknown,
   path: string,
-  collector: IssueCollector<ColorTokenGraphIssue>,
+  collector: IssueCollector<TokenGraphIssue>,
   modes?: readonly string[],
-): Readonly<Record<string, ColorTokenDefinitionInput>> | undefined {
+): Readonly<Record<string, TokenDefinitionInput>> | undefined {
   if (input === undefined) {
     return {};
   }
@@ -530,11 +513,11 @@ function parseStandaloneLayerTokens(
     path,
   });
   if (!entries.ok) {
-    collector.addMany(entries.issues as readonly ColorTokenGraphIssue[]);
+    collector.addMany(entries.issues as readonly TokenGraphIssue[]);
     return undefined;
   }
 
-  const tokens: Record<string, ColorTokenDefinitionInput> = {};
+  const tokens: Record<string, TokenDefinitionInput> = {};
   for (const entry of entries.value) {
     const tokenPath = `${path}/${escapeTokenPath(entry.key)}`;
     if (!isTokenKey(entry.key)) {
@@ -557,16 +540,16 @@ function parseStandaloneLayerTokens(
 function parseTokenDefinitionArtifact(
   input: unknown,
   path: string,
-  collector: IssueCollector<ColorTokenGraphIssue>,
+  collector: IssueCollector<TokenGraphIssue>,
   modes?: readonly string[],
-): ColorTokenDefinitionInput | undefined {
+): TokenDefinitionInput | undefined {
   const entries = readPlainRecord(input, {
     code: "invalid-token-definition",
     message: "Token definition must be a plain object.",
     path,
   });
   if (!entries.ok) {
-    collector.addMany(entries.issues as readonly ColorTokenGraphIssue[]);
+    collector.addMany(entries.issues as readonly TokenGraphIssue[]);
     return undefined;
   }
   rejectUnknownKeys(entries.value, tokenKeys, path, collector);
@@ -629,19 +612,19 @@ function parseTokenDefinitionArtifact(
 function parseStandaloneValueByMode(
   input: unknown,
   path: string,
-  collector: IssueCollector<ColorTokenGraphIssue>,
+  collector: IssueCollector<TokenGraphIssue>,
   modes?: readonly string[],
-): Readonly<Record<string, ColorTokenExpressionInput>> | undefined {
+): Readonly<Record<string, TokenExpressionInput>> | undefined {
   const entries = readPlainRecord(input, {
     code: "invalid-token-definition",
     message: "valueByMode must be a plain object.",
     path,
   });
   if (!entries.ok) {
-    collector.addMany(entries.issues as readonly ColorTokenGraphIssue[]);
+    collector.addMany(entries.issues as readonly TokenGraphIssue[]);
     return undefined;
   }
-  const output: Record<string, ColorTokenExpressionInput> = {};
+  const output: Record<string, TokenExpressionInput> = {};
   const modeSet = modes === undefined ? undefined : new Set(modes);
   const seen = new Set<string>();
   for (const entry of entries.value) {
@@ -687,12 +670,12 @@ function parseStandaloneValueByMode(
 
 function parseModes(
   input: unknown,
-  collector: IssueCollector<ColorTokenGraphIssue>,
+  collector: IssueCollector<TokenGraphIssue>,
 ): readonly string[] | undefined {
   if (input === undefined) {
     collector.add({
       code: "missing-property",
-      message: "Color token graph requires modes.",
+      message: "Token graph requires modes.",
       path: pointer("modes"),
     });
     return undefined;
@@ -751,7 +734,7 @@ function parseModes(
 function parseDefaultMode(
   input: unknown,
   modes: readonly string[] | undefined,
-  collector: IssueCollector<ColorTokenGraphIssue>,
+  collector: IssueCollector<TokenGraphIssue>,
 ): string | undefined {
   if (typeof input !== "string") {
     collector.add({
@@ -777,7 +760,7 @@ function parseVisibility(
   input: unknown,
   path: string,
   code: "invalid-default-visibility" | "invalid-visibility",
-  collector: IssueCollector<ColorTokenGraphIssue>,
+  collector: IssueCollector<TokenGraphIssue>,
 ): TokenVisibility | undefined {
   if (input === "public" || input === "internal") {
     return input;
@@ -793,7 +776,7 @@ function parseTokenRecord(
     readonly modes: readonly string[];
     readonly defaultVisibility: TokenVisibility;
     readonly originForKey: (key: string) => TokenOrigin;
-    readonly collector: IssueCollector<ColorTokenGraphIssue>;
+    readonly collector: IssueCollector<TokenGraphIssue>;
     readonly declarations: Map<string, TokenDeclaration>;
     readonly firstTokenPaths: Map<string, string>;
   },
@@ -804,7 +787,7 @@ function parseTokenRecord(
     path: options.path,
   });
   if (!entries.ok) {
-    options.collector.addMany(entries.issues as readonly ColorTokenGraphIssue[]);
+    options.collector.addMany(entries.issues as readonly TokenGraphIssue[]);
     return;
   }
 
@@ -857,9 +840,8 @@ function parseGraphLayer(
   input: unknown,
   index: number,
   options: {
-    readonly context: ParseContext;
     readonly modes: readonly string[];
-    readonly collector: IssueCollector<ColorTokenGraphIssue>;
+    readonly collector: IssueCollector<TokenGraphIssue>;
     readonly declarations: Map<string, TokenDeclaration>;
     readonly layerIds: Map<string, string>;
   },
@@ -871,13 +853,13 @@ function parseGraphLayer(
     path,
   });
   if (!entries.ok) {
-    options.collector.addMany(entries.issues as readonly ColorTokenGraphIssue[]);
+    options.collector.addMany(entries.issues as readonly TokenGraphIssue[]);
     return;
   }
   rejectUnknownKeys(entries.value, layerKeys, path, options.collector);
 
   const record = new Map(entries.value.map((entry) => [entry.key, entry.value]));
-  parseKind(record.get("kind"), colorTokenLayerKind, `${path}/kind`, options.collector);
+  parseKind(record.get("kind"), tokenLayerKind, `${path}/kind`, options.collector);
   if (record.get("formatVersion") !== 1) {
     options.collector.add({
       code: record.has("formatVersion") ? "invalid-format-version" : "missing-property",
@@ -935,7 +917,7 @@ function parseGraphLayer(
       path: `${path}/tokens`,
       modes: options.modes,
       defaultVisibility,
-      originForKey: () => layerOrigin(layerId, options.context),
+      originForKey: () => ({ kind: "layer", id: layerId }),
       collector: options.collector,
       declarations: options.declarations,
       firstTokenPaths: layerTokenPaths,
@@ -951,7 +933,7 @@ function parseGraphTokenDefinition(
     readonly modes: readonly string[];
     readonly defaultVisibility: TokenVisibility;
     readonly origin: TokenOrigin;
-    readonly collector: IssueCollector<ColorTokenGraphIssue>;
+    readonly collector: IssueCollector<TokenGraphIssue>;
   },
 ): ParsedToken | undefined {
   const entries = readPlainRecord(input, {
@@ -960,7 +942,7 @@ function parseGraphTokenDefinition(
     path: options.path,
   });
   if (!entries.ok) {
-    options.collector.addMany(entries.issues as readonly ColorTokenGraphIssue[]);
+    options.collector.addMany(entries.issues as readonly TokenGraphIssue[]);
     return undefined;
   }
   rejectUnknownKeys(entries.value, tokenKeys, options.path, options.collector);
@@ -1002,7 +984,7 @@ function parseGraphTokenDefinition(
     return undefined;
   }
 
-  const valueByMode: Record<string, ParsedColorExpression> = {};
+  const valueByMode: Record<string, ParsedTokenExpression> = {};
   const expressionPathsByMode: Record<string, string> = {};
   if (hasValue) {
     const expression = parseExpression(
@@ -1042,7 +1024,7 @@ function parseGraphTokenDefinition(
 function parseDefinitionMetadata(
   record: ReadonlyMap<string, unknown>,
   path: string,
-  collector: IssueCollector<ColorTokenGraphIssue>,
+  collector: IssueCollector<TokenGraphIssue>,
 ): Pick<ParsedToken, "description" | "deprecated" | "extensions"> {
   const output: {
     description?: string;
@@ -1086,7 +1068,7 @@ function parseDefinitionMetadata(
       path: `${path}/extensions`,
     });
     if (!extensionEntries.ok) {
-      collector.addMany(extensionEntries.issues as readonly ColorTokenGraphIssue[]);
+      collector.addMany(extensionEntries.issues as readonly TokenGraphIssue[]);
     } else {
       const copied: Record<string, JsonValue> = {};
       for (const entry of extensionEntries.value) {
@@ -1098,7 +1080,7 @@ function parseDefinitionMetadata(
         if (value.ok) {
           defineRecordValue(copied, entry.key, value.value);
         } else {
-          collector.addMany(value.issues as readonly ColorTokenGraphIssue[]);
+          collector.addMany(value.issues as readonly TokenGraphIssue[]);
         }
       }
       output.extensions = sortedRecord(Object.entries(copied));
@@ -1114,8 +1096,8 @@ function parseValueByMode(
     readonly path: string;
     readonly key: string;
     readonly modes: readonly string[];
-    readonly collector: IssueCollector<ColorTokenGraphIssue>;
-    readonly output: Record<string, ParsedColorExpression>;
+    readonly collector: IssueCollector<TokenGraphIssue>;
+    readonly output: Record<string, ParsedTokenExpression>;
     readonly expressionPathsByMode: Record<string, string>;
   },
 ): void {
@@ -1125,7 +1107,7 @@ function parseValueByMode(
     path: options.path,
   });
   if (!entries.ok) {
-    options.collector.addMany(entries.issues as readonly ColorTokenGraphIssue[]);
+    options.collector.addMany(entries.issues as readonly TokenGraphIssue[]);
     return;
   }
 
@@ -1167,8 +1149,8 @@ function parseValueByMode(
 function parseExpression(
   input: unknown,
   path: string,
-  collector: IssueCollector<ColorTokenGraphIssue>,
-): ParsedColorExpression | undefined {
+  collector: IssueCollector<TokenGraphIssue>,
+): ParsedTokenExpression | undefined {
   if (isReferenceInput(input)) {
     const entries = readPlainRecord(input, {
       code: "invalid-reference",
@@ -1176,7 +1158,7 @@ function parseExpression(
       path,
     });
     if (!entries.ok) {
-      collector.addMany(entries.issues as readonly ColorTokenGraphIssue[]);
+      collector.addMany(entries.issues as readonly TokenGraphIssue[]);
       return undefined;
     }
     const record = new Map(entries.value.map((entry) => [entry.key, entry.value]));
@@ -1200,7 +1182,7 @@ function parseExpression(
   }
   collector.add({
     code: "invalid-token-value",
-    message: "Token values must be authored CSS color strings or explicit references.",
+    message: "Token values must be authored CSS strings or explicit references.",
     path,
   });
   return undefined;
@@ -1209,7 +1191,7 @@ function parseExpression(
 function validateReferences(
   tokens: ReadonlyMap<string, ParsedToken>,
   modes: readonly string[],
-  collector: IssueCollector<ColorTokenGraphIssue>,
+  collector: IssueCollector<TokenGraphIssue>,
 ): void {
   for (const [key, token] of tokens) {
     for (const mode of modes) {
@@ -1235,7 +1217,7 @@ function validateReferences(
 function validateCycles(
   tokens: ReadonlyMap<string, ParsedToken>,
   modes: readonly string[],
-  collector: IssueCollector<ColorTokenGraphIssue>,
+  collector: IssueCollector<TokenGraphIssue>,
 ): void {
   const cycleKeys = new Set<string>();
   const tokenKeys = [...tokens.keys()].sort(compareCodeUnits);
@@ -1297,7 +1279,7 @@ function parseKind(
   input: unknown,
   expected: string,
   path: string,
-  collector: IssueCollector<ColorTokenGraphIssue>,
+  collector: IssueCollector<TokenGraphIssue>,
 ): void {
   if (input === expected) {
     return;
@@ -1312,7 +1294,7 @@ function parseKind(
 function parseLayerId(
   input: unknown,
   path: string,
-  collector: IssueCollector<ColorTokenGraphIssue>,
+  collector: IssueCollector<TokenGraphIssue>,
 ): string | undefined {
   const layerId = typeof input === "string" && isSingleSegmentIdentifier(input) ? input : undefined;
   if (layerId === undefined) {
@@ -1343,7 +1325,7 @@ function rejectUnknownKeys(
   entries: readonly { readonly key: string }[],
   allowed: ReadonlySet<string>,
   path: string,
-  collector: IssueCollector<ColorTokenGraphIssue>,
+  collector: IssueCollector<TokenGraphIssue>,
 ): void {
   for (const entry of entries) {
     if (allowed.has(entry.key)) {
@@ -1367,23 +1349,7 @@ function canonicalizeModes(
   ] as readonly [string, ...string[]];
 }
 
-function directOrigin(context: ParseContext, tokenKey: string): TokenOrigin {
-  const sourceId = context.tokenSourceIds?.get(tokenKey) ?? context.sourceId;
-  return sourceId === undefined ? { kind: "graph" } : { kind: "source", id: sourceId };
-}
-
-function layerOrigin(layerId: string, context: ParseContext): TokenOrigin {
-  const sourceId = context.layerSourceIds?.get(layerId);
-  if (sourceId !== undefined) {
-    return { kind: "source", id: sourceId };
-  }
-  if (context.sourceId !== undefined && !context.callerLayerIds?.has(layerId)) {
-    return { kind: "source", id: context.sourceId };
-  }
-  return { kind: "layer", id: layerId };
-}
-
-function cloneExpression(expression: ParsedColorExpression): ParsedColorExpression {
+function cloneExpression(expression: ParsedTokenExpression): ParsedTokenExpression {
   return isReferenceExpression(expression) ? { ref: expression.ref } : expression;
 }
 
@@ -1398,7 +1364,7 @@ function toPublicToken(token: ParsedToken): ParsedTokenGraphToken {
   };
 }
 
-function isReferenceExpression(expression: ParsedColorExpression): expression is ReferenceInput {
+function isReferenceExpression(expression: ParsedTokenExpression): expression is ReferenceInput {
   return typeof expression === "object" && expression !== null && "ref" in expression;
 }
 
@@ -1407,8 +1373,8 @@ function escapeTokenPath(key: string): string {
 }
 
 function fail(
-  issues: readonly [ColorTokenGraphIssue, ...ColorTokenGraphIssue[]] | undefined,
-): Result<never, ColorTokenGraphIssue> {
+  issues: readonly [TokenGraphIssue, ...TokenGraphIssue[]] | undefined,
+): FailureResult<TokenGraphIssue> {
   return {
     ok: false,
     issues: issues ?? [

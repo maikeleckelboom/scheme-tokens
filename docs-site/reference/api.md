@@ -1,99 +1,52 @@
-# API Reference
+# API
 
-The root API is the graph/compiler/exporter surface.
+## Runtime Exports
 
-## Authoring
+| Export                    | Purpose                                      |
+| ------------------------- | -------------------------------------------- |
+| `defineTokens`            | Define the ordinary token graph path.        |
+| `defineTokenGraph`        | Define an explicit graph artifact.           |
+| `defineTokenLayer`        | Define a reusable layer artifact.            |
+| `tokenRef`                | Create an explicit token reference.          |
+| `parseTokenGraph`         | Parse a strict token graph artifact.         |
+| `parseTokenLayer`         | Parse a strict token layer artifact.         |
+| `compileTokenGraph`       | Compile a graph into a `CompiledScheme`.     |
+| `parseCompiledScheme`     | Parse a strict compiled scheme artifact.     |
+| `serializeTokenGraph`     | Deterministically serialize a graph.         |
+| `serializeTokenLayer`     | Deterministically serialize a layer.         |
+| `serializeCompiledScheme` | Deterministically serialize compiled output. |
+| `exportCssVars`           | Export CSS custom properties.                |
 
-| API                | Use                                |
-| ------------------ | ---------------------------------- |
-| `defineTokens`     | Define a simple token record.      |
-| `defineTokenGraph` | Define full graph-shaped input.    |
-| `defineTokenLayer` | Define an ordered overlay layer.   |
-| `tokenRef`         | Build an explicit token reference. |
+## Result Shapes
 
-## Compile and Build
-
-| API                   | Use                             |
-| --------------------- | ------------------------------- |
-| `compileTokenGraph`   | Validate and resolve a graph.   |
-| `buildScheme`         | Run source adapters and layers. |
-| `createSchemeBuilder` | Reuse the same build options.   |
-
-## Export and Serialize
-
-| API                       | Use                                    |
-| ------------------------- | -------------------------------------- |
-| `exportCssVars`           | Export CSS custom properties.          |
-| `serializeCompiledScheme` | Write deterministic compiled JSON.     |
-| `serializeTokenGraph`     | Write deterministic strict graph JSON. |
-| `serializeTokenLayer`     | Write deterministic strict layer JSON. |
-
-## Parse Strict Artifacts
-
-| API                   | Use                            |
-| --------------------- | ------------------------------ |
-| `parseCompiledScheme` | Validate loaded compiled JSON. |
-| `parseTokenGraph`     | Validate loaded graph JSON.    |
-| `parseTokenLayer`     | Validate loaded layer JSON.    |
-
-## Checked Example
-
-```ts
-import {
-  compileTokenGraph,
-  defineTokenGraph,
-  defineTokenLayer,
-  defineTokens,
-  exportCssVars,
-  parseCompiledScheme,
-  parseTokenGraph,
-  parseTokenLayer,
-  serializeCompiledScheme,
-  serializeTokenGraph,
-  serializeTokenLayer,
-} from "scheme-tokens";
-
-const simpleGraph = defineTokens({
-  "brand.primary": "#6750a4",
-});
-
-const graph = defineTokenGraph({
-  tokens: {
-    "brand.primary": {
-      value: "#6750a4",
-      visibility: "internal",
-    },
-  },
-  aliases: {
-    primary: "brand.primary",
-  },
-});
-
-const layer = defineTokenLayer({
-  id: "brand",
-  tokens: {
-    primary: "#6750a4",
-  },
-});
-
+```text
 const compiled = compileTokenGraph(graph);
-if (!compiled.ok) {
-  throw new Error(JSON.stringify(compiled.issues, null, 2));
+
+if (compiled.ok) {
+  compiled.scheme.tokens.background.base;
 }
 
-const cssExport = exportCssVars(compiled.value);
-if (!cssExport.ok) {
-  throw new Error(JSON.stringify(cssExport.issues, null, 2));
+const parsed = parseTokenGraph(graph);
+
+if (parsed.ok) {
+  parsed.graph.tokens.background;
 }
-
-const compiledJson = serializeCompiledScheme(compiled.value);
-const graphJson = serializeTokenGraph(simpleGraph);
-const layerJson = serializeTokenLayer(layer);
-const parsedCompiled = parseCompiledScheme(JSON.parse(compiledJson));
-const parsedGraph = parseTokenGraph(JSON.parse(graphJson));
-const parsedLayer = parseTokenLayer(JSON.parse(layerJson));
-
-export { cssExport, parsedCompiled, parsedGraph, parsedLayer };
 ```
 
-Root has no public CSS color parsing or formatting API. Token values are strings in the root contract.
+`exportCssVars()` returns direct fields on success:
+
+```text
+const cssExport = compiled.ok ? exportCssVars(compiled.scheme) : undefined;
+
+if (cssExport?.ok) {
+  cssExport.css;
+  cssExport.blocks;
+  cssExport.variableByToken;
+}
+```
+
+## Schemas
+
+- `scheme-tokens/schemas/token-graph.v1.schema.json`
+- `scheme-tokens/schemas/token-layer.v1.schema.json`
+- `scheme-tokens/schemas/compiled-scheme.v1.schema.json`

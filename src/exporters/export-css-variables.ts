@@ -1,8 +1,8 @@
-import type { CompiledColorScheme, ParseCompiledSchemeIssue } from "../core/compiled-types";
+import type { CompiledScheme, ParseCompiledSchemeIssue } from "../core/compiled-types";
 import { isClassPrefix, isDataAttributeName, isSingleSegmentIdentifier } from "../core/identifiers";
 import { compareCodeUnits, escapePointerSegment, readPlainRecord } from "../core/json";
-import { parseCompiledScheme } from "../core/parse-compiled-scheme";
-import type { Issue, Result } from "../core/result";
+import { parseCompiledSchemeInternal } from "../core/parse-compiled-scheme";
+import type { FailureResult, Issue, Result } from "../core/result";
 import { describeUnknown } from "../core/unknown-description";
 import { isAppendSafeCssSelector, isValidCssSelector } from "./selector-validation";
 
@@ -85,19 +85,36 @@ export type ExportCssVarsIssue =
       readonly selector?: string;
     });
 
-export function exportCssVars<const Scheme extends CompiledColorScheme>(
+export type ExportCssVarsResult<Key extends string = string> =
+  | ({
+      readonly ok: true;
+    } & CssVarsExport<Key>)
+  | FailureResult<ExportCssVarsIssue>;
+
+type ExportCssVarsOptionsFor<Scheme extends CompiledScheme> = ExportCssVarsOptions<
+  Extract<keyof Scheme["tokens"], string>
+>;
+
+type ExportedCssVars<Scheme extends CompiledScheme> = ExportCssVarsResult<
+  Extract<keyof Scheme["tokens"], string>
+>;
+
+/**
+ * Export a compiled scheme as deterministic CSS custom properties.
+ */
+export function exportCssVars<const Scheme extends CompiledScheme>(
   scheme: Scheme,
-  options?: ExportCssVarsOptions<Extract<keyof Scheme["tokens"], string>>,
-): Result<CssVarsExport<Extract<keyof Scheme["tokens"], string>>, ExportCssVarsIssue>;
+  options?: ExportCssVarsOptionsFor<Scheme>,
+): ExportedCssVars<Scheme>;
 export function exportCssVars(
-  scheme: CompiledColorScheme,
+  scheme: CompiledScheme,
   options?: ExportCssVarsOptions,
-): Result<CssVarsExport, ExportCssVarsIssue>;
+): ExportCssVarsResult;
 export function exportCssVars(
-  scheme: CompiledColorScheme,
+  scheme: CompiledScheme,
   options?: ExportCssVarsOptions,
-): Result<CssVarsExport, ExportCssVarsIssue> {
-  const parsedScheme = parseCompiledScheme(scheme);
+): ExportCssVarsResult {
+  const parsedScheme = parseCompiledSchemeInternal(scheme);
   if (!parsedScheme.ok) {
     return parsedScheme;
   }
@@ -119,16 +136,14 @@ export function exportCssVars(
 
   return {
     ok: true,
-    value: {
-      css: formatBlocks(blocks.value, parsed.value.compact),
-      blocks: blocks.value,
-      variableByToken: variables.value,
-    },
+    css: formatBlocks(blocks.value, parsed.value.compact),
+    blocks: blocks.value,
+    variableByToken: variables.value,
   };
 }
 
 function buildVariableMap(
-  scheme: CompiledColorScheme,
+  scheme: CompiledScheme,
   options: ParsedCssOptions,
 ): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
   const tokenKeys = Object.keys(scheme.tokens).sort(compareCodeUnits);
@@ -193,7 +208,7 @@ function buildVariableMap(
 }
 
 function buildCssVarBlocks(
-  scheme: CompiledColorScheme,
+  scheme: CompiledScheme,
   options: ParsedCssOptions,
   variableByToken: Readonly<Record<string, string>>,
 ): Result<readonly CssVarBlock[], ExportCssVarsIssue> {
@@ -218,18 +233,18 @@ function buildCssVarBlocks(
     for (const key of tokenKeys) {
       const token = scheme.tokens[key];
       const property = variableByToken[key];
-      const value = token?.valueByMode[mode];
+      const value = token?.[mode];
       if (token === undefined || property === undefined || value === undefined) {
         return {
           ok: false,
           issues: [
             {
               code: "invalid-object",
-              message: "Compiled color scheme is missing a parsed token value.",
+              message: "Compiled scheme is missing a parsed token value.",
               path:
                 token === undefined
                   ? `/tokens/${escapePointerSegment(key)}`
-                  : `/tokens/${escapePointerSegment(key)}/valueByMode/${escapePointerSegment(mode)}`,
+                  : `/tokens/${escapePointerSegment(key)}/${escapePointerSegment(mode)}`,
             },
           ],
         };
@@ -274,7 +289,7 @@ interface ParsedCssOptions {
 }
 
 function parseOptions(
-  scheme: CompiledColorScheme,
+  scheme: CompiledScheme,
   options: ExportCssVarsOptions | undefined,
 ): Result<ParsedCssOptions, ExportCssVarsIssue> {
   const entries =
@@ -357,13 +372,13 @@ function parseOptions(
 }
 
 function parseSelectors(
-  scheme: CompiledColorScheme,
+  scheme: CompiledScheme,
   scopeInput: unknown,
   modeSelectorsInput: unknown,
 ): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
   const modeSelector = modeSelectorsInput ?? {
     strategy: "data-attribute",
-    attribute: "data-color-scheme",
+    attribute: "data-scheme",
   };
   const selectorStrategy = readPlainRecord(modeSelector, {
     code: "invalid-mode-selectors",
@@ -536,7 +551,7 @@ function parseScope(input: unknown): Result<string, ExportCssVarsIssue> {
 }
 
 function parseExactSelectors(
-  scheme: CompiledColorScheme,
+  scheme: CompiledScheme,
   input: unknown,
 ): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
   const entries = readPlainRecord(input, {
@@ -591,7 +606,7 @@ function parseExactSelectors(
 }
 
 function generatedSelectors(
-  scheme: CompiledColorScheme,
+  scheme: CompiledScheme,
   selectorForMode: (mode: string) => string,
   defaultSelector: string,
 ): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {

@@ -1,5 +1,5 @@
 {
-  "kind": "scheme-tokens/color-token-graph",
+  "kind": "scheme-tokens/token-graph",
   "formatVersion": 1,
   "modes": ["light", "dark"],
   "defaultMode": "light",

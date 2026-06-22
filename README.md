@@ -1,17 +1,12 @@
 # scheme-tokens
 
-Small color token graphs for TypeScript apps.
+Small token graph compiler for TypeScript apps.
 
-Use `scheme-tokens` when one canonical token model should produce deterministic CSS custom properties while still being
-available as typed TypeScript data. The root package is not a CSS color utility, styling framework, theme runtime, or
-target-framework generator.
-
-Authored color values are opaque CSS color strings. Root preserves them, emits them, and serializes them. It does not
-parse, normalize, convert, format, gamut-map, or validate CSS color correctness.
+`scheme-tokens` owns authored token graphs, compiled token artifacts, diagnostics, deterministic serialization, and CSS variable export. It does not own palette generation, color science, image extraction, vendor engines, or design-system expansion.
 
 ## Install
 
-```bash
+```sh
 pnpm add scheme-tokens
 ```
 
@@ -21,222 +16,124 @@ pnpm add scheme-tokens
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
 
 const graph = defineTokens({
-  background: "#ffffff",
-  foreground: "#111111",
-  primary: "#6750a4",
-  "primary-foreground": "#ffffff",
+  background: {
+    base: "#ffffff",
+    dark: "#111111",
+  },
+  foreground: {
+    base: "#111111",
+    dark: "#ffffff",
+  },
 });
 
 const compiled = compileTokenGraph(graph);
+
 if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const cssExport = exportCssVars(compiled.value);
+const background = compiled.scheme.tokens.background.base;
+
+const cssExport = exportCssVars(compiled.scheme);
+
 if (!cssExport.ok) {
   throw new Error(JSON.stringify(cssExport.issues, null, 2));
 }
 
-const stylesheet = cssExport.value.css;
-
-export { stylesheet };
+const stylesheet = cssExport.css;
 ```
 
-The stylesheet is deterministic:
+Compiled tokens are plain mode maps:
 
-```css
-:root {
-  --background: #ffffff;
-  --foreground: #111111;
-  --primary: #6750a4;
-  --primary-foreground: #ffffff;
+```text
+const baseBackground = compiled.scheme.tokens.background.base;
+const darkBackground = compiled.scheme.tokens.background.dark;
+```
+
+Advanced compiled metadata lives outside the token value map:
+
+```text
+const dependencies = compiled.scheme.metadataByToken.background.dependenciesByMode.dark;
+```
+
+## References
+
+Bare strings are literal CSS-ready token values. References are explicit.
+
+```ts
+import { compileTokenGraph, defineTokens, tokenRef } from "scheme-tokens";
+
+const graph = defineTokens({
+  "brand.primary": {
+    value: "#6750a4",
+    visibility: "internal",
+  },
+  primary: tokenRef("brand.primary"),
+  literal: "brand.primary",
+});
+
+const compiled = compileTokenGraph(graph, { selection: "all" });
+```
+
+`primary` resolves through a reference. `literal` remains the literal string `"brand.primary"`.
+
+## Strict Artifacts
+
+The authoring helpers accept ergonomic input and return strict graph artifacts. Persisted graph and layer data stays explicit:
+
+```ts
+import { parseTokenGraph } from "scheme-tokens";
+
+const parsed = parseTokenGraph({
+  kind: "scheme-tokens/token-graph",
+  formatVersion: 1,
+  modes: ["base"],
+  defaultMode: "base",
+  defaultVisibility: "public",
+  tokens: {
+    background: { value: "#ffffff" },
+  },
+});
+
+if (parsed.ok) {
+  parsed.graph.tokens.background.value;
 }
 ```
 
-Use those variables in app CSS:
+Published schemas:
 
-```css
-.page {
-  background: var(--background);
-  color: var(--foreground);
-}
+- `scheme-tokens/schemas/token-graph.v1.schema.json`
+- `scheme-tokens/schemas/token-layer.v1.schema.json`
+- `scheme-tokens/schemas/compiled-scheme.v1.schema.json`
 
-.button {
-  background: var(--primary);
-  color: var(--primary-foreground);
-}
-```
+## External Generators
 
-## Typed Access
-
-Compilation returns typed token data before any CSS is rendered:
+External generators can produce ordinary authored tokens or strict token graphs, then hand that data to `scheme-tokens`.
 
 ```ts
 import { compileTokenGraph, defineTokens } from "scheme-tokens";
 
+declare function generatePalette(seed: string): {
+  primary: string;
+  onPrimary: string;
+};
+
+const palette = generatePalette("#6750a4");
+
 const graph = defineTokens({
-  background: "#ffffff",
-  foreground: "#111111",
+  primary: palette.primary,
+  "primary-foreground": palette.onPrimary,
 });
 
 const compiled = compileTokenGraph(graph);
-if (!compiled.ok) {
-  throw new Error(JSON.stringify(compiled.issues, null, 2));
-}
-
-const background = compiled.value.tokens.background.valueByMode.base;
-
-export { background };
 ```
 
-`background` is the authored string `"#ffffff"`. Root does not reinterpret it.
+The generator is userland code. The root package does not ship a Material package, source abstraction, plugin registry, or color engine.
 
-## Light and Dark
-
-```ts
-import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
-
-const graph = defineTokens(
-  {
-    background: {
-      light: "#ffffff",
-      dark: "#141218",
-    },
-    foreground: {
-      light: "#111111",
-      dark: "#f5eff7",
-    },
-  },
-  {
-    modes: ["light", "dark"],
-    defaultMode: "light",
-  },
-);
-
-const compiled = compileTokenGraph(graph);
-if (!compiled.ok) {
-  throw new Error(JSON.stringify(compiled.issues, null, 2));
-}
-
-const cssExport = exportCssVars(compiled.value);
-if (!cssExport.ok) {
-  throw new Error(JSON.stringify(cssExport.issues, null, 2));
-}
-
-const stylesheet = cssExport.value.css;
-
-export { stylesheet };
-```
-
-The default CSS export uses `:root` for the default mode and `:root[data-color-scheme="dark"]` for the dark mode.
-
-## Explicit Graphs
-
-Use `defineTokenGraph()` when a graph needs metadata, internal implementation tokens, or aliases:
-
-```ts
-import { compileTokenGraph, defineTokenGraph } from "scheme-tokens";
-
-const graph = defineTokenGraph({
-  tokens: {
-    "brand.primary": {
-      value: "#6750a4",
-      visibility: "internal",
-    },
-  },
-  aliases: {
-    primary: "brand.primary",
-  },
-});
-
-const compiled = compileTokenGraph(graph);
-
-export { compiled };
-```
-
-Bare strings are always color values. They are not treated as references based on spelling. Use `aliases`,
-`tokenRef("other.token")`, or `{ ref: "other.token" }` for references.
-
-## CSS Export
-
-`exportCssVars()` returns one `Result` with:
-
-- `css`: the stylesheet string;
-- `blocks`: ordered structured declarations for previews or custom renderers;
-- `variableByToken`: token key to CSS custom-property lookup.
-
-Pass `prefix: "theme"` when the emitted custom properties need a namespace such as `--theme-background`. Omit `prefix`
-for direct names such as `--background`.
-
-## Material 3 Adapter
-
-Material 3 support lives in `@scheme-tokens/material3`, not the root package.
-
-```bash
-pnpm add scheme-tokens @scheme-tokens/material3
-```
-
-```ts
-import { buildScheme, defineTokenLayer, exportCssVars } from "scheme-tokens";
-import { material3 } from "@scheme-tokens/material3";
-
-const app = defineTokenLayer<"light" | "dark">({
-  id: "app",
-  aliases: {
-    "app.background": "material3.surface",
-    "app.foreground": "material3.on-surface",
-    "app.primary": "material3.primary",
-    "app.primary-foreground": "material3.on-primary",
-  },
-});
-
-const built = buildScheme(material3("#6750a4"), { layers: [app] });
-if (!built.ok) {
-  throw new Error(JSON.stringify(built.issues, null, 2));
-}
-
-const cssExport = exportCssVars(built.value);
-if (!cssExport.ok) {
-  throw new Error(JSON.stringify(cssExport.issues, null, 2));
-}
-
-const stylesheet = cssExport.value.css;
-
-export { stylesheet };
-```
-
-The adapter accepts strict `#rrggbb` source colors and emits generated Material token values as CSS strings. The root
-package does not parse source colors for the adapter and does not load the Material engine.
-
-## Strict Artifacts
-
-`parseTokenGraph()`, `parseTokenLayer()`, and `parseCompiledScheme()` validate strict persisted artifacts. The strict
-formats use `kind`, `formatVersion`, modes, token records, and string values. Helper shorthand belongs at authoring
-boundaries through `defineTokens()`, `defineTokenGraph()`, and `defineTokenLayer()`.
-
-`serializeTokenGraph()`, `serializeTokenLayer()`, and `serializeCompiledScheme()` produce deterministic JSON for those
-strict shapes.
-
-## Deliberate Non-Goals
-
-The root package deliberately does not:
-
-- parse CSS color grammar;
-- normalize color strings;
-- convert between color spaces;
-- validate browser color support;
-- generate palettes;
-- repair contrast;
-- emit framework-specific scaffolds;
-- load optional engines from root imports.
-
-Future color conversion or projection belongs in optional adapter packages such as `@scheme-tokens/texel`.
-
-## More Docs
+## Documentation
 
 - [Public API](./docs/public-api.md)
-- [Diagnostics](./docs/diagnostics.md)
 - [Architecture](./docs/architecture.md)
-- [Color policy](./docs/color-policy.md)
+- [Diagnostics](./docs/diagnostics.md)
 - [Roadmap](./docs/roadmap.md)
-- [`@scheme-tokens/material3`](./packages/material3/README.md)
+- [Semver](./docs/semver.md)
