@@ -3,9 +3,14 @@ import type {
   CompiledToken,
   CompiledTokenMetadata,
   ParseCompiledSchemeIssue,
-  ParseCompiledSchemeResult,
 } from "./compiled-types";
-import { compiledSchemeKind, type TokenOrigin, type TokenVisibility } from "./graph";
+import {
+  compiledSchemeKind,
+  compiledSchemeSchemaUrl,
+  isModeKey,
+  type TokenOrigin,
+  type TokenVisibility,
+} from "./graph";
 import { isSingleSegmentIdentifier, isTokenKey } from "./identifiers";
 import {
   compareCodeUnits,
@@ -20,6 +25,7 @@ import type { JsonValue } from "./json";
 import { IssueCollector, type Result } from "./result";
 
 const topLevelKeys = new Set([
+  "$schema",
   "kind",
   "formatVersion",
   "modes",
@@ -36,14 +42,15 @@ const metadataKeys = new Set([
   "extensions",
 ]);
 
-export function parseCompiledScheme(input: unknown): ParseCompiledSchemeResult {
-  const parsed = parseCompiledSchemeInternal(input);
-  return parsed.ok ? { ok: true, scheme: parsed.value } : parsed;
+export function parseCompiledScheme(
+  input: unknown,
+): Result<CompiledScheme<string, string, false>, ParseCompiledSchemeIssue> {
+  return parseCompiledSchemeInternal(input);
 }
 
 export function parseCompiledSchemeInternal(
   input: unknown,
-): Result<CompiledScheme, ParseCompiledSchemeIssue> {
+): Result<CompiledScheme<string, string, false>, ParseCompiledSchemeIssue> {
   const collector = new IssueCollector<ParseCompiledSchemeIssue>();
   const top = readPlainRecord(input, {
     code: "invalid-object",
@@ -61,6 +68,15 @@ export function parseCompiledSchemeInternal(
       code: record.has("formatVersion") ? "invalid-format-version" : "missing-property",
       message: "Compiled scheme formatVersion must be numeric 1.",
       path: pointer("formatVersion"),
+    });
+  }
+
+  const schema = record.get("$schema");
+  if (schema !== undefined && schema !== compiledSchemeSchemaUrl) {
+    collector.add({
+      code: "invalid-schema-uri",
+      message: `$schema must be ${compiledSchemeSchemaUrl}.`,
+      path: pointer("$schema"),
     });
   }
 
@@ -102,6 +118,7 @@ export function parseCompiledSchemeInternal(
   return {
     ok: true,
     value: {
+      ...(schema === compiledSchemeSchemaUrl ? { $schema: schema } : {}),
       kind: compiledSchemeKind,
       formatVersion: 1,
       modes: canonicalModes as readonly [string, ...string[]],
@@ -152,10 +169,10 @@ function parseModes(
   const seen = new Set<string>();
   for (const entry of array.value) {
     const value = entry.value;
-    if (typeof value !== "string" || !isSingleSegmentIdentifier(value)) {
+    if (typeof value !== "string" || !isModeKey(value)) {
       collector.add({
         code: "invalid-mode-key",
-        message: "Mode identifiers must be lower-kebab single segments.",
+        message: "Mode identifiers must be unreserved lower-kebab single segments.",
         path: pointer("modes", entry.index),
         ...(typeof value === "string" ? { mode: value } : {}),
       });
@@ -222,6 +239,13 @@ function parseTokens(
   if (!entries.ok) {
     collector.addMany(entries.issues as readonly ParseCompiledSchemeIssue[]);
     return undefined;
+  }
+  if (entries.value.length === 0) {
+    collector.add({
+      code: "invalid-object",
+      message: "tokens must contain at least one compiled token.",
+      path: pointer("tokens"),
+    });
   }
   const tokens: Record<string, CompiledToken> = {};
   for (const entry of entries.value) {
@@ -319,6 +343,13 @@ function parseMetadataByToken(
   if (!entries.ok) {
     collector.addMany(entries.issues as readonly ParseCompiledSchemeIssue[]);
     return undefined;
+  }
+  if (entries.value.length === 0) {
+    collector.add({
+      code: "invalid-object",
+      message: "metadataByToken must contain at least one token metadata record.",
+      path: pointer("metadataByToken"),
+    });
   }
 
   const expected = tokenKeys === undefined ? undefined : new Set(tokenKeys);
@@ -495,6 +526,7 @@ function parseDependenciesByMode(
       continue;
     }
     const dependencies: string[] = [];
+    const seenDependencies = new Set<string>();
     for (const dependencyEntry of dependenciesInput.value) {
       const dependency = dependencyEntry.value;
       if (typeof dependency !== "string" || !isTokenKey(dependency)) {
@@ -506,6 +538,16 @@ function parseDependenciesByMode(
         });
         continue;
       }
+      if (seenDependencies.has(dependency)) {
+        collector.add({
+          code: "invalid-dependencies",
+          message: `Duplicate dependency: ${dependency}.`,
+          path: `${valuePath}/${dependencyEntry.index}`,
+          key: dependency,
+        });
+        continue;
+      }
+      seenDependencies.add(dependency);
       dependencies.push(dependency);
     }
     defineRecordValue(output, entry.key, [...dependencies].sort(compareCodeUnits));

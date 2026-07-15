@@ -17,7 +17,6 @@ describe("package boundary", () => {
   test("root runtime exports are exact", () => {
     expect(Object.keys(root).sort()).toEqual([
       "compileTokenGraph",
-      "compiledSchemeKind",
       "defineTokenGraph",
       "defineTokenLayer",
       "defineTokens",
@@ -28,8 +27,6 @@ describe("package boundary", () => {
       "serializeCompiledScheme",
       "serializeTokenGraph",
       "serializeTokenLayer",
-      "tokenGraphKind",
-      "tokenLayerKind",
       "tokenRef",
     ]);
     expect(root).not.toHaveProperty(`defineToken${"Frag"}${"ment"}`);
@@ -78,6 +75,7 @@ describe("package boundary", () => {
     expect(sourceText).not.toContain("keyColors");
     expect(sourceText).not.toContain("@texel/color");
     expect(sourceText).not.toContain("css-tree");
+    expect(sourceText).not.toContain("aliases:");
   });
 });
 

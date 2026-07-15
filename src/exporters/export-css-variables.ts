@@ -2,9 +2,13 @@ import type { CompiledScheme, ParseCompiledSchemeIssue } from "../core/compiled-
 import { isClassPrefix, isDataAttributeName, isSingleSegmentIdentifier } from "../core/identifiers";
 import { compareCodeUnits, escapePointerSegment, readPlainRecord } from "../core/json";
 import { parseCompiledSchemeInternal } from "../core/parse-compiled-scheme";
-import type { FailureResult, Issue, Result } from "../core/result";
+import type { Issue, Result } from "../core/result";
 import { describeUnknown } from "../core/unknown-description";
-import { isAppendSafeCssSelector, isValidCssSelector } from "./selector-validation";
+import {
+  isAppendSafeCssSelector,
+  isSafeCssDeclarationValue,
+  isValidCssSelector,
+} from "./selector-validation";
 
 export type CssScope =
   | {
@@ -15,7 +19,7 @@ export type CssScope =
       readonly selector: string;
     };
 
-export type CssModeSelectors =
+export type CssModeSelectors<Mode extends string = string> =
   | {
       readonly strategy: "data-attribute";
       readonly attribute: string;
@@ -26,21 +30,21 @@ export type CssModeSelectors =
     }
   | {
       readonly strategy: "selectors";
-      readonly selectors: Readonly<Record<string, string>>;
+      readonly selectors: Readonly<Record<Mode, string>>;
     };
 
-export interface CssVariableNameInput<Key extends string = string> {
+interface CssVariableNameInput<Key extends string = string> {
   readonly tokenKey: Key;
   readonly segments: readonly [string, ...string[]];
   readonly defaultName: string;
   readonly prefix?: string;
 }
 
-export interface ExportCssVarsOptions<Key extends string = string> {
+export interface ExportCssVarsOptions<Key extends string = string, Mode extends string = string> {
   readonly prefix?: string;
   readonly variableName?: (input: CssVariableNameInput<Key>) => string;
   readonly scope?: CssScope;
-  readonly modeSelectors?: CssModeSelectors;
+  readonly modeSelectors?: CssModeSelectors<Mode>;
   readonly format?: "pretty" | "compact";
 }
 
@@ -50,16 +54,24 @@ export interface CssVarDeclaration<Key extends string = string> {
   readonly value: string;
 }
 
-export interface CssVarBlock<Key extends string = string> {
-  readonly mode: string;
+export interface CssVarBlock<Key extends string = string, Mode extends string = string> {
+  readonly mode: Mode;
   readonly selector: string;
   readonly declarations: readonly CssVarDeclaration<Key>[];
 }
 
-export interface CssVarsExport<Key extends string = string> {
+type CssVariableMap<Key extends string, Complete extends boolean> = Complete extends true
+  ? Readonly<Record<Key, string>>
+  : Readonly<Partial<Record<Key, string>>>;
+
+export interface CssVarsExport<
+  Key extends string = string,
+  Mode extends string = string,
+  Complete extends boolean = true,
+> {
   readonly css: string;
-  readonly blocks: readonly CssVarBlock<Key>[];
-  readonly variableByToken: Readonly<Record<Key, string>>;
+  readonly blocks: readonly CssVarBlock<Key, Mode>[];
+  readonly variableByToken: CssVariableMap<Key, Complete>;
 }
 
 export type ExportCssVarsIssue =
@@ -68,6 +80,7 @@ export type ExportCssVarsIssue =
       | "invalid-css-options"
       | "invalid-css-prefix"
       | "invalid-css-variable"
+      | "invalid-css-value"
       | "duplicate-css-variable"
       | "invalid-scope"
       | "invalid-selector"
@@ -85,35 +98,33 @@ export type ExportCssVarsIssue =
       readonly selector?: string;
     });
 
-export type ExportCssVarsResult<Key extends string = string> =
-  | ({
-      readonly ok: true;
-    } & CssVarsExport<Key>)
-  | FailureResult<ExportCssVarsIssue>;
+type AnyCompiledScheme = CompiledScheme<string, string, boolean>;
+type SchemeKey<Scheme extends AnyCompiledScheme> = Extract<keyof Scheme["tokens"], string>;
+type SchemeMode<Scheme extends AnyCompiledScheme> = Extract<Scheme["modes"][number], string>;
+type SchemeCompleteness<Scheme extends AnyCompiledScheme> =
+  Scheme extends CompiledScheme<string, string, infer Complete> ? Complete : boolean;
 
-type ExportCssVarsOptionsFor<Scheme extends CompiledScheme> = ExportCssVarsOptions<
-  Extract<keyof Scheme["tokens"], string>
+type ExportCssVarsOptionsFor<Scheme extends AnyCompiledScheme> = ExportCssVarsOptions<
+  SchemeKey<Scheme>,
+  SchemeMode<Scheme>
 >;
 
-type ExportedCssVars<Scheme extends CompiledScheme> = ExportCssVarsResult<
-  Extract<keyof Scheme["tokens"], string>
+type ExportedCssVars<Scheme extends AnyCompiledScheme> = Result<
+  CssVarsExport<SchemeKey<Scheme>, SchemeMode<Scheme>, SchemeCompleteness<Scheme>>,
+  ExportCssVarsIssue
 >;
 
 /**
  * Export a compiled scheme as deterministic CSS custom properties.
  */
-export function exportCssVars<const Scheme extends CompiledScheme>(
+export function exportCssVars<const Scheme extends AnyCompiledScheme>(
   scheme: Scheme,
   options?: ExportCssVarsOptionsFor<Scheme>,
 ): ExportedCssVars<Scheme>;
 export function exportCssVars(
-  scheme: CompiledScheme,
-  options?: ExportCssVarsOptions,
-): ExportCssVarsResult;
-export function exportCssVars(
-  scheme: CompiledScheme,
-  options?: ExportCssVarsOptions,
-): ExportCssVarsResult {
+  scheme: AnyCompiledScheme,
+  options?: ExportCssVarsOptions<string, string>,
+): Result<CssVarsExport<string, string, boolean>, ExportCssVarsIssue> {
   const parsedScheme = parseCompiledSchemeInternal(scheme);
   if (!parsedScheme.ok) {
     return parsedScheme;
@@ -136,14 +147,16 @@ export function exportCssVars(
 
   return {
     ok: true,
-    css: formatBlocks(blocks.value, parsed.value.compact),
-    blocks: blocks.value,
-    variableByToken: variables.value,
+    value: {
+      css: formatBlocks(blocks.value, parsed.value.compact),
+      blocks: blocks.value,
+      variableByToken: variables.value,
+    },
   };
 }
 
 function buildVariableMap(
-  scheme: CompiledScheme,
+  scheme: AnyCompiledScheme,
   options: ParsedCssOptions,
 ): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
   const tokenKeys = Object.keys(scheme.tokens).sort(compareCodeUnits);
@@ -152,26 +165,27 @@ function buildVariableMap(
   for (const key of tokenKeys) {
     const segments = key.split(".") as [string, ...string[]];
     const defaultName = defaultCssVariableName(segments, options.prefix);
-    let property: unknown;
-    try {
-      property =
-        options.variableName?.({
+    let property: unknown = defaultName;
+    if (options.variableName !== undefined) {
+      try {
+        property = options.variableName({
           tokenKey: key,
           segments,
           defaultName,
           ...(options.prefix === undefined ? {} : { prefix: options.prefix }),
-        }) ?? defaultName;
-    } catch {
-      return {
-        ok: false,
-        issues: [
-          {
-            code: "invalid-css-variable",
-            message: "variableName must return a CSS custom property name.",
-            key,
-          },
-        ],
-      };
+        });
+      } catch {
+        return {
+          ok: false,
+          issues: [
+            {
+              code: "invalid-css-variable",
+              message: "variableName must return a CSS custom property name.",
+              key,
+            },
+          ],
+        };
+      }
     }
     if (typeof property !== "string" || !isSafeCssCustomPropertyName(property)) {
       return {
@@ -208,7 +222,7 @@ function buildVariableMap(
 }
 
 function buildCssVarBlocks(
-  scheme: CompiledScheme,
+  scheme: AnyCompiledScheme,
   options: ParsedCssOptions,
   variableByToken: Readonly<Record<string, string>>,
 ): Result<readonly CssVarBlock[], ExportCssVarsIssue> {
@@ -245,6 +259,20 @@ function buildCssVarBlocks(
                 token === undefined
                   ? `/tokens/${escapePointerSegment(key)}`
                   : `/tokens/${escapePointerSegment(key)}/${escapePointerSegment(mode)}`,
+            },
+          ],
+        };
+      }
+      if (!isSafeCssDeclarationValue(value)) {
+        return {
+          ok: false,
+          issues: [
+            {
+              code: "invalid-css-value",
+              message: "Compiled token value is not safe in a CSS declaration.",
+              path: `/tokens/${escapePointerSegment(key)}/${escapePointerSegment(mode)}`,
+              key,
+              mode,
             },
           ],
         };
@@ -289,7 +317,7 @@ interface ParsedCssOptions {
 }
 
 function parseOptions(
-  scheme: CompiledScheme,
+  scheme: AnyCompiledScheme,
   options: ExportCssVarsOptions | undefined,
 ): Result<ParsedCssOptions, ExportCssVarsIssue> {
   const entries =
@@ -320,10 +348,7 @@ function parseOptions(
 
   const record = new Map(entries.value.map((entry) => [entry.key, entry.value]));
   const prefix = record.get("prefix");
-  if (
-    prefix !== undefined &&
-    (typeof prefix !== "string" || (prefix !== "" && !isSingleSegmentIdentifier(prefix)))
-  ) {
+  if (prefix !== undefined && (typeof prefix !== "string" || !isSingleSegmentIdentifier(prefix))) {
     return {
       ok: false,
       issues: [
@@ -372,7 +397,7 @@ function parseOptions(
 }
 
 function parseSelectors(
-  scheme: CompiledScheme,
+  scheme: AnyCompiledScheme,
   scopeInput: unknown,
   modeSelectorsInput: unknown,
 ): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
@@ -551,7 +576,7 @@ function parseScope(input: unknown): Result<string, ExportCssVarsIssue> {
 }
 
 function parseExactSelectors(
-  scheme: CompiledScheme,
+  scheme: AnyCompiledScheme,
   input: unknown,
 ): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
   const entries = readPlainRecord(input, {
@@ -606,7 +631,7 @@ function parseExactSelectors(
 }
 
 function generatedSelectors(
-  scheme: CompiledScheme,
+  scheme: AnyCompiledScheme,
   selectorForMode: (mode: string) => string,
   defaultSelector: string,
 ): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
@@ -650,5 +675,5 @@ function defaultCssVariableName(
 }
 
 function isSafeCssCustomPropertyName(input: string): boolean {
-  return /^--[a-z][a-z0-9-]*(?:--[a-z][a-z0-9-]*)*$/.test(input);
+  return /^--[a-z][a-z0-9-]*(?:--[a-z0-9][a-z0-9-]*)*$/.test(input);
 }

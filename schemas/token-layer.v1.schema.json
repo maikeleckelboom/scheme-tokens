@@ -7,7 +7,7 @@
   "required": ["kind", "formatVersion", "id", "defaultVisibility", "tokens"],
   "properties": {
     "$schema": {
-      "type": "string"
+      "const": "https://scheme-tokens.dev/schemas/token-layer.v1.schema.json"
     },
     "kind": {
       "const": "scheme-tokens/token-layer"

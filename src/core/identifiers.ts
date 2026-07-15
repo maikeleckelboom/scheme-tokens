@@ -1,11 +1,17 @@
 const SEGMENT_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+const TOKEN_SEGMENT_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export function isIdentifierSegment(input: string): boolean {
   return SEGMENT_PATTERN.test(input);
 }
 
 export function isTokenKey(input: string): boolean {
-  return input.split(".").every((segment) => isIdentifierSegment(segment));
+  const [first, ...rest] = input.split(".");
+  return (
+    first !== undefined &&
+    isIdentifierSegment(first) &&
+    rest.every((segment) => TOKEN_SEGMENT_PATTERN.test(segment))
+  );
 }
 
 export function isSingleSegmentIdentifier(input: string): boolean {

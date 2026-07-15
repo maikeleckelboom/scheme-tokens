@@ -6,23 +6,22 @@ Accepted.
 
 ## Decision
 
-`scheme-tokens` is the dependency-light core package for authored token graphs, compiled scheme artifacts, diagnostics, deterministic serialization, and CSS variable export.
+`scheme-tokens` is the dependency-light core for authored string-valued token graphs, explicit references, graph modes, ordered layers, visibility, validation, compilation, diagnostics, deterministic serialization, and CSS custom-property projection.
 
-The root package does not own engine-backed behavior. It does not import or depend on Material 3, color conversion libraries, image extraction, browser canvas, or vendor-specific generators.
+The package does not interpret token strings or own palette generation, conversion, proof policy, repair policy, role conventions, product project models, or runtime extension registries.
 
 ## Consequences
 
-- Root imports stay engine-free.
-- Public authoring data stays JSON-safe.
-- External generators feed ordinary authored tokens or strict token graphs.
-- The root package does not expose source, plugin, provider, preset, or registry APIs.
-- Compiled token reads stay direct: `scheme.tokens.background.base`.
-- Advanced metadata lives outside token value maps under `metadataByToken`.
+- Root imports have no optional capability engine dependency graph.
+- Public authored and persisted data remains JSON-safe.
+- External producers feed ordinary string tokens or strict graph artifacts.
+- Compiled values remain direct mode maps once a key is known to be present. Runtime-filtered public records require optional access. Exact literal tuples provide definite key reads after validation; `all` does so only for finite authored key unions. Dynamically parsed artifacts remain partial.
+- Advanced visibility, origin, dependency, and descriptive data lives under `metadataByToken`.
+- Composition happens through graphs, references, and ordered layers rather than provider or plugin frameworks.
 
-## Non-Goals
+## Non-goals
 
-- Material implementation.
-- Palette generation.
-- Color parsing or conversion.
-- Engine package architecture.
-- Migration compatibility for removed pre-release APIs.
+- A generic structured design-token value model.
+- Value parsing, transformation, or generation.
+- Product-domain policy or storage models.
+- Compatibility for removed unpublished APIs.

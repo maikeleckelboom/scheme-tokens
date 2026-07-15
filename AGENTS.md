@@ -2,206 +2,105 @@
 
 ## Repository stance
 
-This package is greenfield and unpublished. Breaking changes are allowed when they simplify the final public contract.
-Do not add deprecated aliases, compatibility wrappers, v0 readers, migration overloads, or hidden fallback branches.
+This package is greenfield and unpublished. Breaking changes are allowed when they simplify the final public contract. Do not add deprecated aliases, compatibility wrappers, old-format readers, migration overloads, or hidden fallback branches.
 
-Before adding new code, first check for existing functions, helpers, utilities, types, tests, and patterns that can be
-reused or deleted.
+Before adding code, check for existing functions, helpers, types, tests, and patterns that can be reused or deleted.
 
 ## Package boundary
 
-`scheme-tokens` is the dependency-light core package.
+`scheme-tokens` is a dependency-light compiler for authored string-valued token graphs.
 
-The core package owns:
+The package owns:
 
-* token graph contracts
-* JSON-safe public authoring inputs
-* graph parsing and validation
-* token compilation
-* deterministic serialization
-* CSS variable export
-* `Result` and `Issue` contracts
-* adapter interfaces
+- token graph and layer contracts;
+- explicit token references;
+- graph modes and default mode authority;
+- ordered layer composition;
+- public and internal visibility;
+- graph validation and deterministic compilation;
+- structured diagnostics;
+- strict persisted artifacts and JSON Schemas;
+- deterministic serialization;
+- CSS custom-property projection;
+- `Result` and `Issue` contracts.
 
-The core package must not own engine-backed behavior. Do not import or depend on Material 3, Texel, image extraction,
-browser canvas, CSS color engines, or other optional capability engines from the root package.
+The package does not own palette generation, color parsing or conversion, gamut mapping, contrast policy, image extraction, repair decisions, design-system role conventions, product project models, or runtime plugin registries. Do not broaden the value model beyond strings and explicit reference records.
 
-Supported engines belong behind explicit adapter package boundaries, for example:
+## Final public contract
 
-* `@scheme-tokens/material3`
-* `@scheme-tokens/texel`
-* future source or conversion adapters
+The root runtime exports are exactly:
 
-If an adapter package does not exist yet, document it as future scope. Do not fake the behavior inside core.
+- `defineTokens`
+- `defineTokenGraph`
+- `defineTokenLayer`
+- `tokenRef`
+- `parseTokenGraph`
+- `parseTokenLayer`
+- `parseCompiledScheme`
+- `compileTokenGraph`
+- `exportCssVars`
+- `serializeTokenGraph`
+- `serializeTokenLayer`
+- `serializeCompiledScheme`
 
-Do not ship approximated Material output as Material 3. Material 3 support must use a real Material algorithm through a
-dedicated adapter boundary, or not ship yet.
+Do not export implementation plumbing merely because it exists internally.
 
-## Public API rules
+Every fallible public operation uses:
 
-* Root imports must not load optional engine dependencies.
-* Public authoring data must stay JSON-safe.
-* Public recoverable failures use `Result` with `issues`, not exceptions.
-* `Issue.code` and JSON Pointer paths are contractual.
-* Generated issue codes must be represented honestly in public types.
-* Parsed wire formats stay strict and explicit.
-* Ergonomic `define*` helpers may provide safe defaults and authoring shorthands.
-* Defaults are allowed only when they do not hide authority or change semantics unexpectedly.
-* Delete obsolete contracts outright instead of preserving old names.
-* Do not publish, tag, create a GitHub release, or change repository visibility.
-* Do not change the publication safety switch unless explicitly instructed.
+```ts
+type Result<Value, Problem> =
+  | { readonly ok: true; readonly value: Value }
+  | { readonly ok: false; readonly issues: readonly [Problem, ...Problem[]] };
+```
 
-## Current roadmap
+Do not add operation-specific success fields.
 
-Work proceeds in four ordered slices. Do not skip ahead unless the human explicitly changes the order.
+## Authoring and wire rules
 
-### Slice 1: Public-core API polish
+- Bare strings are literal values and never inferred as references.
+- References use `tokenRef()` in trusted authoring and exact `{ ref: "token.key" }` records in persisted data.
+- A token is authored as a direct expression, a direct explicit mode map, or one expanded `{ value, visibility?, description?, deprecated?, extensions? }` definition.
+- `value` may contain either one expression or an explicit mode map.
+- Do not add `valueByMode`, `aliases`, metadata mixed with mode keys, or alternate expanded forms.
+- Omitted mode options mean `modes: ["base"]` and `defaultMode: "base"`.
+- Providing `modes` requires an explicit `defaultMode`.
+- Mode names reserve `ref`, `value`, `valueByMode`, `visibility`, `description`, `deprecated`, and `extensions` so object authoring stays unambiguous.
+- The graph exclusively owns the mode envelope. Layers never declare modes or a default mode.
+- Layer order is semantic: later layers override earlier definitions by token key.
+- Graph and layer defaults own visibility only for their respective token records.
+- Public tokens may reference internal tokens; compilation resolves against the complete graph before applying selection.
+- Token keys use dot-separated lower-kebab paths. A segment after the first may be numeric, so keys such as `brand.600` are valid.
+- Omitted and explicit `public` compilation produce conservatively partial token records because visibility is resolved at runtime. An exact literal key tuple is complete after runtime validation. `all` is complete only when the authored graph has a finite inferred key union; dynamically parsed graphs remain partial. `parseCompiledScheme()` is always dynamic and incomplete, and CSS export preserves the input completeness in its token-to-variable lookup.
 
-Goal: make the dependency-light root package feel inevitable for ordinary usage.
+Trusted helpers normalize, validate, and copy input. They may throw for programmer misuse. Parsers accept `unknown`, do not throw for JSON-compatible data, copy accepted input, and report structured `Result` failures.
 
-Allowed scope:
-
-* README usage flow
-* public API docs
-* simple manual custom-color examples
-* advanced explicit graph examples
-* `defineTokenGraph()` and root API ergonomics when the change is small and does not weaken strict parsing
-* `buildScheme()` documentation as the adapter runner
-* docs clarifying authoring helper input versus strict wire-format input
-
-Stop rules:
-
-* Do not add Material, Texel, conversion, image, canvas, CSS parser, or other optional engines.
-* Do not create adapter packages.
-* Do not change schema contracts unless a public API bug requires it.
-* Do not add compatibility aliases.
-
-### Slice 2: Schema and wire-format hardening
-
-Goal: make schemas first-class contracts for the strict persisted format.
-
-Allowed scope:
-
-* JSON Schema accuracy
-* schema tests
-* schema export tests from packed consumers
-* parser and schema agreement tests
-* docs explaining strict wire-format data versus ergonomic authoring helper input
-
-Stop rules:
-
-* Schemas describe strict graph artifacts, not helper shorthands.
-* Do not make parser behavior looser just to satisfy examples.
-* Do not add adapters or engines.
-
-### Slice 3: Adapter package architecture
-
-Goal: define how optional capability packages plug into core without contaminating the root package.
-
-Allowed scope:
-
-* adapter package naming
-* adapter dependency ownership
-* issue-code namespace rules
-* peer dependency versus dependency decision
-* package export shape
-* docs and ADRs
-* tests or fixtures that prove core stays engine-free
-
-Stop rules:
-
-* Do not implement Material 3 yet.
-* Do not implement Texel conversion yet.
-* Do not move third-party engines into core.
-* Do not create a registry or plugin system.
-
-### Slice 4: First real adapter
-
-Goal: implement one real adapter outside core after the adapter architecture is locked.
-
-Preferred first adapter:
-
-* `@scheme-tokens/material3`
-
-Requirements:
-
-* Uses a real Material algorithm.
-* Does not approximate Material output.
-* Lives outside the root core package boundary.
-* Has reference-vector tests.
-* Exposes adapter-specific issues through `Result`.
-* Proves root import remains engine-free.
-
-Alternative first adapter:
-
-* `@scheme-tokens/texel`
-
-Only choose this first if the human explicitly prioritizes conversion over Material source generation.
+Compilation and serialization preserve arbitrary token strings. CSS export is a code-emission boundary: it rejects declaration-unsafe strings with `invalid-css-value`, validates selectors against an intentionally bounded safe grammar, and never treats those checks as token-domain interpretation.
 
 ## Implementation rules
 
-Prefer small internal primitives over duplicated parsing and validation logic.
+Prefer small, precisely owned internals over duplicated parsing and validation. Do not create a broad `utils.ts` dumping ground.
 
-Reusable internals should have precise names and bounded ownership, for example:
+Issue codes and JSON Pointer paths are public contracts. Message wording is not. Avoid unsafe casts that narrow real issue-code unions, and never call untrusted coercion methods while constructing diagnostics.
 
-* JSON pointer helpers
-* code-unit sorting helpers
-* plain-record readers
-* issue collectors
-* issue factories
-* safe unknown-value descriptions
-* exhaustive-switch assertions
-* canonical record builders
+Compiler, parser, serializer, and CSS output must be independent of locale, caller mutation, and incidental object insertion order. Keep reference resolution iterative and bounded.
 
-Do not create a broad `utils.ts` dumping ground.
+Use kebab-case filenames for source, tests, scripts, and documentation unless an ecosystem convention requires otherwise. Accepted exceptions include `AGENTS.md`, `README.md`, `CHANGELOG.md`, `LICENSE`, `package.json`, `tsconfig.json`, and `index.ts`.
 
-Avoid unsafe casts that lie about public contracts. In particular, do not cast generated issue codes into narrower issue
-unions.
-
-Do not call `String(value)` on untrusted unknown input when creating diagnostics. Use a safe bounded description helper
-that cannot invoke user code.
-
-Compiler behavior must be bounded and deterministic. Avoid quadratic dependency expansion, unnecessary full-graph
-resolution, and stack-recursive resolution paths.
-
-## Naming and files
-
-Use kebab-case filenames for source, tests, scripts, and documentation unless the ecosystem convention requires a
-different name.
-
-Accepted conventional exceptions include:
-
-* `AGENTS.md`
-* `README.md`
-* `CHANGELOG.md`
-* `LICENSE`
-* `package.json`
-* `tsconfig.json`
-* `index.ts`
-
-Do not add `.mjs` files. Use `.ts` or `.mts`.
-
-Use curly braces for all control-flow blocks. Configure Oxlint to enforce this when supported.
-
-Keep public names plain and idiomatic. Prefer clear verbs such as `define`, `parse`, `compile`, `build`, `format`,
-`export`, and `serialize`.
+Do not add `.mjs` files. Use curly braces for every control-flow block. Prefer Oxlint and Oxfmt.
 
 ## Documentation authority
 
-Durable documentation should describe the current package, not the migration sprint.
+Durable documentation describes the current package. Keep these aligned with the shipped contract:
 
-Use current docs such as:
+- `README.md`
+- `docs/architecture.md`
+- `docs/public-api.md`
+- `docs/diagnostics.md`
+- `docs/color-policy.md`
+- `docs/semver.md`
+- `docs/adr/`
 
-* `README.md`
-* `docs/architecture.md`
-* `docs/public-api.md`
-* `docs/diagnostics.md`
-* `docs/color-policy.md`
-* `docs/semver.md`
-* `docs/adr/`
-
-Do not recreate `docs/v1-migration/` unless the human explicitly asks for an archive. New work should update durable docs
-or ADRs.
+The migration guide is a concise pre-release handoff, not a compatibility commitment.
 
 ## Validation
 
@@ -214,14 +113,8 @@ pnpm release:check
 git diff --check
 ```
 
-If validation scripts are changed during the work, report both the old and new validation commands.
+Do not publish, tag, create a release, change repository visibility, or change publication safety without explicit instruction.
 
 ## Final report
 
-Report:
-
-* files changed
-* validation commands run and results
-* remaining risks
-* git status
-* suggested commit message
+Report files changed, validation commands and results, remaining risks, Git status, and a suggested Conventional Commit message.

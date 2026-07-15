@@ -1,18 +1,18 @@
 import type {
   CompileTokenGraphIssue,
   CompileTokenGraphOptions,
-  CompileTokenGraphResult,
   CompiledScheme,
   CompiledToken,
   CompiledTokenMetadata,
   TokenSelection,
 } from "./compiled-types";
-import type { TokenGraphInput, ModeOf, TokenKeyOf } from "./graph";
+import type { ModeOf, TokenGraph, TokenKeyOf } from "./graph";
 import { compiledSchemeKind } from "./graph";
 import { isTokenKey } from "./identifiers";
 import {
   compareCodeUnits,
   defineRecordValue,
+  pointer,
   readArray,
   readPlainRecord,
   sortedRecord,
@@ -28,7 +28,6 @@ import { IssueCollector, type Result } from "./result";
 export type {
   CompileTokenGraphIssue,
   CompileTokenGraphOptions,
-  CompileTokenGraphResult,
   CompiledScheme,
   CompiledToken,
   CompiledTokenMetadata,
@@ -39,26 +38,45 @@ interface ResolvedNode {
   readonly value: string;
 }
 
-type CompiledGraphResult<Input extends TokenGraphInput> = CompileTokenGraphResult<
-  TokenKeyOf<Input>,
-  ModeOf<Input>
+type SelectedKey<Input, Options> = Options extends {
+  readonly selection: { readonly keys: readonly (infer Key)[] };
+}
+  ? Extract<Key, string>
+  : TokenKeyOf<Input>;
+
+type HasFiniteKeys<Key extends string> = string extends Key ? false : true;
+
+type CompleteSelection<Input, Options> = Options extends {
+  readonly selection: "all";
+}
+  ? HasFiniteKeys<TokenKeyOf<Input>>
+  : Options extends {
+        readonly selection: { readonly keys: infer Keys extends readonly string[] };
+      }
+    ? number extends Keys["length"]
+      ? false
+      : true
+    : false;
+
+type CompiledGraphResult<Input, Options> = Result<
+  CompiledScheme<SelectedKey<Input, Options>, ModeOf<Input>, CompleteSelection<Input, Options>>,
+  CompileTokenGraphIssue
 >;
 
 /**
  * Compile a token graph into deterministic token mode maps and metadata.
  */
-export function compileTokenGraph<const Input extends TokenGraphInput>(
+export function compileTokenGraph<const Input extends TokenGraph>(
   input: Input,
-  options?: CompileTokenGraphOptions<TokenKeyOf<Input>>,
-): CompiledGraphResult<Input>;
+): CompiledGraphResult<Input, undefined>;
+export function compileTokenGraph<
+  const Input extends TokenGraph,
+  const Options extends CompileTokenGraphOptions<TokenKeyOf<Input>>,
+>(input: Input, options: Options): CompiledGraphResult<Input, Options>;
 export function compileTokenGraph(
-  input: unknown,
+  input: TokenGraph,
   options?: CompileTokenGraphOptions,
-): CompileTokenGraphResult;
-export function compileTokenGraph(
-  input: unknown,
-  options?: CompileTokenGraphOptions,
-): CompileTokenGraphResult {
+): Result<CompiledScheme<string, string, boolean>, CompileTokenGraphIssue> {
   const parsed = parseTokenGraphInternal(input);
   if (!parsed.ok) {
     return parsed;
@@ -69,8 +87,7 @@ export function compileTokenGraph(
     return selection;
   }
 
-  const compiled = compileParsedTokenGraph(parsed.value, selection.value);
-  return compiled.ok ? { ok: true, scheme: compiled.value } : compiled;
+  return compileParsedTokenGraph(parsed.value, selection.value);
 }
 
 export function compileParsedTokenGraph<
@@ -79,7 +96,7 @@ export function compileParsedTokenGraph<
 >(
   graph: ParsedTokenGraph<Mode, Key>,
   selection: TokenSelection<Key> = "public",
-): Result<CompiledScheme<Key, Mode>, CompileTokenGraphIssue> {
+): Result<CompiledScheme<Key, Mode, boolean>, CompileTokenGraphIssue> {
   const selectedKeys = selectTokenKeys(graph, selection);
   if (!selectedKeys.ok) {
     return selectedKeys;
@@ -156,6 +173,7 @@ export function parseCompileSelection<Key extends string = string>(
           {
             code: "invalid-compile-options",
             message: `Unknown compile option: ${entry.key}.`,
+            path: pointer(entry.key),
           },
         ],
       };
@@ -173,6 +191,7 @@ export function parseCompileSelection<Key extends string = string>(
   const selectionEntries = readPlainRecord(selection, {
     code: "invalid-selection",
     message: "selection must be public, all, or { keys }.",
+    path: pointer("selection"),
   });
   if (!selectionEntries.ok) {
     return selectionEntries as Result<never, CompileTokenGraphIssue>;
@@ -180,7 +199,13 @@ export function parseCompileSelection<Key extends string = string>(
   if (selectionEntries.value.length !== 1 || selectionEntries.value[0]?.key !== "keys") {
     return {
       ok: false,
-      issues: [{ code: "invalid-selection", message: "Exact selection must contain only keys." }],
+      issues: [
+        {
+          code: "invalid-selection",
+          message: "Exact selection must contain only keys.",
+          path: pointer("selection"),
+        },
+      ],
     };
   }
 
@@ -188,17 +213,30 @@ export function parseCompileSelection<Key extends string = string>(
   const keyEntries = readArray(keys, {
     code: "invalid-selection",
     message: "selection.keys must be a dense array.",
+    path: pointer("selection", "keys"),
   });
   if (!keyEntries.ok) {
     return {
       ok: false,
-      issues: [{ code: "invalid-selection", message: "selection.keys must be an array." }],
+      issues: [
+        {
+          code: "invalid-selection",
+          message: "selection.keys must be an array.",
+          path: pointer("selection", "keys"),
+        },
+      ],
     };
   }
   if (keyEntries.value.length === 0) {
     return {
       ok: false,
-      issues: [{ code: "empty-selection", message: "Exact selection must not be empty." }],
+      issues: [
+        {
+          code: "empty-selection",
+          message: "Exact selection must not be empty.",
+          path: pointer("selection", "keys"),
+        },
+      ],
     };
   }
 
@@ -211,6 +249,7 @@ export function parseCompileSelection<Key extends string = string>(
       collector.add({
         code: "invalid-selection-key",
         message: "Selection keys must be valid token keys.",
+        path: pointer("selection", "keys", entry.index),
         ...(typeof key === "string" ? { key } : {}),
       });
       continue;
@@ -219,6 +258,7 @@ export function parseCompileSelection<Key extends string = string>(
       collector.add({
         code: "duplicate-selection-key",
         message: `Duplicate selection key: ${key}.`,
+        path: pointer("selection", "keys", entry.index),
         key,
       });
       continue;
@@ -228,6 +268,7 @@ export function parseCompileSelection<Key extends string = string>(
       collector.add({
         code: "unknown-selection-key",
         message: `Selection key does not exist: ${key}.`,
+        path: pointer("selection", "keys", entry.index),
         key,
       });
       continue;
@@ -284,7 +325,7 @@ function resolveNode<Mode extends string, Key extends string>(
     }
 
     const expression = (graph.tokens[currentKey as Key] as ParsedTokenGraphToken<Mode, Key>)
-      .valueByMode[mode] as ParsedTokenExpression<Key>;
+      .expressionByMode[mode] as ParsedTokenExpression<Key>;
     if (!isReferenceExpression(expression)) {
       const resolved = { value: expression };
       memo.set(currentId, resolved);
@@ -333,6 +374,6 @@ function directDependencies<Mode extends string, Key extends string>(
   token: ParsedTokenGraphToken<Mode, Key>,
   mode: Mode,
 ): readonly string[] {
-  const expression = token.valueByMode[mode] as ParsedTokenExpression<Key> | undefined;
+  const expression = token.expressionByMode[mode] as ParsedTokenExpression<Key> | undefined;
   return expression !== undefined && isReferenceExpression(expression) ? [expression.ref] : [];
 }

@@ -1,174 +1,162 @@
 import type { JsonValue } from "./json";
-import { defineRecordValue, readPlainRecord } from "./json";
+import {
+  compareCodeUnits,
+  copyJsonValue,
+  defineRecordValue,
+  readArray,
+  readPlainRecord,
+  sortedRecord,
+} from "./json";
 import { isSingleSegmentIdentifier, isTokenKey } from "./identifiers";
-import type { FailureResult, Issue } from "./result";
+import type { Issue } from "./result";
 import { describeUnknown } from "./unknown-description";
 
 export const tokenGraphKind = "scheme-tokens/token-graph";
 export const tokenLayerKind = "scheme-tokens/token-layer";
 export const compiledSchemeKind = "scheme-tokens/compiled-scheme";
 
-export type TokenGraphKind = typeof tokenGraphKind;
-export type TokenLayerKind = typeof tokenLayerKind;
-export type CompiledSchemeKind = typeof compiledSchemeKind;
+export const tokenGraphSchemaUrl = "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json";
+export const tokenLayerSchemaUrl = "https://scheme-tokens.dev/schemas/token-layer.v1.schema.json";
+export const compiledSchemeSchemaUrl =
+  "https://scheme-tokens.dev/schemas/compiled-scheme.v1.schema.json";
 
 export type TokenVisibility = "public" | "internal";
 
-export interface ReferenceInput<Key extends string = string> {
+export interface TokenReference<Key extends string = string> {
   readonly ref: Key;
 }
 
-export type TokenExpressionInput<Key extends string = string> = string | ReferenceInput<Key>;
+export type TokenExpression<Key extends string = string> = string | TokenReference<Key>;
 
-export type TokenDefinitionInput<Mode extends string = string, Key extends string = string> = {
+type TokenModeValues<Mode extends string, Key extends string> = Readonly<
+  Record<Mode, TokenExpression<Key>>
+>;
+
+export interface TokenDefinitionMetadata {
   readonly visibility?: TokenVisibility;
   readonly description?: string;
   readonly deprecated?: boolean | string;
   readonly extensions?: Readonly<Record<string, JsonValue>>;
-} & (
-  | {
-      readonly value: TokenExpressionInput<Key>;
-      readonly valueByMode?: never;
-    }
-  | {
-      readonly value?: never;
-      readonly valueByMode: Readonly<Record<Mode, TokenExpressionInput<Key>>>;
-    }
-);
+}
 
-export interface TokenLayerInput<Mode extends string = string, Key extends string = string> {
-  readonly $schema?: string;
-  readonly kind: TokenLayerKind;
+export type TokenDefinition<
+  Key extends string = string,
+  Mode extends string = string,
+> = TokenDefinitionMetadata & {
+  readonly value: TokenExpression<Key> | TokenModeValues<Mode, Key>;
+};
+
+export interface TokenLayer<Key extends string = string, Mode extends string = string> {
+  readonly $schema?: typeof tokenLayerSchemaUrl;
+  readonly kind: typeof tokenLayerKind;
   readonly formatVersion: 1;
   readonly id: string;
   readonly defaultVisibility: TokenVisibility;
-  readonly tokens: Readonly<Record<Key, TokenDefinitionInput<Mode, Key>>>;
+  readonly tokens: Readonly<Record<Key, TokenDefinition<string, Mode>>>;
 }
 
-export interface TokenGraphInput<Mode extends string = string, Key extends string = string> {
-  readonly $schema?: string;
-  readonly kind: TokenGraphKind;
+export interface TokenGraph<
+  Key extends string = string,
+  Mode extends string = string,
+  Layers extends readonly TokenLayer<string, string>[] = readonly TokenLayer<string, string>[],
+> {
+  readonly $schema?: typeof tokenGraphSchemaUrl;
+  readonly kind: typeof tokenGraphKind;
   readonly formatVersion: 1;
   readonly modes: readonly [Mode, ...Mode[]];
   readonly defaultMode: Mode;
   readonly defaultVisibility: TokenVisibility;
-  readonly tokens: Readonly<Record<Key, TokenDefinitionInput<Mode, Key>>>;
-  readonly layers?: readonly TokenLayerInput<Mode>[];
+  readonly tokens: Readonly<Record<Key, TokenDefinition<string, Mode>>>;
+  readonly layers?: Layers;
 }
 
-type TokenDefinitionMetadataAuthoringInput = {
-  readonly visibility?: TokenVisibility;
-  readonly description?: string;
-  readonly deprecated?: boolean | string;
-  readonly extensions?: Readonly<Record<string, JsonValue>>;
+type TokenMetadataAuthoring = TokenDefinitionMetadata;
+
+type ExpandedSingleTokenAuthoring<Key extends string> = TokenMetadataAuthoring & {
+  readonly value: TokenExpression<Key>;
 };
 
-type TokenDefinitionModeAuthoringInput<
+type ExpandedMultiTokenAuthoring<
   Mode extends string,
   Key extends string,
-> = string extends Mode
-  ? TokenDefinitionMetadataAuthoringInput & Readonly<Record<string, unknown>>
-  : TokenDefinitionMetadataAuthoringInput &
-      Readonly<Partial<Record<Mode, TokenExpressionInput<Key>>>>;
+> = TokenMetadataAuthoring & {
+  readonly value: TokenExpression<Key> | TokenModeValues<Mode, Key>;
+};
 
-type TokenDefinitionObjectAuthoringInput<
-  Mode extends string,
-  Key extends string,
-> = TokenDefinitionMetadataAuthoringInput &
-  (
-    | {
-        readonly value: TokenExpressionInput<Key>;
-        readonly valueByMode?: never;
-      }
-    | {
-        readonly value?: never;
-        readonly valueByMode: Readonly<Record<Mode, TokenExpressionInput<Key>>>;
-      }
-  );
+type SingleTokenAuthoring<Key extends string> =
+  | TokenExpression<Key>
+  | ExpandedSingleTokenAuthoring<Key>;
 
-export type TokenDefinitionAuthoringInput<
-  Mode extends string = string,
-  Key extends string = string,
-> =
-  | TokenDefinitionInput<Mode, Key>
-  | TokenDefinitionObjectAuthoringInput<Mode, Key>
-  | TokenExpressionInput<Key>
-  | Readonly<Record<Mode, TokenExpressionInput<Key>>>
-  | TokenDefinitionModeAuthoringInput<Mode, Key>;
+type MultiTokenAuthoring<Mode extends string, Key extends string> =
+  | TokenExpression<Key>
+  | TokenModeValues<Mode, Key>
+  | ExpandedMultiTokenAuthoring<Mode, Key>;
 
-type TokenDefinitionReservedKey =
-  | keyof TokenDefinitionMetadataAuthoringInput
+type ModeTuple = readonly [string, ...string[]];
+type LayerTuple = readonly TokenLayer<string, string>[];
+type ReservedMode =
+  | "ref"
   | "value"
-  | "valueByMode";
+  | "valueByMode"
+  | "visibility"
+  | "description"
+  | "deprecated"
+  | "extensions";
+type ValidModes<Modes extends ModeTuple> =
+  Extract<Modes[number], ReservedMode> extends never ? Modes : never;
 
-type TokenDefinitionModeKey<Input> = Input extends TokenExpressionInput
+type LayerKeyOf<Layers extends LayerTuple> = Layers extends readonly []
   ? never
-  : Input extends { readonly value: unknown }
-    ? never
-    : Input extends { readonly valueByMode: unknown }
-      ? never
-      : Exclude<Extract<keyof Input, string>, TokenDefinitionReservedKey>;
+  : Layers[number] extends TokenLayer<infer Key, string>
+    ? Key
+    : never;
 
-type InferredDefineTokensMode<Tokens extends Readonly<Record<string, unknown>>> = [
-  TokenDefinitionModeKey<Tokens[keyof Tokens]>,
-] extends [never]
-  ? "base"
-  : TokenDefinitionModeKey<Tokens[keyof Tokens]>;
+type DefinedGraph<
+  DirectKey extends string,
+  Mode extends string,
+  Layers extends LayerTuple,
+> = TokenGraph<DirectKey, Mode, Layers>;
 
-type DefineTokensRecord = Readonly<Record<string, TokenDefinitionAuthoringInput<string, string>>>;
+interface SharedGraphOptions<Layers extends LayerTuple> {
+  readonly $schema?: typeof tokenGraphSchemaUrl;
+  readonly defaultVisibility?: TokenVisibility;
+  readonly layers?: Layers;
+}
 
-type DefineTokensOptions<Mode extends string> = {
-  readonly $schema?: string;
-  readonly kind?: TokenGraphKind;
-  readonly formatVersion?: 1;
+type SingleGraphOptions<Layers extends LayerTuple> = SharedGraphOptions<Layers> & {
   readonly modes?: never;
   readonly defaultMode?: never;
-  readonly defaultVisibility?: TokenVisibility;
-  readonly layers?: readonly TokenLayerInput<Mode>[];
-  readonly tokens?: never;
-  readonly aliases?: never;
 };
 
-type DefinedTokensGraph<Mode extends string, Key extends string> = TokenGraphInput<Mode, Key>;
+type MultiGraphOptions<
+  Modes extends ModeTuple,
+  Layers extends LayerTuple,
+> = SharedGraphOptions<Layers> & {
+  readonly modes: ValidModes<Modes>;
+  readonly defaultMode: NoInfer<Modes[number]>;
+};
 
-export interface TokenLayerAuthoringInput<
-  Mode extends string = string,
-  Key extends string = string,
-  AliasKey extends string = string,
-> {
-  readonly $schema?: string;
-  readonly kind?: TokenLayerKind;
-  readonly formatVersion?: 1;
-  readonly id: string;
-  readonly defaultVisibility?: TokenVisibility;
-  readonly modes?: readonly [Mode, ...Mode[]];
-  readonly tokens?: Readonly<Record<Key, TokenDefinitionAuthoringInput<Mode, Key>>>;
-  readonly aliases?: Readonly<Record<AliasKey, string>>;
-}
+type SingleGraphAuthoring<
+  DirectKey extends string,
+  Layers extends LayerTuple,
+> = SingleGraphOptions<Layers> & {
+  readonly tokens: Readonly<
+    Record<DirectKey, SingleTokenAuthoring<NoInfer<DirectKey | LayerKeyOf<Layers>>>>
+  >;
+};
 
-export type TokenGraphAuthoringInput<Mode extends string = string, Key extends string = string> =
-  | {
-      readonly $schema?: string;
-      readonly kind?: TokenGraphKind;
-      readonly formatVersion?: 1;
-      readonly modes?: never;
-      readonly defaultMode?: never;
-      readonly defaultVisibility?: TokenVisibility;
-      readonly tokens?: Readonly<Record<Key, TokenDefinitionAuthoringInput<"base", Key>>>;
-      readonly aliases?: Readonly<Record<string, string>>;
-      readonly layers?: readonly TokenLayerInput<"base">[];
-    }
-  | {
-      readonly $schema?: string;
-      readonly kind?: TokenGraphKind;
-      readonly formatVersion?: 1;
-      readonly modes: readonly [Mode, ...Mode[]];
-      readonly defaultMode: Mode;
-      readonly defaultVisibility?: TokenVisibility;
-      readonly tokens?: Readonly<Record<Key, TokenDefinitionAuthoringInput<Mode, Key>>>;
-      readonly aliases?: Readonly<Record<string, string>>;
-      readonly layers?: readonly TokenLayerInput<Mode>[];
-    };
+type MultiGraphAuthoring<
+  Modes extends ModeTuple,
+  DirectKey extends string,
+  Layers extends LayerTuple,
+> = MultiGraphOptions<Modes, Layers> & {
+  readonly tokens: Readonly<
+    Record<
+      DirectKey,
+      MultiTokenAuthoring<NoInfer<Modes[number]>, NoInfer<DirectKey | LayerKeyOf<Layers>>>
+    >
+  >;
+};
 
 export type TokenOrigin =
   | {
@@ -183,19 +171,14 @@ type DirectTokenKeyOf<T> = T extends { readonly tokens: Readonly<Record<infer Ke
   ? Extract<Key, string>
   : never;
 
-type LayerTokenKeyOf<T> = T extends { readonly layers: infer Layers }
-  ? Layers extends readonly (infer Layer)[]
-    ? TokenKeyOf<Layer>
-    : never
-  : never;
-
-export type TokenKeyOf<T> = DirectTokenKeyOf<T> | LayerTokenKeyOf<T>;
+export type TokenKeyOf<T> =
+  T extends TokenGraph<infer DirectKey, string, infer Layers>
+    ? DirectKey | LayerKeyOf<Layers>
+    : DirectTokenKeyOf<T>;
 
 export type ModeOf<T> = T extends { readonly modes: readonly [infer First, ...infer Rest] }
   ? Extract<First | Rest[number], string>
-  : T extends { readonly defaultMode: infer Mode }
-    ? Extract<Mode, string>
-    : never;
+  : never;
 
 export type TokenGraphIssue = Issue<
   | "invalid-object"
@@ -213,11 +196,9 @@ export type TokenGraphIssue = Issue<
   | "invalid-layer-id"
   | "duplicate-layer-id"
   | "invalid-token-key"
-  | "duplicate-token-key"
   | "invalid-visibility"
   | "invalid-token-definition"
   | "missing-token-value"
-  | "conflicting-token-value"
   | "invalid-token-value"
   | "missing-mode-value"
   | "unknown-mode-value"
@@ -235,198 +216,130 @@ export type TokenGraphIssue = Issue<
   readonly cycle?: readonly string[];
 };
 
-export function tokenRef<const Key extends string>(key: Key): ReferenceInput<Key> {
+const tokenDefinitionKeys = new Set([
+  "value",
+  "visibility",
+  "description",
+  "deprecated",
+  "extensions",
+]);
+
+const reservedModeKeys = new Set([...tokenDefinitionKeys, "ref", "valueByMode"]);
+
+const graphAuthoringKeys = new Set([
+  "$schema",
+  "modes",
+  "defaultMode",
+  "defaultVisibility",
+  "tokens",
+  "layers",
+]);
+
+const layerAuthoringKeys = new Set(["$schema", "id", "defaultVisibility", "tokens"]);
+const strictLayerKeys = new Set([
+  "$schema",
+  "kind",
+  "formatVersion",
+  "id",
+  "defaultVisibility",
+  "tokens",
+]);
+
+export function tokenRef<const Key extends string>(key: Key): TokenReference<Key> {
   if (!isTokenKey(key)) {
-    throw new RangeError("tokenRef key must be a dot-separated lower-kebab token key.");
+    throw new RangeError(
+      "tokenRef key must be a dot-separated lower-kebab token key; numeric segments are allowed after the first segment.",
+    );
   }
   return { ref: key };
 }
 
-type TokenAuthoringRecord<Mode extends string> = Readonly<
-  Record<string, TokenDefinitionAuthoringInput<Mode, string>>
->;
-
-type TokenAliasAuthoringRecord = Readonly<Record<string, string>>;
-
-export function defineTokenGraph<
-  const Tokens extends TokenAuthoringRecord<"base"> = Record<never, never>,
-  const Aliases extends TokenAliasAuthoringRecord = Record<never, never>,
-  const Layers extends readonly TokenLayerInput<"base", string>[] = readonly TokenLayerInput<
-    "base",
-    string
-  >[],
->(input: {
-  readonly $schema?: string;
-  readonly kind?: TokenGraphKind;
-  readonly formatVersion?: 1;
-  readonly modes?: never;
-  readonly defaultMode?: never;
-  readonly defaultVisibility?: TokenVisibility;
-  readonly tokens?: Tokens;
-  readonly aliases?: Aliases;
-  readonly layers: Layers;
-}): TokenGraphInput<"base", Extract<keyof Tokens | keyof Aliases, string>> & {
-  readonly layers: Layers;
-};
-export function defineTokenGraph<
-  const Tokens extends TokenAuthoringRecord<"base"> = Record<never, never>,
-  const Aliases extends TokenAliasAuthoringRecord = Record<never, never>,
->(input: {
-  readonly $schema?: string;
-  readonly kind?: TokenGraphKind;
-  readonly formatVersion?: 1;
-  readonly modes?: never;
-  readonly defaultMode?: never;
-  readonly defaultVisibility?: TokenVisibility;
-  readonly tokens?: Tokens;
-  readonly aliases?: Aliases;
-  readonly layers?: readonly TokenLayerInput<"base">[];
-}): TokenGraphInput<"base", Extract<keyof Tokens | keyof Aliases, string>>;
-export function defineTokenGraph<
-  const Modes extends readonly [string, ...string[]],
-  const Tokens extends TokenAuthoringRecord<NoInfer<Modes[number]>> = Record<never, never>,
-  const Aliases extends TokenAliasAuthoringRecord = Record<never, never>,
-  const Layers extends readonly TokenLayerInput<NoInfer<Modes[number]>, string>[] =
-    readonly TokenLayerInput<NoInfer<Modes[number]>, string>[],
->(input: {
-  readonly $schema?: string;
-  readonly kind?: TokenGraphKind;
-  readonly formatVersion?: 1;
-  readonly modes: Modes;
-  readonly defaultMode: Modes[number];
-  readonly defaultVisibility?: TokenVisibility;
-  readonly tokens?: Tokens;
-  readonly aliases?: Aliases;
-  readonly layers: Layers;
-}): TokenGraphInput<Modes[number], Extract<keyof Tokens | keyof Aliases, string>> & {
-  readonly layers: Layers;
-};
-export function defineTokenGraph<
-  const Modes extends readonly [string, ...string[]],
-  const Tokens extends TokenAuthoringRecord<NoInfer<Modes[number]>> = Record<never, never>,
-  const Aliases extends TokenAliasAuthoringRecord = Record<never, never>,
->(input: {
-  readonly $schema?: string;
-  readonly kind?: TokenGraphKind;
-  readonly formatVersion?: 1;
-  readonly modes: Modes;
-  readonly defaultMode: Modes[number];
-  readonly defaultVisibility?: TokenVisibility;
-  readonly tokens?: Tokens;
-  readonly aliases?: Aliases;
-  readonly layers?: readonly TokenLayerInput<NoInfer<Modes[number]>>[];
-}): TokenGraphInput<Modes[number], Extract<keyof Tokens | keyof Aliases, string>>;
-export function defineTokenGraph(input: TokenGraphAuthoringInput): TokenGraphInput {
-  return defineTokenGraphFromInput(input, "defineTokenGraph");
-}
-
-function defineTokenGraphFromInput(
-  input: TokenGraphAuthoringInput,
-  helperName: string,
-): TokenGraphInput {
-  assertGraphHelperInput(input, helperName);
-  if (input.kind !== undefined && input.kind !== tokenGraphKind) {
-    throw new RangeError(`${helperName} kind must be ${tokenGraphKind}.`);
-  }
-  const modes = "modes" in input && input.modes !== undefined ? input.modes : ["base"];
-  assertHelperModesCanUseShorthand(modes, helperName);
-  const defaultMode =
-    "defaultMode" in input && input.defaultMode !== undefined ? input.defaultMode : modes[0];
-  return {
-    ...(input.$schema === undefined ? {} : { $schema: input.$schema }),
-    kind: tokenGraphKind,
-    formatVersion: input.formatVersion ?? 1,
-    modes: [...modes] as readonly [string, ...string[]],
-    defaultMode,
-    defaultVisibility: input.defaultVisibility ?? "public",
-    tokens: normalizeTokenAndAliasRecords(input.tokens ?? {}, input.aliases, modes, helperName),
-    ...(input.layers === undefined ? {} : { layers: input.layers }),
-  };
-}
-
-/**
- * Define an authored token graph from ordinary token records.
- */
-export function defineTokens<const Tokens extends DefineTokensRecord>(
-  tokens: Tokens,
-  options?: DefineTokensOptions<InferredDefineTokensMode<Tokens>>,
-): DefinedTokensGraph<InferredDefineTokensMode<Tokens>, Extract<keyof Tokens, string>>;
 export function defineTokens<
-  const Modes extends readonly [string, ...string[]],
-  const Tokens extends Readonly<
-    Record<string, TokenDefinitionAuthoringInput<NoInfer<Modes[number]>, string>>
-  >,
+  const Key extends string,
+  const Layers extends LayerTuple = readonly [],
 >(
-  tokens: Tokens,
-  options: {
-    readonly $schema?: string;
-    readonly kind?: TokenGraphKind;
-    readonly formatVersion?: 1;
-    readonly modes: Modes;
-    readonly defaultMode: Modes[number];
-    readonly defaultVisibility?: TokenVisibility;
-    readonly layers?: readonly TokenLayerInput<NoInfer<Modes[number]>>[];
-    readonly tokens?: never;
-    readonly aliases?: never;
-  },
-): TokenGraphInput<Modes[number], Extract<keyof Tokens, string>>;
-export function defineTokens(
-  tokens: Readonly<Record<string, TokenDefinitionAuthoringInput>>,
-  options: Omit<TokenGraphAuthoringInput, "tokens" | "aliases"> & {
-    readonly tokens?: never;
-    readonly aliases?: never;
-  } = {},
-): TokenGraphInput {
-  assertDefineTokensOptions(options);
-  const inferredModes = inferDefineTokensModes(tokens, options);
-  const graphOptions =
-    inferredModes === undefined
-      ? options
-      : {
-          ...options,
-          modes: inferredModes,
-          defaultMode: inferredModes[0],
-        };
-  return defineTokenGraphFromInput(
-    { ...graphOptions, tokens } as TokenGraphAuthoringInput,
+  tokens: Readonly<Record<Key, SingleTokenAuthoring<NoInfer<Key | LayerKeyOf<Layers>>>>>,
+  options?: SingleGraphOptions<Layers>,
+): DefinedGraph<Key, "base", Layers>;
+export function defineTokens<
+  const Modes extends ModeTuple,
+  const Key extends string,
+  const Layers extends LayerTuple = readonly [],
+>(
+  tokens: Readonly<
+    Record<Key, MultiTokenAuthoring<NoInfer<Modes[number]>, NoInfer<Key | LayerKeyOf<Layers>>>>
+  >,
+  options: MultiGraphOptions<Modes, Layers>,
+): DefinedGraph<Key, Modes[number], Layers>;
+export function defineTokens(tokens: unknown, options: unknown = {}): TokenGraph {
+  const optionEntries = readAuthoringRecord(options, "defineTokens options");
+  rejectUnknownAuthoringKeys(optionEntries, graphAuthoringKeys, "defineTokens options");
+  if (optionEntries.some((entry) => entry.key === "tokens")) {
+    throw new RangeError("defineTokens options cannot include tokens.");
+  }
+  return defineTokenGraphFromEntries(
+    [
+      ...optionEntries,
+      {
+        key: "tokens",
+        value: tokens,
+      },
+    ],
     "defineTokens",
   );
 }
 
-export function defineTokenLayer<
-  const Mode extends string = string,
-  const Tokens extends Readonly<Record<string, TokenDefinitionAuthoringInput<Mode, string>>> =
-    Readonly<Record<string, TokenDefinitionAuthoringInput<Mode>>>,
-  const Aliases extends TokenAliasAuthoringRecord = Record<never, never>,
+export function defineTokenGraph<
+  const DirectKey extends string,
+  const Layers extends LayerTuple = readonly [],
+>(input: SingleGraphAuthoring<DirectKey, Layers>): DefinedGraph<DirectKey, "base", Layers>;
+export function defineTokenGraph<
+  const Modes extends ModeTuple,
+  const DirectKey extends string,
+  const Layers extends LayerTuple = readonly [],
 >(
-  input: TokenLayerAuthoringInput<Mode, string, string> & {
-    readonly tokens?: Tokens;
-    readonly aliases?: Aliases;
-  },
-): TokenLayerInput<Mode, Extract<keyof Tokens | keyof Aliases, string>> {
-  if (input.kind !== undefined && input.kind !== tokenLayerKind) {
-    throw new RangeError(`defineTokenLayer kind must be ${tokenLayerKind}.`);
-  }
-  const modes = input.modes;
-  if (modes !== undefined) {
-    assertHelperModesCanUseShorthand(modes, "defineTokenLayer");
-  }
-  return {
-    ...(input.$schema === undefined ? {} : { $schema: input.$schema }),
-    kind: tokenLayerKind,
-    formatVersion: input.formatVersion ?? 1,
-    id: input.id,
-    defaultVisibility: input.defaultVisibility ?? "public",
-    tokens: normalizeTokenAndAliasRecords(
-      input.tokens ?? {},
-      input.aliases,
-      modes,
-      "defineTokenLayer",
-    ) as Readonly<Record<string, TokenDefinitionInput<Mode>>>,
-  } as TokenLayerInput<Mode, Extract<keyof Tokens | keyof Aliases, string>>;
+  input: MultiGraphAuthoring<Modes, DirectKey, Layers>,
+): DefinedGraph<DirectKey, Modes[number], Layers>;
+export function defineTokenGraph(input: unknown): TokenGraph {
+  const entries = readAuthoringRecord(input, "defineTokenGraph input");
+  return defineTokenGraphFromEntries(entries, "defineTokenGraph");
 }
 
-export function isReferenceInput(input: unknown): input is ReferenceInput {
+export function defineTokenLayer<const Key extends string>(input: {
+  readonly $schema?: typeof tokenLayerSchemaUrl;
+  readonly id: string;
+  readonly defaultVisibility?: TokenVisibility;
+  readonly tokens: Readonly<Record<Key, MultiTokenAuthoring<string, string>>>;
+}): TokenLayer<Key, string>;
+export function defineTokenLayer(input: unknown): TokenLayer {
+  const entries = readAuthoringRecord(input, "defineTokenLayer input");
+  rejectUnknownAuthoringKeys(entries, layerAuthoringKeys, "defineTokenLayer input");
+  const record = new Map(entries.map((entry) => [entry.key, entry.value]));
+  const schema = normalizeSchema(record.get("$schema"), tokenLayerSchemaUrl, "defineTokenLayer");
+  const id = normalizeLayerId(record.get("id"), "defineTokenLayer");
+  const defaultVisibility = normalizeVisibility(
+    record.get("defaultVisibility"),
+    "defineTokenLayer defaultVisibility",
+  );
+  if (!record.has("tokens")) {
+    throw new TypeError("defineTokenLayer input must include tokens.");
+  }
+
+  return {
+    ...(schema === undefined ? {} : { $schema: schema }),
+    kind: tokenLayerKind,
+    formatVersion: 1,
+    id,
+    defaultVisibility,
+    tokens: normalizeAuthoringTokenRecord(record.get("tokens"), {
+      helperName: "defineTokenLayer",
+      modes: undefined,
+      allowUnboundModeMap: true,
+    }),
+  };
+}
+
+export function isReferenceInput(input: unknown): input is TokenReference {
   const entries = readPlainRecord(input, {
     code: "invalid-reference",
     message: "Reference probes must be plain data.",
@@ -434,370 +347,474 @@ export function isReferenceInput(input: unknown): input is ReferenceInput {
   return entries.ok && entries.value.some((entry) => entry.key === "ref");
 }
 
-export type ParseTokenGraphResult<Mode extends string = string, Key extends string = string> =
-  | {
-      readonly ok: true;
-      readonly graph: TokenGraphInput<Mode, Key>;
-    }
-  | FailureResult<TokenGraphIssue>;
-
-export type ParseTokenLayerResult<Mode extends string = string, Key extends string = string> =
-  | {
-      readonly ok: true;
-      readonly layer: TokenLayerInput<Mode, Key>;
-    }
-  | FailureResult<TokenGraphIssue>;
-
-const tokenDefinitionKeys = new Set([
-  "visibility",
-  "description",
-  "deprecated",
-  "extensions",
-  "value",
-  "valueByMode",
-]);
-
-function normalizeTokenRecord(
-  input: unknown,
-  modes: readonly string[] | undefined,
+function defineTokenGraphFromEntries(
+  entries: readonly { readonly key: string; readonly value: unknown }[],
   helperName: string,
-  laneName: "tokens",
-): Readonly<Record<string, TokenDefinitionInput>> {
-  const entries = readPlainRecord(input, {
-    code: "invalid-token-definition",
-    message: `${helperName} ${laneName} must be a plain object record.`,
-  });
-  if (!entries.ok) {
-    throw new TypeError(`${helperName} ${laneName} must be a plain object record.`);
+): TokenGraph {
+  rejectUnknownAuthoringKeys(entries, graphAuthoringKeys, `${helperName} input`);
+  const record = new Map(entries.map((entry) => [entry.key, entry.value]));
+  if (!record.has("tokens")) {
+    throw new TypeError(`${helperName} input must include tokens.`);
   }
 
-  const output: Record<string, TokenDefinitionInput> = {};
-  for (const entry of entries.value) {
-    defineRecordValue(
-      output,
-      entry.key,
-      normalizeTokenDefinition(
-        entry.value as TokenDefinitionAuthoringInput,
-        modes,
-        helperName,
-        entry.key,
-      ),
-    );
-  }
-  return output;
+  const schema = normalizeSchema(record.get("$schema"), tokenGraphSchemaUrl, helperName);
+  const modeEnvelope = normalizeAuthoringModes(
+    record.get("modes"),
+    record.get("defaultMode"),
+    helperName,
+  );
+  const defaultVisibility = normalizeVisibility(
+    record.get("defaultVisibility"),
+    `${helperName} defaultVisibility`,
+  );
+  const layers = normalizeGraphLayers(record.get("layers"), modeEnvelope, helperName);
+
+  return {
+    ...(schema === undefined ? {} : { $schema: schema }),
+    kind: tokenGraphKind,
+    formatVersion: 1,
+    modes: modeEnvelope.modes,
+    defaultMode: modeEnvelope.defaultMode,
+    defaultVisibility,
+    tokens: normalizeAuthoringTokenRecord(record.get("tokens"), {
+      helperName,
+      modes: modeEnvelope.explicit ? modeEnvelope.modes : undefined,
+      allowUnboundModeMap: false,
+    }),
+    ...(layers === undefined ? {} : { layers }),
+  };
 }
 
-function normalizeTokenAndAliasRecords(
-  tokensInput: unknown,
-  aliasesInput: unknown,
-  modes: readonly string[] | undefined,
+interface NormalizedModeEnvelope {
+  readonly modes: readonly [string, ...string[]];
+  readonly defaultMode: string;
+  readonly explicit: boolean;
+}
+
+function normalizeAuthoringModes(
+  modesInput: unknown,
+  defaultModeInput: unknown,
   helperName: string,
-): Readonly<Record<string, TokenDefinitionInput>> {
-  const output = {
-    ...normalizeTokenRecord(tokensInput, modes, helperName, "tokens"),
-  };
-  if (aliasesInput === undefined) {
-    return output;
+): NormalizedModeEnvelope {
+  if (modesInput === undefined && defaultModeInput === undefined) {
+    return { modes: ["base"], defaultMode: "base", explicit: false };
+  }
+  if (modesInput === undefined) {
+    throw new TypeError(`${helperName} defaultMode requires an explicit modes tuple.`);
+  }
+  if (defaultModeInput === undefined) {
+    throw new TypeError(`${helperName} modes require an explicit defaultMode.`);
   }
 
-  const entries = readPlainRecord(aliasesInput, {
-    code: "invalid-token-definition",
-    message: `${helperName} aliases must be a plain object record.`,
+  const entries = readArray(modesInput, {
+    code: "invalid-mode-key",
+    message: `${helperName} modes must be a dense non-empty array.`,
   });
-  if (!entries.ok) {
-    throw new TypeError(`${helperName} aliases must be a plain object record.`);
+  if (!entries.ok || entries.value.length === 0) {
+    throw new TypeError(`${helperName} modes must be a dense non-empty array.`);
   }
 
+  const seen = new Set<string>();
+  const modes: string[] = [];
   for (const entry of entries.value) {
-    if (Object.hasOwn(output, entry.key)) {
+    if (typeof entry.value !== "string" || !isModeKey(entry.value)) {
       throw new RangeError(
-        `${helperName} aliases cannot redefine token "${entry.key}" from tokens.`,
+        `${helperName} mode names must be lower-kebab identifiers and cannot use reserved token fields.`,
       );
     }
-    if (typeof entry.value !== "string") {
-      throw new TypeError(`${helperName} alias "${entry.key}" must target a token key string.`);
+    if (seen.has(entry.value)) {
+      throw new RangeError(`${helperName} modes cannot contain duplicate mode "${entry.value}".`);
     }
-    defineRecordValue(output, entry.key, {
-      value: normalizeReferenceInput({ ref: entry.value }, helperName, entry.key),
-    });
-  }
-  return output;
-}
-
-function assertGraphHelperInput(
-  input: unknown,
-  helperName: string,
-): asserts input is TokenGraphAuthoringInput {
-  const entries = readPlainRecord(input, {
-    code: "invalid-token-definition",
-    message: `${helperName} input must be a plain object.`,
-  });
-  if (!entries.ok) {
-    throw new TypeError(`${helperName} input must be a plain object.`);
+    seen.add(entry.value);
+    modes.push(entry.value);
   }
   if (
-    !entries.value.some((entry) => entry.key === "tokens") &&
-    !entries.value.some((entry) => entry.key === "aliases")
+    typeof defaultModeInput !== "string" ||
+    !isModeKey(defaultModeInput) ||
+    !seen.has(defaultModeInput)
   ) {
-    throw new TypeError(`${helperName} input must include tokens or aliases.`);
-  }
-}
-
-function normalizeTokenDefinition(
-  input: TokenDefinitionAuthoringInput | undefined,
-  modes: readonly string[] | undefined,
-  helperName: string,
-  tokenKey: string,
-): TokenDefinitionInput {
-  if (isTokenDefinitionObject(input)) {
-    return normalizeObjectTokenDefinition(input, helperName, tokenKey);
+    throw new RangeError(`${helperName} defaultMode must be one of the declared modes.`);
   }
 
-  if (modes !== undefined && isModeValueRecord(input, modes)) {
-    return { valueByMode: normalizeModeValues(input, helperName, tokenKey) };
-  }
-
-  return { value: normalizeTokenExpression(input as TokenExpressionInput, helperName, tokenKey) };
-}
-
-function normalizeObjectTokenDefinition(
-  input: TokenDefinitionMetadataAuthoringInput & Readonly<Record<string, unknown>>,
-  helperName: string,
-  tokenKey: string,
-): TokenDefinitionInput {
-  const entries = readPlainRecord(input, {
-    code: "invalid-token-definition",
-    message: "Token definition probes must be plain data.",
-  });
-  if (!entries.ok) {
-    return input as TokenDefinitionInput;
-  }
-
-  const modeEntries = entries.value.filter((entry) => !tokenDefinitionKeys.has(entry.key));
-  if (modeEntries.length > 0 && ("value" in input || "valueByMode" in input)) {
-    throw new RangeError(
-      "Token definition shorthand cannot combine value or valueByMode with mode keys.",
-    );
-  }
-
-  const metadata = tokenDefinitionMetadata(input);
-  if ("value" in input && input.value !== undefined) {
-    return {
-      ...metadata,
-      value: normalizeTokenExpression(input.value as TokenExpressionInput, helperName, tokenKey),
-    };
-  }
-  const valueByMode = "valueByMode" in input ? input.valueByMode : undefined;
-  if (valueByMode === undefined) {
-    if (modeEntries.length === 0) {
-      throw new TypeError(`${helperName} token "${tokenKey}" must include a value.`);
-    }
-    const modeValues: Record<string, TokenExpressionInput> = {};
-    for (const entry of modeEntries) {
-      defineRecordValue(modeValues, entry.key, entry.value as TokenExpressionInput);
-    }
-    return { ...metadata, valueByMode: normalizeModeValues(modeValues, helperName, tokenKey) };
-  }
   return {
-    ...metadata,
-    valueByMode: normalizeModeValues(
-      valueByMode as Readonly<Record<string, TokenExpressionInput>>,
-      helperName,
-      tokenKey,
-    ),
+    modes: canonicalModes(modes, defaultModeInput),
+    defaultMode: defaultModeInput,
+    explicit: true,
   };
 }
 
-function tokenDefinitionMetadata(
-  input: TokenDefinitionMetadataAuthoringInput,
-): TokenDefinitionMetadataAuthoringInput {
-  return {
-    ...(input.visibility === undefined ? {} : { visibility: input.visibility }),
-    ...(input.description === undefined ? {} : { description: input.description }),
-    ...(input.deprecated === undefined ? {} : { deprecated: input.deprecated }),
-    ...(input.extensions === undefined ? {} : { extensions: input.extensions }),
-  };
+function canonicalModes(
+  modes: readonly string[],
+  defaultMode: string,
+): readonly [string, ...string[]] {
+  return [defaultMode, ...modes.filter((mode) => mode !== defaultMode).sort(compareCodeUnits)];
 }
 
-function normalizeModeValues(
-  input: Readonly<Record<string, TokenExpressionInput>>,
-  helperName: string,
-  tokenKey: string,
-): Readonly<Record<string, TokenExpressionInput>> {
-  const entries = readPlainRecord(input, {
-    code: "invalid-token-definition",
-    message: "valueByMode must be a plain object record.",
-  });
-  if (!entries.ok) {
-    throw new TypeError(`${helperName} token "${tokenKey}" valueByMode must be a plain object.`);
-  }
-  const output: Record<string, TokenExpressionInput> = {};
-  for (const entry of entries.value) {
+export function isModeKey(input: string): boolean {
+  return isSingleSegmentIdentifier(input) && !reservedModeKeys.has(input);
+}
+
+interface NormalizeTokenRecordOptions {
+  readonly helperName: string;
+  readonly modes: readonly string[] | undefined;
+  readonly allowUnboundModeMap: boolean;
+}
+
+function normalizeAuthoringTokenRecord(
+  input: unknown,
+  options: NormalizeTokenRecordOptions,
+): Readonly<Record<string, TokenDefinition>> {
+  const entries = readAuthoringRecord(input, `${options.helperName} tokens`);
+  const output: Record<string, TokenDefinition> = {};
+  for (const entry of entries) {
+    if (!isTokenKey(entry.key)) {
+      throw new RangeError(
+        `${options.helperName} token key "${entry.key}" must be a valid dot-separated lower-kebab key.`,
+      );
+    }
     defineRecordValue(
       output,
       entry.key,
-      normalizeTokenExpression(entry.value as TokenExpressionInput, helperName, tokenKey),
+      normalizeAuthoringDefinition(entry.value, entry.key, options),
     );
   }
   return output;
 }
 
-function normalizeTokenExpression(
-  input: TokenExpressionInput,
+function normalizeAuthoringDefinition(
+  input: unknown,
+  tokenKey: string,
+  options: NormalizeTokenRecordOptions,
+): TokenDefinition {
+  if (typeof input === "string" || isReferenceInput(input)) {
+    return { value: normalizeExpression(input, options.helperName, tokenKey) };
+  }
+
+  const entries = readAuthoringRecord(
+    input,
+    `${options.helperName} token "${tokenKey}" definition`,
+  );
+  if (entries.some((entry) => tokenDefinitionKeys.has(entry.key))) {
+    rejectUnknownAuthoringKeys(
+      entries,
+      tokenDefinitionKeys,
+      `${options.helperName} token "${tokenKey}" definition`,
+    );
+    const record = new Map(entries.map((entry) => [entry.key, entry.value]));
+    if (!record.has("value")) {
+      throw new TypeError(`${options.helperName} token "${tokenKey}" must include value.`);
+    }
+    return {
+      value: normalizeTokenValue(record.get("value"), tokenKey, options),
+      ...normalizeMetadata(record, options.helperName, tokenKey),
+    };
+  }
+
+  return { value: normalizeModeMap(input, tokenKey, options) };
+}
+
+function normalizeTokenValue(
+  input: unknown,
+  tokenKey: string,
+  options: NormalizeTokenRecordOptions,
+): TokenDefinition["value"] {
+  if (typeof input === "string" || isReferenceInput(input)) {
+    return normalizeExpression(input, options.helperName, tokenKey);
+  }
+  return normalizeModeMap(input, tokenKey, options);
+}
+
+function normalizeModeMap(
+  input: unknown,
+  tokenKey: string,
+  options: NormalizeTokenRecordOptions,
+): Readonly<Record<string, TokenExpression>> {
+  if (options.modes === undefined && !options.allowUnboundModeMap) {
+    const entries = readPlainRecord(input, {
+      code: "invalid-token-definition",
+      message: "Mode maps require an explicit graph mode envelope.",
+    });
+    const keys = entries.ok ? entries.value.map((entry) => entry.key).join(", ") : "";
+    throw new TypeError(
+      `${options.helperName} token "${tokenKey}" mode map${keys.length === 0 ? "" : ` (${keys})`} requires explicit modes and defaultMode.`,
+    );
+  }
+
+  const entries = readAuthoringRecord(input, `${options.helperName} token "${tokenKey}" mode map`);
+  if (entries.length === 0) {
+    throw new TypeError(`${options.helperName} token "${tokenKey}" mode map must not be empty.`);
+  }
+
+  const expectedModes = options.modes === undefined ? undefined : new Set(options.modes);
+  const seen = new Set<string>();
+  const output: Record<string, TokenExpression> = {};
+  for (const entry of entries) {
+    if (!isModeKey(entry.key)) {
+      throw new RangeError(
+        `${options.helperName} token "${tokenKey}" has invalid or reserved mode "${entry.key}".`,
+      );
+    }
+    if (expectedModes !== undefined && !expectedModes.has(entry.key)) {
+      throw new RangeError(
+        `${options.helperName} token "${tokenKey}" mode map contains unknown mode "${entry.key}".`,
+      );
+    }
+    seen.add(entry.key);
+    defineRecordValue(
+      output,
+      entry.key,
+      normalizeExpression(entry.value, options.helperName, tokenKey),
+    );
+  }
+
+  if (expectedModes !== undefined) {
+    for (const mode of options.modes as readonly string[]) {
+      if (!seen.has(mode)) {
+        throw new RangeError(
+          `${options.helperName} token "${tokenKey}" mode map is missing mode "${mode}".`,
+        );
+      }
+    }
+  }
+  return sortedRecord(Object.entries(output));
+}
+
+function normalizeExpression(
+  input: unknown,
   helperName: string,
   tokenKey: string,
-): TokenExpressionInput {
-  if (isReferenceInput(input)) {
-    return normalizeReferenceInput(input, helperName, tokenKey);
-  }
+): TokenExpression {
   if (typeof input === "string") {
     return input;
   }
-  throw new TypeError(
-    `${helperName} token "${tokenKey}" must be an authored CSS string or explicit token reference (${describeUnknown(
-      input,
-    )}). Use tokenRef("token.key") or { ref: "token.key" } for references.`,
-  );
-}
-
-function normalizeReferenceInput(
-  input: ReferenceInput,
-  helperName: string,
-  tokenKey: string,
-): ReferenceInput {
-  const entries = readPlainRecord(input, {
-    code: "invalid-reference",
-    message: "Reference helpers must be plain data.",
-  });
-  if (!entries.ok) {
-    throw new TypeError(`${helperName} token "${tokenKey}" reference must be a plain object.`);
+  if (!isReferenceInput(input)) {
+    throw new TypeError(
+      `${helperName} token "${tokenKey}" must use a string, tokenRef(), or a mode map (${describeUnknown(input)}).`,
+    );
   }
-  const record = new Map(entries.value.map((entry) => [entry.key, entry.value]));
-  if (entries.value.length !== 1 || typeof record.get("ref") !== "string") {
+
+  const entries = readAuthoringRecord(input, `${helperName} token "${tokenKey}" reference`);
+  if (entries.length !== 1 || entries[0]?.key !== "ref" || typeof entries[0].value !== "string") {
     throw new TypeError(
       `${helperName} token "${tokenKey}" reference must contain exactly one ref string.`,
     );
   }
-  const key = record.get("ref") as string;
-  if (!isTokenKey(key)) {
+  if (!isTokenKey(entries[0].value)) {
     throw new RangeError(
-      `${helperName} token "${tokenKey}" reference must be a dot-separated lower-kebab token key.`,
+      `${helperName} token "${tokenKey}" reference must target a valid token key.`,
     );
   }
-  return { ref: key };
+  return { ref: entries[0].value };
 }
 
-function isTokenDefinitionObject(input: unknown): input is TokenDefinitionMetadataAuthoringInput {
-  const entries = readPlainRecord(input, {
-    code: "invalid-token-definition",
-    message: "Token definition probes must be plain data.",
-  });
-  return entries.ok && entries.value.some((entry) => tokenDefinitionKeys.has(entry.key));
+function normalizeMetadata(
+  record: ReadonlyMap<string, unknown>,
+  helperName: string,
+  tokenKey: string,
+): TokenDefinitionMetadata {
+  const visibility = record.get("visibility");
+  if (visibility !== undefined && visibility !== "public" && visibility !== "internal") {
+    throw new RangeError(
+      `${helperName} token "${tokenKey}" visibility must be public or internal.`,
+    );
+  }
+  const description = record.get("description");
+  if (description !== undefined && typeof description !== "string") {
+    throw new TypeError(`${helperName} token "${tokenKey}" description must be a string.`);
+  }
+  const deprecated = record.get("deprecated");
+  if (
+    deprecated !== undefined &&
+    typeof deprecated !== "boolean" &&
+    (typeof deprecated !== "string" || deprecated.length === 0)
+  ) {
+    throw new TypeError(
+      `${helperName} token "${tokenKey}" deprecated must be boolean or a non-empty string.`,
+    );
+  }
+
+  const extensions = record.get("extensions");
+  return {
+    ...(visibility === undefined ? {} : { visibility }),
+    ...(description === undefined ? {} : { description }),
+    ...(deprecated === undefined ? {} : { deprecated }),
+    ...(extensions === undefined
+      ? {}
+      : { extensions: normalizeExtensions(extensions, helperName, tokenKey) }),
+  };
 }
 
-function isModeValueRecord(
+function normalizeExtensions(
   input: unknown,
-  modes: readonly string[],
-): input is Readonly<Record<string, TokenExpressionInput>> {
-  const entries = readPlainRecord(input, {
-    code: "invalid-token-definition",
-    message: "Mode value probes must be plain data.",
-  });
-  if (!entries.ok || entries.value.length === 0) {
-    return false;
+  helperName: string,
+  tokenKey: string,
+): Readonly<Record<string, JsonValue>> {
+  const entries = readAuthoringRecord(input, `${helperName} token "${tokenKey}" extensions`);
+  const output: Record<string, JsonValue> = {};
+  for (const entry of entries) {
+    const copied = copyJsonValue(entry.value, {
+      code: "invalid-json-value",
+      message: "Extension values must be JSON-safe.",
+    });
+    if (!copied.ok) {
+      throw new TypeError(
+        `${helperName} token "${tokenKey}" extension "${entry.key}" must be JSON-safe.`,
+      );
+    }
+    defineRecordValue(output, entry.key, copied.value);
   }
-  const modeSet = new Set(modes);
-  return entries.value.every((entry) => modeSet.has(entry.key));
+  return output;
 }
 
-function inferDefineTokensModes(
-  tokens: Readonly<Record<string, TokenDefinitionAuthoringInput>>,
-  options: Omit<TokenGraphAuthoringInput, "tokens" | "aliases">,
-): readonly [string, ...string[]] | undefined {
-  if ("modes" in options && options.modes !== undefined) {
+function normalizeGraphLayers(
+  input: unknown,
+  modeEnvelope: NormalizedModeEnvelope,
+  helperName: string,
+): readonly TokenLayer[] | undefined {
+  if (input === undefined) {
     return undefined;
   }
-  if ("defaultMode" in options && options.defaultMode !== undefined) {
-    return undefined;
-  }
-
-  const entries = readPlainRecord(tokens, {
-    code: "invalid-token-definition",
-    message: "defineTokens token inference requires a plain object record.",
+  const entries = readArray(input, {
+    code: "invalid-object",
+    message: `${helperName} layers must be a dense array.`,
   });
   if (!entries.ok) {
-    return undefined;
+    throw new TypeError(`${helperName} layers must be a dense array.`);
   }
 
-  const modeSet = new Set<string>();
+  const layers: TokenLayer[] = [];
+  const ids = new Set<string>();
   for (const entry of entries.value) {
-    for (const mode of inferModeRecordKeys(entry.value)) {
-      modeSet.add(mode);
+    const layer = copyStrictLayer(entry.value, {
+      helperName,
+      modes: modeEnvelope.explicit ? modeEnvelope.modes : undefined,
+      allowUnboundModeMap: false,
+    });
+    if (ids.has(layer.id)) {
+      throw new RangeError(`${helperName} layers contain duplicate id "${layer.id}".`);
     }
+    ids.add(layer.id);
+    layers.push(layer);
   }
-
-  if (modeSet.size === 0) {
-    return undefined;
-  }
-
-  const sortedModes = [...modeSet].sort();
-  if (modeSet.has("base")) {
-    return ["base", ...sortedModes.filter((mode) => mode !== "base")];
-  }
-  return sortedModes as [string, ...string[]];
+  return layers;
 }
 
-function inferModeRecordKeys(input: unknown): readonly string[] {
-  if (isReferenceInput(input)) {
-    return [];
+function copyStrictLayer(input: unknown, options: NormalizeTokenRecordOptions): TokenLayer {
+  const entries = readAuthoringRecord(input, `${options.helperName} layer`);
+  rejectUnknownAuthoringKeys(entries, strictLayerKeys, `${options.helperName} layer`);
+  const record = new Map(entries.map((entry) => [entry.key, entry.value]));
+  if (record.get("kind") !== tokenLayerKind) {
+    throw new RangeError(`${options.helperName} layer kind must be ${tokenLayerKind}.`);
+  }
+  if (record.get("formatVersion") !== 1) {
+    throw new RangeError(`${options.helperName} layer formatVersion must be 1.`);
+  }
+  const schema = normalizeSchema(record.get("$schema"), tokenLayerSchemaUrl, options.helperName);
+  const id = normalizeLayerId(record.get("id"), options.helperName);
+  const defaultVisibility = normalizeRequiredVisibility(
+    record.get("defaultVisibility"),
+    `${options.helperName} layer defaultVisibility`,
+  );
+  if (!record.has("tokens")) {
+    throw new TypeError(`${options.helperName} layer must include tokens.`);
   }
 
-  const entries = readPlainRecord(input, {
-    code: "invalid-token-definition",
-    message: "Mode inference probes must be plain data.",
-  });
-  if (!entries.ok || entries.value.length === 0) {
-    return [];
-  }
-
-  if (entries.value.some((entry) => entry.key === "value" || entry.key === "valueByMode")) {
-    return [];
-  }
-
-  const modes: string[] = [];
-  for (const entry of entries.value) {
-    if (tokenDefinitionKeys.has(entry.key)) {
-      continue;
+  const tokenEntries = readAuthoringRecord(
+    record.get("tokens"),
+    `${options.helperName} layer tokens`,
+  );
+  const tokens: Record<string, TokenDefinition> = {};
+  for (const entry of tokenEntries) {
+    if (!isTokenKey(entry.key)) {
+      throw new RangeError(`${options.helperName} layer token key "${entry.key}" is invalid.`);
     }
-    if (!isSingleSegmentIdentifier(entry.key)) {
-      return [];
-    }
-    modes.push(entry.key);
-  }
-  return modes;
-}
-
-function assertHelperModesCanUseShorthand(modes: readonly string[], helperName: string): void {
-  const reserved = modes.filter((mode) => tokenDefinitionKeys.has(mode));
-  if (reserved.length > 0) {
-    throw new RangeError(
-      `${helperName} mode names cannot use token-definition keys: ${reserved.join(", ")}.`,
+    const definitionEntries = readAuthoringRecord(
+      entry.value,
+      `${options.helperName} layer token "${entry.key}" definition`,
     );
+    rejectUnknownAuthoringKeys(
+      definitionEntries,
+      tokenDefinitionKeys,
+      `${options.helperName} layer token "${entry.key}" definition`,
+    );
+    const definitionRecord = new Map(
+      definitionEntries.map((definitionEntry) => [definitionEntry.key, definitionEntry.value]),
+    );
+    if (!definitionRecord.has("value")) {
+      throw new TypeError(`${options.helperName} layer token "${entry.key}" must include value.`);
+    }
+    defineRecordValue(tokens, entry.key, {
+      value: normalizeTokenValue(definitionRecord.get("value"), entry.key, options),
+      ...normalizeMetadata(definitionRecord, options.helperName, entry.key),
+    });
   }
+
+  return {
+    ...(schema === undefined ? {} : { $schema: schema }),
+    kind: tokenLayerKind,
+    formatVersion: 1,
+    id,
+    defaultVisibility,
+    tokens,
+  };
 }
 
-function assertDefineTokensOptions(options: unknown): void {
-  const entries = readPlainRecord(options, {
-    code: "invalid-token-definition",
-    message: "defineTokens options must be a plain object.",
+function normalizeSchema<const Url extends string>(
+  input: unknown,
+  expected: Url,
+  helperName: string,
+): Url | undefined {
+  if (input === undefined) {
+    return undefined;
+  }
+  if (input !== expected) {
+    throw new RangeError(`${helperName} $schema must be ${expected}.`);
+  }
+  return expected;
+}
+
+function normalizeLayerId(input: unknown, helperName: string): string {
+  if (typeof input !== "string" || !isSingleSegmentIdentifier(input)) {
+    throw new RangeError(`${helperName} id must be a lower-kebab identifier.`);
+  }
+  return input;
+}
+
+function normalizeVisibility(input: unknown, label: string): TokenVisibility {
+  if (input === undefined) {
+    return "public";
+  }
+  return normalizeRequiredVisibility(input, label);
+}
+
+function normalizeRequiredVisibility(input: unknown, label: string): TokenVisibility {
+  if (input !== "public" && input !== "internal") {
+    throw new RangeError(`${label} must be public or internal.`);
+  }
+  return input;
+}
+
+function readAuthoringRecord(
+  input: unknown,
+  label: string,
+): readonly { readonly key: string; readonly value: unknown }[] {
+  const entries = readPlainRecord(input, {
+    code: "invalid-object",
+    message: `${label} must be a plain object.`,
   });
   if (!entries.ok) {
-    throw new TypeError("defineTokens options must be a plain object.");
+    throw new TypeError(`${label} must be a plain object.`);
   }
-  if (entries.value.some((entry) => entry.key === "tokens")) {
-    throw new RangeError("defineTokens options cannot include tokens.");
-  }
-  if (entries.value.some((entry) => entry.key === "aliases")) {
-    throw new RangeError("defineTokens options cannot include aliases.");
+  return entries.value;
+}
+
+function rejectUnknownAuthoringKeys(
+  entries: readonly { readonly key: string }[],
+  allowed: ReadonlySet<string>,
+  label: string,
+): void {
+  const unknown = entries.find((entry) => !allowed.has(entry.key));
+  if (unknown !== undefined) {
+    throw new RangeError(`${label} contains unknown property "${unknown.key}".`);
   }
 }

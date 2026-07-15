@@ -1,15 +1,15 @@
 # Value Policy
 
-The root package treats token values as authored CSS-ready strings.
-
-It does not parse, normalize, convert, gamut-map, or validate color syntax. That same rule also keeps spacing, typography, shadows, radii, and other CSS-variable-ready values in scope without adding domain engines.
+The initial public value model is intentionally narrow: a token value is a string or an explicit token reference that eventually resolves to a string.
 
 ## Rules
 
-- Bare strings are literal token values.
-- References are explicit objects, usually created with `tokenRef("token.key")`.
-- Strict persisted references stay shaped as `{ ref: "token.key" }`.
-- Compiled token values are strings.
-- CSS export writes compiled strings as custom property values without reinterpretation.
+- Bare strings are literal values.
+- References use `tokenRef("token.key")` in trusted TypeScript and exact `{ ref: "token.key" }` records in persisted artifacts.
+- The package preserves strings; it does not parse, normalize, convert, repair, or prove their meaning.
+- Compilation and serialization accept and preserve arbitrary strings.
+- CSS export does not reinterpret token meaning, but it does reject declaration-unsafe strings with `invalid-css-value` before emitting code.
+- Structured design-token values are outside the current contract.
+- External producers may compute strings before passing them to `scheme-tokens`, but their algorithms and policy remain outside this package.
 
-External generators may produce strings before data reaches `scheme-tokens`. Those generators are outside the root package boundary.
+The CSS check is an output-safety boundary, not a color or token-domain parser. The package name describes scheme compilation, not ownership of a color engine or a general design-system value model.

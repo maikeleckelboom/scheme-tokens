@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -9,20 +10,82 @@ interface PackageManifest {
   readonly exports: Readonly<Record<string, ExportTarget>>;
 }
 
-interface ApiManifest {
-  readonly name: string;
-  readonly modulePath: string;
-  readonly dtsPath: string;
-  readonly runtime: readonly string[];
-  readonly types: readonly string[];
-  readonly forbiddenDeclarationText?: readonly string[];
-}
-
 const root = process.cwd();
 const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as PackageManifest;
 
+const expectedRuntimeExports = [
+  "compileTokenGraph",
+  "defineTokenGraph",
+  "defineTokenLayer",
+  "defineTokens",
+  "exportCssVars",
+  "parseCompiledScheme",
+  "parseTokenGraph",
+  "parseTokenLayer",
+  "serializeCompiledScheme",
+  "serializeTokenGraph",
+  "serializeTokenLayer",
+  "tokenRef",
+] as const;
+
+const expectedTypeExports = [
+  "CompileTokenGraphIssue",
+  "CompileTokenGraphOptions",
+  "CompiledScheme",
+  "CompiledToken",
+  "CompiledTokenMetadata",
+  "CssModeSelectors",
+  "CssScope",
+  "CssVarBlock",
+  "CssVarDeclaration",
+  "CssVarsExport",
+  "ExportCssVarsIssue",
+  "ExportCssVarsOptions",
+  "Issue",
+  "JsonValue",
+  "ParseCompiledSchemeIssue",
+  "Result",
+  "TokenDefinition",
+  "TokenExpression",
+  "TokenGraph",
+  "TokenGraphIssue",
+  "TokenLayer",
+  "TokenOrigin",
+  "TokenReference",
+  "TokenSelection",
+  "TokenVisibility",
+] as const;
+
+const removedPublicNames = [
+  "CompileTokenGraphResult",
+  "CompiledSchemeKind",
+  "ExportCssVarsResult",
+  "FailureResult",
+  "ModeOf",
+  "NonEmptyIssues",
+  "ParseCompiledSchemeResult",
+  "ParseTokenGraphResult",
+  "ParseTokenLayerResult",
+  "ReferenceInput",
+  "TokenDefinitionAuthoringInput",
+  "TokenGraphInput",
+  "TokenGraphKind",
+  "TokenKeyOf",
+  "TokenLayerInput",
+  "TokenLayerKind",
+  "compiledSchemeKind",
+  "tokenGraphKind",
+  "tokenLayerKind",
+] as const;
+
+// This approves the normalized bundled declaration, including overloads and every
+// transitively exposed helper type. Update it only after intentionally reviewing
+// the generated declaration diff.
+const expectedDeclarationContractSha256 =
+  "9d42a319b9be12533388dd3b5aac82d4ba6ef4d82923c13c7961855f78f8f0e9";
+
 assertEqual(
-  Object.keys(packageJson.exports).sort(),
+  Object.keys(packageJson.exports),
   [
     ".",
     "./package.json",
@@ -33,42 +96,8 @@ assertEqual(
   "package exports",
 );
 
-if ("dependencies" in packageJson && Object.keys(packageJson.dependencies).length > 0) {
+if (Object.keys(packageJson.dependencies ?? {}).length > 0) {
   throw new Error("The core package must not declare runtime dependencies");
-}
-
-const removedRootPackageName = `color-${"scheme"}-tokens`;
-const removedAdapterScope = `@color-${"scheme"}-tokens`;
-const removedPublicNames = [
-  `build${"Scheme"}`,
-  `create${"Scheme"}Builder`,
-  `Build${"Scheme"}Options`,
-  `Build${"Scheme"}Issue`,
-  `Scheme${"Builder"}`,
-  `Color${"Token"}Source`,
-  `Color${"Token"}GraphInput`,
-  `Color${"Token"}LayerInput`,
-  `Color${"Token"}GraphIssue`,
-  `Color${"Token"}ExpressionInput`,
-  `Color${"Expression"}Input`,
-  `Compiled${"Color"}Scheme`,
-  `Compiled${"Color"}Token`,
-  `Result`,
-  `build${"Token"}${"Set"}`,
-  `serialize${"Token"}${"Set"}`,
-  `Compiled${"Token"}${"Set"}`,
-  `exportCss${"Variables"}`,
-  `parse${"Color"}`,
-  `format${"Css"}${"Color"}`,
-  `Color${"Value"}`,
-  `Color${"Value"}Input`,
-] as const;
-
-if (JSON.stringify(packageJson).includes(removedRootPackageName)) {
-  throw new Error("The core package manifest exposes the removed package name");
-}
-if (JSON.stringify(packageJson).includes(removedAdapterScope)) {
-  throw new Error("The core package manifest exposes the removed adapter scope");
 }
 
 assertEqual(
@@ -78,140 +107,107 @@ assertEqual(
 );
 assertExportTargetsExist(packageJson.exports);
 
-const manifests: readonly ApiManifest[] = [
-  {
-    name: "root",
-    modulePath: "dist/index.js",
-    dtsPath: "dist/index.d.ts",
-    runtime: [
-      "compileTokenGraph",
-      "compiledSchemeKind",
-      "defineTokenGraph",
-      "defineTokenLayer",
-      "defineTokens",
-      "exportCssVars",
-      "parseCompiledScheme",
-      "parseTokenGraph",
-      "parseTokenLayer",
-      "serializeCompiledScheme",
-      "serializeTokenGraph",
-      "serializeTokenLayer",
-      "tokenGraphKind",
-      "tokenLayerKind",
-      "tokenRef",
-    ],
-    types: [
-      "CompileTokenGraphIssue",
-      "CompileTokenGraphOptions",
-      "CompileTokenGraphResult",
-      "CompiledScheme",
-      "CompiledSchemeKind",
-      "CompiledToken",
-      "CompiledTokenMetadata",
-      "CssModeSelectors",
-      "CssScope",
-      "CssVarBlock",
-      "CssVarDeclaration",
-      "CssVariableNameInput",
-      "CssVarsExport",
-      "ExportCssVarsIssue",
-      "ExportCssVarsOptions",
-      "ExportCssVarsResult",
-      "FailureResult",
-      "Issue",
-      "JsonPrimitive",
-      "JsonValue",
-      "ModeOf",
-      "NonEmptyIssues",
-      "ParseCompiledSchemeIssue",
-      "ParseCompiledSchemeResult",
-      "ParseTokenGraphResult",
-      "ParseTokenLayerResult",
-      "ReferenceInput",
-      "TokenDefinitionAuthoringInput",
-      "TokenDefinitionInput",
-      "TokenExpressionInput",
-      "TokenGraphAuthoringInput",
-      "TokenGraphInput",
-      "TokenGraphIssue",
-      "TokenGraphKind",
-      "TokenKeyOf",
-      "TokenLayerAuthoringInput",
-      "TokenLayerInput",
-      "TokenLayerKind",
-      "TokenOrigin",
-      "TokenSelection",
-      "TokenVisibility",
-    ],
-    forbiddenDeclarationText: [
-      "@texel/color",
-      "@material/material-color-utilities",
-      "@scheme-tokens/material3",
-      "material3",
-      "Material3",
-      "ColorToken",
-      "ColorScheme",
-      "ColorTokenSource",
-      "buildScheme",
-      "createSchemeBuilder",
-      "css-tree",
-    ],
-  },
-];
+const rootModule = (await import(pathToFileURL(join(root, "dist/index.js")).href)) as Record<
+  string,
+  unknown
+>;
+assertEqual(Object.keys(rootModule), expectedRuntimeExports, "root runtime exports");
 
-for (const manifest of manifests) {
-  const module = (await import(pathToFileURL(join(root, manifest.modulePath)).href)) as Record<
-    string,
-    unknown
-  >;
-  const runtime = Object.keys(module).sort();
-  assertEqual(runtime, manifest.runtime, `${manifest.name} runtime exports`);
-  for (const removedName of removedPublicNames) {
-    if (runtime.includes(removedName)) {
-      throw new Error(`${manifest.name} runtime exposes removed public name: ${removedName}`);
-    }
-  }
+const declaration = readFileSync(join(root, "dist/index.d.ts"), "utf8");
+const declarationExports = extractDeclarationExports(declaration);
+assertEqual(declarationExports.runtime, expectedRuntimeExports, "declaration runtime exports");
+assertEqual(declarationExports.types, expectedTypeExports, "declaration type exports");
 
-  const dts = readFileSync(join(root, manifest.dtsPath), "utf8");
-  assertEqual(extractExportedTypeNames(dts), manifest.types, `${manifest.name} type exports`);
-  for (const removedName of removedPublicNames) {
-    if (new RegExp(`\\b${removedName}\\b`).test(dts)) {
-      throw new Error(`${manifest.name} declaration exposes removed public name: ${removedName}`);
-    }
+for (const removedName of removedPublicNames) {
+  if (
+    declarationExports.runtime.includes(removedName) ||
+    declarationExports.types.includes(removedName)
+  ) {
+    throw new Error(`Root declaration exports removed public name: ${removedName}`);
   }
-  for (const forbiddenText of manifest.forbiddenDeclarationText ?? []) {
-    if (dts.includes(forbiddenText)) {
-      throw new Error(`${manifest.name} declaration leaks forbidden text: ${forbiddenText}`);
-    }
+}
+
+const normalizedDeclaration = normalizeDeclaration(declaration);
+assertDeclarationContracts(normalizedDeclaration);
+const declarationHash = createHash("sha256").update(normalizedDeclaration).digest("hex");
+if (declarationHash !== expectedDeclarationContractSha256) {
+  throw new Error(
+    `Declaration contract hash mismatch\nactual: ${declarationHash}\nexpected: ${expectedDeclarationContractSha256}`,
+  );
+}
+
+for (const forbiddenText of [
+  "@texel/color",
+  "@material/material-color-utilities",
+  "@scheme-tokens/material3",
+  "css-tree",
+]) {
+  if (declaration.includes(forbiddenText)) {
+    throw new Error(`Root declaration leaks forbidden dependency text: ${forbiddenText}`);
   }
-  if (/\btype\s+Result\s*</.test(dts) || /\binterface\s+Result\s*</.test(dts)) {
-    throw new Error(`${manifest.name} declaration exposes generic Result<T>`);
-  }
-  if (/\bCompiled(?:Token|Scheme)[\s\S]{0,240}\bvalueByMode\b/.test(dts)) {
-    throw new Error(`${manifest.name} declaration exposes valueByMode on compiled public types`);
-  }
-  if (/import\(["'][^)]+["']\)\./.test(dts)) {
-    throw new Error(`${manifest.name} declaration exposes inline type imports`);
-  }
+}
+if (/import\(["'][^)]+["']\)\./.test(declaration)) {
+  throw new Error("Root declaration exposes an inline dependency type import");
 }
 
 const rootBundle = readFileSync(join(root, "dist/index.js"), "utf8");
-if (
-  rootBundle.includes("@texel/color") ||
-  rootBundle.includes("@material/material-color-utilities") ||
-  rootBundle.includes("@scheme-tokens/material3") ||
-  rootBundle.includes("material3") ||
-  rootBundle.includes("Material3") ||
-  rootBundle.includes("css-tree")
-) {
-  throw new Error("Root import graph references optional engine dependencies");
+for (const forbiddenText of [
+  "@texel/color",
+  "@material/material-color-utilities",
+  "@scheme-tokens/material3",
+  "material3",
+  "Material3",
+  "css-tree",
+]) {
+  if (rootBundle.includes(forbiddenText)) {
+    throw new Error(`Root import graph references forbidden engine text: ${forbiddenText}`);
+  }
 }
 
-function assertEqual(actual: readonly string[], expected: readonly string[], label: string): void {
-  const expectedSorted = [...expected].sort();
-  if (JSON.stringify(actual) !== JSON.stringify(expectedSorted)) {
+function assertDeclarationContracts(normalized: string): void {
+  const requiredFragments = [
+    "type Result<Value, Problem = Issue> = { readonly ok: true; readonly value: Value; } | FailureResult<Problem>;",
+    "interface TokenReference<Key extends string = string> { readonly ref: Key; }",
+    "readonly value: TokenExpression<Key> | TokenModeValues<Mode, Key>;",
+    "declare function parseTokenGraph(input: unknown): Result<TokenGraph, TokenGraphIssue>;",
+    "declare function parseTokenLayer(input: unknown): Result<TokenLayer, TokenGraphIssue>;",
+    "declare function parseCompiledScheme(input: unknown): Result<CompiledScheme<string, string, false>, ParseCompiledSchemeIssue>;",
+    "readonly variableName?: (input: CssVariableNameInput<Key>) => string;",
+  ] as const;
+
+  for (const fragment of requiredFragments) {
+    if (!normalized.includes(fragment)) {
+      throw new Error(`Declaration contract is missing required signature fragment: ${fragment}`);
+    }
+  }
+
+  for (const forbiddenFragment of [
+    "readonly graph:",
+    "readonly layer:",
+    "readonly scheme:",
+    "readonly valueByMode:",
+    "readonly aliases:",
+  ]) {
+    if (normalized.includes(forbiddenFragment)) {
+      throw new Error(`Declaration contract contains removed shape: ${forbiddenFragment}`);
+    }
+  }
+
+  if (/type TokenDefinition<[\s\S]*?readonly value\?:/.test(normalized)) {
+    throw new Error("Strict TokenDefinition.value must be required");
+  }
+}
+
+function assertEqual(
+  actualInput: readonly string[],
+  expectedInput: readonly string[],
+  label: string,
+): void {
+  const actual = [...actualInput].sort();
+  const expected = [...expectedInput].sort();
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(
-      `${label} mismatch\nactual: ${actual.join(", ")}\nexpected: ${expectedSorted.join(", ")}`,
+      `${label} mismatch\nactual: ${actual.join(", ")}\nexpected: ${expected.join(", ")}`,
     );
   }
 }
@@ -222,12 +218,8 @@ function assertExportTargetsExist(exports: Readonly<Record<string, ExportTarget>
       assertPackagePathExists(target, subpath);
       continue;
     }
-    if (target !== null && typeof target === "object") {
-      for (const [condition, conditionTarget] of Object.entries(target)) {
-        if (typeof conditionTarget === "string") {
-          assertPackagePathExists(conditionTarget, `${subpath} ${condition}`);
-        }
-      }
+    for (const [condition, conditionTarget] of Object.entries(target)) {
+      assertPackagePathExists(conditionTarget, `${subpath} ${condition}`);
     }
   }
 }
@@ -241,27 +233,47 @@ function assertPackagePathExists(packagePath: string, label: string): void {
   }
 }
 
-function extractExportedTypeNames(dts: string): readonly string[] {
-  const names = new Set<string>();
-  for (const match of dts.matchAll(/export\s*\{(?<body>[^}]*)\}/gs)) {
-    const body = match.groups?.body;
-    if (body === undefined) {
-      continue;
-    }
-    for (const rawPart of body.split(",")) {
+interface DeclarationExports {
+  readonly runtime: readonly string[];
+  readonly types: readonly string[];
+}
+
+function extractDeclarationExports(input: string): DeclarationExports {
+  const runtime = new Set<string>();
+  const types = new Set<string>();
+  for (const match of input.matchAll(/export\s*\{(?<body>[^}]*)\}/gs)) {
+    for (const rawPart of match.groups?.body?.split(",") ?? []) {
       const part = rawPart.trim();
-      if (!part.startsWith("type ")) {
+      if (part.length === 0) {
         continue;
       }
-      names.add(
-        part
-          .slice("type ".length)
-          .split(/\s+as\s+/u)[0]!
-          .trim(),
-      );
+      const typeOnly = part.startsWith("type ");
+      const withoutType = typeOnly ? part.slice("type ".length).trim() : part;
+      const exportedName = withoutType
+        .split(/\s+as\s+/u)
+        .at(-1)
+        ?.trim();
+      if (exportedName !== undefined) {
+        (typeOnly ? types : runtime).add(exportedName);
+      }
     }
   }
-  return [...names].sort();
+  return { runtime: [...runtime], types: [...types] };
+}
+
+function normalizeDeclaration(input: string): string {
+  return input
+    .replaceAll("\r\n", "\n")
+    .split("\n")
+    .filter(
+      (line) =>
+        !line.startsWith("//#region") &&
+        !line.startsWith("//#endregion") &&
+        !line.startsWith("//# sourceMappingURL="),
+    )
+    .join("\n")
+    .replace(/\s+/gu, " ")
+    .trim();
 }
 
 function listFiles(directory: string): readonly string[] {

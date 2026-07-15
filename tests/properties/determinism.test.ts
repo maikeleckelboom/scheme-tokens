@@ -3,53 +3,85 @@ import { describe, expect, test } from "vitest";
 import {
   compileTokenGraph,
   defineTokenGraph,
+  defineTokens,
+  exportCssVars,
+  parseCompiledScheme,
   parseTokenGraph,
+  parseTokenLayer,
   serializeCompiledScheme,
-  tokenGraphKind,
+  serializeTokenGraph,
 } from "../../src";
 
 describe("determinism and parser safety properties", () => {
-  test("parse boundaries do not throw for JSON values", () => {
+  test("all untrusted parsers do not throw for JSON values", () => {
     fc.assert(
       fc.property(fc.jsonValue(), (value) => {
         expect(() => parseTokenGraph(value)).not.toThrow();
+        expect(() => parseTokenLayer(value)).not.toThrow();
+        expect(() => parseCompiledScheme(value)).not.toThrow();
       }),
-      { numRuns: 100 },
+      { numRuns: 200 },
     );
   });
 
-  test("token insertion order does not change canonical serialization", () => {
-    const left = compileTokenGraph(
-      defineTokenGraph({
-        modes: ["dark", "light"],
-        defaultMode: "light",
-        tokens: {
-          "b.color": "#111111",
-          "a.color": "#ffffff",
-        },
-      }),
+  test("construction order does not change canonical graph or compiled serialization", () => {
+    const left = defineTokens(
+      {
+        "b.color": { dark: "#222222", light: "#111111" },
+        "a.color": { dark: "#000000", light: "#ffffff" },
+      },
+      { modes: ["dark", "light"], defaultMode: "light" },
     );
-    const right = compileTokenGraph(
-      defineTokenGraph({
-        modes: ["light", "dark"],
-        defaultMode: "light",
-        tokens: {
-          "a.color": "#ffffff",
-          "b.color": "#111111",
-        },
-      }),
+    const right = defineTokens(
+      {
+        "a.color": { light: "#ffffff", dark: "#000000" },
+        "b.color": { light: "#111111", dark: "#222222" },
+      },
+      { modes: ["light", "dark"], defaultMode: "light" },
     );
-    expect(left.ok).toBe(true);
-    expect(right.ok).toBe(true);
-    if (!left.ok || !right.ok) {
+
+    expect(serializeTokenGraph(left)).toBe(serializeTokenGraph(right));
+    const leftCompiled = compileTokenGraph(left);
+    const rightCompiled = compileTokenGraph(right);
+    expect(leftCompiled.ok).toBe(true);
+    expect(rightCompiled.ok).toBe(true);
+    if (!leftCompiled.ok || !rightCompiled.ok) {
       throw new Error("Expected both graphs to compile");
     }
-    expect(serializeCompiledScheme(left.scheme)).toBe(serializeCompiledScheme(right.scheme));
+    expect(serializeCompiledScheme(leftCompiled.value)).toBe(
+      serializeCompiledScheme(rightCompiled.value),
+    );
+  });
+
+  test("selector-map insertion order does not change CSS", () => {
+    const compiled = compileTokenGraph(
+      defineTokens(
+        { background: { light: "#fff", dark: "#000" } },
+        { modes: ["light", "dark"], defaultMode: "light" },
+      ),
+    );
+    if (!compiled.ok) {
+      throw new Error(JSON.stringify(compiled.issues));
+    }
+
+    const left = exportCssVars(compiled.value, {
+      modeSelectors: {
+        strategy: "selectors",
+        selectors: { dark: ".dark", light: ":root" },
+      },
+    });
+    const right = exportCssVars(compiled.value, {
+      modeSelectors: {
+        strategy: "selectors",
+        selectors: { light: ":root", dark: ".dark" },
+      },
+    });
+    expect(left).toEqual(right);
   });
 
   test("token insertion order does not change diagnostic order", () => {
     const left = parseTokenGraph({
-      kind: tokenGraphKind,
+      kind: "scheme-tokens/token-graph",
       formatVersion: 1,
       modes: ["base"],
       defaultMode: "base",
@@ -60,7 +92,7 @@ describe("determinism and parser safety properties", () => {
       },
     });
     const right = parseTokenGraph({
-      kind: tokenGraphKind,
+      kind: "scheme-tokens/token-graph",
       formatVersion: 1,
       modes: ["base"],
       defaultMode: "base",
@@ -71,6 +103,21 @@ describe("determinism and parser safety properties", () => {
       },
     });
     expect(left).toEqual(right);
+  });
+
+  test("canonical ordering is independent of localeCompare", () => {
+    const original = String.prototype.localeCompare;
+    String.prototype.localeCompare = () => {
+      throw new Error("localeCompare must not participate in canonical ordering");
+    };
+    try {
+      const graph = defineTokens({ z: "z", a: "a" });
+      const compiled = compileTokenGraph(graph);
+      expect(compiled.ok).toBe(true);
+      expect(serializeTokenGraph(graph)).toContain('"a"');
+    } finally {
+      String.prototype.localeCompare = original;
+    }
   });
 
   test("deep reference chains are stack-safe", () => {
@@ -88,8 +135,8 @@ describe("determinism and parser safety properties", () => {
     if (!result.ok) {
       throw new Error("Expected chain graph to compile");
     }
-    expect(Object.keys(result.scheme.tokens)).toHaveLength(10_001);
-    expect(result.scheme.metadataByToken["chain.t10000"]?.dependenciesByMode.base).toEqual([
+    expect(Object.keys(result.value.tokens)).toHaveLength(10_001);
+    expect(result.value.metadataByToken["chain.t10000"]?.dependenciesByMode.base).toEqual([
       "chain.t09999",
     ]);
   }, 20_000);

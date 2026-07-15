@@ -34,16 +34,10 @@ const publicMarkdownFiles = [
 ];
 assertNoRemovedPublicNames();
 assertNoPublicColorParserSurface();
-assertNoCompiledValueWrappers();
+assertResultConvention(publicMarkdownFiles);
 assertPackageImportExamplesUseTwoslash(publicMarkdownFiles);
 
-const blocks = extractTypeScriptExamples([
-  { label: "README.md", text: readme },
-  ...docsSiteFiles.map((file) => ({
-    label: file,
-    text: readFileSync(file, "utf8"),
-  })),
-]);
+const blocks = extractTypeScriptExamples(publicMarkdownFiles);
 if (blocks.length === 0) {
   throw new Error("Public docs contain no executable TypeScript examples");
 }
@@ -76,7 +70,10 @@ writeJson(join(consumerDirectory, "tsconfig.json"), {
   include: ["example-*.ts"],
 });
 blocks.forEach((block, index) => {
-  writeFileSync(join(consumerDirectory, `example-${index}.ts`), block.code);
+  writeFileSync(
+    join(consumerDirectory, `example-${index}.ts`),
+    `// Extracted from ${block.label.replaceAll("\\", "/")}\n${block.code}`,
+  );
 });
 
 runPnpm(["install", "--ignore-scripts"], consumerDirectory);
@@ -123,6 +120,7 @@ interface MarkdownFile {
 
 interface TypeScriptExample {
   readonly code: string;
+  readonly label: string;
 }
 
 function extractTypeScriptExamples(files: readonly MarkdownFile[]): readonly TypeScriptExample[] {
@@ -137,7 +135,12 @@ function extractTypeScriptExamples(files: readonly MarkdownFile[]): readonly Typ
         continue;
       }
       if (supportedInfos.has(info)) {
-        examples.push({ code });
+        const isDurableDocsFile = file.label.includes(
+          `${join(repoRoot, "docs")}${process.platform === "win32" ? "\\" : "/"}`,
+        );
+        if (info === "ts twoslash" || !isDurableDocsFile) {
+          examples.push({ code, label: file.label });
+        }
         continue;
       }
       if (/^tsx\b/.test(info)) {
@@ -188,7 +191,6 @@ function assertNoRemovedPublicNames(): void {
     `Color${"Token"}LayerInput`,
     `Color${"Expression"}Input`,
     `Compiled${"Color"}Scheme`,
-    `Result<`,
     `parse${"Color"}`,
     `format${"Css"}${"Color"}`,
   ] as const;
@@ -212,18 +214,33 @@ function assertNoRemovedPublicNames(): void {
   }
 }
 
-function assertNoCompiledValueWrappers(): void {
-  const publicFiles = [
-    join(repoRoot, "README.md"),
-    ...listFiles(join(repoRoot, "docs")).filter((file) => trackedWorkspaceFiles.has(file)),
-    ...authoredDocsSiteFiles,
-  ].filter((file) => file.endsWith(".md"));
+function assertResultConvention(files: readonly MarkdownFile[]): void {
+  const corpus = files.map((file) => file.text).join("\n");
+  for (const required of [
+    "Result<Value, Problem>",
+    "parsed.value",
+    "compiled.value",
+    "exported.value.css",
+  ]) {
+    if (!corpus.includes(required)) {
+      throw new Error(`Public docs do not demonstrate the required Result convention: ${required}`);
+    }
+  }
 
-  for (const file of publicFiles) {
-    const text = readFileSync(file, "utf8");
-    for (const denied of [".valueByMode", ".value.css", ".value.tokens", "compiled.value"]) {
-      if (text.includes(denied)) {
-        throw new Error(`Public docs contain removed value wrapper "${denied}" in ${file}`);
+  if (!readme.includes("compiled.value") || !readme.includes("exported.value.css")) {
+    throw new Error("README first paths must demonstrate Result success payloads under .value");
+  }
+
+  for (const file of files) {
+    for (const match of file.text.matchAll(/^```ts twoslash\r?\n([\s\S]*?)^```/gm)) {
+      const code = match[1] ?? "";
+      const removedSuccessAccess = code.match(
+        /\b(?:compiled|parsed|exported)\.(?:graph|layer|scheme|css|blocks|variableByToken)\b/u,
+      );
+      if (removedSuccessAccess !== null) {
+        throw new Error(
+          `Current package example uses removed operation-specific success access "${removedSuccessAccess[0]}" in ${file.label}`,
+        );
       }
     }
   }
@@ -280,11 +297,15 @@ function listFiles(directory: string): readonly string[] {
 }
 
 function listTrackedFiles(root: string): ReadonlySet<string> {
-  const output = execFileSync("git", ["ls-files", "-z"], {
-    cwd: root,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "inherit"],
-  });
+  const output = execFileSync(
+    "git",
+    ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+    {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "inherit"],
+    },
+  );
   return new Set(
     output
       .split("\0")

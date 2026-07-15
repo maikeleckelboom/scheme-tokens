@@ -13,13 +13,13 @@
           "safe": true
         }
       },
-      "valueByMode": {
+      "value": {
         "light": "#6750a4",
         "dark": "#d0bcff"
       }
     },
     "brand.on-primary": {
-      "valueByMode": {
+      "value": {
         "light": "#ffffff",
         "dark": "#381e72"
       }

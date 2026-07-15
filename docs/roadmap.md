@@ -1,34 +1,26 @@
 # Roadmap
 
-The 0.1 public contract is the core compiler:
+The 0.1 release decision is centered on one complete pipeline:
 
 ```text
-authored token graph -> compileTokenGraph() -> compiled scheme -> exportCssVars()
+authored string tokens -> strict graph -> deterministic compilation -> CSS or serialized artifacts
 ```
 
-## 0.1 Focus
+## 0.1 focus
 
-- Keep root imports dependency-light.
-- Keep public authoring data JSON-safe.
-- Keep strict persisted graph, layer, and compiled-scheme formats explicit.
-- Keep diagnostics deterministic and JSON-safe.
-- Keep CSS variable export deterministic.
-- Keep compiled token reads direct: `scheme.tokens.background.base`.
+- Keep one authoring grammar and one `Result` convention.
+- Keep multimode authority explicit at the graph boundary.
+- Keep layers ordered, mode-neutral, and independently identifiable.
+- Keep strict graph, layer, and compiled formats aligned with their schemas and parsers.
+- Keep diagnostics, serialization, selection, and CSS output deterministic.
+- Prove literal key and mode inference through strict packed consumers.
+- Validate a consumer-shaped graph with generated internal strings, public semantic references, explicit repair tokens, light and dark modes, layers, and persisted parsing.
 
-## Future Notes
+## Deliberate non-goals
 
-External palette generators can feed `scheme-tokens` by producing authored token objects or strict token graphs. A late example may show that pattern with Material 3 or another generator, but the root package will not ship that generator, wrap it in a source abstraction, or make it a release blocker.
+- Structured or domain-specific token value systems.
+- Palette generation or value interpretation.
+- Product policy, role taxonomies, proof models, or repair decisions.
+- Runtime plugin, source, provider, preset, or registry frameworks.
 
-Possible future work:
-
-- more examples for spacing, typography, shadows, and radii;
-- additional CSS export formatting options;
-- schema-focused tests for packed consumers;
-- documentation examples for external generator pipelines.
-
-Out of scope for the root package:
-
-- Material 3 implementation;
-- color parsing or conversion;
-- image extraction;
-- plugin, source, provider, or preset frameworks.
+Future work should extend composition around the stable compiler rather than broaden the root package into a design-system framework.

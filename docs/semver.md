@@ -1,24 +1,21 @@
 # Semver
 
-The first public release line starts at `0.1.0`. The packages are usable, but they are still pre-`1.0.0`: minor releases
-may include breaking public-contract changes when they simplify the package or correct an early API mistake. Patch
-releases should stay compatible and focus on fixes, documentation, and release tooling.
+The first public release line starts at `0.1.0`. Before `1.0.0`, a minor release may change a public contract when that change materially simplifies the package or corrects an early mistake. Patch releases should remain compatible and focus on fixes, documentation, and release tooling.
 
 These are versioned contracts:
 
 - root runtime exports;
-- package subpath exports;
+- root TypeScript exports and literal inference behavior;
+- package schema subpaths;
 - graph, layer, and compiled JSON formats;
-- public TypeScript types;
-- `Issue.code` values;
-- JSON Pointer path semantics;
-- parser acceptance and rejection boundaries;
-- compiler selection behavior;
-- deterministic serialization shape;
-- CSS exporter option semantics.
+- `Result` success and failure shapes;
+- `Issue.code` values and JSON Pointer path semantics;
+- trusted-helper and untrusted-parser boundaries;
+- graph mode and layer composition semantics;
+- compilation selection, completeness typing, and output ordering;
+- canonical serialization;
+- CSS exporter option, block, formatting, declaration-safety, bounded-selector, and collision semantics.
 
-Message text, internal file layout, and implementation strategy are not public compatibility contracts unless explicitly
-documented as such.
+Human-readable issue messages, internal file layout, and implementation strategy are not compatibility contracts unless explicitly documented otherwise.
 
-Adapter packages version their own root exports, input types, issue codes, optional schemas, and engine dependency
-behavior. Core semver does not cover optional engine behavior that lives outside `scheme-tokens`.
+The pre-release migration guide records the reset that precedes the first publication. It does not create compatibility aliases or continued support for removed shapes.

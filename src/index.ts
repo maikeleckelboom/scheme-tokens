@@ -1,12 +1,4 @@
-export {
-  tokenGraphKind,
-  tokenLayerKind,
-  compiledSchemeKind,
-  defineTokenGraph,
-  defineTokenLayer,
-  defineTokens,
-  tokenRef,
-} from "./core/graph";
+export { defineTokenGraph, defineTokenLayer, defineTokens, tokenRef } from "./core/graph";
 export { parseTokenGraph, parseTokenLayer } from "./core/parse-token-graph";
 export { parseCompiledScheme } from "./core/parse-compiled-scheme";
 export { compileTokenGraph } from "./core/compile-token-graph";
@@ -17,47 +9,33 @@ export {
   serializeTokenLayer,
 } from "./exporters/serialize-scheme";
 
-export type { JsonPrimitive, JsonValue } from "./core/json";
-export type { FailureResult, Issue, NonEmptyIssues } from "./core/result";
+export type { JsonValue } from "./core/json";
+export type { Issue, Result } from "./core/result";
 export type {
-  TokenDefinitionAuthoringInput,
-  TokenDefinitionInput,
-  TokenExpressionInput,
-  TokenGraphAuthoringInput,
-  TokenGraphInput,
+  TokenDefinition,
+  TokenExpression,
+  TokenGraph,
   TokenGraphIssue,
-  TokenGraphKind,
-  TokenLayerAuthoringInput,
-  TokenLayerInput,
-  TokenLayerKind,
-  CompiledSchemeKind,
-  ModeOf,
-  ParseTokenGraphResult,
-  ParseTokenLayerResult,
-  ReferenceInput,
+  TokenLayer,
   TokenOrigin,
-  TokenKeyOf,
+  TokenReference,
   TokenVisibility,
 } from "./core/graph";
 export type {
   CompileTokenGraphIssue,
   CompileTokenGraphOptions,
-  CompileTokenGraphResult,
   CompiledScheme,
   CompiledToken,
   CompiledTokenMetadata,
   ParseCompiledSchemeIssue,
-  ParseCompiledSchemeResult,
   TokenSelection,
 } from "./core/compiled-types";
 export type {
-  CssVarDeclaration,
-  CssVarBlock,
-  CssVarsExport,
   CssModeSelectors,
   CssScope,
-  ExportCssVarsResult,
+  CssVarBlock,
+  CssVarDeclaration,
+  CssVarsExport,
   ExportCssVarsIssue,
   ExportCssVarsOptions,
-  CssVariableNameInput,
 } from "./exporters/export-css-variables";

@@ -2,12 +2,16 @@
 
 ## 0.1.0
 
-Initial pre-release candidate for the simplified core package.
+Initial pre-release candidate for the string-valued token graph compiler.
 
-- Compile authored token graphs into `CompiledScheme` artifacts.
-- Expose direct compiled token mode maps, for example `scheme.tokens.background.base`.
-- Return named success payload fields from public result-shaped APIs.
-- Export deterministic CSS variables through `exportCssVars()`.
-- Parse and serialize strict token graph, token layer, and compiled scheme artifacts.
-- Keep the root package dependency-light and engine-free.
-- Leave Material 3, palette generation, color science, image extraction, conversion, and vendor-specific behavior outside the package boundary.
+- Define single-mode graphs with `base` defaults and require an explicit mode envelope and default for multimode graphs.
+- Keep references explicit through `tokenRef()` and strict `{ ref }` records.
+- Normalize direct values, explicit mode maps, and expanded `{ value, ...metadata }` definitions into one strict artifact grammar.
+- Remove the pre-release `aliases` and `valueByMode` authoring forms.
+- Return every fallible public success through `{ ok: true, value }` and export `Result`.
+- Separate trusted authoring helpers from parsers for untrusted persisted data.
+- Compile public, all, or explicitly selected tokens while resolving references against the complete graph.
+- Type runtime-filtered public records conservatively as partial, exact literal tuples as complete after validation, and `all` as complete only for finite authored key unions; keep dynamically parsed compiled artifacts and their CSS maps partial.
+- Parse and serialize strict token graph, token layer, and compiled scheme artifacts deterministically.
+- Export deterministic CSS custom properties with structured blocks and token-to-variable metadata, rejecting declaration-unsafe values and selectors outside the bounded safe grammar.
+- Keep the root package dependency-light and outside palette generation, value interpretation, and product-domain policy.

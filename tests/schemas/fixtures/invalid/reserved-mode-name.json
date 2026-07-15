@@ -1,0 +1,12 @@
+{
+  "kind": "scheme-tokens/token-graph",
+  "formatVersion": 1,
+  "modes": ["value"],
+  "defaultMode": "value",
+  "defaultVisibility": "public",
+  "tokens": {
+    "brand.primary": {
+      "value": "#6750a4"
+    }
+  }
+}

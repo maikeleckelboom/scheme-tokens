@@ -1,65 +1,55 @@
 # Architecture
 
-`scheme-tokens` is a dependency-light token graph compiler.
+`scheme-tokens` is a dependency-light compiler for authored string-valued token graphs.
 
-The core owns:
+## Boundary
 
-- token graph and token layer contracts;
-- JSON-safe authoring inputs;
-- strict graph parsing and validation;
-- deterministic token compilation;
-- compiled scheme parsing and serialization;
-- CSS custom property export;
-- issue contracts for recoverable failures.
+The package owns graph and layer contracts, explicit references, graph modes, ordered composition, visibility, validation, compilation, diagnostics, strict persisted artifacts, deterministic serialization, and CSS custom-property projection.
 
-The core does not own palette generation, color science, image extraction, browser canvas, vendor engines, plugin registries, or design-system expansion.
+It does not interpret token strings or own palette generation, color conversion, contrast policy, repair policy, role conventions, product project models, or a plugin registry. External producers hand the package ordinary authored strings or a strict persisted graph.
 
 ## Pipeline
 
 ```text
-authored tokens
--> defineTokens() or defineTokenGraph()
--> compileTokenGraph()
--> compiled scheme
--> exportCssVars() or serializeCompiledScheme()
+trusted TypeScript authoring       untrusted persisted JSON
+define* helpers                    parse* functions
+          \                        /
+           canonical owned artifact
+                     |
+             compileTokenGraph()
+                     |
+               CompiledScheme
+                /          \
+    exportCssVars()    serializeCompiledScheme()
 ```
 
-External generators can feed the first step by producing plain authored token data. They are ordinary userland code from the root package's point of view.
+The trusted helpers may throw for programmer misuse. The parsers accept `unknown`, avoid throwing for JSON-compatible input, copy accepted data, and return structured `Result` values.
 
-## Authored Graphs
+## Graph authority
 
-Graph input supports CSS-ready strings and explicit references. Bare strings are never inferred as references.
+The graph exclusively owns `modes` and `defaultMode`. Omitting mode options means the single mode `base`. Any explicit mode envelope requires an explicit default.
 
-```ts twoslash
-import { defineTokens, tokenRef } from "scheme-tokens";
+Layers have stable IDs, local default visibility, and token definitions, but no mode envelope. A layer's mode maps are checked against the owning graph during composition. Graph tokens compose first, followed by layers in array order; a later definition replaces an earlier definition with the same key.
 
-const graph = defineTokens({
-  "brand.primary": "#6750a4",
-  primary: tokenRef("brand.primary"),
-});
-```
+This is token composition, not CSS cascade behavior.
 
-Strict persisted artifacts keep references structured as `{ ref: "token.key" }`.
+## References and selection
 
-## Compiled Schemes
+References are explicit `{ ref }` expressions. Compilation validates unknown references and cycles against the complete composed graph before selecting output tokens. This allows a public semantic token to resolve through internal implementation tokens without emitting those internal tokens in the default public result.
 
-Compiled tokens are plain mode maps:
+Selection is explicit:
 
-```ts twoslash
-import { compileTokenGraph, defineTokens } from "scheme-tokens";
+- `"public"` is the default;
+- `"all"` includes public and internal tokens;
+- `{ keys: [...] }` selects an exact non-empty key set.
 
-const compiled = compileTokenGraph(
-  defineTokens({
-    background: "#ffffff",
-  }),
-);
+Selected keys and compiled records use deterministic code-unit ordering.
 
-if (compiled.ok) {
-  compiled.scheme.tokens.background.base;
-}
-```
+Omitted and explicit `public` selection have conservatively partial token and metadata records because visibility is applied at runtime. Use optional access for those records. An exact literal key tuple is complete after runtime validation. `all` is complete for a finite authored key union, but a dynamically parsed graph has no finite known key set and remains partial even with `all`.
 
-Metadata that would collide with mode names lives under `metadataByToken`:
+## Compiled schemes
+
+Compiled token values are direct mode maps. Metadata is stored separately under `metadataByToken` so mode names cannot collide with visibility, origin, dependency, or descriptive fields.
 
 ```ts twoslash
 import { compileTokenGraph, defineTokens } from "scheme-tokens";
@@ -71,8 +61,11 @@ const compiled = compileTokenGraph(
 );
 
 if (compiled.ok) {
-  compiled.scheme.metadataByToken.background.dependenciesByMode.base;
+  compiled.value.tokens.background?.base;
+  compiled.value.metadataByToken.background?.dependenciesByMode.base;
 }
 ```
 
-This keeps the default read path small while preserving deterministic diagnostics, dependencies, origins, and metadata for advanced workflows.
+The optional access reflects the default public selection, not an optional mode. `parseCompiledScheme()` also always returns a dynamic, incomplete token record; CSS export from that parsed artifact keeps `variableByToken` partial. Serializers define the supported byte-stable wire projection. Parsers own accepted input rather than retaining caller-owned mutable objects.
+
+Compilation and serialization preserve arbitrary token strings. CSS export separately validates declaration safety before code emission and returns `invalid-css-value` instead of writing an unsafe value.

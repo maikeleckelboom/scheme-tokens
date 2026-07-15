@@ -1,0 +1,19 @@
+{
+  "$schema": "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json",
+  "kind": "scheme-tokens/token-graph",
+  "formatVersion": 1,
+  "modes": ["base"],
+  "defaultMode": "base",
+  "defaultVisibility": "public",
+  "tokens": {
+    "brand.600": {
+      "value": "oklch(62% 0.18 250)",
+      "visibility": "internal"
+    },
+    "primary": {
+      "value": {
+        "ref": "brand.600"
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 interface PackageManifest {
@@ -23,7 +23,7 @@ writeJson(join(consumerDirectory, "package.json"), {
   private: true,
   type: "module",
   dependencies: {
-    [manifest.name]: `file:${tarball.replaceAll("\\", "/")}`,
+    [manifest.name]: fileDependencySpec(consumerDirectory, tarball),
   },
 });
 writeJson(join(consumerDirectory, "tsconfig.json"), {
@@ -33,201 +33,256 @@ writeJson(join(consumerDirectory, "tsconfig.json"), {
     module: "NodeNext",
     moduleResolution: "NodeNext",
     target: "ES2022",
-    noEmit: true,
+    lib: ["ES2022"],
     types: [],
+    resolveJsonModule: true,
+    verbatimModuleSyntax: true,
+    rootDir: ".",
+    outDir: "dist",
   },
-  include: ["types.ts"],
+  include: ["consumer.ts"],
 });
 
 writeFileSync(
-  join(consumerDirectory, "root.mjs"),
+  join(consumerDirectory, "consumer.ts"),
   `
-import { compileTokenGraph, defineTokenGraph, defineTokens, exportCssVars, parseCompiledScheme, serializeCompiledScheme, tokenRef } from ${JSON.stringify(manifest.name)};
-
-const graph = defineTokens({
-  background: {
-    base: "#ffffff",
-    dark: "#111111",
-  },
-  foreground: {
-    base: "#111111",
-    dark: "#ffffff",
-  },
-});
-const compiled = compileTokenGraph(graph);
-if (!compiled.ok) throw new Error(JSON.stringify(compiled.issues));
-if (compiled.scheme.tokens.background.base !== "#ffffff") throw new Error("direct token read failed");
-if (compiled.scheme.tokens.background.dark !== "#111111") throw new Error("direct dark token read failed");
-if ("valueByMode" in compiled.scheme.tokens.background) throw new Error("compiled token exposed valueByMode");
-
-const cssExport = exportCssVars(compiled.scheme);
-if (!cssExport.ok || !cssExport.css.includes("--background: #ffffff;")) throw new Error("root workflow failed");
-if (cssExport.value !== undefined) throw new Error("CSS export exposed a generic value field");
-if (cssExport.variableByToken.background !== "--background") throw new Error("CSS custom-property lookup failed");
-
-const appGraph = defineTokenGraph({
-  tokens: {
-    "brand.primary": {
-      value: "#6750a4",
-      visibility: "internal",
-    },
-    primary: tokenRef("brand.primary"),
-    literal: "brand.primary",
-  },
-});
-const appCompiled = compileTokenGraph(appGraph);
-if (!appCompiled.ok) throw new Error(JSON.stringify(appCompiled.issues));
-if (!("primary" in appCompiled.scheme.tokens) || "brand.primary" in appCompiled.scheme.tokens) {
-  throw new Error("public selection failed");
-}
-if (appCompiled.scheme.tokens.literal.base !== "brand.primary") {
-  throw new Error("bare strings must not be inferred as references");
-}
-
-const parsedCompiled = parseCompiledScheme(JSON.parse(serializeCompiledScheme(compiled.scheme)));
-if (!parsedCompiled.ok || parsedCompiled.scheme.kind !== "scheme-tokens/compiled-scheme") {
-  throw new Error("compiled parse boundary failed");
-}
-`,
-);
-
-writeFileSync(
-  join(consumerDirectory, "subpaths.mjs"),
-  `
-for (const subpath of ["conversion", "material3"]) {
-  try {
-    await import(${JSON.stringify(manifest.name)} + "/" + subpath);
-    throw new Error("unexpected subpath import success: " + subpath);
-  } catch (error) {
-    const marker =
-      typeof error?.code === "string"
-        ? error.code
-        : typeof error?.message === "string"
-          ? error.message
-          : "";
-    if (!marker.includes("ERR_PACKAGE_PATH_NOT_EXPORTED")) {
-      throw error;
-    }
-  }
-}
-`,
-);
-
-writeFileSync(
-  join(consumerDirectory, "schema-subpaths.mjs"),
-  `
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
-const expectedSchemas = new Map([
-  ["schemas/token-graph.v1.schema.json", "scheme-tokens token graph v1"],
-  ["schemas/token-layer.v1.schema.json", "scheme-tokens token layer v1"],
-  ["schemas/compiled-scheme.v1.schema.json", "scheme-tokens compiled scheme v1"],
-]);
-
-for (const [subpath, title] of expectedSchemas) {
-  const packageSubpath = ${JSON.stringify(manifest.name)} + "/" + subpath;
-  const schema = require(packageSubpath);
-  if (schema?.$schema !== "https://json-schema.org/draft/2020-12/schema") {
-    throw new Error("schema artifact is missing the draft marker: " + subpath);
-  }
-  if (schema.title !== title) {
-    throw new Error("schema artifact title mismatch: " + subpath);
-  }
-  const resolved = require.resolve(packageSubpath).replaceAll("\\\\", "/");
-  if (!resolved.endsWith("/" + subpath)) {
-    throw new Error("schema subpath resolved outside expected artifact: " + resolved);
-  }
-}
-`,
-);
-
-writeFileSync(
-  join(consumerDirectory, "types.ts"),
-  `
+import tokenGraphSchema from "scheme-tokens/schemas/token-graph.v1.schema.json" with { type: "json" };
+import tokenLayerSchema from "scheme-tokens/schemas/token-layer.v1.schema.json" with { type: "json" };
+import compiledSchemeSchema from "scheme-tokens/schemas/compiled-scheme.v1.schema.json" with { type: "json" };
 import {
   compileTokenGraph,
   defineTokenGraph,
+  defineTokenLayer,
   defineTokens,
   exportCssVars,
+  parseCompiledScheme,
+  parseTokenGraph,
+  parseTokenLayer,
+  serializeCompiledScheme,
+  serializeTokenGraph,
+  serializeTokenLayer,
   tokenRef,
   type CompiledScheme,
   type CssVarBlock,
   type CssVarsExport,
-  type ExportCssVarsOptions,
-  type TokenGraphInput,
-  type TokenKeyOf,
-  type ModeOf,
-} from ${JSON.stringify(manifest.name)};
+  type Result,
+  type TokenGraph,
+} from "scheme-tokens";
 
-const graph: TokenGraphInput<"base"> = defineTokenGraph({
-  tokens: {
-    "app.background": {
-      value: "#ffffff",
+const graph = defineTokens(
+  {
+    "brand.600": {
+      value: {
+        light: "oklch(62% 0.18 250)",
+        dark: "oklch(78% 0.12 250)",
+      },
       visibility: "internal",
     },
-    "app.foreground": tokenRef("app.background"),
+    background: { light: "#ffffff", dark: "#111111" },
+    primary: {
+      value: {
+        light: tokenRef("brand.600"),
+        dark: tokenRef("brand.600"),
+      },
+      description: "Primary action fill",
+    },
+  },
+  { modes: ["light", "dark"], defaultMode: "light" },
+);
+
+type GraphKey = keyof typeof graph.tokens;
+type GraphMode = (typeof graph.modes)[number];
+const graphKey: GraphKey = "brand.600";
+const graphMode: GraphMode = "dark";
+void graphKey;
+void graphMode;
+// @ts-expect-error literal graph keys remain closed
+const invalidGraphKey: GraphKey = "brand.400";
+// @ts-expect-error literal graph modes remain closed
+const invalidGraphMode: GraphMode = "dim";
+void invalidGraphKey;
+void invalidGraphMode;
+
+defineTokens({
+  "brand.600": "#6750a4",
+  // @ts-expect-error tokenRef targets must exist in the closed defineTokens record
+  primary: tokenRef("brand.400"),
+});
+
+compileTokenGraph(graph, {
+  selection: {
+    keys: [
+      // @ts-expect-error explicit selections preserve the graph key union
+      "missing",
+    ],
   },
 });
-const simple = defineTokens({
-  background: {
-    light: "#ffffff",
-    dark: "#111111",
+
+const selected = compileTokenGraph(graph, { selection: { keys: ["primary"] } });
+if (selected.ok) {
+  selected.value.tokens.primary.dark.toUpperCase();
+  // @ts-expect-error an exact selection narrows the compiled token record
+  selected.value.tokens.background;
+}
+
+const compiled = compileTokenGraph(graph);
+if (!compiled.ok) {
+  throw new Error(JSON.stringify(compiled.issues));
+}
+const resultContract: Result<typeof compiled.value> = compiled;
+const schemeContract: CompiledScheme<
+  "brand.600" | "background" | "primary",
+  "light" | "dark",
+  false
+> = compiled.value;
+const graphContract: TokenGraph<"brand.600" | "background" | "primary", "light" | "dark"> = graph;
+void resultContract;
+void schemeContract;
+void graphContract;
+
+if (compiled.value.tokens.background?.light !== "#ffffff") {
+  throw new Error("compiled Result.value token read failed");
+}
+if (compiled.value.tokens.primary?.dark !== "oklch(78% 0.12 250)") {
+  throw new Error("reference resolution failed");
+}
+if ("brand.600" in compiled.value.tokens) {
+  throw new Error("default public selection exposed an internal token");
+}
+
+const exported = exportCssVars(compiled.value, {
+  prefix: "color",
+  modeSelectors: {
+    strategy: "selectors",
+    selectors: { light: ":root", dark: ".dark" },
   },
-}, {
+});
+if (!exported.ok) {
+  throw new Error(JSON.stringify(exported.issues));
+}
+const cssContract: CssVarsExport<
+  "brand.600" | "background" | "primary",
+  "light" | "dark",
+  false
+> = exported.value;
+const firstBlock: CssVarBlock | undefined = exported.value.blocks[0];
+void cssContract;
+void firstBlock;
+if (!exported.value.css.includes("--color-background: #ffffff;")) {
+  throw new Error("packed CSS Result.value output failed");
+}
+if (exported.value.variableByToken.primary !== "--color-primary") {
+  throw new Error("packed variableByToken output failed");
+}
+
+const advancedNames = exportCssVars(compiled.value, {
+  variableName: ({ segments }) => \`--app-\${segments.join("-")}\`,
+});
+if (!advancedNames.ok || advancedNames.value.variableByToken.primary !== "--app-primary") {
+  throw new Error("advanced variableName callback failed");
+}
+
+const layer = defineTokenLayer({
+  id: "semantic",
+  tokens: {
+    primary: { light: tokenRef("brand.600"), dark: tokenRef("brand.600") },
+  },
+});
+const layeredGraph = defineTokenGraph({
   modes: ["light", "dark"],
   defaultMode: "light",
+  tokens: { "brand.600": { light: "#6750a4", dark: "#9a82db" } },
+  layers: [layer],
 });
-const compiled = compileTokenGraph(simple);
-const cssOptions: ExportCssVarsOptions = { prefix: "theme" };
-const legacyCssOptions: ExportCssVarsOptions = {
-  // @ts-expect-error variablePrefix is not part of the public CSS export options.
-  variablePrefix: "theme",
-};
-const tokenKey: TokenKeyOf<typeof graph> = "app.background";
-const mode: ModeOf<typeof simple> = "light";
-const cssExport = exportCssVars({} as never);
-if (cssExport.ok) {
-  const cssVarsExport: CssVarsExport = cssExport;
-  const cssBlock: CssVarBlock | undefined = cssExport.blocks[0];
-  cssVarsExport.css.toUpperCase();
-  cssBlock?.declarations[0]?.value.toUpperCase();
+const layered = compileTokenGraph(layeredGraph, { selection: "all" });
+if (!layered.ok || layered.value.tokens.primary.dark !== "#9a82db") {
+  throw new Error("packed layer composition failed");
 }
-if (compiled.ok) {
-  const scheme: CompiledScheme<"background", "dark" | "light"> = compiled.scheme;
-  scheme.tokens.background.dark.toUpperCase();
-  // @ts-expect-error compile success does not expose value.
-  compiled.value.defaultMode.toUpperCase();
+
+const parsedGraph = parseTokenGraph(JSON.parse(serializeTokenGraph(graph)));
+const parsedLayer = parseTokenLayer(JSON.parse(serializeTokenLayer(layer)));
+const parsedCompiled = parseCompiledScheme(JSON.parse(serializeCompiledScheme(compiled.value)));
+if (!parsedGraph.ok || !parsedLayer.ok || !parsedCompiled.ok) {
+  throw new Error("packed strict parse/serialize round trip failed");
 }
-cssOptions.prefix?.toUpperCase();
-legacyCssOptions.prefix?.toUpperCase();
-tokenKey.toUpperCase();
-mode.toUpperCase();
+if (parsedCompiled.ok) {
+  const dynamicToken = parsedCompiled.value.tokens.background;
+  if (dynamicToken?.light !== "#ffffff") {
+    throw new Error("dynamically parsed compiled token was not readable after a presence check");
+  }
+  // @ts-expect-error untrusted parsed schemes cannot claim complete string-key records
+  const completeDynamicScheme: CompiledScheme<string, string, true> = parsedCompiled.value;
+  void completeDynamicScheme;
+}
+if (parsedGraph.value.tokens["brand.600"]?.value === undefined) {
+  throw new Error("strict token definitions must expose required value");
+}
+
+for (const [schema, title] of [
+  [tokenGraphSchema, "scheme-tokens token graph v1"],
+  [tokenLayerSchema, "scheme-tokens token layer v1"],
+  [compiledSchemeSchema, "scheme-tokens compiled scheme v1"],
+] as const) {
+  if (schema.$schema !== "https://json-schema.org/draft/2020-12/schema" || schema.title !== title) {
+    throw new Error("packed schema import failed: " + title);
+  }
+}
+
+for (const subpath of ["conversion", "material3"]) {
+  const specifier = "scheme-tokens/" + subpath;
+  try {
+    await import(specifier);
+  } catch (error) {
+    const marker =
+      typeof error === "object" && error !== null && "code" in error
+        ? String(error.code)
+        : error instanceof Error
+          ? error.message
+          : String(error);
+    if (marker.includes("ERR_PACKAGE_PATH_NOT_EXPORTED") || marker.includes('not defined by "exports"')) {
+      continue;
+    }
+    throw error;
+  }
+  throw new Error("unexpected package subpath export: " + specifier);
+}
 `,
 );
 
 runPnpm(["install", "--ignore-scripts"], consumerDirectory);
-for (const script of ["root.mjs", "subpaths.mjs", "schema-subpaths.mjs"]) {
-  run("node", [script], consumerDirectory);
-}
 run(
-  "node",
+  process.execPath,
   [join(repoRoot, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.json"],
   consumerDirectory,
 );
+run(process.execPath, [join("dist", "consumer.js")], consumerDirectory);
 
 const installedRoot = join(consumerDirectory, "node_modules", manifest.name);
+const installedManifest = JSON.parse(readFileSync(join(installedRoot, "package.json"), "utf8")) as {
+  readonly dependencies?: Readonly<Record<string, string>>;
+  readonly optionalDependencies?: Readonly<Record<string, string>>;
+  readonly peerDependencies?: Readonly<Record<string, string>>;
+};
+if (
+  Object.keys(installedManifest.dependencies ?? {}).length > 0 ||
+  Object.keys(installedManifest.optionalDependencies ?? {}).length > 0 ||
+  Object.keys(installedManifest.peerDependencies ?? {}).length > 0
+) {
+  throw new Error("Packed core consumer leaked a dependency type/runtime graph");
+}
 if (existsSync(join(consumerDirectory, "node_modules", "@scheme-tokens", "material3"))) {
-  throw new Error("core-only consumer unexpectedly installed the Material package");
+  throw new Error("Packed core consumer unexpectedly installed an engine package");
 }
 const rootJs = readFileSync(join(installedRoot, "dist", "index.js"), "utf8");
-if (
-  rootJs.includes("@texel/color") ||
-  rootJs.includes("@material/material-color-utilities") ||
-  rootJs.includes("css-tree") ||
-  rootJs.includes("material3")
-) {
-  throw new Error("Packed root entry loads optional engines");
+for (const forbiddenText of [
+  "@texel/color",
+  "@material/material-color-utilities",
+  "css-tree",
+  "material3",
+]) {
+  if (rootJs.includes(forbiddenText)) {
+    throw new Error(`Packed root entry leaks optional engine text: ${forbiddenText}`);
+  }
 }
 
 function pack(destination: string): string {
@@ -239,6 +294,10 @@ function pack(destination: string): string {
     throw new Error("Unable to determine packed tarball name");
   }
   return join(destination, basename(output));
+}
+
+function fileDependencySpec(fromDirectory: string, tarballPath: string): string {
+  return `file:${relative(fromDirectory, tarballPath).replaceAll("\\", "/")}`;
 }
 
 function runPnpm(args: readonly string[], cwd: string): string {

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://example.com/token-graph.schema.json",
+  "kind": "scheme-tokens/token-graph",
+  "formatVersion": 1,
+  "modes": ["base"],
+  "defaultMode": "base",
+  "defaultVisibility": "public",
+  "tokens": {
+    "brand.primary": {
+      "value": "#6750a4"
+    }
+  }
+}

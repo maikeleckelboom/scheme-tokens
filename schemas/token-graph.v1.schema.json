@@ -7,7 +7,7 @@
   "required": ["kind", "formatVersion", "modes", "defaultMode", "defaultVisibility", "tokens"],
   "properties": {
     "$schema": {
-      "type": "string"
+      "const": "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json"
     },
     "kind": {
       "const": "scheme-tokens/token-graph"
@@ -20,11 +20,11 @@
       "minItems": 1,
       "uniqueItems": true,
       "items": {
-        "$ref": "#/$defs/segment"
+        "$ref": "#/$defs/mode"
       }
     },
     "defaultMode": {
-      "$ref": "#/$defs/segment"
+      "$ref": "#/$defs/mode"
     },
     "defaultVisibility": {
       "$ref": "#/$defs/visibility"
@@ -44,9 +44,29 @@
       "type": "string",
       "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
     },
+    "mode": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/segment"
+        },
+        {
+          "not": {
+            "enum": [
+              "ref",
+              "value",
+              "valueByMode",
+              "visibility",
+              "description",
+              "deprecated",
+              "extensions"
+            ]
+          }
+        }
+      ]
+    },
     "tokenKey": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)*$"
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$"
     },
     "visibility": {
       "enum": ["public", "internal"]
@@ -63,6 +83,7 @@
     "tokenDefinition": {
       "type": "object",
       "additionalProperties": false,
+      "required": ["value"],
       "properties": {
         "visibility": {
           "$ref": "#/$defs/visibility"
@@ -85,24 +106,20 @@
           "$ref": "#/$defs/extensions"
         },
         "value": {
-          "$ref": "#/$defs/expression"
-        },
-        "valueByMode": {
-          "$ref": "#/$defs/expressionByModeRecord"
+          "$ref": "#/$defs/tokenValue"
         }
-      },
+      }
+    },
+    "tokenValue": {
       "oneOf": [
         {
-          "required": ["value"],
-          "not": {
-            "required": ["valueByMode"]
-          }
+          "type": "string"
         },
         {
-          "required": ["valueByMode"],
-          "not": {
-            "required": ["value"]
-          }
+          "$ref": "#/$defs/reference"
+        },
+        {
+          "$ref": "#/$defs/expressionByModeRecord"
         }
       ]
     },
@@ -110,7 +127,7 @@
       "type": "object",
       "minProperties": 1,
       "propertyNames": {
-        "$ref": "#/$defs/segment"
+        "$ref": "#/$defs/mode"
       },
       "additionalProperties": {
         "$ref": "#/$defs/expression"

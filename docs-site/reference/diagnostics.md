@@ -1,27 +1,27 @@
 # Diagnostics
 
-Recoverable failures return deterministic issue arrays.
+Recoverable failures contain a deterministic non-empty issue tuple.
 
 ```ts twoslash
 import { compileTokenGraph, defineTokens } from "scheme-tokens";
 
-const graph = defineTokens({
-  background: "#ffffff",
-});
+const compiled = compileTokenGraph(
+  defineTokens({
+    background: "#ffffff",
+  }),
+);
 
-const compiled = compileTokenGraph(graph);
-
-if (!compiled.ok) {
+if (compiled.ok) {
+  compiled.value.tokens.background?.base;
+} else {
   compiled.issues;
 }
 ```
 
-Issues include a stable `code`, a `message`, and a JSON Pointer `path` when a specific input location exists.
+Every issue has a stable `code`, a human-readable `message`, and a JSON Pointer `path` when a specific input location exists. Additional fields provide machine-readable token keys, modes, layer IDs, first paths, cycles, selectors, or property names.
 
-Public successes use named payload fields:
+Issue codes and path semantics are public contracts. Message wording is not.
 
-- `compileTokenGraph(...)` returns `scheme`.
-- `parseTokenGraph(...)` returns `graph`.
-- `parseTokenLayer(...)` returns `layer`.
-- `parseCompiledScheme(...)` returns `scheme`.
-- `exportCssVars(...)` returns `css`, `blocks`, and `variableByToken`.
+Every success uses `{ ok: true, value }`, including graph, layer, and compiled parsing, compilation, and CSS export. There are no operation-specific success fields.
+
+CSS emission reports `invalid-css-value` for declaration-unsafe token strings. Compilation and serialization still accept arbitrary string values; the CSS diagnostic belongs to the code-emission boundary.

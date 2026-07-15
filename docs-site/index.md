@@ -2,8 +2,8 @@
 layout: home
 hero:
   name: scheme-tokens
-  text: Token graph compiler
-  tagline: Define authored tokens, compile deterministic schemes, and export CSS variables.
+  text: String-valued token graph compiler
+  tagline: Define explicit graphs, compile deterministic schemes, and export CSS custom properties.
   actions:
     - theme: brand
       text: Get Started
@@ -17,14 +17,8 @@ hero:
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
 
 const graph = defineTokens({
-  background: {
-    base: "#ffffff",
-    dark: "#111111",
-  },
-  foreground: {
-    base: "#111111",
-    dark: "#ffffff",
-  },
+  background: "#ffffff",
+  foreground: "#111111",
 });
 
 const compiled = compileTokenGraph(graph);
@@ -33,11 +27,11 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-const cssExport = exportCssVars(compiled.scheme);
+const exported = exportCssVars(compiled.value);
 
-if (!cssExport.ok) {
-  throw new Error(JSON.stringify(cssExport.issues, null, 2));
+if (!exported.ok) {
+  throw new Error(JSON.stringify(exported.issues, null, 2));
 }
 
-const stylesheet = cssExport.css;
+const stylesheet = exported.value.css;
 ```

@@ -1,16 +1,21 @@
 import type {
-  TokenDefinitionInput,
-  TokenExpressionInput,
-  TokenGraphInput,
+  TokenDefinition,
+  TokenExpression,
+  TokenGraph,
   TokenGraphIssue,
-  ParseTokenGraphResult,
-  ParseTokenLayerResult,
-  TokenLayerInput,
-  ReferenceInput,
+  TokenLayer,
+  TokenReference,
   TokenOrigin,
   TokenVisibility,
 } from "./graph";
-import { tokenGraphKind, tokenLayerKind, isReferenceInput } from "./graph";
+import {
+  isModeKey,
+  tokenGraphKind,
+  tokenGraphSchemaUrl,
+  tokenLayerKind,
+  tokenLayerSchemaUrl,
+  isReferenceInput,
+} from "./graph";
 import { isSingleSegmentIdentifier, isTokenKey } from "./identifiers";
 import {
   compareCodeUnits,
@@ -26,7 +31,7 @@ import { IssueCollector, type FailureResult, type Result } from "./result";
 
 interface ParsedToken {
   readonly visibility: TokenVisibility;
-  readonly valueByMode: Readonly<Record<string, ParsedTokenExpression>>;
+  readonly expressionByMode: Readonly<Record<string, ParsedTokenExpression>>;
   readonly expressionPathsByMode: Readonly<Record<string, string>>;
   readonly origin: TokenOrigin;
   readonly description?: string;
@@ -40,11 +45,11 @@ interface TokenDeclaration {
   readonly token: ParsedToken;
 }
 
-export type ParsedTokenExpression<Key extends string = string> = string | ReferenceInput<Key>;
+export type ParsedTokenExpression<Key extends string = string> = string | TokenReference<Key>;
 
 export interface ParsedTokenGraphToken<Mode extends string = string, Key extends string = string> {
   readonly visibility: TokenVisibility;
-  readonly valueByMode: Readonly<Record<Mode, ParsedTokenExpression<Key>>>;
+  readonly expressionByMode: Readonly<Record<Mode, ParsedTokenExpression<Key>>>;
   readonly origin: TokenOrigin;
   readonly description?: string;
   readonly deprecated?: boolean | string;
@@ -78,28 +83,20 @@ const layerKeys = new Set([
   "defaultVisibility",
   "tokens",
 ]);
-const tokenKeys = new Set([
-  "visibility",
-  "description",
-  "deprecated",
-  "extensions",
-  "value",
-  "valueByMode",
-]);
+const tokenKeys = new Set(["visibility", "description", "deprecated", "extensions", "value"]);
 
-export function parseTokenGraph(input: unknown): ParseTokenGraphResult {
-  const parsed = parseTokenGraphArtifact(input);
-  return parsed.ok ? { ok: true, graph: parsed.value } : parsed;
+export function parseTokenGraph(input: unknown): Result<TokenGraph, TokenGraphIssue> {
+  return parseTokenGraphArtifact(input);
 }
 
-export function parseTokenLayer(input: unknown): ParseTokenLayerResult {
+export function parseTokenLayer(input: unknown): Result<TokenLayer, TokenGraphIssue> {
   const collector = new IssueCollector<TokenGraphIssue>();
   const layer = parseStandaloneLayer(input, collector);
   const issues = collector.issues();
-  return issues === undefined && layer !== undefined ? { ok: true, layer } : fail(issues);
+  return issues === undefined && layer !== undefined ? { ok: true, value: layer } : fail(issues);
 }
 
-function parseTokenGraphArtifact(input: unknown): Result<TokenGraphInput, TokenGraphIssue> {
+function parseTokenGraphArtifact(input: unknown): Result<TokenGraph, TokenGraphIssue> {
   const collector = new IssueCollector<TokenGraphIssue>();
   const top = readPlainRecord(input, {
     code: "invalid-object",
@@ -122,14 +119,12 @@ function parseTokenGraphArtifact(input: unknown): Result<TokenGraphInput, TokenG
     });
   }
 
-  const schema = graphRecord.get("$schema");
-  if (schema !== undefined && typeof schema !== "string") {
-    collector.add({
-      code: "invalid-schema-uri",
-      message: "$schema must be a string when present.",
-      path: pointer("$schema"),
-    });
-  }
+  const schema = parseSchemaUri(
+    graphRecord.get("$schema"),
+    tokenGraphSchemaUrl,
+    pointer("$schema"),
+    collector,
+  );
 
   const modes = parseModes(graphRecord.get("modes"), collector);
   const defaultMode = parseDefaultMode(graphRecord.get("defaultMode"), modes, collector);
@@ -171,8 +166,8 @@ function parseTokenGraphArtifact(input: unknown): Result<TokenGraphInput, TokenG
     return fail(undefined);
   }
 
-  const artifact: TokenGraphInput = {
-    ...(typeof schema === "string" ? { $schema: schema } : {}),
+  const artifact: TokenGraph = {
+    ...(schema === undefined ? {} : { $schema: schema }),
     kind: tokenGraphKind,
     formatVersion: 1,
     modes: canonicalModes as readonly [string, ...string[]],
@@ -208,14 +203,7 @@ export function parseTokenGraphInternal(input: unknown): Result<ParsedTokenGraph
     });
   }
 
-  const schema = graphRecord.get("$schema");
-  if (schema !== undefined && typeof schema !== "string") {
-    collector.add({
-      code: "invalid-schema-uri",
-      message: "$schema must be a string when present.",
-      path: pointer("$schema"),
-    });
-  }
+  parseSchemaUri(graphRecord.get("$schema"), tokenGraphSchemaUrl, pointer("$schema"), collector);
 
   const modes = parseModes(graphRecord.get("modes"), collector);
   const defaultMode = parseDefaultMode(graphRecord.get("defaultMode"), modes, collector);
@@ -231,7 +219,6 @@ export function parseTokenGraphInternal(input: unknown): Result<ParsedTokenGraph
   );
 
   const declarations = new Map<string, TokenDeclaration>();
-  const graphTokenPaths = new Map<string, string>();
   const validModes = canonicalModes ?? [];
 
   const tokensInput = graphRecord.get("tokens");
@@ -250,7 +237,6 @@ export function parseTokenGraphInternal(input: unknown): Result<ParsedTokenGraph
       originForKey: () => ({ kind: "graph" }),
       collector,
       declarations,
-      firstTokenPaths: graphTokenPaths,
     });
   }
 
@@ -317,7 +303,7 @@ export function parseTokenGraphInternal(input: unknown): Result<ParsedTokenGraph
 function parseStandaloneLayer(
   input: unknown,
   collector: IssueCollector<TokenGraphIssue>,
-): TokenLayerInput | undefined {
+): TokenLayer | undefined {
   const entries = readPlainRecord(input, {
     code: "invalid-object",
     message: "Token layer must be a plain object.",
@@ -338,14 +324,12 @@ function parseStandaloneLayer(
     });
   }
 
-  const schema = record.get("$schema");
-  if (schema !== undefined && typeof schema !== "string") {
-    collector.add({
-      code: "invalid-schema-uri",
-      message: "$schema must be a string.",
-      path: pointer("$schema"),
-    });
-  }
+  const schema = parseSchemaUri(
+    record.get("$schema"),
+    tokenLayerSchemaUrl,
+    pointer("$schema"),
+    collector,
+  );
 
   const id = parseLayerId(record.get("id"), pointer("id"), collector);
   const defaultVisibility = parseVisibility(
@@ -366,7 +350,7 @@ function parseStandaloneLayer(
     return undefined;
   }
   return {
-    ...(typeof schema === "string" ? { $schema: schema } : {}),
+    ...(schema === undefined ? {} : { $schema: schema }),
     kind: tokenLayerKind,
     formatVersion: 1,
     id,
@@ -379,7 +363,7 @@ function parseGraphLayersArtifact(
   input: unknown,
   modes: readonly string[] | undefined,
   collector: IssueCollector<TokenGraphIssue>,
-): readonly TokenLayerInput[] | undefined {
+): readonly TokenLayer[] | undefined {
   if (input === undefined) {
     return undefined;
   }
@@ -397,7 +381,7 @@ function parseGraphLayersArtifact(
     return undefined;
   }
 
-  const output: TokenLayerInput[] = [];
+  const output: TokenLayer[] = [];
   const layerIds = new Map<string, string>();
   for (const entry of layers.value) {
     const layer = parseLayerArtifact(
@@ -420,7 +404,7 @@ function parseLayerArtifact(
   modes: readonly string[] | undefined,
   layerIds: Map<string, string>,
   collector: IssueCollector<TokenGraphIssue>,
-): TokenLayerInput | undefined {
+): TokenLayer | undefined {
   const entries = readPlainRecord(input, {
     code: "invalid-object",
     message: "Layer must be a plain object.",
@@ -442,14 +426,12 @@ function parseLayerArtifact(
     });
   }
 
-  const schema = record.get("$schema");
-  if (schema !== undefined && typeof schema !== "string") {
-    collector.add({
-      code: "invalid-schema-uri",
-      message: "$schema must be a string.",
-      path: `${path}/$schema`,
-    });
-  }
+  const schema = parseSchemaUri(
+    record.get("$schema"),
+    tokenLayerSchemaUrl,
+    `${path}/$schema`,
+    collector,
+  );
 
   const id = parseLayerId(record.get("id"), `${path}/id`, collector);
   if (id !== undefined) {
@@ -489,7 +471,7 @@ function parseLayerArtifact(
     return undefined;
   }
   return {
-    ...(typeof schema === "string" ? { $schema: schema } : {}),
+    ...(schema === undefined ? {} : { $schema: schema }),
     kind: tokenLayerKind,
     formatVersion: 1,
     id,
@@ -503,7 +485,7 @@ function parseStandaloneLayerTokens(
   path: string,
   collector: IssueCollector<TokenGraphIssue>,
   modes?: readonly string[],
-): Readonly<Record<string, TokenDefinitionInput>> | undefined {
+): Readonly<Record<string, TokenDefinition>> | undefined {
   if (input === undefined) {
     return {};
   }
@@ -517,7 +499,7 @@ function parseStandaloneLayerTokens(
     return undefined;
   }
 
-  const tokens: Record<string, TokenDefinitionInput> = {};
+  const tokens: Record<string, TokenDefinition> = {};
   for (const entry of entries.value) {
     const tokenPath = `${path}/${escapeTokenPath(entry.key)}`;
     if (!isTokenKey(entry.key)) {
@@ -542,7 +524,7 @@ function parseTokenDefinitionArtifact(
   path: string,
   collector: IssueCollector<TokenGraphIssue>,
   modes?: readonly string[],
-): TokenDefinitionInput | undefined {
+): TokenDefinition | undefined {
   const entries = readPlainRecord(input, {
     code: "invalid-token-definition",
     message: "Token definition must be a plain object.",
@@ -564,17 +546,7 @@ function parseTokenDefinitionArtifact(
     });
   }
 
-  const hasValue = record.has("value");
-  const hasValueByMode = record.has("valueByMode");
-  if (hasValue && hasValueByMode) {
-    collector.add({
-      code: "conflicting-token-value",
-      message: "Token definitions must use either value or valueByMode, not both.",
-      path,
-    });
-    return undefined;
-  }
-  if (!hasValue && !hasValueByMode) {
+  if (!record.has("value")) {
     collector.add({
       code: "missing-token-value",
       message: "Token definitions require value.",
@@ -583,56 +555,53 @@ function parseTokenDefinitionArtifact(
     return undefined;
   }
 
-  if (hasValue) {
-    const value = parseExpression(record.get("value"), `${path}/value`, collector);
-    return value === undefined
-      ? undefined
-      : {
-          ...(visibility === undefined ? {} : { visibility: visibility as TokenVisibility }),
-          ...metadata,
-          value,
-        };
-  }
-
-  const valueByMode = parseStandaloneValueByMode(
-    record.get("valueByMode"),
-    `${path}/valueByMode`,
-    collector,
-    modes,
-  );
-  return valueByMode === undefined
+  const value = parseTokenValueArtifact(record.get("value"), `${path}/value`, collector, modes);
+  return value === undefined
     ? undefined
     : {
         ...(visibility === undefined ? {} : { visibility: visibility as TokenVisibility }),
         ...metadata,
-        valueByMode,
+        value,
       };
 }
 
-function parseStandaloneValueByMode(
+function parseTokenValueArtifact(
   input: unknown,
   path: string,
   collector: IssueCollector<TokenGraphIssue>,
   modes?: readonly string[],
-): Readonly<Record<string, TokenExpressionInput>> | undefined {
+): TokenDefinition["value"] | undefined {
+  if (typeof input === "string" || isReferenceInput(input)) {
+    return parseExpression(input, path, collector);
+  }
+
   const entries = readPlainRecord(input, {
     code: "invalid-token-definition",
-    message: "valueByMode must be a plain object.",
+    message: "Token value must be a string, exact reference, or non-empty mode map.",
     path,
   });
   if (!entries.ok) {
     collector.addMany(entries.issues as readonly TokenGraphIssue[]);
     return undefined;
   }
-  const output: Record<string, TokenExpressionInput> = {};
+  if (entries.value.length === 0) {
+    collector.add({
+      code: "invalid-token-value",
+      message: "Mode maps must not be empty.",
+      path,
+    });
+    return undefined;
+  }
+
+  const output: Record<string, TokenExpression> = {};
   const modeSet = modes === undefined ? undefined : new Set(modes);
   const seen = new Set<string>();
   for (const entry of entries.value) {
     const valuePath = `${path}/${escapeTokenPath(entry.key)}`;
-    if (modeSet === undefined && !isSingleSegmentIdentifier(entry.key)) {
+    if (modeSet === undefined && !isModeKey(entry.key)) {
       collector.add({
         code: "invalid-mode-key",
-        message: "Mode identifiers must be lower-kebab single segments.",
+        message: "Mode identifiers must be unreserved lower-kebab single segments.",
         path: valuePath,
         mode: entry.key,
       });
@@ -641,7 +610,7 @@ function parseStandaloneValueByMode(
     if (modeSet !== undefined && !modeSet.has(entry.key)) {
       collector.add({
         code: "unknown-mode-value",
-        message: `valueByMode contains unknown mode: ${entry.key}.`,
+        message: `Token value contains unknown mode: ${entry.key}.`,
         path: valuePath,
         mode: entry.key,
       });
@@ -658,7 +627,7 @@ function parseStandaloneValueByMode(
       if (!seen.has(mode)) {
         collector.add({
           code: "missing-mode-value",
-          message: `valueByMode is missing mode: ${mode}.`,
+          message: `Token value is missing mode: ${mode}.`,
           path,
           mode,
         });
@@ -706,10 +675,10 @@ function parseModes(
   const seen = new Set<string>();
   for (const entry of array.value) {
     const value = entry.value;
-    if (typeof value !== "string" || !isSingleSegmentIdentifier(value)) {
+    if (typeof value !== "string" || !isModeKey(value)) {
       collector.add({
         code: "invalid-mode-key",
-        message: "Mode identifiers must be lower-kebab single segments.",
+        message: "Mode identifiers must be unreserved lower-kebab single segments.",
         path: pointer("modes", entry.index),
         ...(typeof value === "string" ? { mode: value } : {}),
       });
@@ -778,7 +747,6 @@ function parseTokenRecord(
     readonly originForKey: (key: string) => TokenOrigin;
     readonly collector: IssueCollector<TokenGraphIssue>;
     readonly declarations: Map<string, TokenDeclaration>;
-    readonly firstTokenPaths: Map<string, string>;
   },
 ): void {
   const entries = readPlainRecord(input, {
@@ -803,18 +771,6 @@ function parseTokenRecord(
       continue;
     }
 
-    const firstPath = options.firstTokenPaths.get(entry.key);
-    if (firstPath !== undefined) {
-      options.collector.add({
-        code: "duplicate-token-key",
-        message: `Duplicate token key: ${entry.key}.`,
-        path: tokenPath,
-        key: entry.key,
-        firstPath,
-      });
-      continue;
-    }
-
     const token = parseGraphTokenDefinition(entry.value, {
       path: tokenPath,
       key: entry.key,
@@ -827,7 +783,6 @@ function parseTokenRecord(
       continue;
     }
 
-    options.firstTokenPaths.set(entry.key, tokenPath);
     options.declarations.set(entry.key, {
       key: entry.key,
       path: tokenPath,
@@ -868,14 +823,7 @@ function parseGraphLayer(
     });
   }
 
-  const schema = record.get("$schema");
-  if (schema !== undefined && typeof schema !== "string") {
-    options.collector.add({
-      code: "invalid-schema-uri",
-      message: "$schema must be a string.",
-      path: `${path}/$schema`,
-    });
-  }
+  parseSchemaUri(record.get("$schema"), tokenLayerSchemaUrl, `${path}/$schema`, options.collector);
 
   const layerId = parseLayerId(record.get("id"), `${path}/id`, options.collector);
   if (layerId !== undefined) {
@@ -911,7 +859,6 @@ function parseGraphLayer(
     return;
   }
 
-  const layerTokenPaths = new Map<string, string>();
   if (tokens !== undefined) {
     parseTokenRecord(tokens, {
       path: `${path}/tokens`,
@@ -920,7 +867,6 @@ function parseGraphLayer(
       originForKey: () => ({ kind: "layer", id: layerId }),
       collector: options.collector,
       declarations: options.declarations,
-      firstTokenPaths: layerTokenPaths,
     });
   }
 }
@@ -963,58 +909,44 @@ function parseGraphTokenDefinition(
   }
 
   const metadata = parseDefinitionMetadata(record, options.path, options.collector);
-  const hasValue = record.has("value");
-  const hasValueByMode = record.has("valueByMode");
-  if (hasValue && hasValueByMode) {
-    options.collector.add({
-      code: "conflicting-token-value",
-      message: "Token definitions must use either value or valueByMode, not both.",
-      path: options.path,
-      key: options.key,
-    });
-    return undefined;
-  }
-  if (!hasValue && !hasValueByMode) {
+  if (!record.has("value")) {
     options.collector.add({
       code: "missing-token-value",
-      message: "Token definitions require value or valueByMode.",
+      message: "Token definitions require value.",
       path: options.path,
       key: options.key,
     });
     return undefined;
   }
 
-  const valueByMode: Record<string, ParsedTokenExpression> = {};
+  const expressionByMode: Record<string, ParsedTokenExpression> = {};
   const expressionPathsByMode: Record<string, string> = {};
-  if (hasValue) {
-    const expression = parseExpression(
-      record.get("value"),
-      `${options.path}/value`,
-      options.collector,
-    );
+  const authoredValue = record.get("value");
+  if (typeof authoredValue === "string" || isReferenceInput(authoredValue)) {
+    const expression = parseExpression(authoredValue, `${options.path}/value`, options.collector);
     if (expression !== undefined) {
       for (const mode of options.modes) {
-        defineRecordValue(valueByMode, mode, cloneExpression(expression));
+        defineRecordValue(expressionByMode, mode, cloneExpression(expression));
         defineRecordValue(expressionPathsByMode, mode, `${options.path}/value`);
       }
     }
   } else {
-    parseValueByMode(record.get("valueByMode"), {
-      path: `${options.path}/valueByMode`,
+    parseModeValues(authoredValue, {
+      path: `${options.path}/value`,
       key: options.key,
       modes: options.modes,
       collector: options.collector,
-      output: valueByMode,
+      output: expressionByMode,
       expressionPathsByMode,
     });
   }
 
-  if (Object.keys(valueByMode).length !== options.modes.length) {
+  if (Object.keys(expressionByMode).length !== options.modes.length) {
     return undefined;
   }
   return {
     visibility,
-    valueByMode: sortedRecord(Object.entries(valueByMode)),
+    expressionByMode: sortedRecord(Object.entries(expressionByMode)),
     expressionPathsByMode: sortedRecord(Object.entries(expressionPathsByMode)),
     origin: options.origin,
     ...metadata,
@@ -1090,7 +1022,7 @@ function parseDefinitionMetadata(
   return output;
 }
 
-function parseValueByMode(
+function parseModeValues(
   input: unknown,
   options: {
     readonly path: string;
@@ -1103,11 +1035,21 @@ function parseValueByMode(
 ): void {
   const entries = readPlainRecord(input, {
     code: "invalid-token-definition",
-    message: "valueByMode must be a plain object.",
+    message: "Token value must be a string, exact reference, or non-empty mode map.",
     path: options.path,
   });
   if (!entries.ok) {
     options.collector.addMany(entries.issues as readonly TokenGraphIssue[]);
+    return;
+  }
+
+  if (entries.value.length === 0) {
+    options.collector.add({
+      code: "invalid-token-value",
+      message: "Mode maps must not be empty.",
+      path: options.path,
+      key: options.key,
+    });
     return;
   }
 
@@ -1118,7 +1060,7 @@ function parseValueByMode(
     if (!modeSet.has(entry.key)) {
       options.collector.add({
         code: "unknown-mode-value",
-        message: `valueByMode contains unknown mode: ${entry.key}.`,
+        message: `Token value contains unknown mode: ${entry.key}.`,
         path: valuePath,
         key: options.key,
         mode: entry.key,
@@ -1137,7 +1079,7 @@ function parseValueByMode(
     if (!seen.has(mode)) {
       options.collector.add({
         code: "missing-mode-value",
-        message: `valueByMode is missing mode: ${mode}.`,
+        message: `Token value is missing mode: ${mode}.`,
         path: options.path,
         key: options.key,
         mode,
@@ -1195,7 +1137,7 @@ function validateReferences(
 ): void {
   for (const [key, token] of tokens) {
     for (const mode of modes) {
-      const expression = token.valueByMode[mode];
+      const expression = token.expressionByMode[mode];
       if (expression === undefined || !isReferenceExpression(expression)) {
         continue;
       }
@@ -1231,7 +1173,6 @@ function validateCycles(
       const path: string[] = [];
       const indexes = new Map<string, number>();
       let current: string | undefined = start;
-      let foundCycle = false;
 
       while (current !== undefined) {
         if (resolved.has(current)) {
@@ -1252,24 +1193,21 @@ function validateCycles(
               cycle: canonicalCycle,
             });
           }
-          foundCycle = true;
           break;
         }
 
         indexes.set(current, path.length);
         path.push(current);
         const token = tokens.get(current);
-        const expression = token?.valueByMode[mode];
+        const expression = token?.expressionByMode[mode];
         current =
           expression !== undefined && isReferenceExpression(expression)
             ? expression.ref
             : undefined;
       }
 
-      if (!foundCycle) {
-        for (const item of path) {
-          resolved.add(item);
-        }
+      for (const item of path) {
+        resolved.add(item);
       }
     }
   }
@@ -1289,6 +1227,26 @@ function parseKind(
     message: `Artifact kind must be ${expected}.`,
     path,
   });
+}
+
+function parseSchemaUri<const Url extends string>(
+  input: unknown,
+  expected: Url,
+  path: string,
+  collector: IssueCollector<TokenGraphIssue>,
+): Url | undefined {
+  if (input === undefined) {
+    return undefined;
+  }
+  if (input !== expected) {
+    collector.add({
+      code: "invalid-schema-uri",
+      message: `$schema must be ${expected}.`,
+      path,
+    });
+    return undefined;
+  }
+  return expected;
 }
 
 function parseLayerId(
@@ -1356,7 +1314,7 @@ function cloneExpression(expression: ParsedTokenExpression): ParsedTokenExpressi
 function toPublicToken(token: ParsedToken): ParsedTokenGraphToken {
   return {
     visibility: token.visibility,
-    valueByMode: token.valueByMode,
+    expressionByMode: token.expressionByMode,
     origin: token.origin,
     ...(token.description === undefined ? {} : { description: token.description }),
     ...(token.deprecated === undefined ? {} : { deprecated: token.deprecated }),
@@ -1364,7 +1322,7 @@ function toPublicToken(token: ParsedToken): ParsedTokenGraphToken {
   };
 }
 
-function isReferenceExpression(expression: ParsedTokenExpression): expression is ReferenceInput {
+function isReferenceExpression(expression: ParsedTokenExpression): expression is TokenReference {
   return typeof expression === "object" && expression !== null && "ref" in expression;
 }
 

@@ -65,6 +65,7 @@ export default defineConfig({
       { text: "Getting Started", link: "/guide/getting-started" },
       { text: "API", link: "/reference/api" },
       { text: "Diagnostics", link: "/reference/diagnostics" },
+      { text: "Migration", link: "/guide/migration" },
     ],
     sidebar: [
       {
@@ -80,6 +81,7 @@ export default defineConfig({
           { text: "Define Tokens", link: "/guide/define-tokens" },
           { text: "Export CSS Variables", link: "/guide/export-css-variables" },
           { text: "TypeScript Access", link: "/guide/typescript-access" },
+          { text: "Pre-release Migration", link: "/guide/migration" },
         ],
       },
       {

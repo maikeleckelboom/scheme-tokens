@@ -1,6 +1,12 @@
-import type { CompiledSchemeKind, TokenGraphIssue, TokenOrigin, TokenVisibility } from "./graph";
+import {
+  compiledSchemeKind,
+  compiledSchemeSchemaUrl,
+  type TokenGraphIssue,
+  type TokenOrigin,
+  type TokenVisibility,
+} from "./graph";
 import type { JsonValue } from "./json";
-import type { FailureResult, Issue } from "./result";
+import type { Issue } from "./result";
 
 export type TokenSelection<Key extends string = string> =
   | "public"
@@ -13,7 +19,7 @@ export interface CompileTokenGraphOptions<Key extends string = string> {
   readonly selection?: TokenSelection<Key>;
 }
 
-export type CompileTokenGraphIssue = Issue<
+type CompileSelectionIssue = Issue<
   | "invalid-compile-options"
   | "invalid-selection"
   | "empty-selection"
@@ -25,7 +31,13 @@ export type CompileTokenGraphIssue = Issue<
   readonly key?: string;
 };
 
+export type CompileTokenGraphIssue = TokenGraphIssue | CompileSelectionIssue;
+
 export type CompiledToken<Mode extends string = string> = Readonly<Record<Mode, string>>;
+
+type CompiledRecord<Key extends string, Value, Complete extends boolean> = Complete extends true
+  ? Readonly<Record<Key, Value>>
+  : Readonly<Partial<Record<Key, Value>>>;
 
 export interface CompiledTokenMetadata<Mode extends string = string> {
   readonly visibility: TokenVisibility;
@@ -36,13 +48,18 @@ export interface CompiledTokenMetadata<Mode extends string = string> {
   readonly extensions?: Readonly<Record<string, JsonValue>>;
 }
 
-export interface CompiledScheme<Key extends string = string, Mode extends string = string> {
-  readonly kind: CompiledSchemeKind;
+export interface CompiledScheme<
+  Key extends string = string,
+  Mode extends string = string,
+  Complete extends boolean = true,
+> {
+  readonly $schema?: typeof compiledSchemeSchemaUrl;
+  readonly kind: typeof compiledSchemeKind;
   readonly formatVersion: 1;
   readonly modes: readonly [Mode, ...Mode[]];
   readonly defaultMode: Mode;
-  readonly tokens: Readonly<Record<Key, CompiledToken<Mode>>>;
-  readonly metadataByToken: Readonly<Record<Key, CompiledTokenMetadata<Mode>>>;
+  readonly tokens: CompiledRecord<Key, CompiledToken<Mode>, Complete>;
+  readonly metadataByToken: CompiledRecord<Key, CompiledTokenMetadata<Mode>, Complete>;
 }
 
 export type ParseCompiledSchemeIssue = Issue<
@@ -51,6 +68,7 @@ export type ParseCompiledSchemeIssue = Issue<
   | "missing-property"
   | "invalid-artifact-kind"
   | "invalid-format-version"
+  | "invalid-schema-uri"
   | "invalid-mode-key"
   | "duplicate-mode-key"
   | "default-mode-not-found"
@@ -70,17 +88,3 @@ export type ParseCompiledSchemeIssue = Issue<
   readonly key?: string;
   readonly mode?: string;
 };
-
-export type CompileTokenGraphResult<Key extends string = string, Mode extends string = string> =
-  | {
-      readonly ok: true;
-      readonly scheme: CompiledScheme<Key, Mode>;
-    }
-  | FailureResult<TokenGraphIssue | CompileTokenGraphIssue>;
-
-export type ParseCompiledSchemeResult<Key extends string = string, Mode extends string = string> =
-  | {
-      readonly ok: true;
-      readonly scheme: CompiledScheme<Key, Mode>;
-    }
-  | FailureResult<ParseCompiledSchemeIssue>;

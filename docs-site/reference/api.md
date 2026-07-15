@@ -1,83 +1,109 @@
 # API
 
-## Runtime Exports
+## Runtime exports
 
-| Export                    | Purpose                                      |
-| ------------------------- | -------------------------------------------- |
-| `defineTokens`            | Define the ordinary token graph path.        |
-| `defineTokenGraph`        | Define an explicit graph artifact.           |
-| `defineTokenLayer`        | Define a reusable layer artifact.            |
-| `tokenRef`                | Create an explicit token reference.          |
-| `parseTokenGraph`         | Parse a strict token graph artifact.         |
-| `parseTokenLayer`         | Parse a strict token layer artifact.         |
-| `compileTokenGraph`       | Compile a graph into a `CompiledScheme`.     |
-| `parseCompiledScheme`     | Parse a strict compiled scheme artifact.     |
-| `serializeTokenGraph`     | Deterministically serialize a graph.         |
-| `serializeTokenLayer`     | Deterministically serialize a layer.         |
-| `serializeCompiledScheme` | Deterministically serialize compiled output. |
-| `exportCssVars`           | Export CSS custom properties.                |
+| Export                    | Purpose                                                 |
+| ------------------------- | ------------------------------------------------------- |
+| `defineTokens`            | Define the ordinary trusted graph path.                 |
+| `defineTokenGraph`        | Define a trusted graph with explicit options or layers. |
+| `defineTokenLayer`        | Define a trusted reusable layer.                        |
+| `tokenRef`                | Create an explicit reference.                           |
+| `parseTokenGraph`         | Parse an untrusted strict graph.                        |
+| `parseTokenLayer`         | Parse an untrusted strict layer.                        |
+| `parseCompiledScheme`     | Parse an untrusted compiled scheme.                     |
+| `compileTokenGraph`       | Compile a graph with explicit selection.                |
+| `exportCssVars`           | Project a compiled scheme to CSS custom properties.     |
+| `serializeTokenGraph`     | Canonically serialize a graph.                          |
+| `serializeTokenLayer`     | Canonically serialize a layer.                          |
+| `serializeCompiledScheme` | Canonically serialize compiled output.                  |
+
+These are the complete root runtime exports.
+
+## Result
+
+Every fallible operation uses the same public type:
+
+```ts
+type Result<Value, Problem> =
+  | { readonly ok: true; readonly value: Value }
+  | { readonly ok: false; readonly issues: readonly [Problem, ...Problem[]] };
+```
 
 ```ts twoslash
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
 
-const graph = defineTokens({
-  background: "#ffffff",
-});
-
-const compiled = compileTokenGraph(graph);
+const compiled = compileTokenGraph(defineTokens({ background: "#ffffff" }));
 
 if (compiled.ok) {
-  const cssExport = exportCssVars(compiled.scheme);
-  if (cssExport.ok) {
-    cssExport.css;
+  const exported = exportCssVars(compiled.value);
+  if (exported.ok) {
+    exported.value.css;
+    exported.value.blocks;
+    exported.value.variableByToken;
   }
 }
 ```
 
-## Result Shapes
+## Trusted helpers
+
+- `defineTokens(tokens, options?)`
+- `defineTokenGraph(input)`
+- `defineTokenLayer(input)`
+- `tokenRef(key)`
+
+Trusted helpers normalize and copy accepted TypeScript authoring input. They may throw for malformed keys, invalid references, contradictory mode options, or other programmer misuse.
+
+Omitted mode options mean `base`/`base`. Explicit `modes` require `defaultMode`. Layers never accept mode authority.
+
+## Untrusted parsers
+
+- `parseTokenGraph(input: unknown)`
+- `parseTokenLayer(input: unknown)`
+- `parseCompiledScheme(input: unknown)`
+
+Parsers do not throw for JSON-compatible input. They strictly validate kinds, versions, properties, definition and reference shapes, and available mode coverage, then return an owned canonical artifact under `value`. Graph parsing also validates reference targets and cycles.
+
+Parsed key sets are dynamic. `parseCompiledScheme()` always returns an incomplete token record, and exporting CSS from it keeps `variableByToken` partial.
 
 ```ts twoslash
-import { compileTokenGraph, defineTokens, parseTokenGraph } from "scheme-tokens";
+import { compileTokenGraph, parseTokenGraph } from "scheme-tokens";
 
-const graph = defineTokens({
-  background: "#ffffff",
-});
-
-const compiled = compileTokenGraph(graph);
-
-if (compiled.ok) {
-  compiled.scheme.tokens.background.base;
-}
-
-const parsed = parseTokenGraph(graph);
+declare const input: unknown;
+const parsed = parseTokenGraph(input);
 
 if (parsed.ok) {
-  parsed.graph.tokens.background;
+  const compiled = compileTokenGraph(parsed.value, {
+    selection: "public",
+  });
 }
 ```
 
-`exportCssVars()` returns direct fields on success:
+## Compilation
 
-```ts twoslash
-import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
+`compileTokenGraph()` supports `selection: "public"`, `selection: "all"`, and exact `{ keys }` selection. It validates the complete graph before selection, so public tokens can safely reference internal tokens.
 
-const compiled = compileTokenGraph(
-  defineTokens({
-    background: "#ffffff",
-  }),
-);
+Compiled values are direct mode maps. Visibility, origin, direct dependencies, descriptions, deprecation, and extensions live under `metadataByToken`.
 
-const cssExport = compiled.ok ? exportCssVars(compiled.scheme) : undefined;
+Omitted and explicit `public` selection have conservatively partial token and metadata records because runtime visibility may filter any authored key. Use optional access for those records. An exact literal key tuple is complete after runtime validation. `all` is complete only for a finite authored key union; a dynamically parsed graph remains partial. Runtime key arrays are also partial because they are not finite tuples. Advanced annotations can express this through `CompiledScheme<Key, Mode, Complete>`; inference is preferred.
 
-if (cssExport?.ok) {
-  cssExport.css;
-  cssExport.blocks;
-  cssExport.variableByToken;
-}
-```
+## CSS export
 
-## Schemas
+`exportCssVars()` supports prefix, scope, mode selector, and formatting options. The structured `value` contains `css`, `blocks`, and `variableByToken`.
+
+The `variableName` callback is advanced and contained. Exceptions, unsafe names, and collisions return issues.
+
+`variableByToken` mirrors the compiled record's partial or complete key contract, including the partial result from a parsed compiled artifact. Exact selector maps are typed to the compiled mode union, requiring every mode and rejecting unknown modes.
+
+Compilation and serialization preserve arbitrary strings. CSS export rejects declaration-unsafe strings with `invalid-css-value`. Its selector validation is an intentionally bounded safe grammar rather than a complete browser CSS parser.
+
+## Serializers and schemas
+
+The three serializers emit canonical supported artifacts. Published schema subpaths are:
 
 - `scheme-tokens/schemas/token-graph.v1.schema.json`
 - `scheme-tokens/schemas/token-layer.v1.schema.json`
 - `scheme-tokens/schemas/compiled-scheme.v1.schema.json`
+
+Strict token definitions have one required `value`, which contains either a string/reference expression or a complete mode map.
+
+Strict artifacts require their exact `kind` and supported numeric `formatVersion`. An optional `$schema` must equal that artifact's canonical `https://scheme-tokens.dev/schemas/...` URI. Parsers reject unknown properties, non-canonical schema URIs, and unsupported versions rather than guessing a format.

@@ -6,6 +6,9 @@
   "additionalProperties": false,
   "required": ["kind", "formatVersion", "modes", "defaultMode", "tokens", "metadataByToken"],
   "properties": {
+    "$schema": {
+      "const": "https://scheme-tokens.dev/schemas/compiled-scheme.v1.schema.json"
+    },
     "kind": {
       "const": "scheme-tokens/compiled-scheme"
     },
@@ -17,11 +20,11 @@
       "minItems": 1,
       "uniqueItems": true,
       "items": {
-        "$ref": "token-graph.v1.schema.json#/$defs/segment"
+        "$ref": "token-graph.v1.schema.json#/$defs/mode"
       }
     },
     "defaultMode": {
-      "$ref": "token-graph.v1.schema.json#/$defs/segment"
+      "$ref": "token-graph.v1.schema.json#/$defs/mode"
     },
     "tokens": {
       "type": "object",
@@ -49,7 +52,7 @@
       "type": "object",
       "minProperties": 1,
       "propertyNames": {
-        "$ref": "token-graph.v1.schema.json#/$defs/segment"
+        "$ref": "token-graph.v1.schema.json#/$defs/mode"
       },
       "additionalProperties": {
         "type": "string"
@@ -94,7 +97,7 @@
           "type": "object",
           "minProperties": 1,
           "propertyNames": {
-            "$ref": "token-graph.v1.schema.json#/$defs/segment"
+            "$ref": "token-graph.v1.schema.json#/$defs/mode"
           },
           "additionalProperties": {
             "type": "array",
