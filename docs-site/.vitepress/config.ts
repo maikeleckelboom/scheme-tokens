@@ -79,6 +79,10 @@ export default defineConfig({
         text: "Guides",
         items: [
           { text: "Define Tokens", link: "/guide/define-tokens" },
+          {
+            text: "Application Theme Coordinates",
+            link: "/guide/application-theme-coordinates",
+          },
           { text: "Export CSS Variables", link: "/guide/export-css-variables" },
           { text: "TypeScript Access", link: "/guide/typescript-access" },
           { text: "Pre-release Migration", link: "/guide/migration" },

@@ -130,6 +130,7 @@ Canonical serializers are available for each artifact: `serializeTokenGraph()`, 
 
 - [Public API](./docs/public-api.md)
 - [Architecture](./docs/architecture.md)
+- [Application theme coordinates](./docs/application-theme-coordinates.md)
 - [Diagnostics](./docs/diagnostics.md)
 - [Value policy](./docs/color-policy.md)
 - [Pre-release migration](./docs/migration.md)

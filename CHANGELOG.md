@@ -14,4 +14,5 @@ Initial pre-release candidate for the string-valued token graph compiler.
 - Type runtime-filtered public records conservatively as partial, exact literal tuples as complete after validation, and `all` as complete only for finite authored key unions; keep dynamically parsed compiled artifacts and their CSS maps partial.
 - Parse and serialize strict token graph, token layer, and compiled scheme artifacts deterministically.
 - Export deterministic CSS custom properties with structured blocks and token-to-variable metadata, rejecting declaration-unsafe values and selectors outside the bounded safe grammar.
+- Prove that applications can flatten independent theme axes into private complete modes, select an exact public semantic contract, and reuse structured declarations for application-owned selector and media-query policy.
 - Keep the root package dependency-light and outside palette generation, value interpretation, and product-domain policy.

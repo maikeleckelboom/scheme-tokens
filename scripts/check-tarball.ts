@@ -1,14 +1,21 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 interface PackageManifest {
+  readonly bugs: { readonly url: string };
   readonly dependencies?: Readonly<Record<string, string>>;
+  readonly exports: Readonly<Record<string, unknown>>;
   readonly files: readonly string[];
+  readonly homepage: string;
+  readonly name: string;
+  readonly optionalDependencies?: Readonly<Record<string, string>>;
+  readonly peerDependencies?: Readonly<Record<string, string>>;
   readonly private?: boolean;
   readonly publishConfig?: unknown;
+  readonly repository: { readonly type: string; readonly url: string };
   readonly version: string;
 }
 
@@ -25,11 +32,18 @@ if (output === undefined) {
 }
 const tarball = join(packDirectory, basename(output));
 const files = execFileSync("tar", ["-tf", tarball], { encoding: "utf8" }).trim().split(/\r?\n/);
-const requiredSchemaFiles = new Set([
+const allowedFiles = [
+  "package/CHANGELOG.md",
+  "package/LICENSE",
+  "package/README.md",
+  "package/dist/index.d.ts",
+  "package/dist/index.js",
+  "package/dist/index.js.map",
+  "package/package.json",
   "package/schemas/compiled-scheme.v1.schema.json",
   "package/schemas/token-graph.v1.schema.json",
   "package/schemas/token-layer.v1.schema.json",
-]);
+] as const;
 
 const denied = [
   /^package\/docs\//,
@@ -47,28 +61,22 @@ for (const file of files) {
   if (denied.some((pattern) => pattern.test(file))) {
     throw new Error(`Unexpected file in tarball: ${file}`);
   }
-  if (
-    !(
-      file === "package/package.json" ||
-      file === "package/README.md" ||
-      file === "package/CHANGELOG.md" ||
-      file === "package/LICENSE" ||
-      file.startsWith("package/dist/") ||
-      requiredSchemaFiles.has(file)
-    )
-  ) {
+  if (!(allowedFiles as readonly string[]).includes(file)) {
     throw new Error(`File is not in the tarball allowlist: ${file}`);
   }
 }
-for (const schemaFile of requiredSchemaFiles) {
-  if (!files.includes(schemaFile)) {
-    throw new Error(`Required schema is missing from tarball: ${schemaFile}`);
+for (const requiredFile of allowedFiles) {
+  if (!files.includes(requiredFile)) {
+    throw new Error(`Required public artifact is missing from tarball: ${requiredFile}`);
   }
 }
 
 const packageJson = JSON.parse(
-  readFileSync(join(repoRoot, "package.json"), "utf8"),
+  execFileSync("tar", ["-xOf", tarball, "package/package.json"], { encoding: "utf8" }),
 ) as PackageManifest;
+if (packageJson.name !== "scheme-tokens") {
+  throw new Error("core package name must be scheme-tokens");
+}
 if (packageJson.version !== "0.1.0") {
   throw new Error("core package version must be 0.1.0 for the first public release candidate");
 }
@@ -78,11 +86,40 @@ if (packageJson.private !== undefined) {
 if (packageJson.publishConfig !== undefined) {
   throw new Error("unscoped core package must not carry scoped publishConfig access metadata");
 }
-if (packageJson.files.includes("docs")) {
-  throw new Error("package files must not include docs");
+if (
+  JSON.stringify([...packageJson.files].sort()) !==
+  JSON.stringify(["CHANGELOG.md", "LICENSE", "README.md", "dist", "schemas"])
+) {
+  throw new Error("package files must contain only the approved public artifact roots");
 }
-if ("dependencies" in packageJson && Object.keys(packageJson.dependencies).length > 0) {
-  throw new Error("core package tarball must not advertise runtime dependencies");
+for (const [field, dependencies] of [
+  ["dependencies", packageJson.dependencies],
+  ["optionalDependencies", packageJson.optionalDependencies],
+  ["peerDependencies", packageJson.peerDependencies],
+] as const) {
+  if (Object.keys(dependencies ?? {}).length > 0) {
+    throw new Error(`core package tarball must not advertise ${field}`);
+  }
+}
+if (
+  packageJson.repository.type !== "git" ||
+  packageJson.repository.url !== "git+https://github.com/maikeleckelboom/scheme-tokens.git" ||
+  packageJson.homepage !== "https://github.com/maikeleckelboom/scheme-tokens#readme" ||
+  packageJson.bugs.url !== "https://github.com/maikeleckelboom/scheme-tokens/issues"
+) {
+  throw new Error("package repository metadata must match maikeleckelboom/scheme-tokens");
+}
+if (
+  JSON.stringify(Object.keys(packageJson.exports).sort()) !==
+  JSON.stringify([
+    ".",
+    "./package.json",
+    "./schemas/compiled-scheme.v1.schema.json",
+    "./schemas/token-graph.v1.schema.json",
+    "./schemas/token-layer.v1.schema.json",
+  ])
+) {
+  throw new Error("packed manifest exposes an unexpected package subpath");
 }
 const dependencyText = JSON.stringify(packageJson);
 if (
