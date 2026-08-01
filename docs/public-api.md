@@ -224,6 +224,8 @@ The optional lookup mirrors the partial default-public compiled record. CSS from
 
 Exact selector maps are typed to the compiled mode union: every mode is required and unknown modes are rejected. Selector validation intentionally implements a bounded safe grammar rather than every browser selector feature. Generated data-attribute and class strategies require an append-safe scope; use exact per-mode selectors for supported complex selectors.
 
+See [Application Theme Coordinates](./application-theme-coordinates.md) for combining independent application axes into private compiler modes, selecting an exact semantic contract, and reusing structured declarations for application-owned selector and media-query policy.
+
 Compilation and serialization accept arbitrary token strings. CSS export is stricter because it emits declarations: a declaration-unsafe string fails with `invalid-css-value` instead of being written. This is an output-safety check, not token-domain interpretation.
 
 Declarative prefix, scope, selector, and formatting options are the primary path. `variableName` is an advanced integration escape hatch. It runs in deterministic token order; exceptions, unsafe names, and collisions become issues rather than escaping the operation.

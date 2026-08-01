@@ -96,6 +96,8 @@ The `variableName` callback is advanced and contained. Exceptions, unsafe names,
 
 Compilation and serialization preserve arbitrary strings. CSS export rejects declaration-unsafe strings with `invalid-css-value`. Its selector validation is an intentionally bounded safe grammar rather than a complete browser CSS parser.
 
+See [Application Theme Coordinates](../guide/application-theme-coordinates.md) for a complete exact-selection and structured-block composition example.
+
 ## Serializers and schemas
 
 The three serializers emit canonical supported artifacts. Published schema subpaths are:

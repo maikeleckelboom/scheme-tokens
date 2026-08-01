@@ -13,6 +13,7 @@ const docsSiteRoot = join(repoRoot, "docs-site");
 const docsRequire = createRequire(join(docsSiteRoot, "package.json"));
 const configPath = join(docsSiteRoot, ".vitepress", "config.ts");
 const themePath = join(docsSiteRoot, ".vitepress", "theme", "index.ts");
+const themeCoordinateGuidePath = join(docsSiteRoot, "guide", "application-theme-coordinates.md");
 const cachePath = join(docsSiteRoot, ".vitepress", "cache");
 const distPath = join(docsSiteRoot, ".vitepress", "dist");
 
@@ -25,10 +26,18 @@ assertContains(config, "transformerTwoslash", configPath);
 assertContains(config, "createFileSystemTypesCache", configPath);
 assertContains(config, "explicitTrigger: true", configPath);
 assertContains(config, "throws: true", configPath);
+assertContains(config, 'link: "/guide/application-theme-coordinates"', configPath);
 assertNotContains(config, "as any", configPath);
 assertNotContains(config, "as unknown as", configPath);
 assertNotContains(config, "@ts-ignore", configPath);
 assertNotContains(config, "@ts-expect-error", configPath);
+
+const themeCoordinateGuide = readFileSync(themeCoordinateGuidePath, "utf8");
+assertContains(
+  themeCoordinateGuide,
+  "<!--@include: ../../docs/application-theme-coordinates.md-->",
+  themeCoordinateGuidePath,
+);
 
 const theme = readFileSync(themePath, "utf8");
 assertContains(theme, "@shikijs/vitepress-twoslash/client", themePath);

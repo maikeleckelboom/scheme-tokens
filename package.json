@@ -58,6 +58,7 @@
     "api:check": "node --experimental-strip-types scripts/check-api.ts",
     "package:check": "pnpm build && publint --strict && attw --pack . --profile esm-only",
     "smoke:consumer": "node --experimental-strip-types scripts/smoke-consumer.ts",
+    "check:theme-coordinate-consumer": "node --experimental-strip-types scripts/check-theme-coordinate-consumer.ts",
     "audit:external-consumer": "node --experimental-strip-types scripts/audit-external-consumer.ts",
     "check:tarball": "node --experimental-strip-types scripts/check-tarball.ts",
     "format": "oxfmt --check --ignore-path .gitignore --ignore-path .oxfmtignore .",
@@ -65,7 +66,7 @@
     "validate:core": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:types && pnpm test:properties && pnpm test:schemas && pnpm test:filenames && pnpm api:build && pnpm api:check && pnpm format",
     "validate": "pnpm validate:core",
     "check": "pnpm validate",
-    "release:core": "pnpm validate:core && pnpm package:check && pnpm smoke:consumer && pnpm check:tarball",
+    "release:core": "pnpm validate:core && pnpm package:check && pnpm smoke:consumer && pnpm check:theme-coordinate-consumer && pnpm check:tarball",
     "release:check": "pnpm release:core && pnpm docs:check && pnpm audit:external-consumer",
     "prepack": "pnpm build"
   },
