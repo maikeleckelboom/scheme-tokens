@@ -253,6 +253,67 @@ describe("pre-release API reset", () => {
     });
   });
 
+  test("escapes RFC 6901 reserved characters in every diagnostic pointer", () => {
+    const graphEnvelope = {
+      kind: "scheme-tokens/token-graph",
+      formatVersion: 1,
+      modes: ["base"],
+      defaultMode: "base",
+      defaultVisibility: "public",
+    };
+
+    expect(
+      parseTokenGraph({
+        ...graphEnvelope,
+        tokens: { "a/b": { value: "#ffffff" }, "c~d": { value: "#111111" } },
+      }),
+    ).toMatchObject({
+      ok: false,
+      issues: [
+        { code: "invalid-token-key", path: "/tokens/a~1b", key: "a/b" },
+        { code: "invalid-token-key", path: "/tokens/c~0d", key: "c~d" },
+      ],
+    });
+
+    expect(
+      parseTokenGraph({
+        ...graphEnvelope,
+        tokens: { primary: { value: "#ffffff" } },
+        "a/b": 1,
+        "c~d": 2,
+      }),
+    ).toMatchObject({
+      ok: false,
+      issues: [
+        { code: "unknown-property", path: "/a~1b" },
+        { code: "unknown-property", path: "/c~0d" },
+      ],
+    });
+
+    expect(
+      parseCompiledScheme({
+        kind: "scheme-tokens/compiled-scheme",
+        formatVersion: 1,
+        modes: ["base"],
+        defaultMode: "base",
+        tokens: { "a/b": { base: "#ffffff" } },
+        metadataByToken: {
+          "a/b": {
+            visibility: "public",
+            origin: { kind: "graph" },
+            dependenciesByMode: { base: [] },
+          },
+        },
+      }),
+    ).toMatchObject({
+      ok: false,
+      issues: [
+        { code: "invalid-token-key", path: "/tokens/a~1b", key: "a/b" },
+        { code: "invalid-token-key", path: "/metadataByToken/a~1b", key: "a/b" },
+      ],
+    });
+  });
+
   test("keeps invalid cycle validation bounded for a large functional graph", () => {
     const size = 6_000;
     const tokens: Record<string, { readonly ref: string }> = {};

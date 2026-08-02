@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { listPublicMarkdownFiles, type MarkdownFile } from "./public-docs.ts";
 
 type ExportTarget = string | Readonly<Record<string, string>>;
 
@@ -78,6 +79,35 @@ const removedPublicNames = [
   "tokenLayerKind",
 ] as const;
 
+const forbiddenIdentifiers = [
+  "@material/material-color-utilities",
+  "@scheme-tokens/material3",
+  "@scheme-tokens/source-material3",
+  "@texel/color",
+  "Material3",
+  "buildScheme",
+  "createSchemeBuilder",
+  "css-tree",
+  "formatCssColor",
+  "material3",
+  "parseColor",
+  "serializeScheme",
+] as const;
+
+// Inline `name(...)` spans in public documentation read as package API. CSS
+// functions appear inside example token values and are not package symbols.
+const nonApiCallSpans = new Set(["calc", "color-mix", "oklch", "rgb", "var"]);
+
+// Identifiers shaped like a package operation must be one. `formatVersion` is a
+// wire field that happens to share the `format` prefix.
+const apiShapedIdentifier =
+  /^(?:build|compile|create|define|export|format|parse|serialize|token)[A-Z][A-Za-z0-9]*$/u;
+const nonApiShapedIdentifiers = new Set(["formatVersion"]);
+
+// Every runtime export must appear in both export reference documents, so a new
+// operation cannot ship undocumented.
+const exportReferenceDocuments = ["docs/public-api.md", "docs-site/reference/api.md"] as const;
+
 // This approves the normalized bundled declaration, including overloads and every
 // transitively exposed helper type. Update it only after intentionally reviewing
 // the generated declaration diff.
@@ -136,12 +166,7 @@ if (declarationHash !== expectedDeclarationContractSha256) {
   );
 }
 
-for (const forbiddenText of [
-  "@texel/color",
-  "@material/material-color-utilities",
-  "@scheme-tokens/material3",
-  "css-tree",
-]) {
+for (const forbiddenText of forbiddenIdentifiers) {
   if (declaration.includes(forbiddenText)) {
     throw new Error(`Root declaration leaks forbidden dependency text: ${forbiddenText}`);
   }
@@ -151,17 +176,130 @@ if (/import\(["'][^)]+["']\)\./.test(declaration)) {
 }
 
 const rootBundle = readFileSync(join(root, "dist/index.js"), "utf8");
-for (const forbiddenText of [
-  "@texel/color",
-  "@material/material-color-utilities",
-  "@scheme-tokens/material3",
-  "material3",
-  "Material3",
-  "css-tree",
-]) {
+for (const forbiddenText of forbiddenIdentifiers) {
   if (rootBundle.includes(forbiddenText)) {
     throw new Error(`Root import graph references forbidden engine text: ${forbiddenText}`);
   }
+}
+
+assertShippedSourceMapsResolve();
+assertDocsMatchPublicSurface(listPublicMarkdownFiles());
+
+/**
+ * A `sourceMappingURL` that resolves to nothing makes every editor and debugger
+ * take a failing lookup, and `dist files` above pins the shipped file list, so
+ * the two must agree.
+ */
+function assertShippedSourceMapsResolve(): void {
+  for (const file of ["index.js", "index.d.ts"]) {
+    const text = readFileSync(join(root, "dist", file), "utf8");
+    for (const match of text.matchAll(/\/\/# sourceMappingURL=(?<target>\S+)/gu)) {
+      const target = match.groups?.target;
+      if (target !== undefined && !existsSync(join(root, "dist", target))) {
+        throw new Error(`dist/${file} references a source map that is not shipped: ${target}`);
+      }
+    }
+  }
+}
+
+/**
+ * Public documentation is held to the same export list as the bundle: it may
+ * only name symbols the package exports, and never a forbidden identifier.
+ */
+function assertDocsMatchPublicSurface(files: readonly MarkdownFile[]): void {
+  const publicSymbols = new Set<string>([...expectedRuntimeExports, ...expectedTypeExports]);
+  const runtimeSymbols = new Set<string>(expectedRuntimeExports);
+
+  for (const file of files) {
+    for (const forbidden of forbiddenIdentifiers) {
+      if (containsIdentifier(file.text, forbidden)) {
+        throw new Error(`${file.label} names a forbidden identifier: ${forbidden}`);
+      }
+    }
+
+    for (const specifier of readPackageImportSpecifiers(file.text)) {
+      if (!publicSymbols.has(specifier)) {
+        throw new Error(`${file.label} imports "${specifier}", which is not a root export`);
+      }
+    }
+
+    for (const { symbol, kind } of readDocumentedSymbols(file.text)) {
+      const allowed = kind === "call" ? runtimeSymbols : publicSymbols;
+      if (!allowed.has(symbol)) {
+        throw new Error(`${file.label} documents "${symbol}", which is not a root export`);
+      }
+    }
+  }
+
+  for (const label of exportReferenceDocuments) {
+    const file = files.find((candidate) => candidate.label === label);
+    if (file === undefined) {
+      throw new Error(`Missing export reference document: ${label}`);
+    }
+    for (const runtimeExport of expectedRuntimeExports) {
+      if (!containsIdentifier(file.text, runtimeExport)) {
+        throw new Error(`${label} does not document root runtime export: ${runtimeExport}`);
+      }
+    }
+  }
+}
+
+function readPackageImportSpecifiers(text: string): readonly string[] {
+  const specifiers: string[] = [];
+  for (const match of text.matchAll(
+    /import\s+(?:type\s+)?\{(?<body>[^}]*)\}\s+from\s+["']scheme-tokens["']/gu,
+  )) {
+    for (const rawPart of match.groups?.body?.split(",") ?? []) {
+      const part = rawPart.trim().replace(/^type\s+/u, "");
+      const name = part.split(/\s+as\s+/u)[0]?.trim();
+      if (name !== undefined && name.length > 0) {
+        specifiers.push(name);
+      }
+    }
+  }
+  return specifiers;
+}
+
+interface DocumentedSymbol {
+  readonly symbol: string;
+  readonly kind: "call" | "identifier";
+}
+
+/**
+ * Reads the symbols a document claims exist: inline `name(...)` spans, and
+ * inline spans shaped like a package operation.
+ */
+function readDocumentedSymbols(text: string): readonly DocumentedSymbol[] {
+  const symbols: DocumentedSymbol[] = [];
+  for (const match of stripFencedBlocks(text).matchAll(/`(?<span>[^`\r\n]+)`/gu)) {
+    const span = match.groups?.span ?? "";
+    const call = /^(?<name>[A-Za-z_$][A-Za-z0-9_$]*)\(/u.exec(span)?.groups?.name;
+    if (call !== undefined) {
+      if (!nonApiCallSpans.has(call)) {
+        symbols.push({ symbol: call, kind: "call" });
+      }
+      continue;
+    }
+    if (apiShapedIdentifier.test(span) && !nonApiShapedIdentifiers.has(span)) {
+      symbols.push({ symbol: span, kind: "identifier" });
+    }
+  }
+  return symbols;
+}
+
+function stripFencedBlocks(text: string): string {
+  return text.replaceAll(/^```[^\r\n]*\r?\n[\s\S]*?^```/gmu, "");
+}
+
+function containsIdentifier(text: string, name: string): boolean {
+  if (name.startsWith("@")) {
+    return text.includes(name);
+  }
+  return new RegExp(`(?<![A-Za-z0-9_$-])${escapeRegExp(name)}(?![A-Za-z0-9_$-])`, "u").test(text);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
 function assertDeclarationContracts(normalized: string): void {

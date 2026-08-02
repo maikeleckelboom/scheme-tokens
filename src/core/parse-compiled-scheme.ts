@@ -16,6 +16,7 @@ import {
   compareCodeUnits,
   copyJsonValue,
   defineRecordValue,
+  escapePointerSegment,
   pointer,
   readArray,
   readPlainRecord,
@@ -249,7 +250,7 @@ function parseTokens(
   }
   const tokens: Record<string, CompiledToken> = {};
   for (const entry of entries.value) {
-    const tokenPath = `${pointer("tokens")}/${escapeTokenPath(entry.key)}`;
+    const tokenPath = `${pointer("tokens")}/${escapePointerSegment(entry.key)}`;
     if (!isTokenKey(entry.key)) {
       collector.add({
         code: "invalid-token-key",
@@ -286,7 +287,7 @@ function parseTokenModeValues(
   const seen = new Set<string>();
   const output: Record<string, string> = {};
   for (const entry of entries.value) {
-    const valuePath = `${path}/${escapeTokenPath(entry.key)}`;
+    const valuePath = `${path}/${escapePointerSegment(entry.key)}`;
     if (!modeSet.has(entry.key)) {
       collector.add({
         code: "unknown-mode-value",
@@ -356,7 +357,7 @@ function parseMetadataByToken(
   const seen = new Set<string>();
   const metadataByToken: Record<string, CompiledTokenMetadata> = {};
   for (const entry of entries.value) {
-    const tokenPath = `${pointer("metadataByToken")}/${escapeTokenPath(entry.key)}`;
+    const tokenPath = `${pointer("metadataByToken")}/${escapePointerSegment(entry.key)}`;
     if (!isTokenKey(entry.key)) {
       collector.add({
         code: "invalid-token-key",
@@ -388,7 +389,7 @@ function parseMetadataByToken(
         collector.add({
           code: "missing-property",
           message: `metadataByToken is missing token: ${key}.`,
-          path: `${pointer("metadataByToken")}/${escapeTokenPath(key)}`,
+          path: `${pointer("metadataByToken")}/${escapePointerSegment(key)}`,
           key,
         });
       }
@@ -501,7 +502,7 @@ function parseDependenciesByMode(
   const seen = new Set<string>();
   const output: Record<string, readonly string[]> = {};
   for (const entry of entries.value) {
-    const valuePath = `${path}/${escapeTokenPath(entry.key)}`;
+    const valuePath = `${path}/${escapePointerSegment(entry.key)}`;
     if (!modeSet.has(entry.key)) {
       collector.add({
         code: "unknown-mode-value",
@@ -616,7 +617,7 @@ function parseOptionalMetadata(
         const value = copyJsonValue(entry.value, {
           code: "invalid-json-value",
           message: "Extension values must be JSON-safe.",
-          path: `${path}/extensions/${escapeTokenPath(entry.key)}`,
+          path: `${path}/extensions/${escapePointerSegment(entry.key)}`,
         });
         if (value.ok) {
           defineRecordValue(copied, entry.key, value.value);
@@ -643,7 +644,7 @@ function rejectUnknownKeys(
     collector.add({
       code: "unknown-property",
       message: `Unknown property: ${entry.key}.`,
-      path: path === "" ? pointer(entry.key) : `${path}/${escapeTokenPath(entry.key)}`,
+      path: path === "" ? pointer(entry.key) : `${path}/${escapePointerSegment(entry.key)}`,
     });
   }
 }
@@ -656,8 +657,4 @@ function canonicalizeModes(
     defaultMode,
     ...modes.filter((mode) => mode !== defaultMode).sort(compareCodeUnits),
   ] as readonly [string, ...string[]];
-}
-
-function escapeTokenPath(key: string): string {
-  return key.replaceAll("~", "~0").replaceAll("/", "~1");
 }

@@ -21,6 +21,7 @@ import {
   compareCodeUnits,
   copyJsonValue,
   defineRecordValue,
+  escapePointerSegment,
   pointer,
   readArray,
   readPlainRecord,
@@ -501,7 +502,7 @@ function parseStandaloneLayerTokens(
 
   const tokens: Record<string, TokenDefinition> = {};
   for (const entry of entries.value) {
-    const tokenPath = `${path}/${escapeTokenPath(entry.key)}`;
+    const tokenPath = `${path}/${escapePointerSegment(entry.key)}`;
     if (!isTokenKey(entry.key)) {
       collector.add({
         code: "invalid-token-key",
@@ -597,7 +598,7 @@ function parseTokenValueArtifact(
   const modeSet = modes === undefined ? undefined : new Set(modes);
   const seen = new Set<string>();
   for (const entry of entries.value) {
-    const valuePath = `${path}/${escapeTokenPath(entry.key)}`;
+    const valuePath = `${path}/${escapePointerSegment(entry.key)}`;
     if (modeSet === undefined && !isModeKey(entry.key)) {
       collector.add({
         code: "invalid-mode-key",
@@ -760,7 +761,7 @@ function parseTokenRecord(
   }
 
   for (const entry of entries.value) {
-    const tokenPath = `${options.path}/${escapeTokenPath(entry.key)}`;
+    const tokenPath = `${options.path}/${escapePointerSegment(entry.key)}`;
     if (!isTokenKey(entry.key)) {
       options.collector.add({
         code: "invalid-token-key",
@@ -1007,7 +1008,7 @@ function parseDefinitionMetadata(
         const value = copyJsonValue(entry.value, {
           code: "invalid-json-value",
           message: "Extension values must be JSON-safe.",
-          path: `${path}/extensions/${escapeTokenPath(entry.key)}`,
+          path: `${path}/extensions/${escapePointerSegment(entry.key)}`,
         });
         if (value.ok) {
           defineRecordValue(copied, entry.key, value.value);
@@ -1056,7 +1057,7 @@ function parseModeValues(
   const modeSet = new Set(options.modes);
   const seen = new Set<string>();
   for (const entry of entries.value) {
-    const valuePath = `${options.path}/${escapeTokenPath(entry.key)}`;
+    const valuePath = `${options.path}/${escapePointerSegment(entry.key)}`;
     if (!modeSet.has(entry.key)) {
       options.collector.add({
         code: "unknown-mode-value",
@@ -1292,7 +1293,7 @@ function rejectUnknownKeys(
     collector.add({
       code: "unknown-property",
       message: `Unknown property: ${entry.key}.`,
-      path: path === "" ? pointer(entry.key) : `${path}/${escapeTokenPath(entry.key)}`,
+      path: path === "" ? pointer(entry.key) : `${path}/${escapePointerSegment(entry.key)}`,
     });
   }
 }
@@ -1324,10 +1325,6 @@ function toPublicToken(token: ParsedToken): ParsedTokenGraphToken {
 
 function isReferenceExpression(expression: ParsedTokenExpression): expression is TokenReference {
   return typeof expression === "object" && expression !== null && "ref" in expression;
-}
-
-function escapeTokenPath(key: string): string {
-  return key.replaceAll("~", "~0").replaceAll("/", "~1");
 }
 
 function fail(

@@ -91,6 +91,21 @@ describe("scheme-tokens core", () => {
     expect(compiled.metadataByToken.primary?.origin).toEqual({ kind: "layer", id: "brand" });
   });
 
+  test("composes graph tokens before layers so a layer overrides a graph token", () => {
+    const brand = defineTokenLayer({ id: "brand", tokens: { primary: "#layerwins" } });
+    const graph = defineTokenGraph({
+      tokens: { primary: "#graphvalue", secondary: "#kept" },
+      layers: [brand],
+    });
+
+    const compiled = expectOk(compileTokenGraph(graph));
+
+    expect(compiled.tokens.primary?.base).toBe("#layerwins");
+    expect(compiled.metadataByToken.primary?.origin).toEqual({ kind: "layer", id: "brand" });
+    expect(compiled.tokens.secondary?.base).toBe("#kept");
+    expect(compiled.metadataByToken.secondary?.origin).toEqual({ kind: "graph" });
+  });
+
   test("reports duplicate layer identities at the untrusted boundary", () => {
     const layer = defineTokenLayer({ id: "brand", tokens: { primary: "#6750a4" } });
     const graph = defineTokenGraph({ tokens: {} });

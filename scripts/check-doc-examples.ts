@@ -1,15 +1,9 @@
 import { execFileSync } from "node:child_process";
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isGeneratedDocsSiteFile, isPointInTimeReport, listFiles } from "./public-docs.ts";
 
 interface PackageManifest {
   readonly name: string;
@@ -17,6 +11,9 @@ interface PackageManifest {
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const trackedWorkspaceFiles = listTrackedFiles(repoRoot);
+const durableDocsFiles = listFiles(join(repoRoot, "docs")).filter(
+  (file) => trackedWorkspaceFiles.has(file) && !isPointInTimeReport(file),
+);
 const manifest = JSON.parse(
   readFileSync(join(repoRoot, "package.json"), "utf8"),
 ) as PackageManifest;
@@ -27,8 +24,8 @@ const authoredDocsSiteFiles = listFiles(join(repoRoot, "docs-site")).filter(
 const docsSiteFiles = authoredDocsSiteFiles.filter((file) => file.endsWith(".md"));
 const publicMarkdownFiles = [
   { label: "README.md", text: readme },
-  ...listFiles(join(repoRoot, "docs"))
-    .filter((file) => trackedWorkspaceFiles.has(file) && file.endsWith(".md"))
+  ...durableDocsFiles
+    .filter((file) => file.endsWith(".md"))
     .map((file) => ({ label: file, text: readFileSync(file, "utf8") })),
   ...docsSiteFiles.map((file) => ({ label: file, text: readFileSync(file, "utf8") })),
 ];
@@ -198,7 +195,7 @@ function assertNoRemovedPublicNames(): void {
     join(repoRoot, "package.json"),
     join(repoRoot, "README.md"),
     join(repoRoot, "CHANGELOG.md"),
-    ...listFiles(join(repoRoot, "docs")).filter((file) => trackedWorkspaceFiles.has(file)),
+    ...durableDocsFiles,
     ...authoredDocsSiteFiles,
   ];
 
@@ -261,7 +258,7 @@ function assertNoPublicColorParserSurface(): void {
   const publicFiles = [
     join(repoRoot, "README.md"),
     join(repoRoot, "CHANGELOG.md"),
-    ...listFiles(join(repoRoot, "docs")).filter((file) => trackedWorkspaceFiles.has(file)),
+    ...durableDocsFiles,
     ...authoredDocsSiteFiles,
   ].filter((file) => file.endsWith(".md"));
 
@@ -286,16 +283,6 @@ function assertNoPublicColorParserSurface(): void {
   }
 }
 
-function listFiles(directory: string): readonly string[] {
-  return readdirSync(directory).flatMap((entry) => {
-    if (entry === "node_modules") {
-      return [];
-    }
-    const path = join(directory, entry);
-    return statSync(path).isDirectory() ? listFiles(path) : [path];
-  });
-}
-
 function listTrackedFiles(root: string): ReadonlySet<string> {
   const output = execFileSync(
     "git",
@@ -311,13 +298,5 @@ function listTrackedFiles(root: string): ReadonlySet<string> {
       .split("\0")
       .filter((file) => file.length > 0)
       .map((file) => join(root, file)),
-  );
-}
-
-function isGeneratedDocsSiteFile(file: string): boolean {
-  const normalized = file.replaceAll("\\", "/");
-  return (
-    normalized.includes("/docs-site/.vitepress/cache/") ||
-    normalized.includes("/docs-site/.vitepress/dist/")
   );
 }
