@@ -19,6 +19,17 @@ export function isPointInTimeReport(path: string): boolean {
   return /(?:^|[\\/])docs[\\/]audit-\d{4}-\d{2}\.md$/u.test(path);
 }
 
+/**
+ * The agent context document explains the release gates themselves, so it has
+ * to be able to name the identifiers those gates forbid. It stays subject to
+ * the documented-symbol check: naming a banned identifier in prose is allowed,
+ * presenting one as package API is not. The pattern is pinned to that one file
+ * so the exemption cannot widen to published documentation.
+ */
+export function isContributorDocument(path: string): boolean {
+  return /(?:^|[\\/])docs[\\/]agents-context\.md$/u.test(path);
+}
+
 export function isGeneratedDocsSiteFile(path: string): boolean {
   const normalized = path.replaceAll("\\", "/");
   return (
