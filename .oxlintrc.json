@@ -1,5 +1,6 @@
 {
   "ignorePatterns": [
+    "api/**",
     "packages/material3/src/vendor/material-color-utilities/**",
     "src/vendor/material-color-utilities/**"
   ],

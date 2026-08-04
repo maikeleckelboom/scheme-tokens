@@ -1,7 +1,7 @@
-import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { buildSnapshot, snapshotLabel, snapshotPath } from "./api-snapshot.ts";
 import {
   isContributorDocument,
   listPublicMarkdownFiles,
@@ -112,12 +112,6 @@ const nonApiShapedIdentifiers = new Set(["formatVersion"]);
 // operation cannot ship undocumented.
 const exportReferenceDocuments = ["docs/public-api.md", "docs-site/reference/api.md"] as const;
 
-// This approves the normalized bundled declaration, including overloads and every
-// transitively exposed helper type. Update it only after intentionally reviewing
-// the generated declaration diff.
-const expectedDeclarationContractSha256 =
-  "9d42a319b9be12533388dd3b5aac82d4ba6ef4d82923c13c7961855f78f8f0e9";
-
 assertEqual(
   Object.keys(packageJson.exports),
   [
@@ -161,14 +155,8 @@ for (const removedName of removedPublicNames) {
   }
 }
 
-const normalizedDeclaration = normalizeDeclaration(declaration);
-assertDeclarationContracts(normalizedDeclaration);
-const declarationHash = createHash("sha256").update(normalizedDeclaration).digest("hex");
-if (declarationHash !== expectedDeclarationContractSha256) {
-  throw new Error(
-    `Declaration contract hash mismatch\nactual: ${declarationHash}\nexpected: ${expectedDeclarationContractSha256}`,
-  );
-}
+assertDeclarationContracts(normalizeDeclaration(declaration));
+assertDeclarationMatchesSnapshot(declaration);
 
 for (const forbiddenText of forbiddenIdentifiers) {
   if (declaration.includes(forbiddenText)) {
@@ -188,6 +176,35 @@ for (const forbiddenText of forbiddenIdentifiers) {
 
 assertShippedSourceMapsResolve();
 assertDocsMatchPublicSurface(listPublicMarkdownFiles());
+
+/**
+ * The committed snapshot is the reviewable form of the published type surface.
+ * Comparing against a file rather than a hash means the diff that lands in a
+ * pull request is the API change itself, which is also what the changeset gate
+ * reads to decide whether a version bump is owed.
+ */
+function assertDeclarationMatchesSnapshot(declaration: string): void {
+  const expected = buildSnapshot(declaration);
+  if (!existsSync(snapshotPath)) {
+    throw new Error(`Missing API surface snapshot: ${snapshotLabel}. Run \`pnpm api:snapshot\`.`);
+  }
+
+  const actual = readFileSync(snapshotPath, "utf8").replaceAll("\r\n", "\n");
+  if (actual === expected) {
+    return;
+  }
+
+  const actualLines = actual.split("\n");
+  const expectedLines = expected.split("\n");
+  const index = actualLines.findIndex((line, position) => line !== expectedLines[position]);
+  throw new Error(
+    `${snapshotLabel} does not match the built declaration.\n` +
+      `first difference at line ${index + 1}\n` +
+      `snapshot: ${actualLines[index] ?? "<end of file>"}\n` +
+      `built:    ${expectedLines[index] ?? "<end of file>"}\n` +
+      "Run `pnpm api:snapshot` and add a changeset for the API change.",
+  );
+}
 
 /**
  * A `sourceMappingURL` that resolves to nothing makes every editor and debugger

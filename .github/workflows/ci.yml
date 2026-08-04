@@ -33,5 +33,64 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Release Check
-        run: pnpm release:check
+      # `pnpm release:check` is the local umbrella for everything below. CI runs
+      # the same gates as named steps so a failure points at one contract, and
+      # so the expensive pack-based checks each run exactly once.
+      - name: Validate
+        run: pnpm validate
+
+      - name: Publish lint (publint + attw on npm pack output)
+        run: pnpm package:check
+
+      - name: Packed consumer smoke
+        run: pnpm smoke:consumer
+
+      - name: Packed consumer module resolution (bundler + node16)
+        run: pnpm check:module-resolution
+
+      - name: Packed theme coordinate consumer
+        run: pnpm check:theme-coordinate-consumer
+
+      - name: Tarball contents
+        run: pnpm check:tarball
+
+      - name: Documentation
+        run: pnpm docs:check
+
+      - name: External packed consumer audit
+        run: pnpm audit:external-consumer
+
+  api-contract:
+    name: API contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # The changeset gate diffs the branch against its merge base, so it
+          # needs history rather than a single-commit checkout.
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.7.0 --activate
+          pnpm --version
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: API surface snapshot is current
+        run: pnpm api:check
+
+      - name: API surface drift has a changeset
+        run: pnpm check:changeset
