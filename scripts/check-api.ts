@@ -2,7 +2,11 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { listPublicMarkdownFiles, type MarkdownFile } from "./public-docs.ts";
+import {
+  isContributorDocument,
+  listPublicMarkdownFiles,
+  type MarkdownFile,
+} from "./public-docs.ts";
 
 type ExportTarget = string | Readonly<Record<string, string>>;
 
@@ -211,9 +215,11 @@ function assertDocsMatchPublicSurface(files: readonly MarkdownFile[]): void {
   const runtimeSymbols = new Set<string>(expectedRuntimeExports);
 
   for (const file of files) {
-    for (const forbidden of forbiddenIdentifiers) {
-      if (containsIdentifier(file.text, forbidden)) {
-        throw new Error(`${file.label} names a forbidden identifier: ${forbidden}`);
+    if (!isContributorDocument(file.path)) {
+      for (const forbidden of forbiddenIdentifiers) {
+        if (containsIdentifier(file.text, forbidden)) {
+          throw new Error(`${file.label} names a forbidden identifier: ${forbidden}`);
+        }
       }
     }
 

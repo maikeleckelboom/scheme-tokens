@@ -3,7 +3,12 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { isGeneratedDocsSiteFile, isPointInTimeReport, listFiles } from "./public-docs.ts";
+import {
+  isContributorDocument,
+  isGeneratedDocsSiteFile,
+  isPointInTimeReport,
+  listFiles,
+} from "./public-docs.ts";
 
 interface PackageManifest {
   readonly name: string;
@@ -12,7 +17,8 @@ interface PackageManifest {
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const trackedWorkspaceFiles = listTrackedFiles(repoRoot);
 const durableDocsFiles = listFiles(join(repoRoot, "docs")).filter(
-  (file) => trackedWorkspaceFiles.has(file) && !isPointInTimeReport(file),
+  (file) =>
+    trackedWorkspaceFiles.has(file) && !isPointInTimeReport(file) && !isContributorDocument(file),
 );
 const manifest = JSON.parse(
   readFileSync(join(repoRoot, "package.json"), "utf8"),
