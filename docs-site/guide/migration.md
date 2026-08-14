@@ -1,6 +1,6 @@
-# Pre-release Migration
+# Migration to 0.1
 
-The final 0.1 contract removes the earlier unpublished parallel forms rather than preserving compatibility aliases.
+The 0.1 contract removes the earlier, never-published parallel forms rather than preserving compatibility aliases. The 0.1 line is released, so this is a closed handoff; later contract changes are recorded in the changelog.
 
 ## Mechanical changes
 

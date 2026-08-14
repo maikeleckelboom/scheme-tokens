@@ -273,4 +273,4 @@ The three serializers produce the supported deterministic JSON wire representati
 
 The root type surface centers on `Result`, `Issue`, `TokenReference`, `TokenGraph`, `TokenLayer`, `CompiledScheme`, `CssVarsExport`, and the authoring, option, and issue types needed to use those operations. Public declarations do not expose dependency-internal types.
 
-See [Diagnostics](./diagnostics.md) for issue contracts and [Pre-release migration](./migration.md) for the reset from the earlier unpublished surface.
+See [Diagnostics](./diagnostics.md) for issue contracts and [Migration to 0.1](./migration.md) for the reset from the earlier, never-published surface.

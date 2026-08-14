@@ -2,7 +2,7 @@
 
 ## 0.1.0
 
-Initial pre-release candidate for the string-valued token graph compiler.
+Initial release of the string-valued token graph compiler.
 
 - Define single-mode graphs with `base` defaults and require an explicit mode envelope and default for multimode graphs.
 - Keep references explicit through `tokenRef()` and strict `{ ref }` records.

@@ -1,5 +1,9 @@
 # Agent context — scheme-tokens
 
+`AGENTS.md` holds the operating rules. This file holds the reasoning behind them: what is already
+settled, what enforces it, and which alternatives were evaluated and rejected. Read it before
+proposing an architectural change.
+
 ## What this package is
 
 A COMPILER for design tokens, not a transformer. Style Dictionary and Terrazzo consume a format and emit platform files.
@@ -22,6 +26,9 @@ scope.
 - Issue codes (49) and their JSON Pointer paths
 - The wire format / formatVersion Treat these as public API even though they are not types.
 
+The package is published, so a change to any of the above needs an API snapshot diff and a changeset, and it ships as a
+minor bump while the line is below 1.0. It never ships as an alias next to the old shape.
+
 ## Settled decisions — do not re-propose
 
 - Modes are a FLAT list. First-class orthogonal axes (palette x scheme) were evaluated and rejected: formatVersion 2,
@@ -35,8 +42,3 @@ scope.
 TokenOrigin / provenance. After generation + authored overrides, answering
 "which of my public roles are still generated defaults?" is unanswerable in every competing tool. Surface it
 deliberately.
-
-## Git
-
-Work on `dev`. Atomic, scoped commits per logical change. Preserve unrelated work. Do NOT push, force-push, reset, or
-rewrite shared history. Report branch, SHA, message, and check status per commit.
