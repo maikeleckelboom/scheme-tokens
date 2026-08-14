@@ -31,7 +31,7 @@ Any change that alters published behaviour needs a changeset:
 pnpm changeset
 ```
 
-CI runs `pnpm check:changeset`, which fails when the API snapshot moved against the base branch without a changeset in the same branch. `pnpm changeset:version` applies pending files to `package.json` and `CHANGELOG.md`.
+CI runs `pnpm check:changeset`, which fails when the API snapshot moved against the base branch without a changeset in the same branch. This gate detects declaration-snapshot movement, not every behavioural change. Ordering and other runtime contracts that leave declarations unchanged still require a changeset through policy and review. `pnpm changeset:version` applies pending files to `package.json` and `CHANGELOG.md`.
 
 ## Toolchain pins
 
