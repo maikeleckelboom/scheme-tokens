@@ -2,42 +2,130 @@
 
 ## Status
 
-Proposed.
+Accepted for a future adapter package. This ADR does not add the adapter.
 
-Builds on ADR 0001 (core boundary). Constrained by ADR 0002 (public API reset). The authored layer
-shape depends on ADR 0003. Supersedes the dependency chain in `maikeleckelboom/material-schemes`
-`docs/migration-plan.md`.
+Builds on ADR 0001 (core boundary), ADR 0002 (public API reset), and ADR 0003
+(the existing core authoring namespace remains authoritative). It supersedes the dependency chain in
+`maikeleckelboom/material-schemes` `docs/migration-plan.md`.
 
 ## Decision
 
-`@scheme-tokens/material3` generates Material 3 roles and returns a plain `TokenLayerInput`. It is
-data, not a runner. Core stays unchanged.
+`@scheme-tokens/material3` will be a separate package that generates Material 3 role data and
+returns a public `TokenLayer`. It must construct that layer through core's `defineTokenLayer()`
+helper. It must not hand-roll an object that merely resembles a layer.
 
-Generated roles land as internal tokens under Material's own canonical names. The consumer authors
-their own semantic roles in the graph and references the generated keys. Public compilation emits
-only the semantic roles. The Material role set is plumbing.
+The dependency direction is intentional:
 
-## Vocabulary alignment
+```text
+@scheme-tokens/material3
+    -> scheme-tokens
+    -> no Material dependency
+```
 
-The audience for this adapter is people who already know Material 3. That decides the shape of both
-sides, in opposite directions.
+The adapter therefore has a runtime dependency on `scheme-tokens` sufficient to call
+`defineTokenLayer()`. `@material/material-color-utilities` is pinned in the adapter package and must
+never become a runtime, peer, or optional dependency of core.
 
-**Input aligns with `material-color-utilities` on names and semantics.** Every renamed concept is a
-translation the consumer has to perform, and it makes Google's own documentation unusable as a
-reference. Keep upstream naming even where it is awkward. `contrastLevel` as a float from -1 to 1 is
-odd, but it is upstream's oddity and not ours to fix.
+Core remains the single grammar and validation authority. The adapter owns Material generation and
+translation only. Core continues to own token graph and layer grammar, validation, references,
+modes, visibility, provenance, compilation, serialization, and CSS projection.
 
-**Input deviates from upstream on representation, deliberately.** Upstream's `DynamicSchemeOptions`
-is verified as:
+Generated Material roles use Material's canonical `md.sys.color.*` namespace and are internal by
+default. Consumers author public semantic tokens that reference those internal roles. Ordinary
+public compilation returns the consumer's semantic roles while the Material plumbing stays hidden,
+unless the caller explicitly selects the generated roles.
+
+## Public surface
+
+The conceptual entry point is:
+
+```ts
+material3(config: Material3Config, integration?: IntegrationOptions): TokenLayer
+```
+
+`Material3Config` owns generation. `IntegrationOptions` owns how the result enters the graph, such
+as its layer `id` and `defaultVisibility`. Keep those concerns in separate argument positions. Do
+not add a bare-string shorthand whose second argument changes meaning.
+
+The implementation delegates final construction and normalization:
+
+```ts
+import { defineTokenLayer, type TokenLayer } from "scheme-tokens";
+
+export function material3(/* ... */): TokenLayer {
+  return defineTokenLayer({
+    id: "material3",
+    defaultVisibility: "internal",
+    tokens: generatedTokens,
+  });
+}
+```
+
+This is runtime coupling in the correct direction. It prevents the adapter from duplicating core's
+token-key, authoring, normalization, copying, and validation rules.
+
+## Mode API
+
+The final type probe accepted two explicit, mutually exclusive lanes named `modes` and
+`exactModes`. They are not aliases and must not be collapsed into one option.
+
+| Lane         | Meaning                                                                                             | Required negative constraints                                                             |
+| ------------ | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `modes`      | Normal generated modes. Appearance participates in generation rather than being inferred afterward. | `exactModes?: never`; `defaultMode` is limited to the supplied `modes` keys.              |
+| `exactModes` | The caller supplies the exact output-mode-to-generated-Material relationship, including appearance. | `modes?: never`; `appearance?: never`; `defaultMode` is limited to the `exactModes` keys. |
+
+Use overloads and deliberate negative properties to keep these categories statically
+distinguishable. In particular, `appearance?: never` in the `exactModes` lane is intentional:
+appearance is already part of each exact relationship, so a separate value would be redundant or
+contradictory.
+
+`defaultMode` must use `NoInfer` where necessary so it cannot widen or otherwise influence the mode
+union inferred from `modes` or `exactModes`. The supplied mode keys are the authority; the default
+chooses one of them.
+
+The implementation type tests must retain the final probe's table:
+
+- valid normal generated modes compile;
+- valid exact mode mappings compile;
+- `modes` and `exactModes` together fail;
+- an exact mapping plus a separate `appearance` fails;
+- a `defaultMode` absent from the supplied mode keys fails;
+- invalid lane-specific properties fail instead of being silently normalized;
+- inference preserves the literal supplied mode union.
+
+Some invalid overload cases legitimately report TypeScript `TS2769`. Do not weaken the overloads,
+add an ambiguous catch-all signature, or merge the two lanes merely to improve that diagnostic.
+
+The adapter's `modes` option is a generation instruction, not a layer envelope declaration. The
+returned `TokenLayer` still declares no graph `modes` or `defaultMode`. The consuming graph owns its
+mode envelope, and `defineTokenGraph()` rejects a generated layer whose mode maps do not cover that
+envelope.
+
+## Adapter vocabulary
+
+Keep Material vocabulary when it describes the upstream domain, but expose only stable JSON-safe
+values. Do not expose `Hct`, `DynamicScheme`, `TonalPalette`, numeric `Variant` values, or any other
+upstream class or object as public adapter input or output.
+
+The first source-color representation is exactly `sourceColorHex`, containing a strict six-digit
+`#rrggbb` string. Validate it at the adapter boundary before calling upstream. Malformed values must
+fail with an adapter-owned diagnostic or trusted-authoring error rather than reaching Material Color
+Utilities and producing surprising output.
+
+Material variants are stable string literals such as `"monochrome"` and `"vibrant"`. The adapter
+maps them internally to upstream's numeric `Variant` enum. Pin and test that table explicitly so an
+upstream reordering fails loudly.
+
+The upstream `DynamicSchemeOptions` investigation found:
 
 ```ts
 interface DynamicSchemeOptions {
   sourceColorHct: Hct;
-  variant: Variant; // numeric enum: MONOCHROME = 0 … FRUIT_SALAD = 8
+  variant: Variant;
   contrastLevel: number;
   isDark: boolean;
-  platform?: Platform; // 'phone' | 'watch'
-  specVersion?: SpecVersion; // '2021' | '2025'
+  platform?: Platform;
+  specVersion?: SpecVersion;
   primaryPalette?: TonalPalette;
   secondaryPalette?: TonalPalette;
   tertiaryPalette?: TonalPalette;
@@ -47,280 +135,154 @@ interface DynamicSchemeOptions {
 }
 ```
 
-Two of those cannot be mirrored, and forcing them would be wrong rather than faithful:
+The adapter does not mirror this type. `sourceColorHct` and numeric `variant` cross the public
+boundary as `sourceColorHex` and a string-literal variant. Palette class overrides are not part of
+the initial surface. Existing JSON-safe vocabulary such as contrast level, platform, and spec
+version may be added only when a fixture or real consumer justifies it.
 
-| Upstream                                             | Adapter                                   | Why                                                                                                                                                                                                                                                            |
-| ---------------------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sourceColorHct: Hct`                                | `sourceColorHex: string`                  | `Hct` is a class instance. ADR 0001 requires public authored data to stay JSON-safe, and accepting `Hct` would force every consumer to import upstream. The name differs from `sourceColorHct` on purpose, so the deviation is visible rather than surprising. |
-| `variant: Variant`                                   | `variant: "monochrome" \| "vibrant" \| …` | The enum is numeric. Persisting `3` in a config is opaque, not JSON-meaningful, and directly exposed to upstream reordering. A string union is stable, readable, and the numeric mapping becomes an internal pinned table.                                     |
-| `contrastLevel`, `isDark`, `platform`, `specVersion` | identical                                 | JSON-safe already. Mirror exactly.                                                                                                                                                                                                                             |
+## Role names and visibility
 
-`primaryPalette` and the other palette overrides are deliberately not exposed. The layer model is
-the override mechanism, and two competing ones would be worse than either.
+Material Color Utilities exposes camelCase accessors. Those are JavaScript binding names, not the
+token-key contract. The adapter maps the complete supported role inventory to Material's canonical
+dot-separated lower-kebab names:
 
-**Output deliberately does not align.** Reproducing a `Theme` object with `schemes.light`,
-`schemes.dark`, `palettes`, and `customColors` is the wrapper this adapter exists to not be. The
-output is a `TokenLayerInput`.
-
-This also settles what the adapter's documentation owns: configuration follows upstream, so point at
-Google's documentation for what variants and contrast levels mean. What this package documents is
-the output and the two deviations above.
-
-## Why the layer shape
-
-ADR 0001 already licenses it:
-
-> External producers feed ordinary string tokens or strict graph artifacts.
-
-The predecessor repository prescribed the same direction:
-
-```
-public graph/compiler API
-  -> dynamicSchemeSource
-    -> private upstream adapter
-      -> @material/material-color-utilities
+```text
+primary                 -> md.sys.color.primary
+onPrimary               -> md.sys.color.on-primary
+surfaceContainerHighest -> md.sys.color.surface-container-highest
 ```
 
-with the rule that reusing role extraction, contrast normalisation, and palette-style mapping is
-fine, but keeping those wrappers publicly visible is not.
+All generated roles are internal by default. The mapping is a versioned adapter contract, so commit
+an explicit role inventory and snapshots for every supported variant and spec version. A role rename
+is a breaking adapter change.
 
-One part of that plan is stale. It assumed a `TokenSource` with a callable `build()`, run by
-`buildScheme()`. ADR 0002 removed both, and `check-api.ts` now fails the build if the bundle
-contains the string `material3`. What remains is `defineTokenGraph({ layers })`, which accepts plain
-layer data.
+The initial implementation should emit the complete role inventory for its supported upstream
+configuration rather than curate a smaller public subset. Visibility, not omission, keeps generated
+plumbing out of ordinary public compilation.
 
-That is a better boundary than the plan anticipated. The adapter implements no core contract, calls
-no core function, and depends on `scheme-tokens` for types only. Zero runtime coupling.
+## Composition and provenance
 
-## Verified working today
-
-Run against `dev` at `639392c`, with no core changes.
+The architecture is already supported by core:
 
 ```ts
-const generated = defineTokenLayer({
-  id: "material3",
-  defaultVisibility: "internal",
-  tokens: {
-    "md.sys.color.primary": { light: "#6750a4", dark: "#d0bcff" },
-    "md.sys.color.surface": { light: "#fffbfe", dark: "#141218" },
-  },
-});
+const generated = material3(/* exact adapter config */);
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
   defaultMode: "light",
   layers: [generated],
   tokens: {
-    "action-primary-bg": { ref: "md.sys.color.primary" },
-    "surface-canvas": { ref: "md.sys.color.surface" },
-  },
-});
-
-compileTokenGraph(graph);
-```
-
-Public compilation returns exactly two tokens, `action-primary-bg` and `surface-canvas`. The
-Material keys appear only under `selection: "all"`.
-
-Provenance arrives where ADR 0001 says it lives, under `metadataByToken`:
-
-```json
-"action-primary-bg": {
-  "visibility": "public",
-  "origin": { "kind": "graph" },
-  "dependenciesByMode": {
-    "light": ["md.sys.color.primary"],
-    "dark":  ["md.sys.color.primary"]
-  }
-}
-```
-
-This is what makes "which of my roles still resolve to generated defaults" answerable, and it needs
-no new core API.
-
-## Proposed surface
-
-```ts
-material3(config: Material3Config, integration?: IntegrationOptions): TokenLayerInput
-```
-
-`Material3Config` owns generation and uses upstream vocabulary. `IntegrationOptions` owns how the
-result enters a graph (`id`, `defaultVisibility`, `prefix`). Keep them in separate argument
-positions. ADR 0002 removed an overload matrix for exactly this reason, so do not reintroduce one:
-no bare-string shorthand whose second argument changes meaning.
-
-Mode coordinates are flattened by the caller, per `application-theme-coordinates.md`:
-
-```ts
-material3({
-  sourceColorHex: "#6750a4",
-  modes: {
-    "mono-light": { variant: "monochrome", isDark: false },
-    "mono-dark": { variant: "monochrome", isDark: true },
-    "vivid-light": { variant: "vibrant", isDark: false },
-    "vivid-dark": { variant: "vibrant", isDark: true },
+    "action-primary-bg": tokenRef("md.sys.color.primary"),
+    "surface-canvas": tokenRef("md.sys.color.surface"),
   },
 });
 ```
 
-**`modes` here is a generation instruction, not an envelope declaration.** ADR 0002 is explicit:
+Public compilation returns the authored semantic roles. If an exact selection or `"all"` includes a
+generated Material key, it is present under its canonical `md.sys.color.*` name.
 
-> The graph exclusively owns that envelope; layers never declare modes.
+Core provenance remains sufficient. For a public semantic role that references a generated Material
+role, `metadataByToken` retains `dependenciesByMode` naming that generated key. Consumers can
+therefore answer which authored roles still resolve through generated defaults without another
+provenance API.
 
-Verified: `defineTokenLayer({ modes: [...] })` is rejected with `unknown property "modes"`. The
-caller declares the envelope on the graph. If the layer's emitted mode names do not cover it,
-`defineTokenGraph()` throws at construction rather than producing a compile issue, which is correct
-per ADR 0002's rule that trusted helpers may throw for programmer misuse:
+## CSS projection
 
-```
-defineTokenGraph token "m.a" mode map is missing mode "sepia"
-```
+The adapter does not emit CSS. Core's `exportCssVars()` remains the only CSS projection boundary.
+The canonical Material namespace already composes with its default name mapping.
 
-Document the combinatorial ceiling before someone hits it. Variant times dark times three contrast
-levels is thirty hand-written mode names. Two by two is comfortable. It does not stay comfortable.
+Acceptance requires an end-to-end assertion for a compiled selection containing the generated role:
 
-## Key naming restores the specification
-
-Material Color Utilities emits camelCase (`onPrimaryContainer`, `surfaceContainerHighest`). That is
-the JavaScript API idiom, not Material's naming. The specification's own canonical token names are
-already dot-separated lower-kebab:
-
-```
-onPrimaryContainer      -> md.sys.color.on-primary-container
-surfaceContainerHighest -> md.sys.color.surface-container-highest
+```ts
+variableByToken["md.sys.color.primary"] === "--md-sys-color-primary";
 ```
 
-So the adapter is not translating into a private convention. It is restoring Material's naming from
-the JS binding's deviation, and that naming happens to be exactly the core key language. This is why
-`md.sys.color.*` and not `material3.*`.
+No adapter-specific emitter or CSS naming option is needed.
 
-The mapping is the only thing consumers build against. It needs a committed snapshot of the full
-role set per spec version, and a rename is a breaking change.
+## Upstream reuse and exclusions
 
-## Emit the complete role set
+Useful predecessor assets remain:
 
-All roles are emitted, all `internal` by default. No curation.
+| Source                             | Use                                                                                  |
+| ---------------------------------- | ------------------------------------------------------------------------------------ |
+| `src/roles.ts`                     | Explicit canonical role inventory and supported-version differences.                 |
+| `src/variant.ts`                   | Evidence for the pinned internal string-to-numeric variant table.                    |
+| `PaletteStyle` in `src/palette.ts` | Evidence for variant-to-scheme constructor dispatch.                                 |
+| `resolveContrastLevelValue`        | Input-normalization evidence if contrast level enters the supported surface.         |
+| `formatTokenName`                  | The idea only; replace it with the explicit canonical role mapping and its snapshot. |
 
-Visibility makes this free: the Material roles never reach public output unless the consumer
-references them. Emitting a chosen subset only removes options from someone who knows the
-specification better than the adapter author does.
+Do not carry across:
 
-Upstream at 0.4.0 exposes roughly sixty accessors, including the six palette key colors
-(`primaryPaletteKeyColor` and siblings) and the four dim roles. The role inventory from the
-predecessor is therefore not a curation list. It is the record of which roles exist per spec
-version, which is what makes parity checking and snapshot testing possible.
+- `src/css.ts`; core owns CSS projection;
+- contrast validation, contrast repair, lighten, or darken behavior;
+- `MaterialTheme`, `createTheme`, or another competing theme abstraction;
+- public `DynamicColorScheme`, `DynamicScheme`, `TonalPalette`, or `Hct` classes;
+- a runtime plugin or source runner in core.
 
-## What comes across from material-schemes
+Material-domain generation helpers such as harmonization may remain private implementation details
+only when the supported first-scope configuration needs them.
 
-| Source                             | Use                                                                                                                                                                                                                                                  |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/roles.ts`                     | The role inventory. Six palette key colors, roughly fifty required roles, four optional dim roles, default palette tones, supported spec versions and platforms. Hand-curated and tedious to reconstruct correctly. Highest value in the repository. |
-| `src/variant.ts`                   | The numeric `Variant` enum matching upstream ordering. Becomes the internal string-to-number table.                                                                                                                                                  |
-| `PaletteStyle` in `src/palette.ts` | The name to scheme-constructor dispatch table, which is the source of the public string union.                                                                                                                                                       |
-| `resolveContrastLevelValue`        | Contrast level input normalisation.                                                                                                                                                                                                                  |
-| `formatTokenName`                  | The idea only. The mapping above replaces the implementation.                                                                                                                                                                                        |
+## Pinning and determinism
 
-`harmonize` and `fixIfDisliked` are genuine Material domain and may stay internal as generation
-options.
+The investigated upstream version is `@material/material-color-utilities` `0.4.0`. Pin it exactly in
+the adapter package. Generated output is versioned behavior, so an upstream math or role change must
+not arrive through a floating range.
 
-## What does not come across
+Assert the string-to-numeric variant mapping directly. Snapshot the full generated role set for each
+supported variant and spec version. Run deterministic generation fixtures on at least two supported
+Node versions and require byte-identical token data.
 
-- `src/css.ts`. Core owns CSS export. A second emitter is the duplication this architecture exists
-  to prevent.
-- The computational half of `src/contrast.ts`. Contrast ratios, contrast colors, lighten and darken
-  belong to a contrast package. ADR 0001 places proof and repair policy outside core, and they do
-  not belong in a generation adapter either.
-- `src/theme.ts`. `MaterialTheme` and `createTheme` are a competing theme concept. The graph is the
-  theme.
-- `DynamicColorScheme` as a public class. Four hundred and twenty-nine lines and fourteen public
-  fields. The adapter is a function that returns data.
+The probe found spec versions `"2021"` and `"2025"` and platforms `"phone"` and `"watch"` in
+upstream `0.4.0`. It did not find `specVersion: "2026"` or `variant: "cmf"`; do not invent them.
+Roles that exist only in one spec version must be handled by explicit inventory differences, not
+partial mode maps that violate the graph envelope.
 
-## Pinning and drift
+## Initial scope
 
-`@material/material-color-utilities` is at `0.4.0`, published 2026-01-21. Pin it exactly, not with a
-caret. Generated output is a versioned artifact, so an upstream change to variant math changes the
-adapter's output and is a breaking change downstream.
+The first adapter must prove the boundary with the smallest useful configuration. Start with
+`sourceColorHex`, the supported string-literal variant set needed by the fixture, appearance through
+the accepted mode lanes, and internal canonical roles. Expand contrast level, spec version, platform,
+custom colors, palette reference tokens, or harmonization only when committed fixtures or real
+consumers require them.
 
-Snapshot the full generated role set per variant and per spec version. Assert the string-to-numeric
-`Variant` mapping explicitly rather than trusting the upstream enum to keep its values. That
-assertion is the reason the public API takes strings.
+Do not promise every Material Color Utilities option in the first release. In particular, do not add
+a contrast repair engine, palette-class overrides, a Material-specific CSS emitter, or public
+upstream classes.
 
-Supported spec versions are `'2021'` and `'2025'`, verified in `color_spec.d.ts`. Platform is
-`'phone' | 'watch'`. CMF is not supported. Earlier drifted documentation referenced
-`specVersion: "2026"` and `variant: "cmf"`, which do not exist in 0.4.0. Do not carry those forward.
+The flagship exact-mode fixture is one source color with monochrome and vibrant variants across
+light and dark: four explicitly named modes whose public semantic roles reference internal
+`md.sys.color.*` tokens. It exercises variant mapping, mode parity, reference resolution,
+visibility, provenance, and CSS projection without expanding the first option surface.
 
-## Role parity and spec versions
+## Acceptance criteria
 
-The dim roles (`primaryDim`, `secondaryDim`, `tertiaryDim`, `errorDim`) are emitted only for spec
-versions that expose them. Core requires every token to define every declared mode.
-
-Generating all modes from one spec version is consistent. Mixing spec versions across modes produces
-a mode map that does not cover the declared envelope, which `defineTokenGraph()` rejects. That is
-the helper catching a real mistake, not a limitation to configure away. Document it as intended
-behaviour.
+1. The adapter is outside core and depends at runtime on `scheme-tokens`; core has no Material
+   runtime, peer, or optional dependency.
+2. The public result is `TokenLayer`, constructed through `defineTokenLayer()`.
+3. Type tests preserve distinct `modes` and `exactModes` overloads, the `NoInfer` default-mode
+   constraint, deliberate negative properties including `appearance?: never`, and all rejected
+   combinations from the final probe.
+4. The source color has one strict JSON-safe representation and malformed values fail at the adapter
+   boundary.
+5. No upstream class or numeric enum is reachable from the public entry point.
+6. The string-to-numeric variant table is pinned and asserted against upstream.
+7. A complete canonical role inventory and generated-output snapshots are committed for the supported
+   configuration.
+8. Generated tokens are internal by default and use `md.sys.color.*`, never upstream camelCase
+   accessor names as token keys.
+9. An end-to-end graph proves public semantic selection, `metadataByToken` dependencies, and explicit
+   selection of generated roles.
+10. Core `exportCssVars()` proves
+    `variableByToken["md.sys.color.primary"] === "--md-sys-color-primary"` with no adapter emitter.
+11. Generated token data is deterministic across the supported Node versions exercised by CI.
+12. The initial option surface stays limited to fixture-backed or consumer-backed requirements.
 
 ## Non-goals
 
-- No CSS emission.
-- No contrast validation or repair.
-- No color space conversion beyond ARGB integer to `#rrggbb`.
-- No theme, palette preview, or runtime style injection concept.
-- No dependency on a color package. The adapter emits opaque strings and needs nothing else.
-- **No re-export of upstream classes.** `DynamicScheme`, `TonalPalette`, and `Hct` stay internal.
-  Making them public is the legacy wrapper surface the migration plan forbade, and it imports ADR
-  0001's non-goals through the back door. Alignment is about vocabulary, not surface area.
-
-## Acceptance
-
-1. The adapter imports no runtime value from `scheme-tokens`, only types. Assert in a boundary test.
-2. A full role-set snapshot per variant and spec version, committed.
-3. The camelCase to specification-name mapping is snapshot tested across the complete role
-   inventory.
-4. The string-to-numeric `Variant` table is asserted against upstream, so an upstream reordering
-   fails loudly rather than silently changing output.
-5. Generated output is byte-identical across two Node versions.
-6. The end-to-end case compiles: generated layer plus authored semantic graph, public selection
-   returns only the authored roles, `metadataByToken` names the generated dependencies.
-7. A layer that declares modes is rejected, per ADR 0002. Verified as current behaviour.
-8. A mode map that does not cover the graph envelope throws at `defineTokenGraph()`.
-9. No upstream class is reachable from the public entry point.
-10. Config is JSON-serialisable end to end, per ADR 0001.
-
-## First fixture
-
-Use the monochrome and vibrant variant pair across light and dark as the flagship test. Four modes,
-two variants, one source color, semantic roles referencing `md.sys.color.*`.
-
-This is the same design problem worked through for `maikel.site` (one system, two expressions, the
-monochrome one canonical), generated rather than authored. It exercises multi-variant composition,
-mode parity, reference resolution, and provenance in a single graph, against a design question that
-was thought through independently of this package.
-
-## Scope discipline
-
-The adapter has no consumer yet, so the usual pressure that keeps option surfaces small is absent.
-Every upstream capability will feel like it should be supported because upstream supports it.
-
-Ship `sourceColorHex`, `variant`, and `isDark` first. Add `contrastLevel`, `specVersion`,
-`platform`, and custom colors only when the fixture or a real consumer demands them. Custom color
-groups fit the model well, each producing `md.sys.color.<name>`, `on-<name>`, `<name>-container`,
-and `on-<name>-container`, but they are not needed to prove the architecture.
-
-## Open questions
-
-**Tonal palettes as tokens.** `md.ref.palette.*` is Material's own reference layer, not something
-this adapter would invent, and ADR 0002 permits the keys mechanically: "Token paths may use numeric
-segments after their first segment", so `md.ref.palette.primary.40` is valid. Under the alignment
-principle above, including them is the consistent answer. Six palettes times eighteen tones is one
-hundred and eight additional internal tokens, which argues for an opt-in flag rather than exclusion.
-Decide before first release, since adding it later is additive but removing it is not.
-
-**Alpha.** Material roles are opaque, so `#rrggbb` should be correct. Confirm against the upstream
-ARGB output before fixing the format.
-
-**Authoring shape.** If ADR 0003 is accepted, the layer's token definitions take `$` prefixed
-properties, which changes the adapter's emitted shape. Sequence 0003 first or accept a follow-up
-change here.
-
-**Scope ownership.** `@scheme-tokens` on npm must be claimed before the first adapter publish. The
-predecessor's public documentation already names the scope.
+- No Material implementation in core.
+- No CSS emission in the adapter.
+- No contrast validation or repair engine.
+- No generic color parsing or color model in core.
+- No public upstream classes or numeric enums.
+- No runtime plugin registry or source runner.
+- No attempt to expose every upstream option in the first adapter version.

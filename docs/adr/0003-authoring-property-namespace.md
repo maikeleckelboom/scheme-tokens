@@ -2,8 +2,31 @@
 
 ## Status
 
-Proposed. This reopens a decision accepted in ADR 0002 and must clear that bar before it is
-considered on its own merits.
+Rejected. The published authoring grammar accepted in ADR 0002 remains authoritative.
+
+## Decision
+
+Core trusted authoring continues to use the existing expanded-definition properties:
+
+```text
+value
+visibility
+description
+deprecated
+extensions
+```
+
+Core will not replace them with `$value`, `$description`, or other `$`-prefixed equivalents, and it
+will not add a second equivalent authoring grammar.
+
+The current grammar is coherent, already published, and has no demonstrated core defect. The
+ergonomic gain from a `$` namespace is modest, while changing it would create avoidable API churn.
+DTCG Resolver and Modifier concepts do not require trusted TypeScript authoring in this compiler to
+adopt DTCG's property namespace. DTCG interoperability belongs at adapter, import, and export
+boundaries, where external vocabulary can be translated into the existing core grammar.
+
+Reserved mode names remain a deliberate part of that grammar. Adapters must handle collisions at
+their boundaries rather than reopening the core authoring model.
 
 ## Context
 
@@ -60,7 +83,7 @@ foreground: {
 }
 ```
 
-## Argument
+## Investigated alternative
 
 ADR 0002 forbade mixing because mixing was ambiguous. The reserved-name set is the mechanism that
 kept object interpretation unambiguous under that constraint.
@@ -116,22 +139,22 @@ it.
 The durable value is the namespace guarantee, not the ergonomics. It is insurance against a
 collision class that has not occurred. Nobody adopts the package because of it.
 
-What makes it worth deciding now: version 0.1.0, no external consumers, changesets and an API
-surface snapshot in place. After 1.0 the same change costs a deprecation cycle. This is the cheapest
-it will ever be, and the last moment where reversing an accepted ADR costs nothing.
+The proposal argued that version 0.1.0 was the cheapest time to change the namespace. The package is
+now published and the existing grammar is consumer-visible, which strengthens the churn cost rather
+than demonstrating a defect that would justify it.
 
-## Open question, answer before deciding
+## DTCG consideration
 
-DTCG 2025.10 specifies resolvers and modifiers for theming contexts. If that becomes how the
-ecosystem expresses light and dark, palette variants, and platform contexts, then a mode map inside
-a token definition may be the wrong shape to optimise at all. Read the resolvers specification
-first. This decision is downstream of whether the shape survives.
+DTCG 2025.10 specifies resolvers and modifiers for theming contexts. Those concepts do not require
+this compiler's trusted TypeScript authoring to copy DTCG's property namespace. A future DTCG
+adapter can translate its external vocabulary into explicit core modes, references, and token
+definitions without changing the core grammar.
 
 Note also that ADR 0001 lists "a generic structured design-token value model" as a non-goal, while
 DTCG 2025.10 uses structured colors. Any DTCG adapter must flatten those to strings at its boundary.
 That constraint is independent of this ADR but bears on the same alignment question.
 
-## Consequences if accepted
+## Consequences of the rejected alternative
 
 - One authoring grammar remains, as 0002 requires. The expanded form is removed, not supplemented.
 - Property names align one-to-one with DTCG, simplifying a future adapter.
@@ -140,8 +163,13 @@ That constraint is independent of this ADR but bears on the same alignment quest
 - ADR 0002's "metadata cannot be mixed directly with mode keys" is superseded, with its unambiguity
   requirement satisfied by a different mechanism.
 
-## Consequences if rejected
+## Consequences
 
 - The current two-shape separation stands. It is coherent and has no defect.
-- Every DTCG-aligned property name added later must enter the reserved set, and each addition is a
-  silent break for any consumer using that name as a mode.
+- `value`, `visibility`, `description`, `deprecated`, and `extensions` remain the only expanded
+  authoring properties.
+- No compatibility alias or parallel `$`-prefixed grammar is introduced.
+- External adapters translate their vocabulary into the core grammar and validate reserved-name
+  collisions deliberately at their boundary.
+- Any future proposal to add a reserved core property must still treat the mode-name impact as a
+  public-contract decision.
