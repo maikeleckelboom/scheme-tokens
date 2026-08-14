@@ -30,6 +30,18 @@ export function isContributorDocument(path: string): boolean {
   return /(?:^|[\\/])docs[\\/]agents-context\.md$/u.test(path);
 }
 
+/**
+ * An ADR records one decision at the moment it was taken. Doing that job means
+ * quoting internal symbols, rejected shapes, and adapter packages that are
+ * deliberately outside the boundary, so holding the series to today's export
+ * surface would force rewriting decision history to keep a gate quiet. Decision
+ * records are excluded instead; a decision that changes the contract still has
+ * to land in the durable documentation the gates do cover.
+ */
+export function isDecisionRecord(path: string): boolean {
+  return /(?:^|[\\/])docs[\\/]adr[\\/][^\\/]+\.md$/u.test(path);
+}
+
 export function isGeneratedDocsSiteFile(path: string): boolean {
   const normalized = path.replaceAll("\\", "/");
   return (
@@ -40,8 +52,8 @@ export function isGeneratedDocsSiteFile(path: string): boolean {
 
 /**
  * Every markdown file that documents the published package: the README plus the
- * durable `docs/` and `docs-site/` trees, without dated reports or generated
- * VitePress output.
+ * durable `docs/` and `docs-site/` trees, without records, dated reports, or
+ * generated VitePress output.
  */
 export function listPublicMarkdownFiles(): readonly MarkdownFile[] {
   return [
@@ -51,7 +63,10 @@ export function listPublicMarkdownFiles(): readonly MarkdownFile[] {
   ]
     .filter(
       (path) =>
-        path.endsWith(".md") && !isPointInTimeReport(path) && !isGeneratedDocsSiteFile(path),
+        path.endsWith(".md") &&
+        !isPointInTimeReport(path) &&
+        !isDecisionRecord(path) &&
+        !isGeneratedDocsSiteFile(path),
     )
     .map((path) => ({
       label: path.slice(repoRoot.length + 1).replaceAll("\\", "/"),

@@ -11,7 +11,6 @@
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
     "noFallthroughCasesInSwitch": true,
-    "ignoreDeprecations": "6.0",
     "skipLibCheck": false,
     "declaration": true,
     "noEmit": true

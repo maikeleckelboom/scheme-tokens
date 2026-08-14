@@ -9,7 +9,9 @@ describe("package boundary", () => {
   test("root package metadata is publishable without scoped access metadata", () => {
     const manifest = readManifest();
 
-    expect(manifest.version).toBe("0.1.0");
+    // `pnpm changeset:version` owns the version, so pin its shape rather than a
+    // value that would fail this test on every release.
+    expect(manifest.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u);
     expect(manifest.private).toBeUndefined();
     expect(manifest.publishConfig).toBeUndefined();
   });
