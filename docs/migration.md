@@ -1,6 +1,8 @@
-# Pre-release Migration
+# Migration to 0.1
 
-This guide migrates consumers of the earlier unpublished API to the final 0.1 contract. There are no compatibility aliases or old-format readers.
+This guide migrates code written against the earlier, never-published API to the 0.1 contract. There are no compatibility aliases or old-format readers.
+
+The 0.1 line is released, so this is a closed handoff rather than a living document: later contract changes are recorded in `CHANGELOG.md` and governed by [Semver](./semver.md).
 
 ## Result payloads
 

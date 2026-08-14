@@ -1,5 +1,7 @@
 # Development
 
+Node `>=22` and pnpm `11.7.0` through Corepack. Everything under `scripts/` is TypeScript run directly with `node --experimental-strip-types`, so those files have no build step and must stay dependency-light.
+
 Use the strongest local gates before reporting release readiness:
 
 ```sh
@@ -30,6 +32,12 @@ pnpm changeset
 ```
 
 CI runs `pnpm check:changeset`, which fails when the API snapshot moved against the base branch without a changeset in the same branch. `pnpm changeset:version` applies pending files to `package.json` and `CHANGELOG.md`.
+
+## Toolchain pins
+
+`tsdown` is pinned to `0.22.3`. Later 0.22 releases load a native parser binding that Windows application-control policy blocks on the maintainer's machine, which fails `pnpm build` and every gate downstream of it. Bump it only after confirming the build still runs locally.
+
+The docs site pins `vitepress`, `@shikijs/vitepress-twoslash`, and `typescript` to exact versions, and `scripts/check-docs-site.ts` asserts the resolved versions, so a docs toolchain bump is a two-file change.
 
 ## Packaging gates
 

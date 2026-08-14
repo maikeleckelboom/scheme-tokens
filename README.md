@@ -72,5 +72,5 @@ untrusted persisted data, and `serializeTokenGraph()`, `serializeTokenLayer()`, 
 - [Application theme coordinates](./docs/application-theme-coordinates.md)
 - [Diagnostics](./docs/diagnostics.md)
 - [Value policy](./docs/color-policy.md)
-- [Pre-release migration](./docs/migration.md)
+- [Migration to 0.1](./docs/migration.md)
 - [Semver](./docs/semver.md)

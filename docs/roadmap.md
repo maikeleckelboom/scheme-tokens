@@ -1,20 +1,26 @@
 # Roadmap
 
-The 0.1 release decision is centered on one complete pipeline:
+The 0.1 line is released. It carries one complete pipeline:
 
 ```text
 authored string tokens -> strict graph -> deterministic compilation -> CSS or serialized artifacts
 ```
 
-## 0.1 focus
+## What 0.1 settled
 
-- Keep one authoring grammar and one `Result` convention.
-- Keep multimode authority explicit at the graph boundary.
-- Keep layers ordered, mode-neutral, and independently identifiable.
-- Keep strict graph, layer, and compiled formats aligned with their schemas and parsers.
-- Keep diagnostics, serialization, selection, and CSS output deterministic.
-- Prove literal key and mode inference through strict packed consumers.
-- Validate a consumer-shaped graph with generated internal strings, public semantic references, explicit repair tokens, light and dark modes, layers, and persisted parsing.
+- One authoring grammar and one `Result` convention.
+- Multimode authority explicit at the graph boundary.
+- Layers ordered, mode-neutral, and independently identifiable.
+- Strict graph, layer, and compiled formats aligned with their schemas and parsers.
+- Deterministic diagnostics, serialization, selection, and CSS output.
+- Literal key and mode inference proven through strict packed consumers.
+- A consumer-shaped graph validated end to end: generated internal strings, public semantic references, explicit repair tokens, light and dark modes, layers, and persisted parsing.
+
+## After 0.1
+
+- Keep the compiler itself stable. Before `1.0.0`, a contract change is allowed when it simplifies the package, and it ships as a minor bump with a changeset rather than as a compatibility alias.
+- Grow composition around the compiler, in packages outside the core boundary, so the root package stays dependency-light and browser-runnable.
+- Record each such decision as an ADR under `docs/adr/` before it turns into code.
 
 ## Deliberate non-goals
 

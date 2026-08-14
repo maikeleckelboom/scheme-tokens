@@ -85,7 +85,7 @@ export default defineConfig({
           },
           { text: "Export CSS Variables", link: "/guide/export-css-variables" },
           { text: "TypeScript Access", link: "/guide/typescript-access" },
-          { text: "Pre-release Migration", link: "/guide/migration" },
+          { text: "Migration to 0.1", link: "/guide/migration" },
         ],
       },
       {
