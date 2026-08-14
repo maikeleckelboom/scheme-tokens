@@ -4,6 +4,8 @@ The public release line started at `0.1.0`. Before `1.0.0`, a minor release may 
 
 Releases are versioned with changesets: a change to any contract below needs a changeset in the same branch, and `pnpm changeset:version` applies the pending files to `package.json` and `CHANGELOG.md`.
 
+CI automatically requires that changeset when the committed TypeScript declaration snapshot moves. It cannot infer every behavioural contract change from source, so declaration-stable changes such as deterministic ordering remain a policy and review responsibility.
+
 These are versioned contracts:
 
 - root runtime exports;

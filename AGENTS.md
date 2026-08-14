@@ -6,7 +6,7 @@
 
 The package is published on npm; the first release went out on 2026-08-01. The only known consumer is the author's own site, so development stays greenfield: before `1.0.0`, a breaking change is allowed whenever it simplifies the final public contract.
 
-Do not add deprecated aliases, compatibility wrappers, old-format readers, migration overloads, or hidden fallback branches. Published does not mean frozen, but it does mean visible: a contract change lands as an intentional API snapshot diff plus a changeset, never as a silent alias or a quiet widening.
+Do not add deprecated aliases, compatibility wrappers, old-format readers, migration overloads, or hidden fallback branches. Published does not mean frozen, but it does mean visible: every published-behaviour change lands with a changeset, and a declaration change also lands as an intentional API snapshot diff, never as a silent alias or a quiet widening.
 
 Before adding code, check for existing functions, helpers, types, tests, and patterns that can be reused or deleted.
 
@@ -138,7 +138,7 @@ Records are not rewritten to match the current contract:
 
 ## Release and versioning
 
-`api/scheme-tokens.api.d.ts` is the committed public type surface. `pnpm api:check` fails when the build and the snapshot disagree, and CI fails when the snapshot moved without a changeset, so a contract change always arrives as a reviewable diff with a changelog entry.
+`api/scheme-tokens.api.d.ts` is the committed public type surface. `pnpm api:check` fails when the build and the snapshot disagree, and CI fails when the snapshot moved without a changeset. This automatically enforces declaration drift only. Behavioural contracts that leave declarations unchanged still require a changeset by policy and review.
 
 Versioning policy lives in `docs/semver.md`; `CHANGELOG.md` is generated from changesets by `pnpm changeset:version`.
 

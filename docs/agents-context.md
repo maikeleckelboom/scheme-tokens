@@ -15,8 +15,9 @@ scope.
 
 - Core owns NO color model. Token values are opaque strings. tests/unit/package-boundary.test.ts asserts parseColor is
   absent; scripts/check-api.ts fails the build if the bundle contains "material3".
-- No filesystem access, no throw-based errors, JSON-safe inputs. The package must remain runnable in a browser — that is
-  a deliberate differentiator.
+- No filesystem access and JSON-safe public data. Trusted authoring helpers may throw for programmer misuse. Parsers
+  accepting untrusted `unknown` data must return structured `Result` failures and must not use throw-based user-data
+  validation. The package must remain runnable in a browser — that is a deliberate differentiator.
 - Zero runtime dependencies in core.
 
 ## Contractual surface (a change here is BREAKING)
@@ -26,8 +27,10 @@ scope.
 - Issue codes (49) and their JSON Pointer paths
 - The wire format / formatVersion Treat these as public API even though they are not types.
 
-The package is published, so a change to any of the above needs an API snapshot diff and a changeset, and it ships as a
-minor bump while the line is below 1.0. It never ships as an alias next to the old shape.
+The package is published, so a change to any of the above needs a changeset and ships as a minor bump while the line is
+below 1.0. A TypeScript declaration change also needs an API snapshot diff. The snapshot gate cannot detect behavioural
+changes such as ordering when declarations remain unchanged, so review and policy own those cases. A changed contract
+never ships as an alias next to the old shape.
 
 ## Settled decisions — do not re-propose
 
