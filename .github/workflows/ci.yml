@@ -13,7 +13,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [22, 24]
+        # 22 is the `engines` floor, 24 is Active LTS, 26 is Current.
+        node: [22, 24, 26]
     steps:
       - name: Checkout
         uses: actions/checkout@v5

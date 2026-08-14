@@ -5,6 +5,7 @@ import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   isContributorDocument,
+  isDecisionRecord,
   isGeneratedDocsSiteFile,
   isPointInTimeReport,
   listFiles,
@@ -18,7 +19,10 @@ const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const trackedWorkspaceFiles = listTrackedFiles(repoRoot);
 const durableDocsFiles = listFiles(join(repoRoot, "docs")).filter(
   (file) =>
-    trackedWorkspaceFiles.has(file) && !isPointInTimeReport(file) && !isContributorDocument(file),
+    trackedWorkspaceFiles.has(file) &&
+    !isPointInTimeReport(file) &&
+    !isDecisionRecord(file) &&
+    !isContributorDocument(file),
 );
 const manifest = JSON.parse(
   readFileSync(join(repoRoot, "package.json"), "utf8"),

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,8 +30,11 @@ const output = runPnpm(["pack", "--pack-destination", packDirectory], repoRoot)
 if (output === undefined) {
   throw new Error("Unable to determine packed tarball name");
 }
-const tarball = join(packDirectory, basename(output));
-const files = execFileSync("tar", ["-tf", tarball], { encoding: "utf8" }).trim().split(/\r?\n/);
+// GNU tar reads an absolute Windows path as a remote `host:path` and refuses to
+// open it, so the archive is always addressed by name from inside its own
+// directory. That form works with every tar flavour on PATH.
+const tarballName = basename(output);
+const files = tar(["-tf", tarballName]).trim().split(/\r?\n/);
 const allowedFiles = [
   "package/CHANGELOG.md",
   "package/LICENSE",
@@ -72,13 +75,23 @@ for (const requiredFile of allowedFiles) {
 }
 
 const packageJson = JSON.parse(
-  execFileSync("tar", ["-xOf", tarball, "package/package.json"], { encoding: "utf8" }),
+  tar(["-xOf", tarballName, "package/package.json"]),
 ) as PackageManifest;
+const repoVersion = (
+  JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as PackageManifest
+).version;
 if (packageJson.name !== "scheme-tokens") {
   throw new Error("core package name must be scheme-tokens");
 }
-if (packageJson.version !== "0.1.0") {
-  throw new Error("core package version must be 0.1.0 for the first public release candidate");
+// Pin the shape and the source of the version, not a value that would fail this
+// gate on every release.
+if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(packageJson.version)) {
+  throw new Error(`packed version is not a release version: ${packageJson.version}`);
+}
+if (packageJson.version !== repoVersion) {
+  throw new Error(
+    `packed version ${packageJson.version} does not match the repository manifest ${repoVersion}`,
+  );
 }
 if (packageJson.private !== undefined) {
   throw new Error("core package must not be private when checking the public tarball");
@@ -129,6 +142,10 @@ if (
   dependencyText.includes("css-tree")
 ) {
   throw new Error("core package manifest leaks optional engine dependencies");
+}
+
+function tar(args: readonly string[]): string {
+  return execFileSync("tar", args, { cwd: packDirectory, encoding: "utf8" });
 }
 
 function runPnpm(args: readonly string[], cwd: string): string {

@@ -129,7 +129,7 @@ const expectedRuntimeExports = [
 
 assertDeepEqual(Object.keys(packageApi).sort(), [...expectedRuntimeExports].sort(), "runtime exports");
 assertEqual(packageManifest.name, "scheme-tokens", "package name");
-assertEqual(packageManifest.version, "0.1.0", "package version");
+assertEqual(packageManifest.version, ${JSON.stringify(manifest.version)}, "package version");
 assertEqual(
   tokenGraphSchema.$id,
   "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json",
@@ -469,7 +469,9 @@ const installedManifest = JSON.parse(
   readFileSync(join(consumerDirectory, "node_modules", manifest.name, "package.json"), "utf8"),
 ) as PackageManifest;
 assertEqual(installedManifest.name, "scheme-tokens", "installed package name");
-assertEqual(installedManifest.version, "0.1.0", "installed package version");
+// The consumer installs this repository's tarball, so the version it resolves
+// has to track the manifest rather than a value that goes stale on release.
+assertEqual(installedManifest.version, manifest.version, "installed package version");
 assertDeepEqual(
   Object.keys(installedManifest.exports).sort(),
   [

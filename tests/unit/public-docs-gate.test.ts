@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   isContributorDocument,
+  isDecisionRecord,
   isPointInTimeReport,
   listPublicMarkdownFiles,
 } from "../../scripts/public-docs";
@@ -18,14 +19,15 @@ describe("public documentation gate scope", () => {
     expect(labels).toContain("README.md");
     expect(labels).toContain("docs/public-api.md");
     expect(labels).toContain("docs/architecture.md");
-    expect(labels).toContain("docs/adr/0001-core-boundary.md");
+    expect(labels).toContain("docs/semver.md");
     expect(labels).toContain("docs-site/reference/api.md");
   });
 
-  test("drops dated reports but keeps the agent context document symbol-checked", () => {
+  test("drops records but keeps the agent context document symbol-checked", () => {
     const labels = listPublicMarkdownFiles().map((file) => file.label);
 
     expect(labels).not.toContain("docs/audit-2026-08.md");
+    expect(labels).not.toContain("docs/adr/0001-core-boundary.md");
     expect(labels).toContain("docs/agents-context.md");
   });
 
@@ -40,5 +42,10 @@ describe("public documentation gate scope", () => {
     expect(isPointInTimeReport("/repo/docs/public-api.md")).toBe(false);
     expect(isPointInTimeReport("/repo/docs/audit.md")).toBe(false);
     expect(isPointInTimeReport("/repo/docs/audit-2026-08.md")).toBe(true);
+
+    expect(isDecisionRecord("/repo/docs/public-api.md")).toBe(false);
+    expect(isDecisionRecord("/repo/docs/adr.md")).toBe(false);
+    expect(isDecisionRecord("/repo/docs/adr/0001-core-boundary.md")).toBe(true);
+    expect(isDecisionRecord("C:\\repo\\docs\\adr\\0004-material3-adapter-design.md")).toBe(true);
   });
 });
