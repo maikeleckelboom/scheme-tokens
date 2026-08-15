@@ -1,0 +1,76 @@
+{
+  "name": "@scheme-tokens/material3",
+  "version": "0.0.0",
+  "description": "Material 3 system color generation for scheme-tokens.",
+  "keywords": [
+    "design-tokens",
+    "material-design",
+    "material3",
+    "scheme-tokens"
+  ],
+  "homepage": "https://github.com/maikeleckelboom/scheme-tokens#readme",
+  "bugs": {
+    "url": "https://github.com/maikeleckelboom/scheme-tokens/issues"
+  },
+  "license": "MIT AND Apache-2.0",
+  "author": "Maikel Eckelboom",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maikeleckelboom/scheme-tokens.git",
+    "directory": "packages/material3"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "LICENSE-MATERIAL-COLOR-UTILITIES",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc -p tsconfig.lib.json && tsc -p tsconfig.test.json && tsc -p tsconfig.scripts.json",
+    "lint": "oxlint . --import-plugin --vitest-plugin --deny-warnings",
+    "test": "vitest run --config vitest.config.ts --exclude tests/engine-contract.test.ts",
+    "test:engine": "vitest run --config vitest.config.ts tests/engine-contract.test.ts",
+    "test:types": "tsc -p tsconfig.type-tests.json",
+    "fixtures:generate": "node --experimental-strip-types scripts/generate-fixtures.ts",
+    "api:snapshot": "pnpm build && node --experimental-strip-types scripts/write-api-snapshot.ts",
+    "api:check": "node --experimental-strip-types scripts/check-api.ts",
+    "package:check": "pnpm build && node --experimental-strip-types scripts/check-packed-package.ts",
+    "check:tarball": "node --experimental-strip-types scripts/check-tarball.ts",
+    "check:packed-consumers": "node --experimental-strip-types scripts/check-packed-consumers.ts",
+    "format": "oxfmt --check --ignore-path ../../.gitignore --ignore-path ../../.oxfmtignore .",
+    "format:fix": "oxfmt --write --ignore-path ../../.gitignore --ignore-path ../../.oxfmtignore .",
+    "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm test:types && pnpm api:check && pnpm format",
+    "release:check": "pnpm validate && pnpm test:engine && pnpm package:check && pnpm check:tarball && pnpm check:packed-consumers",
+    "prepack": "pnpm build"
+  },
+  "devDependencies": {
+    "@material/material-color-utilities": "0.4.0",
+    "@types/node": "22.19.21",
+    "scheme-tokens": "workspace:*",
+    "tsdown": "0.22.3",
+    "typescript": "6.0.3",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "scheme-tokens": ">=0.1.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

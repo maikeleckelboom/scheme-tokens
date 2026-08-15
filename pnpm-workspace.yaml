@@ -1,9 +1,8 @@
 packages:
   - "."
   - "docs-site"
-  - "tests/rnd/material3"
+  - "packages/material3"
 
 allowBuilds:
-  "esbuild@0.21.5": true
   "esbuild@0.27.7": true
   "esbuild@0.28.1": true

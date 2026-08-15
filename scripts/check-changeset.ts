@@ -1,5 +1,15 @@
 import { execFileSync } from "node:child_process";
-import { repoRoot, snapshotLabel } from "./api-snapshot.ts";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { repoRoot, snapshotLabel as coreSnapshotLabel } from "./api-snapshot.ts";
+
+const snapshots = [
+  { label: coreSnapshotLabel, packageName: "scheme-tokens" },
+  {
+    label: "packages/material3/api/material3.api.d.ts",
+    packageName: "@scheme-tokens/material3",
+  },
+] as const;
 
 /**
  * The API snapshot is the published type surface. When a branch moves it
@@ -15,33 +25,41 @@ if (baseRef === undefined) {
   process.exit(0);
 }
 
-const changedFiles = git(["diff", "--name-only", `${baseRef}...HEAD`])
-  .split("\n")
-  .map((line) => line.trim())
-  .filter((line) => line.length > 0);
+const changedFiles = [
+  ...new Set([
+    ...gitLines(["diff", "--name-only", `${baseRef}...HEAD`]),
+    ...gitLines(["diff", "--name-only"]),
+    ...gitLines(["diff", "--name-only", "--cached"]),
+    ...gitLines(["ls-files", "--others", "--exclude-standard"]),
+  ]),
+].sort();
 
-const snapshotChanged = changedFiles.includes(snapshotLabel);
 const changesets = changedFiles.filter(
   (file) =>
     file.startsWith(".changeset/") && file.endsWith(".md") && file !== ".changeset/README.md",
 );
 
-if (!snapshotChanged) {
-  process.stdout.write(`${snapshotLabel} is unchanged against ${baseRef}.\n`);
-  process.exit(0);
-}
+for (const snapshot of snapshots) {
+  if (!changedFiles.includes(snapshot.label)) {
+    process.stdout.write(`${snapshot.label} is unchanged against ${baseRef}.\n`);
+    continue;
+  }
 
-if (changesets.length === 0) {
-  throw new Error(
-    `${snapshotLabel} changed against ${baseRef} without a changeset.\n` +
-      "The published type surface moved, so the release needs a version bump and a\n" +
-      "changelog entry. Run `pnpm changeset` and commit the generated file.",
+  const coveringChangesets = changesets.filter((path) =>
+    readFileSync(join(repoRoot, path), "utf8").includes(`"${snapshot.packageName}":`),
+  );
+  if (coveringChangesets.length === 0) {
+    throw new Error(
+      `${snapshot.label} changed against ${baseRef} without a ${snapshot.packageName} changeset.\n` +
+        "The published type surface moved, so the affected package needs a version bump and a\n" +
+        "changelog entry. Run `pnpm changeset` and commit the generated file.",
+    );
+  }
+
+  process.stdout.write(
+    `${snapshot.label} changed against ${baseRef}, covered by: ${coveringChangesets.join(", ")}\n`,
   );
 }
-
-process.stdout.write(
-  `${snapshotLabel} changed against ${baseRef}, covered by: ${changesets.join(", ")}\n`,
-);
 
 function resolveBaseRef(): string | undefined {
   const pullRequestBase = process.env.GITHUB_BASE_REF;
@@ -66,4 +84,11 @@ function git(args: readonly string[]): string {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
+}
+
+function gitLines(args: readonly string[]): readonly string[] {
+  return git(args)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
 }
