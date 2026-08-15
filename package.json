@@ -49,6 +49,7 @@
     "test:schemas": "vitest run tests/schemas",
     "validate:material3": "pnpm --filter @scheme-tokens/material3 validate",
     "release:material3": "pnpm --filter @scheme-tokens/material3 release:check",
+    "release:material3:gates": "pnpm --filter @scheme-tokens/material3 release:gates",
     "test:docs": "node --experimental-strip-types scripts/check-doc-examples.ts",
     "test:filenames": "node --experimental-strip-types scripts/check-filenames.ts",
     "api:build": "pnpm build",

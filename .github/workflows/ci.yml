@@ -46,6 +46,9 @@ jobs:
       - name: Validate
         run: pnpm validate
 
+      - name: Material 3 release gates (engine + packed artifacts + consumers)
+        run: pnpm release:material3:gates
+
       - name: Publish lint (publint + attw on npm pack output)
         run: pnpm package:check
 

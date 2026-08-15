@@ -56,7 +56,8 @@
     "format": "oxfmt --check --ignore-path ../../.gitignore --ignore-path ../../.oxfmtignore .",
     "format:fix": "oxfmt --write --ignore-path ../../.gitignore --ignore-path ../../.oxfmtignore .",
     "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm test:types && pnpm api:check && pnpm format",
-    "release:check": "pnpm validate && pnpm test:engine && pnpm package:check && pnpm check:tarball && pnpm check:packed-consumers",
+    "release:gates": "pnpm test:engine && pnpm package:check && pnpm check:tarball && pnpm check:packed-consumers",
+    "release:check": "pnpm validate && pnpm release:gates",
     "prepack": "pnpm build"
   },
   "devDependencies": {
@@ -68,7 +69,7 @@
     "vitest": "^4.1.10"
   },
   "peerDependencies": {
-    "scheme-tokens": ">=0.1.1"
+    "scheme-tokens": "^0.1.1"
   },
   "engines": {
     "node": ">=22"

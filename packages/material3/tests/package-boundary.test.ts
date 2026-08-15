@@ -40,7 +40,7 @@ describe("adapter package boundary", () => {
     const manifest = readManifest();
     expect(manifest.dependencies ?? {}).toEqual({});
     expect(manifest.optionalDependencies ?? {}).toEqual({});
-    expect(manifest.peerDependencies).toEqual({ "scheme-tokens": ">=0.1.1" });
+    expect(manifest.peerDependencies).toEqual({ "scheme-tokens": "^0.1.1" });
     expect(manifest.devDependencies["scheme-tokens"]).toBe("workspace:*");
     expect(manifest.devDependencies["@material/material-color-utilities"]).toBe("0.4.0");
   });
