@@ -1,6 +1,6 @@
 {
   "name": "@scheme-tokens/material3",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Material 3 system color generation for scheme-tokens.",
   "keywords": [
     "design-tokens",
