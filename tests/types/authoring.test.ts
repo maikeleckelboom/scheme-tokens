@@ -163,6 +163,37 @@ const layeredGraph = defineTokenGraph({
 });
 compileTokenGraph(layeredGraph, { selection: { keys: ["button", "primary"] } });
 
+const generatedLayer = defineTokenLayer({
+  id: "generated",
+  tokens: {
+    "generated.primary": "#6750a4",
+  },
+});
+const overrideLayer = defineTokenLayer({
+  id: "overrides",
+  tokens: {
+    "override.primary": "#ff0055",
+  },
+});
+defineTokenGraph({
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  layers: [generatedLayer, overrideLayer],
+  tokens: {
+    generated: tokenRef("generated.primary"),
+    override: tokenRef("override.primary"),
+  },
+});
+defineTokenGraph({
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  layers: [generatedLayer, overrideLayer],
+  tokens: {
+    // @ts-expect-error heterogeneous layer tuples retain finite typo detection.
+    generated: tokenRef("generated.primari"),
+  },
+});
+
 compileTokenGraph(simpleGraph, {
   selection: {
     // @ts-expect-error exact selection rejects keys outside the inferred graph union.

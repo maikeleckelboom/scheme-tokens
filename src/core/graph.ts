@@ -105,11 +105,10 @@ type ReservedMode =
 type ValidModes<Modes extends ModeTuple> =
   Extract<Modes[number], ReservedMode> extends never ? Modes : never;
 
+type LayerMemberKey<Layer> = Layer extends TokenLayer<infer Key, string> ? Key : never;
 type LayerKeyOf<Layers extends LayerTuple> = Layers extends readonly []
   ? never
-  : Layers[number] extends TokenLayer<infer Key, string>
-    ? Key
-    : never;
+  : LayerMemberKey<Layers[number]>;
 
 type DefinedGraph<
   DirectKey extends string,
