@@ -175,7 +175,7 @@ const overrideLayer = defineTokenLayer({
     "override.primary": "#ff0055",
   },
 });
-defineTokenGraph({
+const heterogeneousLayerGraph = defineTokenGraph({
   modes: ["light", "dark"],
   defaultMode: "light",
   layers: [generatedLayer, overrideLayer],
@@ -184,6 +184,19 @@ defineTokenGraph({
     override: tokenRef("override.primary"),
   },
 });
+const heterogeneousLayerCompiled = compileTokenGraph(heterogeneousLayerGraph, {
+  selection: "all",
+});
+if (heterogeneousLayerCompiled.ok) {
+  type HeterogeneousLayerCompiledKeys = Expect<
+    Equal<
+      keyof typeof heterogeneousLayerCompiled.value.tokens,
+      "generated.primary" | "override.primary" | "generated" | "override"
+    >
+  >;
+  const heterogeneousLayerCompiledKeys: HeterogeneousLayerCompiledKeys = true;
+  void heterogeneousLayerCompiledKeys;
+}
 defineTokenGraph({
   modes: ["light", "dark"],
   defaultMode: "light",
