@@ -13,6 +13,10 @@ filesystem access, runs in a browser.
 pnpm add scheme-tokens
 ```
 
+Material system-color generation is available separately through the optional
+[`@scheme-tokens/material3`](./packages/material3/README.md) package. It composes through the same
+layer and graph APIs without adding a color engine to core.
+
 ## First path
 
 ```ts twoslash

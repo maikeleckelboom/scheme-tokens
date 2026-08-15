@@ -40,7 +40,7 @@ never ships as an alias next to the old shape.
 - Bare strings are NEVER references. tokenRef () or {ref} only.
 - Gamut and color space are APPLICATION concerns, not token concerns. Core never learns what sRGB or P3 are.
 
-## Material 3 adapter handoff
+## Material 3 adapter package
 
 - [ADR 0005](./adr/0005-material3-adapter-package-boundary.md) owns the optional adapter package
   boundary; [ADR 0006](./adr/0006-material3-authoring-and-mode-contract.md) owns authoring, modes,
@@ -48,16 +48,14 @@ never ships as an alias next to the old shape.
   engine, accepted roles, and capabilities. [ADR 0008](./adr/0008-material3-fragment-layer-type.md)
   narrowly supersedes ADR 0006's fragment layer generic. ADR 0004 is historical and superseded by
   these decision slices.
-- `tests/rnd/material3` is transitional phase-1 evidence, not a second implementation authority.
-  When `packages/material3` lands, migrate useful engine, golden, and type gates into that package,
-  then remove redundant R&D workspace plumbing. Core remains Material-free.
-- Until implementation, the core boundary test intentionally asserts that `packages/material3`
-  does not exist. When the optional sibling package is created, replace that temporary absence
-  check with permanent invariants: root `src/` must not import it; the root manifest must gain no
-  Material runtime, peer, or optional dependency; root runtime and type exports must expose no
-  Material API; and root bundles and declarations must contain no MCU or Material implementation
-  leakage. Do not weaken or delete the boundary protection; `scripts/check-api.ts` must continue to
-  protect the root package.
+- `packages/material3` is the active production package and sole current adapter authority. Its
+  package-local runtime, type, engine, golden, API, tarball, licensing, and packed-consumer gates
+  reproduce the accepted phase-1 evidence against the real package.
+- `tests/rnd/material3` is frozen historical phase-1 evidence retained for immutable ADR links. It
+  is not a pnpm workspace, does not regenerate fixtures, and does not participate in validation.
+- Core remains Material-free. The root boundary test and `scripts/check-api.ts` assert that root
+  source, dependencies, runtime exports, type exports, bundle, declarations, and package subpaths
+  contain no adapter or engine implementation leakage.
 
 ## The headline feature
 

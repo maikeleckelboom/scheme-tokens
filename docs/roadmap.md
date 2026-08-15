@@ -20,6 +20,8 @@ authored string tokens -> strict graph -> deterministic compilation -> CSS or se
 
 - Keep the compiler itself stable. Before `1.0.0`, a contract change is allowed when it simplifies the package, and it ships as a minor bump with a changeset rather than as a compatibility alias.
 - Grow composition around the compiler, in packages outside the core boundary, so the root package stays dependency-light and browser-runnable.
+- The first such package is `@scheme-tokens/material3`, an optional sibling that generates one
+  finite Material system-color layer while leaving compilation and artifact projection in core.
 - Record each such decision as an ADR under `docs/adr/` before it turns into code.
 
 ## Deliberate non-goals

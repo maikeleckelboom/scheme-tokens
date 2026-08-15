@@ -15,6 +15,13 @@ git diff --check
 
 `pnpm release:check` adds package checks, packed root consumer smoke, packed consumer module resolution, a packed theme-coordinate consumer, tarball checks, docs-site checks, docs example checks, and an external packed-consumer audit.
 
+The workspace also contains `@scheme-tokens/material3` under `packages/material3`. Root validation
+runs its normal type, runtime, API, and build gates. Root release validation additionally runs its
+pinned-engine capability matrix, packed-package and tarball inspection, licensing checks, and clean
+Node ESM plus strict NodeNext release-candidate consumers. The release-candidate proof applies the
+pending Changesets transformation only inside a temporary workspace; it never versions the real
+branch.
+
 ## API surface snapshot
 
 `api/scheme-tokens.api.d.ts` is the committed public type surface, generated from the built declaration. `pnpm api:check` fails when the build and the snapshot disagree, so a contract change has to arrive as a reviewable diff rather than as a silent declaration edit.
