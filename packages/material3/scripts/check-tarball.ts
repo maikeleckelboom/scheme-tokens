@@ -49,7 +49,7 @@ try {
   if (
     manifest.type !== "module" ||
     manifest.sideEffects !== false ||
-    manifest.engines.node !== ">=22" ||
+    manifest.engines.node !== ">=24" ||
     manifest.license !== "MIT AND Apache-2.0"
   ) {
     throw new Error("Packed adapter runtime or licensing metadata drifted");
@@ -66,7 +66,7 @@ try {
   ) {
     throw new Error("Packed adapter must have no runtime or optional dependencies");
   }
-  if (manifest.peerDependencies["scheme-tokens"] !== "^0.1.1") {
+  if (manifest.peerDependencies["scheme-tokens"] !== "^0.2.0") {
     throw new Error("Packed adapter advertises an incorrect scheme-tokens peer range");
   }
 

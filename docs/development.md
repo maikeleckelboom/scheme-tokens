@@ -1,6 +1,6 @@
 # Development
 
-Node `>=22` and pnpm `11.7.0` through Corepack. Everything under `scripts/` is TypeScript run directly with `node --experimental-strip-types`, so those files have no build step and must stay dependency-light.
+Node `>=24` and pnpm `11.7.0` through Corepack. Everything under `scripts/` is TypeScript run directly with `node --experimental-strip-types`, so those files have no build step and must stay dependency-light. GitHub Actions certifies Node 24 as the minimum supported runtime and Node 26 as the forward-compatibility line.
 
 Use the strongest local gates before reporting release readiness:
 
@@ -41,6 +41,8 @@ pnpm changeset
 CI runs `pnpm check:changeset`, which fails when the API snapshot moved against the base branch without a changeset in the same branch. This gate detects declaration-snapshot movement, not every behavioural change. Ordering and other runtime contracts that leave declarations unchanged still require a changeset through policy and review. `pnpm changeset:version` applies pending files to `package.json` and `CHANGELOG.md`.
 
 ## Toolchain pins
+
+`@types/node` is pinned to the Node 24 line so repository-owned Node scripts are checked against the minimum supported runtime rather than the forward-compatibility line.
 
 `tsdown` is pinned to `0.22.3`. Later 0.22 releases load a native parser binding that Windows application-control policy blocks on the maintainer's machine, which fails `pnpm build` and every gate downstream of it. Bump it only after confirming the build still runs locally.
 

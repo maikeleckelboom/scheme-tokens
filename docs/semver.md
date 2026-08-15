@@ -10,6 +10,7 @@ These are versioned contracts:
 
 - root runtime exports;
 - root TypeScript exports and literal inference behavior;
+- supported Node.js runtime range;
 - package schema subpaths;
 - graph, layer, and compiled JSON formats;
 - `Result` success and failure shapes;

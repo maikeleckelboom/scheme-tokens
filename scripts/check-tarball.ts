@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 interface PackageManifest {
   readonly bugs: { readonly url: string };
   readonly dependencies?: Readonly<Record<string, string>>;
+  readonly engines: { readonly node: string };
   readonly exports: Readonly<Record<string, unknown>>;
   readonly files: readonly string[];
   readonly homepage: string;
@@ -98,6 +99,9 @@ if (packageJson.private !== undefined) {
 }
 if (packageJson.publishConfig !== undefined) {
   throw new Error("unscoped core package must not carry scoped publishConfig access metadata");
+}
+if (packageJson.engines.node !== ">=24") {
+  throw new Error("packed core package must require Node 24 or newer");
 }
 if (
   JSON.stringify([...packageJson.files].sort()) !==

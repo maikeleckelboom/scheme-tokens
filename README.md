@@ -13,6 +13,9 @@ filesystem access, runs in a browser.
 pnpm add scheme-tokens
 ```
 
+The ESM-only package requires Node 24 or newer when used in Node.js. Its runtime remains
+browser-safe and has no filesystem access.
+
 Material system-color generation is available separately through the optional
 [`@scheme-tokens/material3`](./packages/material3/README.md) package. It composes through the same
 layer and graph APIs without adding a color engine to core.

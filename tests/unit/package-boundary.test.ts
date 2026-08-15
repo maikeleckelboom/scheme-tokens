@@ -14,6 +14,7 @@ describe("package boundary", () => {
     expect(manifest.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u);
     expect(manifest.private).toBeUndefined();
     expect(manifest.publishConfig).toBeUndefined();
+    expect(manifest.engines).toEqual({ node: ">=24" });
   });
 
   test("root runtime exports are exact", () => {
@@ -97,6 +98,7 @@ describe("package boundary", () => {
 
 interface PackageManifest {
   readonly dependencies?: Readonly<Record<string, string>>;
+  readonly engines: Readonly<Record<string, string>>;
   readonly optionalDependencies?: Readonly<Record<string, string>>;
   readonly peerDependencies?: Readonly<Record<string, string>>;
   readonly exports: Readonly<Record<string, unknown>>;

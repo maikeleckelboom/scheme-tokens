@@ -20,7 +20,7 @@ describe("adapter package boundary", () => {
     expect(manifest.publishConfig).toEqual({ access: "public" });
     expect(manifest.type).toBe("module");
     expect(manifest.sideEffects).toBe(false);
-    expect(manifest.engines).toEqual({ node: ">=22" });
+    expect(manifest.engines).toEqual({ node: ">=24" });
     expect(manifest.license).toBe("MIT AND Apache-2.0");
     expect(Object.keys(manifest.exports).sort()).toEqual([".", "./package.json"]);
     expect(manifest.files).toEqual([
@@ -40,7 +40,7 @@ describe("adapter package boundary", () => {
     const manifest = readManifest();
     expect(manifest.dependencies ?? {}).toEqual({});
     expect(manifest.optionalDependencies ?? {}).toEqual({});
-    expect(manifest.peerDependencies).toEqual({ "scheme-tokens": "^0.1.1" });
+    expect(manifest.peerDependencies).toEqual({ "scheme-tokens": "^0.2.0" });
     expect(manifest.devDependencies["scheme-tokens"]).toBe("workspace:*");
     expect(manifest.devDependencies["@material/material-color-utilities"]).toBe("0.4.0");
   });
