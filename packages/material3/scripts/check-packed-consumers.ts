@@ -22,7 +22,7 @@ try {
 
   const candidateRoot = join(workspace, "release-candidate");
   prepareReleaseCandidate(candidateRoot);
-  applyChangesets(candidateRoot);
+  applyChangesetsIfPending(candidateRoot);
   const versions = assertReleaseCandidateVersions(candidateRoot);
   runPnpm(["install", "--ignore-scripts", "--strict-peer-dependencies"], candidateRoot);
 
@@ -71,7 +71,18 @@ function prepareReleaseCandidate(candidateRoot: string): void {
   );
 }
 
-function applyChangesets(candidateRoot: string): void {
+function applyChangesetsIfPending(candidateRoot: string): void {
+  const changesetDirectory = join(candidateRoot, ".changeset");
+  const hasPendingChangesets = readdirSync(changesetDirectory).some(
+    (entry) => entry.endsWith(".md") && entry !== "README.md",
+  );
+  if (!hasPendingChangesets) {
+    process.stdout.write(
+      "No pending Changesets; testing the already-versioned release candidate.\n",
+    );
+    return;
+  }
+
   execFileSync(
     process.execPath,
     [join(repoRoot, "node_modules", "@changesets", "cli", "bin.js"), "version"],
@@ -90,10 +101,12 @@ function assertReleaseCandidateVersions(candidateRoot: string): {
   const core = readManifest(join(candidateRoot, "package.json"));
   const adapter = readManifest(join(candidateRoot, "packages", "material3", "package.json"));
   if (core.version !== "0.2.0") {
-    throw new Error(`Pending core changesets must produce 0.2.0, received ${core.version}.`);
+    throw new Error(`Core release candidate must be 0.2.0, received ${core.version}.`);
   }
   if (adapter.version !== "0.1.0") {
-    throw new Error(`Initial adapter changeset must produce 0.1.0, received ${adapter.version}.`);
+    throw new Error(
+      `Material adapter release candidate must be 0.1.0, received ${adapter.version}.`,
+    );
   }
   if (adapter.peerDependencies?.["scheme-tokens"] !== "^0.2.0") {
     throw new Error(
