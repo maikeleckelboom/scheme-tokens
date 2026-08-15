@@ -27,6 +27,7 @@ describe("public documentation gate scope", () => {
     const labels = listPublicMarkdownFiles().map((file) => file.label);
 
     expect(labels).not.toContain("docs/audit-2026-08.md");
+    expect(labels).not.toContain("docs/audit-2026-08-material3-adapter.md");
     expect(labels).not.toContain("docs/adr/0001-core-boundary.md");
     expect(labels).toContain("docs/agents-context.md");
   });
@@ -42,6 +43,9 @@ describe("public documentation gate scope", () => {
     expect(isPointInTimeReport("/repo/docs/public-api.md")).toBe(false);
     expect(isPointInTimeReport("/repo/docs/audit.md")).toBe(false);
     expect(isPointInTimeReport("/repo/docs/audit-2026-08.md")).toBe(true);
+    expect(isPointInTimeReport("/repo/docs/audit-2026-08-material3-adapter.md")).toBe(true);
+    expect(isPointInTimeReport("C:\\repo\\docs\\audit-2026-08-material3-adapter.md")).toBe(true);
+    expect(isPointInTimeReport("/repo/docs/audit-2026-08-Material3.md")).toBe(false);
 
     expect(isDecisionRecord("/repo/docs/public-api.md")).toBe(false);
     expect(isDecisionRecord("/repo/docs/adr.md")).toBe(false);
