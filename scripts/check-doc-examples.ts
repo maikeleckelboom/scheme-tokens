@@ -189,7 +189,6 @@ function assertNoRemovedPublicNames(): void {
   const denied = [
     removedRootPackageName,
     removedAdapterScope,
-    `@scheme-tokens/material3`,
     `@scheme-tokens/source-material3`,
     `build${"Scheme"}`,
     `create${"Scheme"}Builder`,

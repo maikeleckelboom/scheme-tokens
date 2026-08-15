@@ -97,6 +97,9 @@ const forbiddenIdentifiers = [
   "parseColor",
   "serializeScheme",
 ] as const;
+const forbiddenDocumentationIdentifiers = forbiddenIdentifiers.filter(
+  (identifier) => identifier !== "@scheme-tokens/material3" && identifier !== "material3",
+);
 
 // Inline `name(...)` spans in public documentation read as package API. CSS
 // functions appear inside example token values and are not package symbols.
@@ -233,7 +236,7 @@ function assertDocsMatchPublicSurface(files: readonly MarkdownFile[]): void {
 
   for (const file of files) {
     if (!isContributorDocument(file.path)) {
-      for (const forbidden of forbiddenIdentifiers) {
+      for (const forbidden of forbiddenDocumentationIdentifiers) {
         if (containsIdentifier(file.text, forbidden)) {
           throw new Error(`${file.label} names a forbidden identifier: ${forbidden}`);
         }

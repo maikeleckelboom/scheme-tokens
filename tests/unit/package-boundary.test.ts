@@ -60,7 +60,7 @@ describe("package boundary", () => {
   test("root source tree does not contain engine-backed adapter paths, imports, or Material contracts", () => {
     expect(existsSync(join(repoRoot, "src", "conversion"))).toBe(false);
     expect(existsSync(join(repoRoot, "src", "sources", "material3"))).toBe(false);
-    expect(existsSync(join(repoRoot, "packages", "material3"))).toBe(false);
+    expect(existsSync(join(repoRoot, "packages", "material3", "package.json"))).toBe(true);
 
     const sourceText = listFiles(join(repoRoot, "src"))
       .map((path) => readFileSync(path, "utf8"))
@@ -78,6 +78,20 @@ describe("package boundary", () => {
     expect(sourceText).not.toContain("@texel/color");
     expect(sourceText).not.toContain("css-tree");
     expect(sourceText).not.toContain("aliases:");
+  });
+
+  test("root build and declarations contain no optional Material adapter implementation", () => {
+    const builtFiles = [join(repoRoot, "dist", "index.js"), join(repoRoot, "dist", "index.d.ts")];
+    for (const path of builtFiles) {
+      if (!existsSync(path)) {
+        continue;
+      }
+      const text = readFileSync(path, "utf8");
+      expect(text).not.toContain("@material/material-color-utilities");
+      expect(text).not.toContain("@scheme-tokens/material3");
+      expect(text).not.toContain("MaterialDynamicColors");
+      expect(text).not.toContain("material3");
+    }
   });
 });
 

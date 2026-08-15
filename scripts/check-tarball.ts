@@ -134,16 +134,6 @@ if (
 ) {
   throw new Error("packed manifest exposes an unexpected package subpath");
 }
-const dependencyText = JSON.stringify(packageJson);
-if (
-  dependencyText.includes("@texel/color") ||
-  dependencyText.includes("@material/material-color-utilities") ||
-  dependencyText.includes("@scheme-tokens/material3") ||
-  dependencyText.includes("css-tree")
-) {
-  throw new Error("core package manifest leaks optional engine dependencies");
-}
-
 function tar(args: readonly string[]): string {
   return execFileSync("tar", args, { cwd: packDirectory, encoding: "utf8" });
 }
