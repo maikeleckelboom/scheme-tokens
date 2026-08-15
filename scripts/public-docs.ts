@@ -16,7 +16,7 @@ export const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
  * hold durable documentation to the current export surface.
  */
 export function isPointInTimeReport(path: string): boolean {
-  return /(?:^|[\\/])docs[\\/]audit-\d{4}-\d{2}\.md$/u.test(path);
+  return /(?:^|[\\/])docs[\\/]audit-\d{4}-\d{2}(?:-[a-z0-9]+(?:-[a-z0-9]+)*)?\.md$/u.test(path);
 }
 
 /**
