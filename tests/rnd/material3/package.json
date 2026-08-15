@@ -1,0 +1,16 @@
+{
+  "name": "@scheme-tokens/rnd-material-engine",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "node --experimental-strip-types scripts/run-material3-engine-probe.ts --write",
+    "check": "tsc -p tsconfig.json && tsc -p tsconfig.type-probe.json && node --experimental-strip-types scripts/run-material3-engine-probe.ts --check"
+  },
+  "devDependencies": {
+    "@material/material-color-utilities": "0.4.0",
+    "@types/node": "22.19.21",
+    "esbuild": "0.28.1",
+    "scheme-tokens": "workspace:*",
+    "typescript": "6.0.3"
+  }
+}

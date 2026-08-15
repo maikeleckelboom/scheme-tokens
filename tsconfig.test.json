@@ -3,5 +3,6 @@
   "compilerOptions": {
     "types": ["node", "vitest"]
   },
-  "include": ["tests/**/*.ts"]
+  "include": ["tests/**/*.ts"],
+  "exclude": ["tests/rnd/material3"]
 }

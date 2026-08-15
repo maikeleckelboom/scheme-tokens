@@ -1,0 +1,10 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": [],
+    "allowImportingTsExtensions": true
+  },
+  "include": ["material3-contract.ts", "type-probes/**/*.ts"]
+}
