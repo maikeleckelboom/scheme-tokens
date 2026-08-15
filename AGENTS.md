@@ -12,7 +12,7 @@ Before adding code, check for existing functions, helpers, types, tests, and pat
 
 ## Commands
 
-Node `>=22` and pnpm `11.7.0` through Corepack. Scripts under `scripts/` are TypeScript executed with `node --experimental-strip-types`; they have no build step, so keep them dependency-light and free of syntax that type stripping cannot erase.
+Node `>=24` and pnpm `11.7.0` through Corepack. Scripts under `scripts/` are TypeScript executed with `node --experimental-strip-types`; they have no build step, so keep them dependency-light and free of syntax that type stripping cannot erase.
 
 ```sh
 pnpm install --frozen-lockfile

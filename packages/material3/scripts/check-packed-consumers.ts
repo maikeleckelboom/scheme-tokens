@@ -89,13 +89,13 @@ function assertReleaseCandidateVersions(candidateRoot: string): {
 } {
   const core = readManifest(join(candidateRoot, "package.json"));
   const adapter = readManifest(join(candidateRoot, "packages", "material3", "package.json"));
-  if (core.version !== "0.1.1") {
-    throw new Error(`Pending core changesets must produce 0.1.1, received ${core.version}.`);
+  if (core.version !== "0.2.0") {
+    throw new Error(`Pending core changesets must produce 0.2.0, received ${core.version}.`);
   }
   if (adapter.version !== "0.1.0") {
     throw new Error(`Initial adapter changeset must produce 0.1.0, received ${adapter.version}.`);
   }
-  if (adapter.peerDependencies?.["scheme-tokens"] !== "^0.1.1") {
+  if (adapter.peerDependencies?.["scheme-tokens"] !== "^0.2.0") {
     throw new Error(
       "Release-candidate adapter does not require the first compatible core release.",
     );

@@ -13,8 +13,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 22 is the `engines` floor, 24 is Active LTS, 26 is Current.
-        node: [22, 24, 26]
+        # 24 is the minimum supported runtime, and 26 is the forward-compatibility line.
+        node: [24, 26]
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -84,7 +84,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
           package-manager-cache: false
 
       - name: Setup pnpm

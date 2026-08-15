@@ -62,16 +62,16 @@
   },
   "devDependencies": {
     "@material/material-color-utilities": "0.4.0",
-    "@types/node": "22.19.21",
+    "@types/node": "24.13.3",
     "scheme-tokens": "workspace:*",
     "tsdown": "0.22.3",
     "typescript": "6.0.3",
     "vitest": "^4.1.10"
   },
   "peerDependencies": {
-    "scheme-tokens": "^0.1.1"
+    "scheme-tokens": "^0.2.0"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   }
 }
