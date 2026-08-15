@@ -40,6 +40,25 @@ never ships as an alias next to the old shape.
 - Bare strings are NEVER references. tokenRef () or {ref} only.
 - Gamut and color space are APPLICATION concerns, not token concerns. Core never learns what sRGB or P3 are.
 
+## Material 3 adapter handoff
+
+- [ADR 0005](./adr/0005-material3-adapter-package-boundary.md) owns the optional adapter package
+  boundary; [ADR 0006](./adr/0006-material3-authoring-and-mode-contract.md) owns authoring, modes,
+  and composition; [ADR 0007](./adr/0007-material3-engine-and-role-contract.md) owns the pinned
+  engine, accepted roles, and capabilities. [ADR 0008](./adr/0008-material3-fragment-layer-type.md)
+  narrowly supersedes ADR 0006's fragment layer generic. ADR 0004 is historical and superseded by
+  these decision slices.
+- `tests/rnd/material3` is transitional phase-1 evidence, not a second implementation authority.
+  When `packages/material3` lands, migrate useful engine, golden, and type gates into that package,
+  then remove redundant R&D workspace plumbing. Core remains Material-free.
+- Until implementation, the core boundary test intentionally asserts that `packages/material3`
+  does not exist. When the optional sibling package is created, replace that temporary absence
+  check with permanent invariants: root `src/` must not import it; the root manifest must gain no
+  Material runtime, peer, or optional dependency; root runtime and type exports must expose no
+  Material API; and root bundles and declarations must contain no MCU or Material implementation
+  leakage. Do not weaken or delete the boundary protection; `scripts/check-api.ts` must continue to
+  protect the root package.
+
 ## The headline feature
 
 TokenOrigin / provenance. After generation + authored overrides, answering
