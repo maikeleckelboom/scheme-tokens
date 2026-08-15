@@ -1,0 +1,206 @@
+{
+  "fixtureFormatVersion": 1,
+  "provenance": {
+    "contrastLevel": 1,
+    "engine": "@material/material-color-utilities@0.4.0",
+    "platform": "phone",
+    "seed": "#009489",
+    "source": "hard path: seed selected so primaryPalette.hue enters Hct.isCyan (170..207), exercising the second 2025 expressive hue branch",
+    "specVersion": "2025",
+    "variant": "expressive"
+  },
+  "tokens": {
+    "md.sys.color.background": {
+      "dark": "#001111",
+      "light": "#e2fffe"
+    },
+    "md.sys.color.error": {
+      "dark": "#ffdedb",
+      "light": "#510007"
+    },
+    "md.sys.color.error-container": {
+      "dark": "#ff7c76",
+      "light": "#9a2728"
+    },
+    "md.sys.color.inverse-on-surface": {
+      "dark": "#000000",
+      "light": "#ffffff"
+    },
+    "md.sys.color.inverse-primary": {
+      "dark": "#00403b",
+      "light": "#72f8e9"
+    },
+    "md.sys.color.inverse-surface": {
+      "dark": "#e7fefd",
+      "light": "#001111"
+    },
+    "md.sys.color.on-background": {
+      "dark": "#ffffff",
+      "light": "#000000"
+    },
+    "md.sys.color.on-error": {
+      "dark": "#60000a",
+      "light": "#ffcfcb"
+    },
+    "md.sys.color.on-error-container": {
+      "dark": "#000000",
+      "light": "#ffffff"
+    },
+    "md.sys.color.on-primary": {
+      "dark": "#003e39",
+      "light": "#69efe0"
+    },
+    "md.sys.color.on-primary-container": {
+      "dark": "#003430",
+      "light": "#ffffff"
+    },
+    "md.sys.color.on-primary-fixed": {
+      "dark": "#000000",
+      "light": "#ffffff"
+    },
+    "md.sys.color.on-primary-fixed-variant": {
+      "dark": "#001f1c",
+      "light": "#ffffff"
+    },
+    "md.sys.color.on-secondary": {
+      "dark": "#352b11",
+      "light": "#f2d79e"
+    },
+    "md.sys.color.on-secondary-container": {
+      "dark": "#000000",
+      "light": "#ffffff"
+    },
+    "md.sys.color.on-secondary-fixed": {
+      "dark": "#000000",
+      "light": "#ffffff"
+    },
+    "md.sys.color.on-secondary-fixed-variant": {
+      "dark": "#2f250c",
+      "light": "#ffffff"
+    },
+    "md.sys.color.on-surface": {
+      "dark": "#ffffff",
+      "light": "#000000"
+    },
+    "md.sys.color.on-surface-variant": {
+      "dark": "#c2eeed",
+      "light": "#002929"
+    },
+    "md.sys.color.on-tertiary": {
+      "dark": "#3b2900",
+      "light": "#ffd485"
+    },
+    "md.sys.color.on-tertiary-container": {
+      "dark": "#221600",
+      "light": "#ffffff"
+    },
+    "md.sys.color.on-tertiary-fixed": {
+      "dark": "#000000",
+      "light": "#ffffff"
+    },
+    "md.sys.color.on-tertiary-fixed-variant": {
+      "dark": "#060300",
+      "light": "#ffffff"
+    },
+    "md.sys.color.outline": {
+      "dark": "#96c1c1",
+      "light": "#004b4c"
+    },
+    "md.sys.color.outline-variant": {
+      "dark": "#81abab",
+      "light": "#195b5c"
+    },
+    "md.sys.color.primary": {
+      "dark": "#d5fff8",
+      "light": "#002926"
+    },
+    "md.sys.color.primary-container": {
+      "dark": "#a3f8ec",
+      "light": "#005d55"
+    },
+    "md.sys.color.primary-fixed": {
+      "dark": "#98ece1",
+      "light": "#005d55"
+    },
+    "md.sys.color.primary-fixed-dim": {
+      "dark": "#8aded3",
+      "light": "#005049"
+    },
+    "md.sys.color.scrim": {
+      "dark": "#000000",
+      "light": "#000000"
+    },
+    "md.sys.color.secondary": {
+      "dark": "#f7e3be",
+      "light": "#2f2200"
+    },
+    "md.sys.color.secondary-container": {
+      "dark": "#b3a280",
+      "light": "#625023"
+    },
+    "md.sys.color.secondary-fixed": {
+      "dark": "#fde9c3",
+      "light": "#625023"
+    },
+    "md.sys.color.secondary-fixed-dim": {
+      "dark": "#eedbb5",
+      "light": "#564419"
+    },
+    "md.sys.color.shadow": {
+      "dark": "#000000",
+      "light": "#000000"
+    },
+    "md.sys.color.surface": {
+      "dark": "#001111",
+      "light": "#e2fffe"
+    },
+    "md.sys.color.surface-bright": {
+      "dark": "#003233",
+      "light": "#e2fffe"
+    },
+    "md.sys.color.surface-container": {
+      "dark": "#001e1e",
+      "light": "#c8f7f6"
+    },
+    "md.sys.color.surface-container-high": {
+      "dark": "#002425",
+      "light": "#bcf2f2"
+    },
+    "md.sys.color.surface-container-highest": {
+      "dark": "#002b2c",
+      "light": "#b0eeee"
+    },
+    "md.sys.color.surface-container-low": {
+      "dark": "#001717",
+      "light": "#d3fbfb"
+    },
+    "md.sys.color.surface-container-lowest": {
+      "dark": "#000000",
+      "light": "#ffffff"
+    },
+    "md.sys.color.surface-dim": {
+      "dark": "#001111",
+      "light": "#a1e6e6"
+    },
+    "md.sys.color.surface-variant": {
+      "dark": "#002b2c",
+      "light": "#b0eeee"
+    },
+    "md.sys.color.tertiary": {
+      "dark": "#ffe2b0",
+      "light": "#312100"
+    },
+    "md.sys.color.tertiary-container": {
+      "dark": "#fcc34d",
+      "light": "#6c4d00"
+    },
+    "md.sys.color.tertiary-fixed": {
+      "dark": "#fcc34d",
+      "light": "#6c4d00"
+    },
+    "md.sys.color.tertiary-fixed-dim": {
+      "dark": "#edb541",
+      "light": "#5d4200"
+    }
+  }
+}
