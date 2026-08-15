@@ -63,7 +63,7 @@ type Material3ExactModeOptions<Mode extends string> = Material3BaseOptions & {
 interface Material3GraphFragment<Mode extends string> {
   readonly modes: readonly [Mode, ...Mode[]];
   readonly defaultMode: Mode;
-  readonly layers: readonly [TokenLayer<Material3TokenKey, Mode>];
+  readonly layers: readonly [TokenLayer<Material3TokenKey>];
 }
 
 declare function material3<const Mode extends string>(
@@ -83,8 +83,28 @@ type Equal<Left, Right> =
 type Expect<Value extends true> = Value;
 type ModeOfFragment<Value> = Value extends Material3GraphFragment<infer Mode> ? Mode : never;
 
+declare const generatedMaterialValues: Readonly<
+  Record<Material3TokenKey, Readonly<Record<"light" | "dark", string>>>
+>;
+const realCoreMaterialLayer = defineTokenLayer({
+  id: "material3",
+  tokens: generatedMaterialValues,
+});
+type RealCoreLayerProof = Expect<
+  Equal<typeof realCoreMaterialLayer, TokenLayer<Material3TokenKey, string>>
+>;
+const realCoreFragment = {
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  layers: [realCoreMaterialLayer],
+} satisfies Material3GraphFragment<"light" | "dark">;
+void realCoreFragment;
+
 const defaults = material3("#6750a4");
 type DefaultsModeProof = Expect<Equal<ModeOfFragment<typeof defaults>, "light" | "dark">>;
+type DefaultsLayerProof = Expect<
+  Equal<(typeof defaults.layers)[0], TokenLayer<Material3TokenKey, string>>
+>;
 
 const additive = material3("#6750a4", {
   modes: {
@@ -148,6 +168,14 @@ const defaultGraph = defineTokenGraph({
   },
 });
 type DefaultGraphModeProof = Expect<Equal<(typeof defaultGraph.modes)[number], "light" | "dark">>;
+const defaultCompiled = compileTokenGraph(defaultGraph, { selection: "all" });
+if (defaultCompiled.ok) {
+  type DefaultCompiledModeProof = Expect<
+    Equal<(typeof defaultCompiled.value.modes)[number], "light" | "dark">
+  >;
+  const defaultCompiledModeProof: DefaultCompiledModeProof = true;
+  void defaultCompiledModeProof;
+}
 
 defineTokenGraph({
   ...defaults,
@@ -170,6 +198,21 @@ if (exactCompiled.ok) {
   >;
   const exactCompiledModeProof: ExactCompiledModeProof = true;
   void exactCompiledModeProof;
+}
+
+const additiveGraph = defineTokenGraph({
+  ...additive,
+  tokens: {
+    "surface.canvas": tokenRef("md.sys.color.surface"),
+  },
+});
+const additiveCompiled = compileTokenGraph(additiveGraph, { selection: "all" });
+if (additiveCompiled.ok) {
+  type AdditiveCompiledModeProof = Expect<
+    Equal<(typeof additiveCompiled.value.modes)[number], "light" | "dark" | "light-high">
+  >;
+  const additiveCompiledModeProof: AdditiveCompiledModeProof = true;
+  void additiveCompiledModeProof;
 }
 
 const additionalLayer = defineTokenLayer({
@@ -223,6 +266,8 @@ defineTokenGraph({
 
 export type Material3TypeProbeProofs =
   | DefaultsModeProof
+  | DefaultsLayerProof
+  | RealCoreLayerProof
   | AdditiveModeProof
   | ExactModeProof
   | DefaultGraphModeProof;
