@@ -69,3 +69,11 @@ if (compiled.ok) {
 The optional access reflects the default public selection, not an optional mode. `parseCompiledScheme()` also always returns a dynamic, incomplete token record; CSS export from that parsed artifact keeps `variableByToken` partial. Serializers define the supported byte-stable wire projection. Parsers own accepted input rather than retaining caller-owned mutable objects.
 
 Compilation and serialization preserve arbitrary token strings. CSS export separately validates declaration safety before code emission and returns `invalid-css-value` instead of writing an unsafe value.
+
+## Optional composition packages
+
+The repository also publishes optional composition outside core. `@scheme-tokens/material3` owns
+Material system-color generation and returns an ordinary graph fragment containing one layer. The
+adapter bundles its pinned engine while keeping `scheme-tokens` as the shared peer; core does not
+import, re-export, discover, or install the adapter. The generated layer continues through the
+unchanged core composition, compilation, serialization, provenance, and CSS APIs.
