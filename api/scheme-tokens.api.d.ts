@@ -72,7 +72,8 @@ type ModeTuple = readonly [string, ...string[]];
 type LayerTuple = readonly TokenLayer<string, string>[];
 type ReservedMode = "ref" | "value" | "valueByMode" | "visibility" | "description" | "deprecated" | "extensions";
 type ValidModes<Modes extends ModeTuple> = Extract<Modes[number], ReservedMode> extends never ? Modes : never;
-type LayerKeyOf<Layers extends LayerTuple> = Layers extends readonly [] ? never : Layers[number] extends TokenLayer<infer Key, string> ? Key : never;
+type LayerMemberKey<Layer> = Layer extends TokenLayer<infer Key, string> ? Key : never;
+type LayerKeyOf<Layers extends LayerTuple> = Layers extends readonly [] ? never : LayerMemberKey<Layers[number]>;
 type DefinedGraph<DirectKey extends string, Mode extends string, Layers extends LayerTuple> = TokenGraph<DirectKey, Mode, Layers>;
 interface SharedGraphOptions<Layers extends LayerTuple> {
   readonly $schema?: typeof tokenGraphSchemaUrl;
