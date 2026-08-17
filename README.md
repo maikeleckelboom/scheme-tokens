@@ -1,32 +1,13 @@
 # scheme-tokens
 
-A compiler for design-token systems.
+`scheme-tokens` compiles token graphs.
 
-`scheme-tokens` composes authored tokens, generated token layers, references, modes,
-overrides, and visibility into one deterministic resolved scheme.
+Define string values, explicit references, modes, and ordered layers, then resolve them into a
+deterministic scheme. Compiled output includes token provenance and direct dependencies by mode.
+Core does not know what a color is. Values are opaque strings.
 
-Core does not know what a color is. Values are opaque strings. Color generation and
-product-specific policy live outside the compiler and can compose through ordinary token
-layers.
-
-```text
-generator / authored tokens
-          ↓
-       layers
-          ↓
-   semantic tokens
-          ↓
-  compileTokenGraph()
-          ↓
-   CompiledScheme
-     ├─ tokens
-     ├─ modes
-     └─ metadataByToken
-          ├─ origin
-          └─ dependenciesByMode
-          ↓
-    exportCssVars()
-```
+Generators such as [`@scheme-tokens/material3`](./packages/material3/README.md) plug in as normal
+token layers.
 
 ## Install
 
@@ -36,17 +17,16 @@ Core:
 pnpm add scheme-tokens
 ```
 
-With the Material 3 adapter:
+With Material 3 color generation:
 
 ```sh
 pnpm add scheme-tokens @scheme-tokens/material3
 ```
 
-Both packages are ESM-only and require Node.js 24 or newer when used in Node.js.
+Both packages are ESM-only and require Node.js 24 or newer when used in Node.js. Core has no
+runtime dependencies or filesystem access and runs in browsers.
 
-The core runtime has zero dependencies, no filesystem access, and is browser-safe.
-
-## Start with semantic tokens
+## First graph
 
 References are explicit. Bare strings are always literal values.
 
@@ -85,16 +65,13 @@ Output:
 }
 ```
 
-`brand.600` is internal, so it can participate in resolution without becoming part of the
-public output.
-
-That separation is useful when generated palettes or implementation tokens should feed a
-smaller application-owned semantic contract.
+`brand.600` participates in reference resolution but stays out of the default public output.
+Dotted token segments remain distinct in CSS names, so `action.primary` becomes
+`--action--primary`.
 
 ## Material 3
 
-[`@scheme-tokens/material3`](./packages/material3/README.md) turns a Material source color
-into an ordinary `scheme-tokens` layer.
+`material3()` generates a normal `TokenLayer` and returns it with the graph's mode envelope.
 
 ```ts twoslash
 import { material3 } from "@scheme-tokens/material3";
@@ -102,8 +79,8 @@ import { material3 } from "@scheme-tokens/material3";
 const material = material3("#6750a4");
 ```
 
-The default fragment contains complete `light` and `dark` values for 48 finite
-`md.sys.color.*` roles:
+The default layer contains complete `light` and `dark` values for 48 finite
+`md.sys.color.*` roles, including:
 
 ```text
 md.sys.color.primary
@@ -115,17 +92,15 @@ md.sys.color.surface
 md.sys.color.on-surface
 md.sys.color.surface-container
 md.sys.color.outline
-
-...
 ```
 
-The result is not a separate Material theme runtime. It is normal token data that composes
-through the same graph, layer, compilation, serialization, and provenance APIs as everything
-else.
+The adapter owns Material color generation, variants, contrast levels, and source colors. Core
+owns graph composition, references, modes, visibility, layer order, compilation, provenance,
+serialization, and CSS projection.
 
-### Generate Material, expose your own semantics
+### Expose application semantics
 
-Material roles can stay internal while your application exposes its own stable vocabulary:
+Material roles can stay internal while the application exposes its own token names.
 
 ```ts twoslash
 import { material3 } from "@scheme-tokens/material3";
@@ -150,28 +125,12 @@ const graph = defineTokenGraph({
 const compiled = compileTokenGraph(graph);
 ```
 
-The compiler resolves through the internal Material layer, but default public compilation
-exposes only the application semantics.
-
-```text
-#6750a4
-   ↓
-Material 3 generation
-   ↓
-md.sys.color.*              internal
-   ↓
-application references
-   ↓
-surface.canvas
-action.primary.background   public
-```
-
-This keeps the generator replaceable without forcing Material naming throughout the
-application.
+Default compilation resolves the internal Material roles and returns the public application
+tokens.
 
 ### Variants, contrast, and custom modes
 
-Material generation coordinates remain part of the adapter rather than core:
+The adapter accepts Material generation options and additive custom modes.
 
 ```ts twoslash
 import { material3 } from "@scheme-tokens/material3";
@@ -197,7 +156,7 @@ const material = material3("#6750a4", {
 });
 ```
 
-Or replace the built-in `light` and `dark` set completely:
+Use `exactModes` to replace the built-in `light` and `dark` set.
 
 ```ts twoslash
 import { material3 } from "@scheme-tokens/material3";
@@ -218,19 +177,12 @@ const material = material3("#6750a4", {
 });
 ```
 
-The resulting mode names remain finite TypeScript unions all the way into the graph and
-compiled scheme.
+Custom mode names remain finite TypeScript unions in the layer, graph, and compiled scheme.
 
-## Material 3 → shadcn/ui
+## Material 3 with shadcn/ui
 
-A generated system can also feed another semantic contract.
-
-For example, [shadcn/ui](https://ui.shadcn.com/docs/theming) components consume paired roles
-such as `background`, `primary`, `muted`, and `accent`, alongside roles such as `border`,
-`input`, and `ring`.
-
-Those are application semantics, not another color-generation algorithm, so they can be
-expressed as references to the internal Material layer:
+[shadcn/ui](https://ui.shadcn.com/docs/theming) roles can point at internal Material roles with
+normal `tokenRef()` references.
 
 ```ts twoslash
 import { material3 } from "@scheme-tokens/material3";
@@ -297,71 +249,15 @@ if (!exported.ok) {
 console.log(exported.value.css);
 ```
 
-This produces the mapped semantic CSS variables:
+The mapping is application-owned. Material and shadcn/ui do not define identical semantics, and
+this repository does not ship a shadcn adapter.
 
-```css
-:root {
-  --background: ...;
-  --foreground: ...;
-
-  --card: ...;
-  --card-foreground: ...;
-
-  --primary: ...;
-  --primary-foreground: ...;
-
-  --secondary: ...;
-  --secondary-foreground: ...;
-
-  --muted: ...;
-  --muted-foreground: ...;
-
-  --accent: ...;
-  --accent-foreground: ...;
-
-  --destructive: ...;
-  --destructive-foreground: ...;
-
-  --border: ...;
-  --input: ...;
-  --ring: ...;
-}
-
-.dark {
-  /* Material dark-mode values for the same semantic roles. */
-}
-```
-
-The dependency chain stays explicit:
-
-```text
-source color
-    ↓
-@scheme-tokens/material3
-    ↓
-md.sys.color.primary
-    ↓
-primary
-    ↓
---primary
-    ↓
-shadcn component
-```
-
-The Material role names never need to leak into component code.
-
-The mapping above is intentionally policy, not a claim that shadcn/ui and Material define
-identical design semantics. Applications can replace any mapping with their own layer or graph
-token.
-
-Chart roles such as `chart-1` through `chart-5` are deliberately omitted from this example:
-Material's primary, secondary, and tertiary families are not a five-series categorical
-visualization palette. Sidebar-specific roles are likewise omitted because they are a separate
-application contract rather than automatic aliases of the base roles.
+Chart roles are left out. Material does not define a five-series categorical chart palette.
+Sidebar roles are also application-specific and are not mapped here.
 
 ## Layers and overrides
 
-Generated data is ordinary layer data, so normal layer ordering is enough to override it.
+Generated and authored layers use the same ordering rules.
 
 ```ts twoslash
 import { material3 } from "@scheme-tokens/material3";
@@ -391,16 +287,12 @@ const graph = defineTokenGraph({
 });
 ```
 
-Later layers win.
-
-No adapter-specific override mechanism is required.
-
-After compilation, provenance still identifies the winning layer and `dependenciesByMode`
-records direct reference edges.
+Later layers win. Compiled provenance identifies the winning layer, and
+`dependenciesByMode` records direct reference edges.
 
 ## Modes
 
-The graph owns the mode coordinate.
+The graph owns the mode coordinate. Layers provide values for modes declared by the graph.
 
 ```ts twoslash
 import { defineTokens, tokenRef } from "scheme-tokens";
@@ -427,13 +319,7 @@ const graph = defineTokens(
 );
 ```
 
-Layers do not define their own mode authority. They participate in the modes declared by the
-graph.
-
-This lets independently generated or authored layers compose into one finite application
-coordinate.
-
-## Public and internal tokens
+## Visibility and selection
 
 Visibility is resolved after references.
 
@@ -460,35 +346,26 @@ const exactScheme = compileTokenGraph(graph, {
 });
 ```
 
-Default compilation selects public tokens. `selection: "all"` compiles everything, while an
-exact key selection defines an explicit contract. Exact literal selections preserve finite key
-information in TypeScript.
+Default compilation selects public tokens. `selection: "all"` includes internal tokens. An
+exact literal key selection preserves finite key information in TypeScript.
 
-## Deterministic artifacts
+## Persisted artifacts
 
-Graphs, layers, and compiled schemes have strict versioned artifact forms.
+Graphs, layers, and compiled schemes have strict versioned artifact forms. Use the `define*`
+helpers for trusted TypeScript authoring and the parsers for untrusted persisted data.
 
 ```ts twoslash
-import { parseTokenGraph, serializeTokenGraph } from "scheme-tokens";
+import {
+  parseCompiledScheme,
+  parseTokenGraph,
+  parseTokenLayer,
+  serializeCompiledScheme,
+  serializeTokenGraph,
+  serializeTokenLayer,
+} from "scheme-tokens";
 ```
 
-Use the `define*` helpers for trusted TypeScript authoring.
-
-Use:
-
-- `parseTokenGraph()`
-- `parseTokenLayer()`
-- `parseCompiledScheme()`
-
-for untrusted persisted data.
-
-Canonical serialization is available through:
-
-- `serializeTokenGraph()`
-- `serializeTokenLayer()`
-- `serializeCompiledScheme()`
-
-Published schemas:
+The serializers produce canonical output. Published schemas are available at:
 
 ```text
 scheme-tokens/schemas/token-graph.v1.schema.json
@@ -496,11 +373,10 @@ scheme-tokens/schemas/token-layer.v1.schema.json
 scheme-tokens/schemas/compiled-scheme.v1.schema.json
 ```
 
-## CSS is a projection
+## CSS projection
 
-The compiler does not turn tokens into CSS implicitly.
-
-`exportCssVars()` is a separate deterministic projection from an already compiled scheme:
+`exportCssVars()` projects an already compiled scheme into CSS. Compilation does not emit CSS
+implicitly.
 
 ```ts twoslash
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
@@ -538,7 +414,7 @@ const exported = exportCssVars(compiled.value, {
 });
 ```
 
-It returns both emitted CSS and structured data:
+The result contains emitted CSS, structured blocks, and the token-to-variable lookup:
 
 ```text
 exported.value.css
@@ -546,90 +422,11 @@ exported.value.blocks
 exported.value.variableByToken
 ```
 
-This keeps token resolution separate from application-owned selector and output policy.
+Selectors and output policy belong to the CSS export call, not the token graph.
 
-## Why not put color logic in core?
+## Results
 
-Because token composition and color generation are different problems.
-
-Core owns:
-
-```text
-references
-modes
-layers
-visibility
-validation
-selection
-provenance
-serialization
-CSS projection
-```
-
-A generator can own:
-
-```text
-color models
-palette generation
-contrast policy
-design-system rules
-```
-
-`@scheme-tokens/material3` is the first concrete example of that boundary.
-
-It bundles its pinned Material Color Utilities engine and emits normal `TokenLayer` data. Core
-remains independent of Material and continues to treat every resulting color as an opaque
-string.
-
-The same compiler can therefore compose Material output, another generator, hand-authored
-values, product-specific semantic tokens, or combinations of them.
-
-## How this relates to DTCG
-
-`scheme-tokens` sits upstream of a token interchange or platform build pipeline.
-
-It is concerned with generating and composing the graph before values have been flattened:
-
-```text
-generators
-    ↓
-scheme-tokens
-    ↓
-resolved semantic scheme
-    ↓
-CSS or downstream tooling
-```
-
-It deliberately does not implement the DTCG `$type` / `$value` authoring model and does not
-interpret token value domains.
-
-Tools such as Style Dictionary or Terrazzo can remain downstream consumers when a project
-needs platform-specific artifact generation. Or applications can use the built-in CSS
-projection directly.
-
-## Public API
-
-The root runtime is intentionally small:
-
-```text
-defineTokens
-defineTokenGraph
-defineTokenLayer
-tokenRef
-
-parseTokenGraph
-parseTokenLayer
-parseCompiledScheme
-
-compileTokenGraph
-exportCssVars
-
-serializeTokenGraph
-serializeTokenLayer
-serializeCompiledScheme
-```
-
-Every fallible public operation uses the same result convention:
+Every fallible public operation uses the same result shape:
 
 ```ts twoslash
 type Result<Value, Problem> =
@@ -643,39 +440,16 @@ type Result<Value, Problem> =
     };
 ```
 
-## Packages
+Trusted authoring helpers may throw on programmer misuse. Parsers accept `unknown` and return
+structured issues for invalid persisted data.
 
-### `scheme-tokens`
+## DTCG and downstream tooling
 
-The compiler core.
+`scheme-tokens` composes and resolves a graph before platform artifacts are built. It does not
+implement the DTCG `$type` and `$value` authoring model or interpret token value domains.
 
-- zero runtime dependencies
-- explicit references
-- finite modes
-- ordered layers
-- public/internal visibility
-- deterministic compilation
-- provenance and dependency metadata
-- strict parsers and canonical serializers
-- CSS custom-property projection
-
-### `@scheme-tokens/material3`
-
-Optional Material 3 color generation.
-
-- source-color generation
-- 48 finite `md.sys.color.*` roles
-- light and dark modes
-- custom and exact mode sets
-- per-mode source colors
-- Material variants
-- contrast levels
-- supported 2021 and 2025 generation coordinates
-- bundled pinned Material Color Utilities engine
-- ordinary `TokenLayer` output
-
-See [`packages/material3/README.md`](./packages/material3/README.md) for the full adapter
-contract.
+Style Dictionary and Terrazzo can consume resolved values downstream. Applications can also use
+the built-in CSS projection directly.
 
 ## Documentation
 
