@@ -27,6 +27,10 @@ const durableDocsFiles = listFiles(join(repoRoot, "docs")).filter(
 const manifest = JSON.parse(
   readFileSync(join(repoRoot, "package.json"), "utf8"),
 ) as PackageManifest;
+const material3Root = join(repoRoot, "packages", "material3");
+const material3Manifest = JSON.parse(
+  readFileSync(join(material3Root, "package.json"), "utf8"),
+) as PackageManifest;
 const readme = readFileSync(join(repoRoot, "README.md"), "utf8");
 const authoredDocsSiteFiles = listFiles(join(repoRoot, "docs-site")).filter(
   (file) => trackedWorkspaceFiles.has(file) && !isGeneratedDocsSiteFile(file),
@@ -54,13 +58,15 @@ const packDirectory = join(workspace, "pack");
 const consumerDirectory = join(workspace, "consumer");
 mkdirSync(packDirectory, { recursive: true });
 mkdirSync(consumerDirectory, { recursive: true });
-const tarball = pack(repoRoot, packDirectory);
+const coreTarball = pack(repoRoot, packDirectory);
+const material3Tarball = pack(material3Root, packDirectory);
 
 writeJson(join(consumerDirectory, "package.json"), {
   private: true,
   type: "module",
   dependencies: {
-    [manifest.name]: `file:${tarball.replaceAll("\\", "/")}`,
+    [manifest.name]: `file:${coreTarball.replaceAll("\\", "/")}`,
+    [material3Manifest.name]: `file:${material3Tarball.replaceAll("\\", "/")}`,
   },
 });
 writeJson(join(consumerDirectory, "tsconfig.json"), {
