@@ -7,7 +7,7 @@ pnpm add scheme-tokens
 ```
 
 Define string-valued tokens, compile an exact public contract, then export CSS custom properties. The
-example uses the application-local [`orThrow()` helper](../reference/diagnostics.md#application-local-orthrow)
+example uses the application-local [`orThrow` helper](../reference/diagnostics.md#application-local-orthrow)
 for boundaries where a failure should stop the operation. It is not a package export.
 
 ```ts twoslash
