@@ -3,36 +3,34 @@
 `exportCssVars()` accepts a compiled scheme and returns a `Result` containing CSS, structured blocks, and a token-to-property lookup.
 
 ```ts twoslash
+// ---cut-start---
+import type { Issue, Result } from "scheme-tokens";
+declare function orThrow<Value, Problem extends Issue>(result: Result<Value, Problem>): Value;
+// ---cut-end---
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
 
 const graph = defineTokens(
   { background: { light: "#ffffff", dark: "#111111" } },
   { modes: ["light", "dark"], defaultMode: "light" },
 );
-const compiled = compileTokenGraph(graph);
+const scheme = orThrow(compileTokenGraph(graph));
 
-if (!compiled.ok) {
-  throw new Error(JSON.stringify(compiled.issues, null, 2));
-}
-
-const exported = exportCssVars(compiled.value, {
-  prefix: "color",
-  modeSelectors: {
-    strategy: "selectors",
-    selectors: {
-      light: ":root",
-      dark: ".dark",
+const cssVars = orThrow(
+  exportCssVars(scheme, {
+    prefix: "color",
+    modeSelectors: {
+      strategy: "selectors",
+      selectors: {
+        light: ":root",
+        dark: ".dark",
+      },
     },
-  },
-});
+  }),
+);
 
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
-}
-
-const css = exported.value.css;
-const blocks = exported.value.blocks;
-const backgroundProperty = exported.value.variableByToken.background;
+const css = cssVars.css;
+const blocks = cssVars.blocks;
+const backgroundProperty = cssVars.variableByToken.background;
 backgroundProperty?.toUpperCase();
 ```
 
@@ -70,3 +68,6 @@ if (compiled.ok) {
 ```
 
 The callback runs in deterministic token order. A thrown exception, unsafe custom-property name, or collision becomes a structured failure issue.
+
+For a framework bridge that keeps runtime variables application-owned, see
+[Tailwind CSS v4](./tailwind-css-v4.md).

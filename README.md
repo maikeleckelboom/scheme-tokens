@@ -437,6 +437,8 @@ built-in CSS projection directly.
 - [Public API](./docs/public-api.md)
 - [Architecture](./docs/architecture.md)
 - [Application theme coordinates](./docs/application-theme-coordinates.md)
+- [Executable theme-coordinate example](./examples/theme-coordinates/README.md)
+- [Tailwind CSS v4](./docs/tailwind-css-v4.md)
 - [Diagnostics](./docs/diagnostics.md)
 - [Value policy](./docs/color-policy.md)
 - [Semver](./docs/semver.md)

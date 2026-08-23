@@ -191,40 +191,40 @@ Exact selections reject empty arrays, duplicate keys, malformed keys, and unknow
 `exportCssVars()` returns CSS, structured blocks, and the generated property for each token.
 
 ```ts twoslash
+// ---cut-start---
+import type { Issue, Result } from "scheme-tokens";
+declare function orThrow<Value, Problem extends Issue>(result: Result<Value, Problem>): Value;
+// ---cut-end---
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
 
 const graph = defineTokens(
   { background: { light: "#ffffff", dark: "#111111" } },
   { modes: ["light", "dark"], defaultMode: "light" },
 );
-const compiled = compileTokenGraph(graph);
+const scheme = orThrow(compileTokenGraph(graph));
 
-if (!compiled.ok) {
-  throw new Error(JSON.stringify(compiled.issues));
-}
-
-const exported = exportCssVars(compiled.value, {
-  prefix: "color",
-  modeSelectors: {
-    strategy: "selectors",
-    selectors: {
-      light: ":root",
-      dark: ".dark",
+const cssVars = orThrow(
+  exportCssVars(scheme, {
+    prefix: "color",
+    modeSelectors: {
+      strategy: "selectors",
+      selectors: {
+        light: ":root",
+        dark: ".dark",
+      },
     },
-  },
-  format: "pretty",
-});
+    format: "pretty",
+  }),
+);
 
-if (exported.ok) {
-  exported.value.variableByToken.background?.toUpperCase();
-}
+cssVars.variableByToken.background?.toUpperCase();
 ```
 
 The optional lookup mirrors the partial default-public compiled record. CSS from an exact literal selection, or from `all` compilation of a finite authored graph, has a complete token-to-variable map. CSS from `parseCompiledScheme()` stays partial.
 
 Exact selector maps are typed to the compiled mode union: every mode is required and unknown modes are rejected. Selector validation intentionally implements a bounded safe grammar rather than every browser selector feature. Generated data-attribute and class strategies require an append-safe scope; use exact per-mode selectors for supported complex selectors.
 
-See [Application Theme Coordinates](./application-theme-coordinates.md) for combining independent application axes into private compiler modes, selecting an exact semantic contract, and reusing structured declarations for application-owned selector and media-query policy.
+See [Application Theme Coordinates](./application-theme-coordinates.md) for combining independent application axes into private compiler modes, selecting an exact semantic contract, and reusing structured declarations for application-owned selector and media-query policy. See [Tailwind CSS v4](./tailwind-css-v4.md) for bridging application-owned runtime variables into Tailwind color utilities.
 
 Compilation and serialization accept arbitrary token strings. CSS export is stricter because it emits declarations: a declaration-unsafe string fails with `invalid-css-value` instead of being written. This is an output-safety check, not token-domain interpretation.
 

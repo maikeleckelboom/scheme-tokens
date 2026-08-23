@@ -33,6 +33,39 @@ Each issue has:
 
 Issue objects are deterministic and JSON-safe. Diagnostic construction does not call user-defined coercion methods on unknown input.
 
+## Application-local `orThrow()`
+
+The package keeps failures explicit and does not export a throwing helper. At an application boundary
+where any issue should stop the operation, a local helper can preserve the complete issue objects while
+keeping the call site short:
+
+```ts twoslash
+import type { CompileTokenGraphIssue, ExportCssVarsIssue, Result } from "scheme-tokens";
+
+type RichIssue = CompileTokenGraphIssue | ExportCssVarsIssue;
+
+function formatIssue(issue: RichIssue): string {
+  const { code, message, ...context } = issue;
+  const details = Object.keys(context).length === 0 ? "" : ` ${JSON.stringify(context)}`;
+  return `${code}${details}: ${message}`;
+}
+
+export function orThrow<Value, Problem extends RichIssue>(result: Result<Value, Problem>): Value {
+  if (result.ok) {
+    return result.value;
+  }
+
+  throw new Error(result.issues.map(formatIssue).join("\n"));
+}
+```
+
+`Issue` itself contains only `code`, `message`, and optional `path`, so the formatter uses the exported
+concrete issue unions instead. `CompileTokenGraphIssue` includes graph/parser issues, while
+`ExportCssVarsIssue` includes compiled-parser and CSS issues. Object rest keeps every field present on
+an issue in the error text, including `key`, `mode`, `layerId`, `firstPath`, `cycle`, `firstKey`,
+`property`, and `selector` when available. This helper changes only application control flow; the
+package still returns the original binary `Result`.
+
 ## Contract rules
 
 - `Issue.code` values are contractual.

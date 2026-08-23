@@ -6,10 +6,18 @@ Install the dependency-light root package.
 pnpm add scheme-tokens
 ```
 
-Define string-valued tokens, compile the graph, then export CSS custom properties.
+Define string-valued tokens, compile an exact public contract, then export CSS custom properties. The
+example uses the application-local [`orThrow()` helper](../reference/diagnostics.md#application-local-orthrow)
+for boundaries where a failure should stop the operation. It is not a package export.
 
 ```ts twoslash
+// ---cut-start---
+import type { Issue, Result } from "scheme-tokens";
+declare function orThrow<Value, Problem extends Issue>(result: Result<Value, Problem>): Value;
+// ---cut-end---
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
+
+const publicKeys = ["background", "foreground"] as const;
 
 export function createStylesheet(): string {
   const graph = defineTokens({
@@ -17,18 +25,24 @@ export function createStylesheet(): string {
     foreground: "#111111",
   });
 
-  const compiled = compileTokenGraph(graph);
-  if (!compiled.ok) {
-    throw new Error(JSON.stringify(compiled.issues, null, 2));
-  }
+  const scheme = orThrow(
+    compileTokenGraph(graph, {
+      selection: { keys: publicKeys },
+    }),
+  );
+  const cssVars = orThrow(exportCssVars(scheme));
 
-  const exported = exportCssVars(compiled.value);
-  if (!exported.ok) {
-    throw new Error(JSON.stringify(exported.issues, null, 2));
-  }
-
-  return exported.value.css;
+  return cssVars.css;
 }
 ```
 
-Without mode options, `defineTokens()` creates the single `base` mode. Continue with [Define Tokens](./define-tokens.md) for explicit modes, references, metadata, visibility, and layers.
+Without mode options, `defineTokens()` creates the single `base` mode.
+
+`compileTokenGraph(graph)` uses public selection by default. Because visibility is resolved from runtime
+data, that result is conservatively partial and keyed access correctly requires optional handling. An
+exact literal tuple such as `publicKeys` is validated at runtime, then produces a complete record where
+`scheme.tokens.background.base` is definite. This is a choice between two accurate contracts, not a
+workaround for incorrect typing.
+
+Continue with [Define Tokens](./define-tokens.md) for explicit modes, references, metadata, visibility,
+and layers.
