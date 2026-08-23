@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "scheme-tokens": ["./src/index.ts"],
+      "scheme-tokens/package.json": ["./package.json"],
+      "scheme-tokens/schemas/*": ["./schemas/*"]
+    },
+    "resolveJsonModule": true,
+    "types": []
+  },
+  "include": ["examples/**/*.ts"]
+}
