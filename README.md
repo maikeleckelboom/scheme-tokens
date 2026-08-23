@@ -70,7 +70,8 @@ token segments stay distinct in CSS names, so `action.primary` becomes `--action
 
 ## Material 3
 
-`material3()` returns `modes`, `defaultMode`, and one normal `TokenLayer` in `layers`.
+The sibling package's `material3` helper returns `modes`, `defaultMode`, and one normal `TokenLayer`
+in `layers`.
 
 ```ts twoslash
 import { material3 } from "@scheme-tokens/material3";

@@ -30,5 +30,5 @@ const cssVars = orThrow(exportCssVars(scheme));
 const stylesheet = cssVars.css;
 ```
 
-This uses an [application-local `orThrow()` helper](./reference/diagnostics.md#application-local-orthrow)
+This uses an [application-local `orThrow` helper](./reference/diagnostics.md#application-local-orthrow)
 to keep the first path compact without changing the package's `Result` contract.

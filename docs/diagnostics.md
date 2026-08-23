@@ -33,7 +33,7 @@ Each issue has:
 
 Issue objects are deterministic and JSON-safe. Diagnostic construction does not call user-defined coercion methods on unknown input.
 
-## Application-local `orThrow()`
+## Application-local `orThrow`
 
 The package keeps failures explicit and does not export a throwing helper. At an application boundary
 where any issue should stop the operation, a local helper can preserve the complete issue objects while
