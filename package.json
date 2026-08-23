@@ -41,7 +41,7 @@
   },
   "scripts": {
     "build": "tsdown",
-    "typecheck": "tsc -p tsconfig.lib.json && tsc -p tsconfig.test.json && tsc -p tsconfig.scripts.json",
+    "typecheck": "tsc -p tsconfig.lib.json && tsc -p tsconfig.test.json && tsc -p tsconfig.scripts.json && tsc -p tsconfig.examples.json",
     "lint": "oxlint . --import-plugin --vitest-plugin --deny-warnings",
     "test": "vitest run",
     "test:types": "tsc -p tsconfig.type-tests.json",

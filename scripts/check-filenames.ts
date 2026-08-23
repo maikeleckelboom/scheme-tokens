@@ -1,7 +1,7 @@
 import { readdirSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 
-const checkedRoots = ["src", "tests", "scripts", "docs", "docs-site"] as const;
+const checkedRoots = ["src", "tests", "scripts", "docs", "docs-site", "examples"] as const;
 const conventionalNames = new Set([
   "AGENTS.md",
   "CHANGELOG.md",
