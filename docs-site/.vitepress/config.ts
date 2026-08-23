@@ -84,6 +84,7 @@ export default defineConfig({
             link: "/guide/application-theme-coordinates",
           },
           { text: "Export CSS Variables", link: "/guide/export-css-variables" },
+          { text: "Tailwind CSS v4", link: "/guide/tailwind-css-v4" },
           { text: "TypeScript Access", link: "/guide/typescript-access" },
           { text: "Migration to 0.1", link: "/guide/migration" },
         ],

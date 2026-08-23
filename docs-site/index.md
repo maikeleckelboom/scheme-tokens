@@ -14,6 +14,10 @@ hero:
 ---
 
 ```ts twoslash
+// ---cut-start---
+import type { Issue, Result } from "scheme-tokens";
+declare function orThrow<Value, Problem extends Issue>(result: Result<Value, Problem>): Value;
+// ---cut-end---
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
 
 const graph = defineTokens({
@@ -21,17 +25,10 @@ const graph = defineTokens({
   foreground: "#111111",
 });
 
-const compiled = compileTokenGraph(graph);
-
-if (!compiled.ok) {
-  throw new Error(JSON.stringify(compiled.issues, null, 2));
-}
-
-const exported = exportCssVars(compiled.value);
-
-if (!exported.ok) {
-  throw new Error(JSON.stringify(exported.issues, null, 2));
-}
-
-const stylesheet = exported.value.css;
+const scheme = orThrow(compileTokenGraph(graph));
+const cssVars = orThrow(exportCssVars(scheme));
+const stylesheet = cssVars.css;
 ```
+
+This uses an [application-local `orThrow()` helper](./reference/diagnostics.md#application-local-orthrow)
+to keep the first path compact without changing the package's `Result` contract.
