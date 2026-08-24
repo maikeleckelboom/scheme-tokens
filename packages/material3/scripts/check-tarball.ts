@@ -66,7 +66,7 @@ try {
   ) {
     throw new Error("Packed adapter must have no runtime or optional dependencies");
   }
-  if (manifest.peerDependencies["scheme-tokens"] !== "^0.2.0") {
+  if (manifest.peerDependencies["scheme-tokens"] !== "^0.2.0 || ^0.3.0") {
     throw new Error("Packed adapter advertises an incorrect scheme-tokens peer range");
   }
 

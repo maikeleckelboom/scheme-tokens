@@ -40,6 +40,12 @@ pnpm changeset
 
 CI runs `pnpm check:changeset`, which fails when the API snapshot moved against the base branch without a changeset in the same branch. This gate detects declaration-snapshot movement, not every behavioural change. Ordering and other runtime contracts that leave declarations unchanged still require a changeset through policy and review. `pnpm changeset:version` applies pending files to `package.json` and `CHANGELOG.md`.
 
+The pinned Changesets configuration enables `onlyUpdatePeerDependentsWhenOutOfRange`. This keeps a
+deliberately proven workspace peer union intact when the versioned package still satisfies it, but
+still updates and releases the peer dependent when a future version leaves the declared range. The
+option is namespaced as experimental upstream, so a Changesets upgrade must revalidate this
+candidate transformation before changing the exact tool pin.
+
 ## Toolchain pins
 
 `@types/node` is pinned to the Node 24 line so repository-owned Node scripts are checked against the minimum supported runtime rather than the forward-compatibility line.

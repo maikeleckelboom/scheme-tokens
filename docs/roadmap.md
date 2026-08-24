@@ -48,6 +48,12 @@ the current convergence work. This roadmap does not prescribe a replacement iden
 ergonomic questions, remove any easy-to-remove public API traps, and leave the current compiler
 boundary ready for stability review. It is not a commitment to add speculative capabilities.
 
+The current candidate closes the CSS option-state trap by making exact selector maps statically
+incompatible with a separate scope while retaining the runtime diagnostic for untyped input. It
+also pins the existing layer contract: standalone layers remain mode-unbound, direct expressions
+apply across the owning graph envelope, and explicit maps are validated only when composed. No new
+mode or layer helper is introduced.
+
 If the 0.3 exit gates below are satisfied, the next planned core release is `1.0.0`. Any additional
 pre-1.0 minor requires an explicit unresolved contract blocker. This policy does not guarantee that
 0.3 must mathematically be the final 0.x release.
@@ -74,7 +80,9 @@ pre-1.0 minor requires an explicit unresolved contract blocker. This policy does
 
 ## Material 3 peer maintenance
 
-`@scheme-tokens/material3@0.1.0` declares `scheme-tokens: ^0.2.0`; under pre-1.0 semver that range
-does not include core `0.3.0`. Compatibility must be demonstrated release by release. Do not widen
-the peer range across all pre-1.0 minors without evidence that the adapter remains compatible with
-each included core contract.
+The released `@scheme-tokens/material3@0.1.0` declares `scheme-tokens: ^0.2.0`; under pre-1.0 semver
+that range does not include core `0.3.0`. The convergence candidate expands the next adapter patch
+to the explicit `^0.2.0 || ^0.3.0` range and exercises the changeset-versioned packages together in
+strict packed consumers. Compatibility must continue to be demonstrated release by release. Do
+not widen the peer range across additional pre-1.0 minors without evidence for each included core
+contract.
