@@ -1,7 +1,7 @@
 {
   "name": "scheme-tokens",
   "version": "0.2.0",
-  "description": "Dependency-light token graph compiler for TypeScript apps.",
+  "description": "Zero-runtime-dependency design-token graph compiler for TypeScript apps.",
   "keywords": [
     "css-variables",
     "design-tokens",

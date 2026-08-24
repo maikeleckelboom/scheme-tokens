@@ -80,6 +80,19 @@ describe("scheme-tokens core", () => {
     ).toEqual({ secondary: { base: "#03dac6" } });
   });
 
+  test("reports when public selection contains no tokens", () => {
+    expect(
+      compileTokenGraph(
+        defineTokens({
+          secret: { value: "#111111", visibility: "internal" },
+        }),
+      ),
+    ).toMatchObject({
+      ok: false,
+      issues: [{ code: "no-selected-tokens" }],
+    });
+  });
+
   test("composes ordered layers as deterministic token overrides", () => {
     const base = defineTokenLayer({ id: "base", tokens: { primary: "#6750a4" } });
     const brand = defineTokenLayer({ id: "brand", tokens: { primary: "#ff3b30" } });
@@ -104,6 +117,42 @@ describe("scheme-tokens core", () => {
     expect(compiled.metadataByToken.primary?.origin).toEqual({ kind: "layer", id: "brand" });
     expect(compiled.tokens.secondary?.base).toBe("#kept");
     expect(compiled.metadataByToken.secondary?.origin).toEqual({ kind: "graph" });
+  });
+
+  test("replaces the complete shadowed declaration instead of merging metadata", () => {
+    const legacy = defineTokenLayer({
+      id: "legacy",
+      tokens: {
+        primary: {
+          value: "#shadowed",
+          visibility: "internal",
+          description: "Shadowed declaration.",
+          deprecated: "Use the replacement.",
+          extensions: { owner: "legacy" },
+        },
+      },
+    });
+    const brand = defineTokenLayer({
+      id: "brand",
+      tokens: {
+        primary: {
+          value: "#winner",
+          description: "Winning declaration.",
+        },
+      },
+    });
+
+    const compiled = expectOk(
+      compileTokenGraph(defineTokenGraph({ tokens: {}, layers: [legacy, brand] })),
+    );
+
+    expect(compiled.tokens.primary?.base).toBe("#winner");
+    expect(compiled.metadataByToken.primary).toEqual({
+      visibility: "public",
+      origin: { kind: "layer", id: "brand" },
+      dependenciesByMode: { base: [] },
+      description: "Winning declaration.",
+    });
   });
 
   test("reports duplicate layer identities at the untrusted boundary", () => {
