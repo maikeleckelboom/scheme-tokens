@@ -64,6 +64,21 @@ describe("CSS export safety", () => {
     ]);
   });
 
+  test("rejects a separate scope when exact selectors own the complete selector", () => {
+    expect(
+      exportCssVars(singleModeScheme(), {
+        scope: { strategy: "root" },
+        modeSelectors: {
+          strategy: "selectors",
+          selectors: { base: ":root" },
+        },
+      } as never),
+    ).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-scope" }],
+    });
+  });
+
   test.each([
     "red; color: blue",
     "red; } body { color: lime",

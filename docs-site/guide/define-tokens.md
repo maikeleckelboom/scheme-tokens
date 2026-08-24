@@ -62,7 +62,10 @@ Mode names reserve `ref`, `value`, `valueByMode`, `visibility`, `description`, `
 
 ## Layers
 
-Layers have identities and local default visibility, but never modes. The graph validates their mode maps and applies layers in array order.
+Layers have identities and local default visibility, but never modes. An isolated layer therefore
+retains `TokenLayer<Key, string>` rather than claiming an inferred mode union. Direct expressions
+apply to every mode in the owning graph. Explicit mode maps stay unbound until graph composition,
+where they must cover the graph's modes exactly. The graph then applies layers in array order.
 
 ```ts twoslash
 import { defineTokenGraph, defineTokenLayer, tokenRef } from "scheme-tokens";
