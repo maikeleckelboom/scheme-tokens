@@ -1,21 +1,28 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { repoRoot, snapshotLabel as coreSnapshotLabel } from "./api-snapshot.ts";
 
 const snapshots = [
-  { label: coreSnapshotLabel, packageName: "scheme-tokens" },
+  {
+    label: coreSnapshotLabel,
+    packageName: "scheme-tokens",
+    manifest: "package.json",
+    changelog: "CHANGELOG.md",
+  },
   {
     label: "packages/material3/api/material3.api.d.ts",
     packageName: "@scheme-tokens/material3",
+    manifest: "packages/material3/package.json",
+    changelog: "packages/material3/CHANGELOG.md",
   },
 ] as const;
 
 /**
  * The API snapshot is the published type surface. When a branch moves it
- * without adding a changeset, the package ships a contract change with no
- * version bump and no changelog entry, which is exactly the drift the snapshot
- * exists to prevent.
+ * without adding a changeset or applying it to release metadata, the package
+ * ships a contract change with no version bump and no changelog entry. That is
+ * exactly the drift the snapshot exists to prevent.
  */
 const baseRef = resolveBaseRef();
 if (baseRef === undefined) {
@@ -36,7 +43,10 @@ const changedFiles = [
 
 const changesets = changedFiles.filter(
   (file) =>
-    file.startsWith(".changeset/") && file.endsWith(".md") && file !== ".changeset/README.md",
+    file.startsWith(".changeset/") &&
+    file.endsWith(".md") &&
+    file !== ".changeset/README.md" &&
+    existsSync(join(repoRoot, file)),
 );
 
 for (const snapshot of snapshots) {
@@ -48,17 +58,63 @@ for (const snapshot of snapshots) {
   const coveringChangesets = changesets.filter((path) =>
     readFileSync(join(repoRoot, path), "utf8").includes(`"${snapshot.packageName}":`),
   );
-  if (coveringChangesets.length === 0) {
-    throw new Error(
-      `${snapshot.label} changed against ${baseRef} without a ${snapshot.packageName} changeset.\n` +
-        "The published type surface moved, so the affected package needs a version bump and a\n" +
-        "changelog entry. Run `pnpm changeset` and commit the generated file.",
+  if (coveringChangesets.length > 0) {
+    process.stdout.write(
+      `${snapshot.label} changed against ${baseRef}, covered by: ${coveringChangesets.join(", ")}\n`,
     );
+    continue;
   }
 
-  process.stdout.write(
-    `${snapshot.label} changed against ${baseRef}, covered by: ${coveringChangesets.join(", ")}\n`,
+  const appliedVersion = appliedReleaseVersion(snapshot, baseRef, changedFiles);
+  if (appliedVersion !== undefined) {
+    process.stdout.write(
+      `${snapshot.label} changed against ${baseRef}, covered by applied ${snapshot.packageName}@${appliedVersion} release metadata.\n`,
+    );
+    continue;
+  }
+
+  throw new Error(
+    `${snapshot.label} changed against ${baseRef} without release metadata for ${snapshot.packageName}.\n` +
+      "The published type surface moved, so the affected package needs either a pending changeset\n" +
+      "or an applied version bump with a matching changelog entry. Run `pnpm changeset` first.",
   );
+}
+
+function appliedReleaseVersion(
+  snapshot: (typeof snapshots)[number],
+  baseRef: string,
+  changedFiles: readonly string[],
+): string | undefined {
+  if (!changedFiles.includes(snapshot.manifest) || !changedFiles.includes(snapshot.changelog)) {
+    return undefined;
+  }
+
+  const currentVersion = readPackageVersion(
+    readFileSync(join(repoRoot, snapshot.manifest), "utf8"),
+    snapshot.manifest,
+  );
+  const baseVersion = readPackageVersion(
+    git(["show", `${baseRef}:${snapshot.manifest}`]),
+    `${baseRef}:${snapshot.manifest}`,
+  );
+  if (currentVersion === baseVersion) {
+    return undefined;
+  }
+
+  const changelogLines = readFileSync(join(repoRoot, snapshot.changelog), "utf8").split(/\r?\n/);
+  return changelogLines.includes(`## ${currentVersion}`) ? currentVersion : undefined;
+}
+
+function readPackageVersion(source: string, label: string): string {
+  const manifest: unknown = JSON.parse(source);
+  if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) {
+    throw new Error(`${label} must contain a package manifest object.`);
+  }
+  const version = (manifest as Readonly<Record<string, unknown>>).version;
+  if (typeof version !== "string" || version.length === 0) {
+    throw new Error(`${label} must contain a non-empty version string.`);
+  }
+  return version;
 }
 
 function resolveBaseRef(): string | undefined {
