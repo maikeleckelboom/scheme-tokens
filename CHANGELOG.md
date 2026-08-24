@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0
+
+### Minor Changes
+
+- 4b55405: Reject a separate CSS scope at compile time when exact mode selectors are supplied, matching the existing runtime contract.
+
+  Describe the package explicitly as a zero-runtime-dependency design-token graph compiler.
+
 ## 0.2.0
 
 ### Minor Changes
