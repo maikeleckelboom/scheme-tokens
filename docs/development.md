@@ -1,6 +1,6 @@
 # Development
 
-Node `>=24` and pnpm `11.7.0` through Corepack. Everything under `scripts/` is TypeScript run directly with `node --experimental-strip-types`, so those files have no build step and must stay dependency-light. GitHub Actions certifies Node 24 as the minimum supported runtime and Node 26 as the forward-compatibility line.
+Node `>=24` and pnpm `11.23.0`. The root `packageManager` field pins the exact pnpm version, and the supported launcher for repository work is direct `pnpm ...`. Do not prefix project commands with `corepack`: during the 0.3.0 release, that explicit Corepack invocation selected an ambient version instead of the repository pin, while direct pnpm honored the pin. Everything under `scripts/` is TypeScript run directly with `node --experimental-strip-types`, so those files have no build step and must stay dependency-light. GitHub Actions certifies Node 24 as the minimum supported runtime and Node 26 as the forward-compatibility line.
 
 Use the strongest local gates before reporting release readiness:
 
