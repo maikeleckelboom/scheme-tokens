@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { compileTokenGraph, defineTokens, exportCssVars } from "../../src";
+import {
+  compileTokenGraph,
+  defineTokens,
+  exportCssVars,
+  parseCompiledScheme,
+  serializeCompiledScheme,
+} from "../../src";
 
 describe("CSS export safety", () => {
   test.each([
@@ -80,6 +86,50 @@ describe("CSS export safety", () => {
   });
 
   test.each([
+    {
+      modeSelectors: { strategy: "data-attribute" as const, attribute: "theme" },
+      code: "invalid-data-attribute",
+    },
+    {
+      modeSelectors: { strategy: "class" as const, classPrefix: "theme" },
+      code: "invalid-class-prefix",
+    },
+  ])("reports $code for an invalid generated selector option", ({ modeSelectors, code }) => {
+    expect(exportCssVars(multiModeScheme(), { modeSelectors })).toMatchObject({
+      ok: false,
+      issues: [{ code }],
+    });
+  });
+
+  test("reports missing and unknown selectors for dynamically typed modes", () => {
+    const scheme = dynamicMultiModeScheme();
+
+    expect(
+      exportCssVars(scheme, {
+        modeSelectors: {
+          strategy: "selectors",
+          selectors: { light: ":root" },
+        },
+      }),
+    ).toMatchObject({
+      ok: false,
+      issues: [{ code: "missing-mode-selector", mode: "dark" }],
+    });
+
+    expect(
+      exportCssVars(scheme, {
+        modeSelectors: {
+          strategy: "selectors",
+          selectors: { light: ":root", dark: ".dark", sepia: ".sepia" },
+        },
+      }),
+    ).toMatchObject({
+      ok: false,
+      issues: [{ code: "unknown-mode-selector", mode: "sepia" }],
+    });
+  });
+
+  test.each([
     "red; color: blue",
     "red; } body { color: lime",
     "red/*comment*/",
@@ -124,6 +174,23 @@ describe("CSS export safety", () => {
 
 function singleModeScheme() {
   return expectOk(compileTokenGraph(defineTokens({ background: "#fff" })));
+}
+
+function multiModeScheme() {
+  return expectOk(
+    compileTokenGraph(
+      defineTokens(
+        { background: { light: "#fff", dark: "#111" } },
+        { modes: ["light", "dark"], defaultMode: "light" },
+      ),
+    ),
+  );
+}
+
+function dynamicMultiModeScheme() {
+  return expectOk(
+    parseCompiledScheme(JSON.parse(serializeCompiledScheme(multiModeScheme())) as unknown),
+  );
 }
 
 function expectOk<Value>(
