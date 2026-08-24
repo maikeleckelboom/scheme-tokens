@@ -31,6 +31,7 @@ if (baseRef === undefined) {
   );
   process.exit(0);
 }
+const comparisonBase = git(["merge-base", baseRef, "HEAD"]);
 
 const changedFiles = [
   ...new Set([
@@ -65,10 +66,10 @@ for (const snapshot of snapshots) {
     continue;
   }
 
-  const appliedVersion = appliedReleaseVersion(snapshot, baseRef, changedFiles);
-  if (appliedVersion !== undefined) {
+  const appliedRelease = findAppliedRelease(snapshot, comparisonBase, changedFiles);
+  if (appliedRelease !== undefined) {
     process.stdout.write(
-      `${snapshot.label} changed against ${baseRef}, covered by applied ${snapshot.packageName}@${appliedVersion} release metadata.\n`,
+      `${snapshot.label} changed against ${baseRef}, covered by applied ${snapshot.packageName}@${appliedRelease.version} release metadata at ${appliedRelease.boundary.slice(0, 12)}.\n`,
     );
     continue;
   }
@@ -80,11 +81,11 @@ for (const snapshot of snapshots) {
   );
 }
 
-function appliedReleaseVersion(
+function findAppliedRelease(
   snapshot: (typeof snapshots)[number],
-  baseRef: string,
+  comparisonBase: string,
   changedFiles: readonly string[],
-): string | undefined {
+): { readonly version: string; readonly boundary: string } | undefined {
   if (!changedFiles.includes(snapshot.manifest) || !changedFiles.includes(snapshot.changelog)) {
     return undefined;
   }
@@ -94,15 +95,81 @@ function appliedReleaseVersion(
     snapshot.manifest,
   );
   const baseVersion = readPackageVersion(
-    git(["show", `${baseRef}:${snapshot.manifest}`]),
-    `${baseRef}:${snapshot.manifest}`,
+    git(["show", `${comparisonBase}:${snapshot.manifest}`]),
+    `${comparisonBase}:${snapshot.manifest}`,
   );
   if (currentVersion === baseVersion) {
     return undefined;
   }
 
-  const changelogLines = readFileSync(join(repoRoot, snapshot.changelog), "utf8").split(/\r?\n/);
-  return changelogLines.includes(`## ${currentVersion}`) ? currentVersion : undefined;
+  const boundary = findVersionBoundary(snapshot.manifest, comparisonBase, currentVersion);
+  if (boundary === undefined) {
+    return undefined;
+  }
+
+  const currentChangelog = readFileSync(join(repoRoot, snapshot.changelog), "utf8");
+  const boundaryChangelog = gitRaw(["show", `${boundary}:${snapshot.changelog}`]);
+  if (
+    !hasVersionHeading(currentChangelog, currentVersion) ||
+    !hasVersionHeading(boundaryChangelog, currentVersion)
+  ) {
+    return undefined;
+  }
+
+  const currentSnapshot = normalizeGitText(readFileSync(join(repoRoot, snapshot.label), "utf8"));
+  const boundarySnapshot = normalizeGitText(gitRaw(["show", `${boundary}:${snapshot.label}`]));
+  if (currentSnapshot !== boundarySnapshot) {
+    throw new Error(
+      `${snapshot.label} differs from the snapshot at the applied ${snapshot.packageName}@${currentVersion} release boundary ${boundary.slice(0, 12)}.\n` +
+        "Applied release metadata covers only the API surface that existed when that version was created.\n" +
+        `Add a pending changeset covering ${snapshot.packageName} before changing its API snapshot again.`,
+    );
+  }
+
+  return { version: currentVersion, boundary };
+}
+
+function findVersionBoundary(
+  manifest: string,
+  comparisonBase: string,
+  currentVersion: string,
+): string | undefined {
+  let previousVersion = readPackageVersion(
+    git(["show", `${comparisonBase}:${manifest}`]),
+    `${comparisonBase}:${manifest}`,
+  );
+  const boundaries: string[] = [];
+
+  for (const commit of gitLines([
+    "rev-list",
+    "--first-parent",
+    "--reverse",
+    `${comparisonBase}..HEAD`,
+  ])) {
+    const version = readPackageVersion(
+      git(["show", `${commit}:${manifest}`]),
+      `${commit}:${manifest}`,
+    );
+    if (version === currentVersion && previousVersion !== currentVersion) {
+      boundaries.push(commit);
+    }
+    previousVersion = version;
+  }
+
+  if (boundaries.length > 1) {
+    throw new Error(
+      `${manifest} transitions to ${currentVersion} more than once between ${comparisonBase.slice(0, 12)} and HEAD; cannot identify one release boundary.`,
+    );
+  }
+  return boundaries[0];
+}
+
+function hasVersionHeading(changelog: string, version: string): boolean {
+  return normalizeGitText(changelog).split("\n").includes(`## ${version}`);
+}
+
+function normalizeGitText(source: string): string {
+  return source.replaceAll("\r\n", "\n");
 }
 
 function readPackageVersion(source: string, label: string): string {
@@ -135,11 +202,15 @@ function resolveRef(ref: string): string | undefined {
 }
 
 function git(args: readonly string[]): string {
+  return gitRaw(args).trim();
+}
+
+function gitRaw(args: readonly string[]): string {
   return execFileSync("git", args, {
     cwd: repoRoot,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
-  }).trim();
+  });
 }
 
 function gitLines(args: readonly string[]): readonly string[] {
