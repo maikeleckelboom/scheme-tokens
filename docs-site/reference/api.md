@@ -88,7 +88,7 @@ Omitted and explicit `public` selection have conservatively partial token and me
 
 ## CSS export
 
-`exportCssVars()` supports prefix, scope, mode selector, and formatting options. The structured `value` contains `css`, `blocks`, and `variableByToken`.
+`exportCssVars()` supports prefix, scope, mode selector, and formatting options. The structured `value` contains `css`, `blocks`, and `variableByToken`. Exact selector maps already contain complete selectors, so their option lane excludes a separate `scope`; scope remains available with generated data-attribute and class selectors.
 
 The `variableName` callback is advanced and contained. Exceptions, unsafe names, and collisions return issues.
 

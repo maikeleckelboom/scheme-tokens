@@ -45,7 +45,7 @@ The declarative options cover:
 
 Token order, mode order, selector blocks, declaration formatting, and trailing-newline behavior are deterministic.
 
-Exact selector maps are typed to the compiled mode union. They must contain every compiled mode and cannot add an unknown mode. Selector validation intentionally accepts a bounded safe grammar rather than the complete browser selector language. Generated data-attribute and class selectors require an append-safe scope; exact per-mode selectors are the escape hatch for supported complex selectors.
+Exact selector maps are typed to the compiled mode union. They must contain every compiled mode and cannot add an unknown mode. Each entry is already the complete selector for that mode, so omit `scope` with the exact `selectors` strategy. TypeScript rejects that incompatible combination; the runtime keeps an `invalid-scope` diagnostic for untyped or mutated input. Selector validation intentionally accepts a bounded safe grammar rather than the complete browser selector language. Generated data-attribute and class selectors require an append-safe scope; exact per-mode selectors are the escape hatch for supported complex selectors.
 
 Compilation and serialization preserve arbitrary token strings. CSS export is a stricter code-emission boundary: declaration-unsafe values return `invalid-css-value` instead of being written. The check does not interpret color, spacing, or any other token semantics.
 

@@ -40,13 +40,31 @@ interface CssVariableNameInput<Key extends string = string> {
   readonly prefix?: string;
 }
 
-export interface ExportCssVarsOptions<Key extends string = string, Mode extends string = string> {
+interface CommonExportCssVarsOptions<Key extends string = string> {
   readonly prefix?: string;
   readonly variableName?: (input: CssVariableNameInput<Key>) => string;
-  readonly scope?: CssScope;
-  readonly modeSelectors?: CssModeSelectors<Mode>;
   readonly format?: "pretty" | "compact";
 }
+
+type GeneratedCssModeSelectors<Mode extends string> = Exclude<
+  CssModeSelectors<Mode>,
+  { readonly strategy: "selectors" }
+>;
+
+export type ExportCssVarsOptions<
+  Key extends string = string,
+  Mode extends string = string,
+> = CommonExportCssVarsOptions<Key> &
+  (
+    | {
+        readonly scope?: CssScope;
+        readonly modeSelectors?: GeneratedCssModeSelectors<Mode>;
+      }
+    | {
+        readonly scope?: never;
+        readonly modeSelectors?: CssModeSelectors<Mode>;
+      }
+  );
 
 export interface CssVarDeclaration<Key extends string = string> {
   readonly tokenKey: Key;

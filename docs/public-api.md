@@ -103,7 +103,7 @@ Mode names cannot be `ref`, `value`, `valueByMode`, `visibility`, `description`,
 
 ## Layers
 
-Layers have stable identities and local default visibility, but never modes or a default mode. The graph is the sole mode authority. Graph tokens compose first; layers then apply in array order, with later definitions overriding earlier keys.
+Layers have stable identities and local default visibility, but never modes or a default mode. The graph is the sole mode authority. An isolated helper result is therefore `TokenLayer<Key, string>`: the `string` records that no mode envelope is known, not that the layer inferred arbitrary modes. Direct expressions apply to every mode in the owning graph. Explicit layer mode maps are accepted standalone, then must contain every owning graph mode and no unknown mode when composed. Graph tokens compose first; layers then apply in array order, with later definitions overriding earlier keys.
 
 ```ts twoslash
 import { compileTokenGraph, defineTokenGraph, defineTokenLayer, tokenRef } from "scheme-tokens";
@@ -222,7 +222,7 @@ cssVars.variableByToken.background?.toUpperCase();
 
 The optional lookup mirrors the partial default-public compiled record. CSS from an exact literal selection, or from `all` compilation of a finite authored graph, has a complete token-to-variable map. CSS from `parseCompiledScheme()` stays partial.
 
-Exact selector maps are typed to the compiled mode union: every mode is required and unknown modes are rejected. Selector validation intentionally implements a bounded safe grammar rather than every browser selector feature. Generated data-attribute and class strategies require an append-safe scope; use exact per-mode selectors for supported complex selectors.
+Exact selector maps are typed to the compiled mode union: every mode is required and unknown modes are rejected. Each entry is already the complete selector for its mode, so `scope` must be omitted with the exact `selectors` strategy. TypeScript rejects that incompatible option combination; the runtime still returns `invalid-scope` for untyped or mutated input. Selector validation intentionally implements a bounded safe grammar rather than every browser selector feature. Generated data-attribute and class strategies require an append-safe scope; use exact per-mode selectors for supported complex selectors.
 
 See [Application Theme Coordinates](./application-theme-coordinates.md) for combining independent application axes into private compiler modes, selecting an exact semantic contract, and reusing structured declarations for application-owned selector and media-query policy. See [Tailwind CSS v4](./tailwind-css-v4.md) for bridging application-owned runtime variables into Tailwind color utilities.
 

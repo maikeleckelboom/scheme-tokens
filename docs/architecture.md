@@ -29,7 +29,7 @@ The trusted helpers may throw for programmer misuse. The parsers accept `unknown
 
 The graph exclusively owns `modes` and `defaultMode`. Omitting mode options means the single mode `base`. Any explicit mode envelope requires an explicit default.
 
-Layers have stable IDs, local default visibility, and token definitions, but no mode envelope. A layer's mode maps are checked against the owning graph during composition. Graph tokens compose first, followed by layers in array order; a later definition replaces an earlier definition with the same key.
+Layers have stable IDs, local default visibility, and token definitions, but no mode envelope. An isolated `defineTokenLayer()` result therefore retains `TokenLayer<Key, string>` rather than claiming a mode union. Direct layer expressions apply to every mode in the owning graph; explicit layer mode maps remain unbound until composition and must then cover that graph's modes exactly. Graph tokens compose first, followed by layers in array order; a later definition replaces an earlier definition with the same key.
 
 This is token composition, not CSS cascade behavior.
 

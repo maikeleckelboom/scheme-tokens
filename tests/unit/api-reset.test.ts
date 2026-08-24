@@ -172,6 +172,54 @@ describe("pre-release API reset", () => {
     expect(graph.layers?.[0]?.tokens.primary?.value).toBe("#6750a4");
   });
 
+  test("defers standalone layer mode maps to the owning graph envelope", () => {
+    const direct = defineTokenLayer({
+      id: "direct",
+      tokens: { background: "#ffffff" },
+    });
+    const mapped = defineTokenLayer({
+      id: "mapped",
+      tokens: { foreground: { light: "#111111", dark: "#eeeeee" } },
+    });
+    const graph = defineTokenGraph({
+      modes: ["light", "dark"],
+      defaultMode: "light",
+      tokens: {},
+      layers: [direct, mapped],
+    });
+
+    expect(expectOk(compileTokenGraph(graph)).tokens).toEqual({
+      background: { light: "#ffffff", dark: "#ffffff" },
+      foreground: { light: "#111111", dark: "#eeeeee" },
+    });
+
+    const incomplete = defineTokenLayer({
+      id: "incomplete",
+      tokens: { foreground: { light: "#111111" } },
+    });
+    expect(() =>
+      defineTokenGraph({
+        modes: ["light", "dark"],
+        defaultMode: "light",
+        tokens: {},
+        layers: [incomplete],
+      }),
+    ).toThrow(/missing mode "dark"/i);
+
+    const overcomplete = defineTokenLayer({
+      id: "overcomplete",
+      tokens: { foreground: { light: "#111111", dark: "#eeeeee", sepia: "#332211" } },
+    });
+    expect(() =>
+      defineTokenGraph({
+        modes: ["light", "dark"],
+        defaultMode: "light",
+        tokens: {},
+        layers: [overcomplete],
+      }),
+    ).toThrow(/unknown mode "sepia"/i);
+  });
+
   test("uses Result<Value, Problem> for every fallible public operation", () => {
     const parsedGraph = expectOk(parseTokenGraph(strictGraph));
     const layer = defineTokenLayer({ id: "brand", tokens: { accent: "#6750a4" } });

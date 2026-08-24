@@ -8,6 +8,7 @@ import {
   parseTokenGraph,
   tokenRef,
   type CompiledScheme,
+  type CssModeSelectors,
   type CssVarsExport,
   type Result,
   type TokenGraph,
@@ -153,6 +154,9 @@ const layer = defineTokenLayer({
 });
 const typedLayer = layer satisfies TokenLayer<"primary">;
 typedLayer.id.toUpperCase();
+export type StandaloneLayerMode = Expect<
+  Equal<typeof layer extends TokenLayer<string, infer Mode> ? Mode : never, string>
+>;
 
 const layeredGraph = defineTokenGraph({
   tokens: {
@@ -228,6 +232,7 @@ if (publicCompiled.ok) {
   }
 }
 
+declare const inferredModeSelectors: CssModeSelectors<"light" | "dark">;
 const allCompiled = compileTokenGraph(multiModeGraph, { selection: "all" });
 if (allCompiled.ok) {
   allCompiled.value.tokens["brand.400"].light.toUpperCase();
@@ -240,6 +245,22 @@ if (allCompiled.ok) {
   if (allCss.ok) {
     allCss.value.variableByToken["brand.400"].toUpperCase();
   }
+
+  exportCssVars(allCompiled.value, { modeSelectors: inferredModeSelectors });
+
+  exportCssVars(allCompiled.value, {
+    scope: { strategy: "selector", selector: "#app" },
+    modeSelectors: { strategy: "class", classPrefix: "theme-" },
+  });
+
+  exportCssVars(allCompiled.value, {
+    scope: { strategy: "root" },
+    modeSelectors: {
+      // @ts-expect-error exact selectors own the complete selector and cannot be combined with scope.
+      strategy: "selectors",
+      selectors: { light: ":root", dark: ".dark" },
+    },
+  });
 
   exportCssVars(allCompiled.value, {
     modeSelectors: {

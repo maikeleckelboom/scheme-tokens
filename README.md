@@ -295,7 +295,9 @@ Later layers win. Compiled provenance identifies the winning layer, and
 
 ## Modes
 
-Modes belong to the graph. Layers only provide values for those modes.
+Modes belong to the graph. Layers only provide values for those modes. A direct layer expression
+applies to every graph mode. A layer mode map stays unbound while standalone and must exactly cover
+the owning graph's modes when composed; it never contributes or infers a graph mode envelope.
 
 ```ts twoslash
 import { defineTokens, tokenRef } from "scheme-tokens";
@@ -414,7 +416,10 @@ exported.value.blocks
 exported.value.variableByToken
 ```
 
-Selectors and output policy belong to the CSS export call, not the token graph.
+Selectors and output policy belong to the CSS export call, not the token graph. Exact selector maps
+already contain the complete selector for every mode, so omit `scope` with
+`modeSelectors.strategy: "selectors"`. A separate scope is only meaningful for generated
+data-attribute or class selectors.
 
 ## Results
 
