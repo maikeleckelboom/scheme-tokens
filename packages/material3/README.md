@@ -124,6 +124,8 @@ or provenance API of its own.
 ## Distribution
 
 The ESM-only package requires Node 24 or newer. Material Color Utilities 0.4.0 is pinned and bundled
-into the adapter; `scheme-tokens` remains the shared peer dependency, with the explicitly proven
-range `^0.2.0 || ^0.3.0`. The package is licensed under MIT and Apache-2.0 terms because of the bundled engine. See `LICENSE`,
+into the adapter; `scheme-tokens` remains the shared peer dependency. Its range is
+`^0.2.0 || ^0.3.0`: the unchanged implementation retains its historical 0.2 certification, and the
+current packed candidate explicitly certifies 0.3. The package is licensed under MIT and
+Apache-2.0 terms because of the bundled engine. See `LICENSE`,
 `LICENSE-MATERIAL-COLOR-UTILITIES`, and `THIRD_PARTY_NOTICES.md`.

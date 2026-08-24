@@ -6,6 +6,8 @@
 
 - 4b55405: Reject a separate CSS scope at compile time when exact mode selectors are supplied, matching the existing runtime contract.
 
+  Migration note: exported `ExportCssVarsOptions` is now a union type rather than an interface-shaped contract. Consumers that used `interface ... extends ExportCssVarsOptions` should use a type alias with an intersection or other type composition instead.
+
   Describe the package explicitly as a zero-runtime-dependency design-token graph compiler.
 
 ## 0.2.0

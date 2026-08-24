@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- 2633955: Advertise and release-gate compatibility with the scheme-tokens 0.3 release line while retaining support for 0.2.
+- 2633955: Advertise compatibility with the scheme-tokens 0.3 release line and certify the packed candidate against it, while retaining the unchanged implementation's historically certified 0.2 support.
 
 ## 0.1.0
 
