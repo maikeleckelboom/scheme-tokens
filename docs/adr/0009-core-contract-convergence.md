@@ -75,7 +75,10 @@ The packaged schemas retain their existing `$id` values. Ownership of the
 before 1.0 if possible, without changing identifiers as part of this convergence decision.
 
 `@scheme-tokens/material3` remains an optional sibling package outside core. Its packed-consumer
-gates explicitly demonstrate compatibility with both the 0.2 and 0.3 core release lines.
+evidence combines two release lines: the unchanged 0.1.0 implementation retains its historical
+certification against core 0.2, while the current 0.1.1 packed candidate explicitly certifies core
+0.3. The peer union preserves both evidence lines; the current candidate gate does not execute an
+0.1.1 and 0.2 packed pair.
 
 ## Consequences
 
