@@ -18,3 +18,9 @@ still require a changeset through repository policy and review.
 
 Before `1.0.0`, a minor release may change a public contract; see
 [docs/semver.md](../docs/semver.md).
+
+Workspace peer ranges record deliberately proven compatibility. The pinned
+Changesets configuration preserves a peer range when the versioned dependency
+still satisfies it, while an out-of-range release still forces an update. This
+keeps an explicit range such as `^0.2.0 || ^0.3.0` intact during candidate
+versioning; do not widen that range without matching compatibility evidence.

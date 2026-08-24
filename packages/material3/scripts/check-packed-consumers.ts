@@ -100,17 +100,18 @@ function assertReleaseCandidateVersions(candidateRoot: string): {
 } {
   const core = readManifest(join(candidateRoot, "package.json"));
   const adapter = readManifest(join(candidateRoot, "packages", "material3", "package.json"));
-  if (core.version !== "0.2.0") {
-    throw new Error(`Core release candidate must be 0.2.0, received ${core.version}.`);
+  if (core.version !== "0.3.0") {
+    throw new Error(`Core release candidate must be 0.3.0, received ${core.version}.`);
   }
-  if (adapter.version !== "0.1.0") {
+  if (adapter.version !== "0.1.1") {
     throw new Error(
-      `Material adapter release candidate must be 0.1.0, received ${adapter.version}.`,
+      `Material adapter release candidate must be 0.1.1, received ${adapter.version}.`,
     );
   }
-  if (adapter.peerDependencies?.["scheme-tokens"] !== "^0.2.0") {
+  const corePeer = adapter.peerDependencies?.["scheme-tokens"];
+  if (corePeer !== "^0.2.0 || ^0.3.0") {
     throw new Error(
-      "Release-candidate adapter does not require the first compatible core release.",
+      `Release-candidate adapter must advertise ^0.2.0 || ^0.3.0, received ${corePeer ?? "<missing>"}.`,
     );
   }
   return { core: core.version, adapter: adapter.version };
