@@ -24,6 +24,7 @@ const snapshots = [
  * ships a contract change with no version bump and no changelog entry. That is
  * exactly the drift the snapshot exists to prevent.
  */
+assertPullRequestHeadCheckout();
 const baseRef = resolveBaseRef();
 if (baseRef === undefined) {
   process.stdout.write(
@@ -182,6 +183,33 @@ function readPackageVersion(source: string, label: string): string {
     throw new Error(`${label} must contain a non-empty version string.`);
   }
   return version;
+}
+
+function assertPullRequestHeadCheckout(): void {
+  if (process.env.GITHUB_EVENT_NAME !== "pull_request") {
+    return;
+  }
+
+  const eventRef = process.env.GITHUB_REF;
+  const eventSha = process.env.GITHUB_SHA;
+  if (
+    eventRef === undefined ||
+    !/^refs\/pull\/\d+\/merge$/u.test(eventRef) ||
+    eventSha === undefined ||
+    eventSha.length === 0
+  ) {
+    return;
+  }
+
+  const head = git(["rev-parse", "HEAD"]);
+  if (head.toLowerCase() !== eventSha.toLowerCase()) {
+    return;
+  }
+
+  throw new Error(
+    "check:changeset cannot analyze GitHub's synthetic pull-request merge commit.\n" +
+      "The API contract job must check out github.event.pull_request.head.sha with fetch-depth: 0 before running this gate.",
+  );
 }
 
 function resolveBaseRef(): string | undefined {

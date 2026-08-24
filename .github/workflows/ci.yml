@@ -16,6 +16,8 @@ jobs:
         # 24 is the minimum supported runtime, and 26 is the forward-compatibility line.
         node: [24, 26]
     steps:
+      # Keep GitHub's default pull-request checkout here: release validation
+      # intentionally tests the synthetic merged result.
       - name: Checkout
         uses: actions/checkout@v5
 
@@ -74,11 +76,19 @@ jobs:
     name: API contract
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      # Contract history must come from the real PR branch. A synthetic merge
+      # can collapse the version transition and later API drift into one commit.
+      - name: Checkout pull-request head history
+        if: github.event_name == 'pull_request'
         uses: actions/checkout@v5
         with:
-          # The changeset gate diffs the branch against its merge base, so it
-          # needs history rather than a single-commit checkout.
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Checkout triggering history
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@v5
+        with:
           fetch-depth: 0
 
       - name: Setup Node

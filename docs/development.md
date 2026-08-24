@@ -40,6 +40,8 @@ pnpm changeset
 
 CI runs `pnpm check:changeset`, which fails when the API snapshot moved against the base branch without either a pending changeset or its applied package-version and changelog evidence. Applied release metadata covers only the snapshot committed at the version transition: later API-snapshot drift must have a new pending changeset, while later non-API commits remain covered. This keeps the gate valid both before and after normal Changesets consumption. The gate detects declaration-snapshot movement, not every behavioural change. Ordering and other runtime contracts that leave declarations unchanged still require a changeset through policy and review. `pnpm changeset:version` applies pending files to `package.json` and `CHANGELOG.md`.
 
+On pull requests, `release-check` validates GitHub's synthetic merged result, while `api-contract` explicitly checks out the pull-request head with full history. The changeset gate needs that real branch history to locate the package version transition and fails closed if it is accidentally run at the event's synthetic merge SHA.
+
 The pinned Changesets configuration enables `onlyUpdatePeerDependentsWhenOutOfRange`. This keeps a
 deliberately proven workspace peer union intact when the versioned package still satisfies it, but
 still updates and releases the peer dependent when a future version leaves the declared range. The
