@@ -24,6 +24,7 @@ import {
   type ParsedTokenGraphToken,
 } from "./parse-token-graph";
 import { IssueCollector, type Result } from "./result";
+import { createExpressionResolver } from "./resolve-expressions";
 
 export type {
   CompileTokenGraphIssue,
@@ -33,10 +34,6 @@ export type {
   CompiledTokenMetadata,
   TokenSelection,
 } from "./compiled-types";
-
-interface ResolvedNode {
-  readonly value: string;
-}
 
 type SelectedKey<Input, Options> = Options extends {
   readonly selection: { readonly keys: readonly (infer Key)[] };
@@ -102,7 +99,17 @@ export function compileParsedTokenGraph<
     return selectedKeys;
   }
 
-  const memo = new Map<string, ResolvedNode>();
+  // The unchanged v1 parser has already rejected unknown references and cycles.
+  // Concat cannot cross that boundary during P1; resolver failures here are invariants.
+  const resolve = createExpressionResolver(
+    (key, mode) => {
+      const expression = graph.tokens[key as Key]?.expressionByMode[mode as Mode];
+      return expression === undefined ? undefined : { expression, path: "", referencePaths: [] };
+    },
+    () => {
+      throw new Error("Validated v1 expressions must resolve.");
+    },
+  );
   const tokens: Record<string, CompiledToken<Mode>> = {};
   const metadataByToken: Record<string, CompiledTokenMetadata<Mode>> = {};
 
@@ -112,8 +119,11 @@ export function compileParsedTokenGraph<
     const dependenciesByMode: Record<string, readonly string[]> = {};
 
     for (const mode of graph.modes) {
-      const node = resolveNode(graph, key, mode, memo);
-      defineRecordValue(modeValues, mode, node.value);
+      const value = resolve(key, mode);
+      if (value === undefined) {
+        throw new Error("Validated v1 expressions must resolve.");
+      }
+      defineRecordValue(modeValues, mode, value);
       defineRecordValue(dependenciesByMode, mode, directDependencies(source, mode));
     }
 
@@ -300,61 +310,6 @@ function selectTokenKeys<Key extends string>(
     };
   }
   return { ok: true, value: canonical };
-}
-
-function resolveNode<Mode extends string, Key extends string>(
-  graph: ParsedTokenGraph<Mode, Key>,
-  startKey: Key,
-  mode: Mode,
-  memo: Map<string, ResolvedNode>,
-): ResolvedNode {
-  const startId = nodeId(startKey, mode);
-  const existing = memo.get(startId);
-  if (existing !== undefined) {
-    return existing;
-  }
-
-  const stack: string[] = [];
-  let currentKey: string = startKey;
-
-  while (true) {
-    const currentId = nodeId(currentKey, mode);
-    const currentExisting = memo.get(currentId);
-    if (currentExisting !== undefined) {
-      return unwind(stack, mode, currentExisting, currentKey, memo);
-    }
-
-    const expression = (graph.tokens[currentKey as Key] as ParsedTokenGraphToken<Mode, Key>)
-      .expressionByMode[mode] as ParsedTokenExpression<Key>;
-    if (!isReferenceExpression(expression)) {
-      const resolved = { value: expression };
-      memo.set(currentId, resolved);
-      return unwind(stack, mode, resolved, currentKey, memo);
-    }
-
-    stack.push(currentKey);
-    currentKey = expression.ref;
-  }
-}
-
-function unwind(
-  stack: readonly string[],
-  mode: string,
-  leaf: ResolvedNode,
-  _leafKey: string,
-  memo: Map<string, ResolvedNode>,
-): ResolvedNode {
-  let current = leaf;
-  for (let index = stack.length - 1; index >= 0; index -= 1) {
-    const key = stack[index] as string;
-    current = { value: current.value };
-    memo.set(nodeId(key, mode), current);
-  }
-  return current;
-}
-
-function nodeId(key: string, mode: string): string {
-  return `${key}\0${mode}`;
 }
 
 function isReferenceExpression<Key extends string>(
