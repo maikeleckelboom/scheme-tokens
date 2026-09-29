@@ -2,24 +2,46 @@
 
 ## Status
 
-Proposed, for one final review. This is a design record for the next breaking core release. Like
-[ADR 0004](./0004-material3-adapter-design.md), it covers a connected set of decisions and is
-sliced into decision records on acceptance. Three slices are already accepted:
-[ADR 0010](./0010-graph-tokens-compose-last.md) (composition order),
+Accepted on 2026-09-29. This record designs the next breaking core release, proposed as `0.4.0`,
+and is the authority for decisions D1–D13. Three of them were accepted earlier as separate decision
+slices: [ADR 0010](./0010-graph-tokens-compose-last.md) (composition order),
 [ADR 0011](./0011-visibility-preserving-overrides.md) (visibility), and
-[ADR 0012](./0012-single-hyphen-css-variable-names.md) (CSS names).
-[ADR 0014](./0014-material3-layer-and-mode-mapping.md) applies the layer mode sets of D12 to the
-Material 3 adapter and is proposed with this record. The remaining slices, written on acceptance,
-cover authoring and types, layer mode sets, the `concat` expression, compiled provenance, the CSS
-activation model, `var()` output, the result helper, wire-format evolution, and TypeScript
-support. Each slice names the part of [ADR 0009](./0009-core-contract-convergence.md) it
-supersedes.
+[ADR 0012](./0012-single-hyphen-css-variable-names.md) (CSS names). The other decisions are not
+sliced further; a later change to one of them is a new record that supersedes that decision here.
+[ADR 0014](./0014-material3-layer-and-mode-mapping.md) applies D12 to the Material 3 adapter and
+remains proposed.
 
-A closing pass on 2026-09-29 settled the five contracts that were still open (layer mode
-compatibility and the Material mode mapping, custom-condition precedence, conflicting class
-markers, the TypeScript floor, and source-format retention) and revised D2, D4, D5, D6, D7, and
-D10 accordingly. Its evidence is in the appendices. A later product decision replaced the measured
-TypeScript 5.4 floor with support for the current stable major, TypeScript 7 (D13).
+A closing pass settled the five contracts that were still open (layer mode compatibility and the
+Material mode mapping, custom-condition precedence, conflicting class markers, the TypeScript
+floor, and source-format retention). A product decision then replaced the measured TypeScript 5.4
+floor with support for the current stable major (D13). The acceptance pass fixed the TypeScript
+range notation, specified intra-layer mode disagreement, chose the schema identity, removed the
+resolved value that pure references duplicated in compiled expressions, and restated retention
+and the resolved-value limit normatively. Its evidence is in the appendices.
+
+Browser coverage beyond Chromium, the emitted declarations, the TypeScript upgrade, and the v1
+upgrade implementation are implementation and release gates, not open design questions (see
+[Implementation and release gates](#implementation-and-release-gates)).
+
+### Supersession
+
+This record supersedes these parts of [ADR 0009](./0009-core-contract-convergence.md), in addition
+to the composition order and metadata rule that ADRs 0010 and 0011 supersede:
+
+- "`defineTokens()` remains the simple trusted authoring path", by D2;
+- "A standalone layer remains `TokenLayer<Key, string>`" and "Explicit standalone layer mode maps
+  remain unbound until composition", by D12. Direct layer expressions still apply to every graph
+  mode;
+- the rejection of an `unwrap()` helper, by D9. `formatIssues()`, severities, and inspection APIs
+  stay rejected;
+- "Runtime-filtered public selection ... remain[s] conservatively partial", by D4 for graphs with a
+  finite public key union;
+- the CSS options correction, by D7, which replaces `scope` and the selector strategies;
+- "The packaged schemas retain their existing `$id` values", by D10 for format version 2. Released
+  v1 schemas keep their identifiers.
+
+ADR 0009's rejection of partial layers, partial persisted mode maps, metadata merging, and
+mode-bound layer helpers stands.
 
 ## Context
 
@@ -61,7 +83,7 @@ tokenRef · tokenConcat                          (v2, and every earlier source v
                 \                               through deterministic upgrades)
                  \                             /
                   canonical graph, formatVersion 2 ── one validator
-                  (every layer's mode set is empty or equals the graph's)
+                  (a layer's mode maps agree; its mode set is empty or the graph's)
                                   |
          composition: layers in array order, then the graph's own tokens
          visibility: latest explicit visibility, else the introducing default
@@ -116,12 +138,28 @@ There are two distinct authoring tasks, composing a complete graph and defining 
 declarations. Each gets one helper that takes one object.
 
 - `defineTokenGraph({ modes?, defaultMode?, defaultVisibility?, layers?, tokens })` is the only
-  graph helper. `defineTokens` is removed: `defineTokens(tokens)` and `defineTokenGraph({ tokens })`
-  were equivalent forms ([audit](../audit-2026-09.md) finding 1.6, contrary to ADR 0002).
+  graph helper. `defineTokens` is removed completely, with no deprecated alias and no wrapper:
+  `defineTokens(tokens)` and `defineTokenGraph({ tokens })` were equivalent forms
+  ([audit](../audit-2026-09.md) finding 1.6, contrary to ADR 0002).
 - `defineTokenLayer({ id, defaultVisibility?, tokens })` defines reusable declarations. A layer
   never declares modes or a default mode; its mode set is derived from its mode maps (D12).
 - `tokenRef(key)` and the new `tokenConcat` (D5) author expressions. The canonical `{ ref }` and
   `{ concat }` records are accepted directly, as `{ ref }` is today.
+
+The two concepts stay distinct. A token graph owns the envelope: its modes, their order, the
+default mode, the ordered layers, and the application's own tokens. A token layer is a reusable
+set of declarations that takes part in a graph's composition and never owns an envelope. Each
+operation names the artifact it acts on:
+
+| Artifact | Define             | Parse             | Compile             | Serialize             |
+| -------- | ------------------ | ----------------- | ------------------- | --------------------- |
+| graph    | `defineTokenGraph` | `parseTokenGraph` | `compileTokenGraph` | `serializeTokenGraph` |
+| layer    | `defineTokenLayer` | `parseTokenLayer` | —                   | `serializeTokenLayer` |
+
+The root runtime exports of the release are therefore exactly `defineTokenGraph`,
+`defineTokenLayer`, `tokenRef`, `tokenConcat`, `parseTokenGraph`, `parseTokenLayer`,
+`parseCompiledScheme`, `compileTokenGraph`, `exportCssVars`, `serializeTokenGraph`,
+`serializeTokenLayer`, `serializeCompiledScheme`, and `orThrow` (D9).
 
 The single object puts the envelope and the layers before the tokens, in composition order and in
 v2 wire order. A single-mode graph becomes a multi-mode graph by adding `modes` and `defaultMode`,
@@ -253,23 +291,43 @@ part            = string | { ref: Key }
 - Canonical form: at least one part, adjacent literal parts merged, empty literal parts dropped. A
   `concat` without references normalizes to its string.
 - `tokenConcat` is a tagged template for authoring:
-  `` tokenConcat`0 0 0 3px ${tokenRef("primary")}` ``. Adapters write the canonical record.
+  `` tokenConcat`0 0 0 3px ${tokenRef("primary")}` ``. It mirrors the `concat` record as `tokenRef`
+  mirrors `ref`. Adapters write the canonical record.
 - Nested `concat`, conditionals, fallbacks, and arithmetic are excluded. `calc()` and
   `color-mix()` stay CSS text that `concat` can carry.
 
-A resolved `concat` value may not exceed 65,536 UTF-16 code units. The limit is checked before
-allocation: every dependency is resolved and memoized per key and mode before its dependants, so
-the resolver sums the known part lengths and rejects an oversized value with the new code
-`resolved-value-too-long` (with `key`, `mode`, and the path of the expression) without building it.
-Measuring a fully built string afterwards is not allowed. In the prototype, 65 tokens that each
-concatenate the previous token twice (an unbounded size of 8·2⁶⁴ characters) fail at the fifteenth
-token in 0.5 ms, and the longest string ever built is 65,536 characters (Appendix B).
+**Resolved-value limit.** The resolver enforces one bound on the values it builds:
 
-The limit is per token and mode. There is no graph-wide budget: what remains is fan-out, where many
-tokens reference one large value and serialized or CSS output repeats it. Plain references to a
-large literal already do that today, with the value bounded only by the input size, and the limit
-keeps `concat` within the same class. Raising the limit later is compatible; lowering it is
-breaking. Literal values and plain references allocate nothing new and are not limited.
+```text
+MAX_RESOLVED_VALUE_LENGTH = 65_536 UTF-16 code units
+```
+
+- The unit is the UTF-16 code unit, the unit of JavaScript `string.length`. It is not a count of
+  code points, grapheme clusters, or bytes.
+- The limit applies to each resolved `concat` value, per token and mode. A value whose length would
+  exceed it fails with the new code `resolved-value-too-long`, with `key`, `mode`, and the path of
+  the expression, and the value is not built.
+- The check is incremental and happens before allocation. Dependencies resolve and are memoized per
+  key and mode before their dependants, so the length of every part is known when a `concat` is
+  resolved. The resolver adds the part lengths in order and fails as soon as the running total
+  exceeds the limit, before it joins any string. Building a value and measuring it afterwards does
+  not conform. Because every accepted `concat` value is within the limit, so is every string the
+  resolver ever builds.
+- The limit does not apply to authored input. Literal values, and references that resolve to them,
+  allocate nothing new and stay bounded by the input size. A `concat` without references
+  normalizes to a literal (canonical form above).
+- A failed value is reported once, at its source. Tokens that depend on it are not reported again.
+- There is no graph-wide budget. What remains is fan-out, where many tokens reference one large
+  value and serialized or CSS output repeats it. Plain references to a large literal already do
+  that today, and the limit keeps `concat` in the same class. A graph-wide budget needs its own
+  demonstrated case.
+- `MAX_RESOLVED_VALUE_LENGTH` names the constant in this record and in the implementation; it is
+  not a root export. The number is the contract: raising it later is compatible, lowering it is
+  breaking.
+
+In the prototype, 65 tokens that each concatenate the previous token twice (an unbounded size of
+8·2⁶⁴ code units) fail at the fifteenth token in 0.5 ms, and the longest string ever built is
+65,536 code units (Appendix B).
 
 The structure earns its place in core for three reasons:
 
@@ -309,29 +367,37 @@ interface TokenDeclarationRecord {
   readonly origin: { readonly kind: "graph" } | { readonly kind: "layer"; readonly id: string };
   readonly visibility?: TokenVisibility; // present only when that declaration set it explicitly
 }
-// A reference part carries its target's resolved value: a resolved part, kept for output.
-type CompiledReference = { readonly ref: string; readonly value: string };
+// A pure reference: its target's resolved value is the token's own, tokens[key][mode].
+type CompiledReference = { readonly ref: string };
+// A reference inside a concat carries its target's resolved value, which the result cannot supply.
+type CompiledConcatPart = string | { readonly ref: string; readonly value: string };
 type CompiledExpression =
-  | CompiledReference
-  | { readonly concat: readonly [string | CompiledReference, ...(string | CompiledReference)[]] };
+  CompiledReference | { readonly concat: readonly [CompiledConcatPart, ...CompiledConcatPart[]] };
 ```
 
-The resolved part inside a retained expression is not provenance. It exists because an exporter
-may need the target's value when the target is not part of the output, for example a public alias
-of an internal token under `references: "var"` (D8).
+Retained expressions are sparse and store nothing twice:
 
-Expressions are sparse because literal expressions repeat the resolved value. In the production
-graph, 1,878 of 2,316 expressions (386 keys in six modes) are literal. Retaining every expression
-costs 110,108 bytes of JSON (11,362 gzipped) next to 88,856 bytes of resolved values; retaining only
-references costs 37,270 bytes (3,960 gzipped).
+- A literal has no record. Its expression is its resolved value.
+- A pure reference records only its target. The target's resolved value equals the token's own
+  resolved value, so repeating it would store the same string twice.
+- A `concat` records its parts in order, and each reference part carries its target's resolved
+  value. The result alone cannot be split back into parts, and an exporter needs each part to emit
+  it as `var()` or to inline it when its target is not emitted (D8). A reference part's value is
+  output data, not provenance.
+
+In the production graph, 1,878 of 2,316 expressions (386 keys in six modes) are literal and 438 are
+pure references. Resolved values take 88,856 bytes of JSON (9,148 gzipped). Retaining every
+expression would add 110,108 bytes (11,362 gzipped); retaining references with their resolved
+value, as the closing pass drafted, 37,270 bytes (3,960 gzipped); the final shape, 25,974 bytes
+(2,327 gzipped) (Appendix B, probe D).
 
 `origin` and `dependenciesByMode` are removed: both are derivable from `declarations` and
 `expressionByMode`. For the Material override in D2, the compiled record of `md.sys.color.primary`
 reads "declared by `material3`, replaced by the graph, internal because nothing restated it", and
 has no retained expression because the override is literal. The record of `primary` reads "a
-reference to `md.sys.color.primary`, which is `#b3261e` in light". Walking a chain through tokens
-outside the selection uses `selection: "all"`. An explain helper can be added later without a
-format change.
+reference to `md.sys.color.primary`", and its resolved value `#b3261e` in light is
+`tokens.primary.light`. Walking a chain through tokens outside the selection uses
+`selection: "all"`. An explain helper can be added later without a format change.
 
 ### D7. CSS export: one activation model
 
@@ -399,11 +465,12 @@ element, the later one wins.
   already does. The option documentation states the rule and shows `:not()` for conditions that
   must stay disjoint.
 
-**Application CSS.** Generated activation selectors have zero specificity, so an application rule
-that targets the same element with a selector of any non-zero specificity overrides a generated
-declaration, whether its stylesheet comes before or after the tokens. An application rule with zero
-specificity, such as `:where(…)` or `*`, competes by source order. The normal cascade still
-applies before specificity: `!important` declarations, inline styles, and cascade layers.
+**Application CSS.** Application rules follow the normal cascade, and the exporter promises nothing
+beyond it. Origin and importance, inline styles, and cascade layers are compared before
+specificity. Within the same origin, importance, and cascade layer, generated activation selectors
+have zero specificity, so an application rule for the same element with any non-zero specificity
+overrides a generated declaration, whether its stylesheet comes before or after the tokens, and an
+application rule with zero specificity, such as `:where(…)` or `*`, competes by source order.
 
 **`cascadeLayer`.** The option wraps the output in `@layer <name>`. Unlayered normal declarations
 then win over the tokens regardless of specificity and order. Normal declarations in layers ordered
@@ -455,8 +522,9 @@ Also:
 the default.
 
 - A reference is emitted as `var(--target)` only when its direct target is emitted by the same
-  export; otherwise the target's resolved value for that mode, the resolved part of D6, is inlined.
-  `concat` parts follow the same rule individually. A token that references an internal source
+  export; otherwise the target's resolved value for that mode is inlined. For a pure reference
+  that value is the token's own resolved value; for a `concat` part it is the part's resolved value
+  (D6). `concat` parts follow the rule individually. A token that references an internal source
   therefore keeps a literal value, while an alias of another public token stays linked.
 - Every block declares every emitted token, including aliases. This is required, not an
   optimization: a custom property is computed on the element that declares it and inherits as a
@@ -490,46 +558,103 @@ gets a throwing twin.
 - Each version is validated strictly: unknown properties fail.
 - A layer's mode set is derived from its mode maps and never persisted (D12). A v2 layer whose mode
   maps disagree is invalid. A v1 layer with that defect could never compose into any graph, and the
-  upgrade reports it instead of repairing it.
+  upgrade reports it with `layer-mode-mismatch` instead of repairing it.
 - Writers emit only the current version.
-- `$schema` is an optional editor hint. Parsers accept any string, never interpret it, and preserve
-  it verbatim; serializers never add one. `kind` and `formatVersion` alone identify an artifact.
-  Users can point `$schema` at the installed package (`./node_modules/scheme-tokens/schemas/...`)
-  or at a CDN copy.
-- The schemas become self-contained (no cross-file `$ref`), so any `$schema` location works in
-  editors. Their `$id` must not depend on a domain the project does not control: either the
-  project acquires and hosts `scheme-tokens.dev` with byte-checked copies, or the ids become URNs
-  such as `urn:scheme-tokens:schema:token-graph:2`. This is the maintainer's decision.
 
-**Source formats are retained while they upgrade losslessly.** Graphs and layers are authored
-input and may be persisted for years.
+**Three identities, three jobs.**
 
-- A reader accepts every source format version the package has released, as long as a
-  deterministic, lossless upgrade to the current version exists.
+| Identity                                  | Job                   | Form                              |
+| ----------------------------------------- | --------------------- | --------------------------------- |
+| `kind` and `formatVersion` in an artifact | runtime compatibility | fields read by every parser       |
+| `$id` of a published schema               | durable schema name   | a URN, independent of hosting     |
+| `$schema` in an artifact, optional        | editor and tool hint  | a resolvable, versioned HTTPS URL |
+
+_Runtime compatibility._ `kind` and `formatVersion` alone decide whether and how a parser accepts an
+artifact. `$schema` is optional in every artifact. Parsers accept any string there and never
+interpret it: not to choose a format, not to validate, and not to fetch anything. A missing,
+stale, or foreign `$schema` never changes how an artifact parses. Parsers preserve the value
+verbatim, and serializers never add one. The v1 → v2 upgrade drops `$schema`, because in v1 it
+could only name the v1 schema.
+
+_Schema identity._ Each published schema has one `$id` per artifact kind and format version,
+`urn:scheme-tokens:schema:<name>:v<formatVersion>`, where `<name>` is the artifact kind without its
+`scheme-tokens/` prefix:
+
+```text
+urn:scheme-tokens:schema:token-graph:v2
+urn:scheme-tokens:schema:token-layer:v2
+urn:scheme-tokens:schema:compiled-scheme:v2
+```
+
+An id never changes for a released format version, whatever the package version, and a new format
+version gets a new id. The released v1 schemas keep their `https://scheme-tokens.dev/schemas/…`
+ids; identifiers are not rewritten after the fact. Nothing requires the project to own or host
+`scheme-tokens.dev`.
+
+The acceptance pass checked the spelling. Each id matches RFC 8141 `assigned-name` (NID
+`scheme-tokens`, NSS `schema:<name>:v2`) and is an absolute URI without a fragment, which is what
+JSON Schema 2020-12 requires of `$id`. Ajv 8.20 compiles a 2020-12 schema under each id in strict
+mode, validates instances against it, and registers it under the URN. A relative cross-file `$ref`
+cannot resolve against a URN base (Ajv fails with "URN without nid cannot be serialized"), which is
+why the schemas are self-contained: every `$ref` is a fragment such as `#/$defs/mode`. The
+`scheme-tokens` NID is not registered with IANA. JSON Schema needs a unique absolute URI, not a
+registered one, and the id is never dereferenced; the conformant alternatives cost more, because a
+`tag:` URI needs an authority the project controls (a domain it does not own, or a personal e-mail
+address inside every schema) and a `urn:uuid:` id says nothing about what it names. The segment is
+`v2` rather than `2`, the draft spelling, so that it reads as a version and matches the schema file
+names.
+
+_Instance discovery._ Editors resolve `$schema` over HTTPS. The documented form points at the
+published package's own files on a versioned package CDN:
+
+```text
+https://cdn.jsdelivr.net/npm/scheme-tokens@<package-version>/schemas/<name>.v<formatVersion>.schema.json
+https://cdn.jsdelivr.net/npm/scheme-tokens@0.4.0/schemas/token-graph.v2.schema.json
+```
+
+- The URL names an exact package version, so it keeps resolving to the bytes that version
+  published. Ranges such as `@0.4` also resolve on jsDelivr, but to different bytes over time, and
+  the documentation does not use them.
+- The schema file name carries the format version, so the path says which format an artifact
+  claims to follow, but parsers still read only `kind` and `formatVersion`.
+- The package exports the same files as `scheme-tokens/schemas/<name>.v<formatVersion>.schema.json`,
+  so a local path such as `./node_modules/scheme-tokens/schemas/token-graph.v2.schema.json` works
+  as well, and any equivalent versioned package CDN serves identical bytes.
+- The package ships the schemas of the current format version. An earlier version's schemas stay
+  reachable at the package versions that published them.
+
+**Source formats are retained while they upgrade losslessly.** This is a contract, not an
+implementation detail. Token graphs and token layers are durable authored input and may be
+persisted for years.
+
+- A reader accepts every source format version the package has released for which a deterministic,
+  lossless upgrade to the current version remains practical.
 - Each format change ships exactly one pure upgrade step, from version N to N+1. Readers compose
-  the steps in order, and each step's output is validated by the next version's grammar, so
-  v1 → v2 → v3 needs no v1 → v3 function. Issues always point into the original input.
+  the steps in order, v1 → v2 → v3 → …, and each step's output is validated by the next version's
+  grammar, so no step skips a version. Issues always point into the original input.
 - Each step has an equivalence gate: compiling the old artifact under its own semantics and the
   upgraded artifact under the current semantics yields identical values and visibility, on frozen
   fixtures and a randomized corpus. For v1 → v2 that is the 2,000-graph corpus of Appendix B.
 - Earlier grammars are implemented as deltas over the current validator, not as frozen copies of
   the parser, so retaining a version costs its delta and its step.
-- A version is retired only in a major release, only by a decision record, and only when a lossless
-  step is no longer practical. Age alone is not a reason. The release notes then name the last
-  package version that reads it, and users migrate by parsing and serializing with that version.
+- A source format is never removed because it is old. Removing one requires all three of: a major
+  release (before 1.0, a breaking minor release), a decision record, and a concrete reason why
+  keeping a lossless step is no longer practical. The release notes then name the last package
+  version that reads it, and users migrate by parsing and serializing with that version.
 - From 1.0 on, source format versions change only in major releases.
 
-Retaining "the current and the previous version" was rejected: it strands anyone who skips a major
-and, without a CLI, makes them install an old package version to migrate. A fixed window of more
-versions is just as arbitrary. Source-format changes are expected to be rare after 1.0, so the
+Retaining only "the current and the previous version" was rejected: it strands anyone who skips a
+major and, without a CLI, makes them install an old package version to migrate. A fixed window of
+more versions is just as arbitrary. Source-format changes are expected to be rare after 1.0, so the
 number of retained deltas stays small.
 
-**Compiled schemes are derived and not migrated.** Readers accept only the current compiled
-version. Any other version fails with `invalid-format-version`, whose message says to recompile
-from the source graph.
+**Compiled schemes are derived and not migrated.** A compiled scheme is rebuilt from its source
+graph at any time, so it carries no retention promise. Readers accept only the current compiled
+format version. Any other version fails with `invalid-format-version`, whose message tells the
+consumer to recompile from the source graph.
 
-On acceptance this replaces the AGENTS.md rule against old-format readers for persisted source
-artifacts.
+This replaces the AGENTS.md rule against old-format readers for persisted source artifacts; the
+rule keeps applying to compiled artifacts and to every other kind of compatibility shim.
 
 ### D11. One semantic authority
 
@@ -546,19 +671,101 @@ The three parallel validators and four layer parsers that exist today collapse i
 
 ### D12. Layer mode sets
 
-A graph owns its mode set, its mode order, and its default mode. A layer never introduces graph
-modes. A layer does carry a compatibility requirement: its mode set, the modes its mode maps name.
+A graph owns its mode set, its mode order, and its default mode. Layers take part in the graph's
+modes; they are not a second mode authority. A layer never declares, introduces, or orders modes.
+What it has is a requirement, derived from its own declarations:
 
-- The mode set is derived from the layer's declarations. Direct expressions contribute nothing, so
-  a layer without mode maps has the empty mode set.
-- All mode maps in one layer name the same modes. A map that lacks a mode named by another map of
-  the same layer reports `missing-mode-value` at the layer, when the layer is defined or parsed.
-- A layer fits a graph when its mode set is empty or equal to the graph's mode set. Equality, not
-  inclusion: mode maps are total, so a missing mode would leave a token without a value, and a
-  partial layer or a fallback would contradict ADR 0009.
-- The graph owns order. A layer has a set, so `["dark", "light"]` accepts a `light`/`dark` layer.
+1. A layer's mode set, its effective mode requirement, is the set of modes that its mode maps name,
+   whether authored directly or under `value`. Direct expressions (a literal, a reference, or a
+   `concat`) contribute nothing. A layer without mode maps has the empty mode set and fits every
+   graph. The keys of a layer's mode maps follow the mode-name rules of D2, so a mode set only ever
+   contains valid mode names.
+2. All mode maps in one layer name the same set. A layer whose maps disagree is invalid on its own,
+   before it is composed into any graph.
+3. A layer with a non-empty mode set fits a graph only when the set equals the graph's mode set.
+   Equality, not inclusion: mode maps are total, so a missing mode would leave a token without a
+   value, and a partial layer or a fallback would contradict ADR 0009.
+4. The graph owns order. A layer has a set, so `["dark", "light"]` accepts a `light`/`dark` layer.
+5. The graph's own tokens are checked one by one against the graph's modes, with
+   `missing-mode-value` and `unknown-mode-value` as today. A layer is checked as a whole.
 
-At runtime, an incompatible layer reports one issue, not one per token:
+This layer requires `light | dark`. The invariant literal adds no requirement:
+
+```ts
+defineTokenLayer({
+  id: "example",
+  tokens: {
+    "spacing.sm": "0.5rem",
+    "surface.canvas": { light: "#fff", dark: "#000" },
+    "surface.raised": { light: "#fafafa", dark: "#111" },
+  },
+});
+```
+
+This layer is invalid, because its declarations disagree about the modes it requires:
+
+```ts
+defineTokenLayer({
+  id: "invalid",
+  tokens: {
+    a: { light: "#fff", dark: "#000" },
+    b: { light: "#fff", dim: "#333", dark: "#000" },
+  },
+});
+```
+
+**Static rejection, for literal input.** `defineTokenLayer` derives the mode set as the union of the
+modes its maps name and requires every map to name all of them. The map that lacks a mode fails on
+its own token. For the invalid layer, on TypeScript 7.0.2 (type arguments abbreviated):
+
+```text
+error TS2322: Type '{ light: string; dark: string; }' is not assignable to type 'TokenModeValues<LayerModesOf<…>, string> & Forbid<...>'.
+  Property 'dim' is missing in type '{ light: string; dark: string; }' but required in type 'TokenModeValues<LayerModesOf<…>, string>'.
+```
+
+`defineTokenGraph` checks each layer whose mode set is finite against a finite graph mode set and
+maps a mismatch to `LayerModeMismatch<LayerModes, GraphModes>`, which names both sets (Appendix A;
+[ADR 0014](./0014-material3-layer-and-mode-mapping.md) shows the message). Diagnostic wording is not
+contractual; rejection is.
+
+**Runtime validation, for dynamic and untrusted input.** Parsed layers, layers built from dynamic
+keys, and generic generators have a mode set that TypeScript does not know (`string`), and a graph
+built from a dynamic mode tuple has one too. For them, and for every input, the helpers and parsers
+check the same rules at runtime and report one `layer-mode-mismatch` per layer, not one issue per
+token:
+
+- `layerId` names the layer, `modes` the set it must match, and `layerModes` the set it has.
+- A layer whose maps disagree is reported by `defineTokenLayer`, `parseTokenLayer`, and every graph
+  helper and parser that contains it. The first mode map in code-unit key order is the reference.
+  The first later map, in the same order, that names a different set is reported: `path` and `key`
+  point at it, `firstPath` at the reference map, and `modes` and `layerModes` list the two sets in
+  code-unit order. Such a layer is not compared with the graph.
+- A consistent layer whose set differs from the graph's is reported by `defineTokenGraph` and
+  `parseTokenGraph` at `/layers/<index>`, with `modes` in the graph's authored order and
+  `layerModes` in code-unit order.
+- The per-token `missing-mode-value` and `unknown-mode-value` issues that either case implies are
+  not reported for that layer.
+- Trusted helpers throw these issues (D9); their pointers point into the authored input, so the
+  helper reports `/tokens/b` where the parser reports `/tokens/b/value`.
+
+`parseTokenLayer` reports the invalid layer above as:
+
+```json
+{
+  "code": "layer-mode-mismatch",
+  "message": "Layer \"invalid\" has mode maps that disagree: \"a\" names dark, light; \"b\" names dark, dim, light.",
+  "path": "/tokens/b/value",
+  "layerId": "invalid",
+  "key": "b",
+  "firstPath": "/tokens/a/value",
+  "modes": ["dark", "light"],
+  "layerModes": ["dark", "dim", "light"]
+}
+```
+
+One code covers both cases because both violate one rule: a layer's mode maps must name exactly one
+set, and that set must be the graph's. The default `material3()` layer in the production consumer's
+six-mode graph reports:
 
 ```json
 {
@@ -578,25 +785,23 @@ At runtime, an incompatible layer reports one issue, not one per token:
 }
 ```
 
-`modes` follows the graph's authored order and `layerModes` code-unit order. The per-token
-`missing-mode-value` and `unknown-mode-value` issues that the mismatch implies are not reported for
-that layer.
-
 At the type level, `TokenLayer<Key, Mode, Visibility>` carries the mode set: `never` for a layer
 without mode maps, a literal union for a literal layer, and `string` when it is unknown, as for a
-parsed layer. `defineTokenGraph` checks each layer with a finite mode set against a finite graph
-mode set and maps a mismatch to `LayerModeMismatch<LayerModes, GraphModes>`, which names both sets
-in the diagnostic. When either side is dynamic, only the runtime check applies.
+parsed layer. When either the layer's or the graph's set is `string`, only the runtime check
+applies.
 
-The wire format does not change: the mode set is derived, and parsers check it.
+The wire format has no mode-set field: the mode set is derived, never persisted, and parsers check
+it.
 
 Generators receive the mapping from graph modes to their own coordinates as input and produce a
 layer keyed by graph modes, as `material3()` does
 ([ADR 0014](./0014-material3-layer-and-mode-mapping.md)). Several generated layers therefore
 coexist in one graph whatever their source concepts are, because each is keyed by the graph's
-modes. A static layer written for other modes, for example a published `light`/`dark` palette in a
-six-mode graph, must be remapped before composition. A remapping helper would be additive, since
-its output is an ordinary layer; core does not map modes during composition.
+modes. A generator that derives its mode set from keyed input must reject empty input, at the type
+level too: an empty set would type the layer as fitting every graph. A static layer written for
+other modes, for example a published `light`/`dark` palette in a six-mode graph, must be remapped
+before composition. A remapping helper would be additive, since its output is an ordinary layer;
+core does not map modes during composition.
 
 ### D13. TypeScript support
 
@@ -606,21 +811,29 @@ major, not every older compiler generation on which its declarations happen to w
 For the breaking release, TypeScript 7 is the current stable major (7.0.2 when this was decided):
 
 ```text
-Supported consumer TypeScript: >= 7.0
-Repository TypeScript: latest stable 7.x
-Blocking CI: the supported stable 7.x release and the repository version
-Non-blocking signal: typescript@next
+Supported TypeScript major: 7.x (>= 7.0 < 8.0)
+Repository TypeScript:      the latest stable 7.x release
+Blocking CI:                the oldest supported 7.x release (7.0) and the repository version
+Non-blocking signal:        typescript@next
 ```
 
-- `>= 7.0` names the supported stable major. It does not promise that every future major is
-  supported automatically. A new major is tracked through `typescript@next`, and supporting it is a
-  deliberate decision.
-- Moving the supported minimum to a later major, for example from 7.x to 8.x, is an explicit
-  breaking compatibility decision: before 1.0 it needs a changeset, and from 1.0 on a major release.
+- The contract names one major. Where a range is useful it is written bounded, `>= 7.0 < 8.0`. An
+  open range such as `>= 7.0` would include TypeScript 8 and every later major, which this policy
+  does not promise.
+- The oldest supported 7.x release is 7.0. The compatibility suite runs it, at its latest patch, as
+  the blocking floor, next to the repository's latest stable 7.x release.
+- `typescript@next` runs the same suite as a compatibility signal. Its failures block nothing. A
+  new major enters the supported contract only by an explicit decision.
+- Moving the supported baseline from 7.x to 8.x is an explicit breaking compatibility decision:
+  before 1.0 it needs a changeset in a breaking minor release, and from 1.0 on a major release.
+  Raising the floor inside 7.x narrows the range in the same way and follows the same rule.
 - TypeScript 5.x and 6.x are not part of the supported contract and are not tested in CI.
-- The blocking suite is the Appendix A case matrix and the packed-consumer type gate. The emitted
-  declarations of the implementation must pass it on the supported 7.x release before the release.
-- Adopting TypeScript 7 in the repository belongs to the implementation.
+- The blocking suite is the Appendix A case matrix, the adapter cases of
+  [ADR 0014](./0014-material3-layer-and-mode-mapping.md), and the packed-consumer type gate. The
+  emitted declarations of the implementation must pass it on both blocking compilers before the
+  release.
+- The supported TypeScript major joins the versioned contracts in [semver.md](../semver.md) when
+  the implementation lands. Adopting TypeScript 7 in the repository belongs to the implementation.
 
 The closing pass ran the prototype declarations on every compiler from 5.4.5 to 7.1-dev (Appendix
 A). The supported compilers catch 18 of 18 error cases, hold every positive assertion, and keep the
@@ -629,7 +842,7 @@ reference suggestion for E1, E2, E6, and E7, under `strict` alone and with
 
 | TypeScript          | Error cases caught | Positive assertions | Reference "Did you mean" (E1, E2, E6, E7) | Status              |
 | ------------------- | -----------------: | ------------------- | ----------------------------------------- | ------------------- |
-| 7.0.2               |              18/18 | all hold            | all four                                  | supported           |
+| 7.0.2               |              18/18 | all hold            | all four                                  | supported (floor)   |
 | 7.1.0-dev           |              18/18 | all hold            | all four                                  | `next` signal       |
 | 5.6.3 through 6.0.3 |              18/18 | all hold            | all four                                  | historical evidence |
 | 5.4.5, 5.5.4        |              18/18 | all hold            | E6 missing                                | historical evidence |
@@ -679,8 +892,8 @@ prints union members in a different order than 5.x and 6.x.
    `layer-mode-mismatch` issue.
 
 The production consumer migrates by keeping `defineTokenGraph` and replacing `layers:
-material.layers` with `layers: [material]` and `exactModes` with `modes`, deleting its two mode
-drift checks (ADR 0014), replacing `variableName` with `prefix: "color"`, and replacing the exact
+material.layers` with `layers: [material]` and `exactModes` with `modes`, dropping `defaultMode`
+from the Material call, deleting its two mode drift checks (ADR 0014), replacing `variableName` with `prefix: "color"`, and replacing the exact
 selector map with `attribute: false` plus `system` and `selectors`, which also lets the exporter
 produce the system fallback it renders by hand today. None of its 338 graph keys collides with the
 48 Material keys, so the new composition and visibility rules change nothing in its output, and
@@ -692,7 +905,7 @@ condition, which also makes nested dark sections work.
 ## Release scope
 
 The smallest coherent breaking release is one core release, proposed as `0.4.0`, with a companion
-`@scheme-tokens/material3` release under ADR 0014.
+`@scheme-tokens/material3` release under ADR 0014 once that record is accepted.
 
 Included, because each item changes the contract or the wire format and would otherwise force
 another breaking release:
@@ -704,8 +917,8 @@ another breaking release:
 - D5 and D6: `concat` with its resolved-value limit, and the reshaped compiled metadata;
 - D7 and ADR 0012: the CSS activation model, names, and collision diagnostics;
 - D9: `orThrow`, because every example in the documentation needs it;
-- D10: format version 2, the retention policy with the v1 upgrade, the `$schema` rule,
-  self-contained schemas, and the schema identity decision;
+- D10: format version 2, the source-format retention policy with the v1 upgrade, the `$schema`
+  rule and its versioned HTTPS convention, and self-contained schemas with URN ids;
 - D11: the single validation, composition, and resolution pipeline behind it all;
 - D13: the supported TypeScript 7 baseline and its CI gates.
 
@@ -730,40 +943,53 @@ regression and invariant tests:
 - a v1 graph and its v2 upgrade compile to identical values and visibility (golden fixtures plus a
   seeded randomized corpus);
 - a v1 compiled scheme fails with `invalid-format-version`;
+- `$schema` never changes how an artifact parses, a v2 value survives a round trip verbatim, and
+  the v1 upgrade drops it;
+- the schemas compile under their URN ids and contain only fragment `$ref`s;
+- retained expressions: no record for a literal, only `ref` for a pure reference, and a resolved
+  value on every reference part of a `concat`;
 - every CSS block declares the complete selected token set;
 - activation order: base, system, explicit, custom, then authored mode order; a non-mode attribute
   value keeps the system preference; nested markers; overlapping custom conditions;
 - literal graphs get complete public records, dynamic graphs and parsed layers stay partial;
 - layer mode sets: empty, equal, reordered, mismatched, inconsistent inside a layer, dynamic; one
-  `layer-mode-mismatch` per layer;
-- `material3()` inline in a graph's `layers` keeps its own mode set (the `NoInfer` regression);
+  `layer-mode-mismatch` per layer, with its reference and differing map for an inconsistent layer,
+  and no per-token mode issues for that layer;
+- the default `material3()` layer keeps its own mode set inline in a graph's `layers`, under an
+  annotated variable, a declared return type, and a typed layer list (the `NoInfer` regression);
 - canonical `concat`: merged and dropped literal parts, a reference-free `concat` becomes a string;
 - unknown references and cycles inside `concat`, a `concat` that references one key twice, and
   sibling order that is not a cycle;
-- the resolved-value limit fails before allocation on an exponential chain, and dependants are not
-  reported again;
-- the TypeScript case matrix on the supported stable 7.x release and the repository version,
-  blocking, and on `typescript@next` as a signal.
+- the resolved-value limit fails before allocation on an exponential chain, counts UTF-16 code
+  units, and dependants are not reported again;
+- the TypeScript case matrix on the oldest supported 7.x release and the repository's latest stable
+  7.x release, blocking, and on `typescript@next` as a signal.
 
-## Remaining uncertainties
+## Implementation and release gates
 
-- The schema identity choice between an owned domain and URN ids (D10) is the maintainer's.
-- Removing `defineTokens` changes the first line of every example. The closing pass chose it to
-  end the equivalence with `defineTokenGraph`; the acceptance review should confirm it.
+These are verification work for the release, not open design questions:
+
 - `:where(:host)` and `:where(:host(…))` were verified in Chromium only. Firefox and WebKit must be
   checked before release. If an engine does not match `:host` inside `:where()`, host selectors are
   emitted unwrapped and the zero-specificity rule documents that exception.
+- The emitted declarations must pass the blocking suite on both blocking compilers (D13), and the
+  repository moves to TypeScript 7 as part of the implementation.
 - On TypeScript 7.0, check cost equals today's types at 2,000 literal tokens; on the unsupported
-  5.x and 6.0 compilers it was about twice today's. The implementation should still profile the
-  constraint before release.
+  5.x and 6.0 compilers it was about twice today's. The implementation profiles the constraint
+  before release.
+- The v1 → v2 upgrade passes its equivalence gate on frozen fixtures and the randomized corpus.
+
+## Accepted trade-offs
+
 - The chosen typing reports misspelled metadata keys as `UnknownTokenProperty<"descripton">` rather
   than with TypeScript's own spelling suggestion.
-- The emitted declarations must pass the blocking suite on the supported 7.x release (D13).
 - 65,536 code units is a judgment: far above any composite value seen, and raising it later is
   compatible.
-- `tokenConcat` is a working name; it mirrors the `concat` record the way `tokenRef` mirrors `ref`.
+- The schema URN uses an unregistered NID (D10).
 - Compiled v1 schemes are not upgraded. A consumer that persists only compiled output must
   recompile.
+- Removing `defineTokens` changes the first line of every example; it ends the equivalence with
+  `defineTokenGraph`.
 
 ## Appendix A — type prototype
 
@@ -821,7 +1047,9 @@ configurations. The reference suggestion appeared for E1, E2, E6, and E7 on 5.6.
 rejected on the way:
 
 - Without `NoInfer` on its return type, `material3("#6750a4")` written inline in a six-mode graph
-  inferred six modes from the contextual return type, so M6 was not caught, on every version.
+  inferred six modes from the contextual return type, so M6 was not caught, on every version. That
+  variant constrained `layers` by a union of mode-bearing layer types, which supplied the contextual
+  type; the acceptance pass refines where the hazard lives today (below).
 - An invariant mode phantom checked by assignability also caught every case, but TypeScript
   elaborated against the `string` member of the accepted union. The chosen explicit check names
   both sets:
@@ -1133,6 +1361,34 @@ export declare function material3<
 >;
 ```
 
+### Acceptance pass: layer example, Material 3 API, and `NoInfer`
+
+The acceptance pass reused the closing-pass declarations with the concrete adapter options of
+ADR 0014 and ran them on TypeScript 7.0.2 and 7.1.0-dev.20260929.1, with 6.0.3 for comparison,
+under the strict configuration above. All three compilers agree.
+
+- The normative D12 layer infers `light | dark`; a layer with only literals infers `never`; the
+  disagreeing layer fails on token `a` with the missing `dim` mode.
+- The ADR 0014 examples typecheck with exact types: the basic graph and its public keys, the
+  six-mode coordinate map with the graph's six modes as its mode set, the composition with a second
+  layer (`all` keys are the 48 Material roles, the brand keys, and the graph keys), a parsed layer,
+  and a dynamic coordinate map whose mode set is `string`.
+- Rejected, each an `@ts-expect-error` that is consumed: the disagreeing layer; the default layer
+  in the six-mode graph, with the modes written inline and held in a `const` tuple; a six-mode
+  layer in a `light`/`dark` graph; a `light`/`dark` layer in a `light`/`dark`/`dim` graph; a custom
+  Material mode without `appearance`; a redundant `appearance` on `light`; the removed `exactModes`
+  and `defaultMode` options; a string shorthand for a coordinate.
+- `modes: {}` inferred `Mode = never`, which types the layer as fitting every graph while the
+  runtime rejects it. The guard in ADR 0014 rejects the empty map and leaves every other case
+  unchanged.
+- `NoInfer` is still required, but the chosen `CheckLayers` form of `defineTokenGraph` no longer
+  supplies the contextual type: without `NoInfer`, the inline six-mode case is still rejected. The
+  hazard remains wherever a mode-bearing layer type is expected. Without `NoInfer`, the default
+  layer passes as a six-mode layer when it initializes an annotated variable, is returned from a
+  function with a declared return type, or is an element of a typed layer list (cases X1–X3 of
+  ADR 0014); with `NoInfer`, all three are rejected. Removing `NoInfer` from the closing-pass
+  variant with the mode-bearing `layers` constraint reproduces the original M6 failure.
+
 ## Appendix B — runtime prototype
 
 A standalone JavaScript prototype implemented D3, D5, D6, D7, and D8 and ran the acceptance
@@ -1154,12 +1410,16 @@ Composition and provenance for the overridden role and its alias, shown with the
     "visibility": "public",
     "declarations": [{ "origin": { "kind": "graph" } }],
     "expressionByMode": {
-      "light": { "ref": "md.sys.color.primary", "value": "#b3261e" },
-      "dark": { "ref": "md.sys.color.primary", "value": "#f2b8b5" }
+      "light": { "ref": "md.sys.color.primary" },
+      "dark": { "ref": "md.sys.color.primary" }
     }
   }
 }
 ```
+
+The prototype printed each reference with its resolved value, `#b3261e` and `#f2b8b5`. The final
+shape of D6 leaves the value out of a pure reference, because it is `tokens.primary.light` and
+`tokens.primary.dark`.
 
 A collision under the single-hyphen default reports both keys and the variable:
 
@@ -1190,8 +1450,8 @@ part lengths before joining, with a limit of 65,536 code units:
 
 | Input                                                                        | Result                                                                                            |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `a0` is 8 characters; `a1`…`a64` each concatenate the previous token twice   | one `resolved-value-too-long` at `a14` (prospective 131,072); longest string built 65,536; 0.5 ms |
-| a 40,000-character literal concatenated twice, then aliased and concatenated | one issue at the doubling token; the alias and the outer `concat` are not reported                |
+| `a0` is 8 code units; `a1`…`a64` each concatenate the previous token twice   | one `resolved-value-too-long` at `a14` (prospective 131,072); longest string built 65,536; 0.5 ms |
+| a 40,000-code-unit literal concatenated twice, then aliased and concatenated | one issue at the doubling token; the alias and the outer `concat` are not reported                |
 | `concat` with a reference to a missing key                                   | one `unknown-reference`                                                                           |
 | `a` → `b` → `c` → `a` through two `concat` expressions                       | one `reference-cycle` with the path `a, b, c, a`                                                  |
 | `x` concatenates `b` and `a`, where `a` references `b`                       | resolves; not a cycle                                                                             |
@@ -1199,16 +1459,19 @@ part lengths before joining, with a limit of 65,536 code units:
 A first version marked keys as in progress when they were pushed rather than expanded and reported
 false cycles for the doubling chain; the invariant in D5 comes from that bug.
 
-Probe D, production measurements (closing pass). The consumer's real graph was captured read-only
-through a module-resolution hook and compiled with the released 0.3.0 compiler:
+Probe D, production measurements (closing pass, with the final D6 shape re-measured in the
+acceptance pass). The consumer's real graph was captured read-only through a module-resolution hook
+and compiled with the released 0.3.0 compiler. The acceptance pass reproduced the earlier figures
+exactly:
 
 | Measure                                                   | Result                                       |
 | --------------------------------------------------------- | -------------------------------------------- |
 | keys and modes                                            | 386 (338 graph, 48 layer), 6 modes           |
-| expressions                                               | 2,316: 1,878 literal, 438 references         |
+| expressions                                               | 2,316: 1,878 literal, 438 pure references    |
 | resolved values as JSON                                   | 88,856 B (9,148 B gzipped)                   |
 | every expression retained                                 | 110,108 B (11,362 B gzipped)                 |
-| only references retained (D6)                             | 37,270 B (3,960 B gzipped)                   |
+| only references, each with its resolved value (draft)     | 37,270 B (3,960 B gzipped)                   |
+| only references, target only (final D6)                   | 25,974 B (2,327 B gzipped)                   |
 | complete blocks, 26 public roles, 9 two-axis blocks       | 10,421 B (1,232 B gzipped), 234 declarations |
 | complete blocks, all 386 keys, 9 blocks (upper bound)     | 199,858 B (8,805 B gzipped)                  |
 | today's exporter output, 6 blocks without system fallback | 6,838 B (1,137 B gzipped), 156 declarations  |
