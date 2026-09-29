@@ -51,9 +51,12 @@ never ships as an alias next to the old shape.
   and composition; [ADR 0007](./adr/0007-material3-engine-and-role-contract.md) owns the pinned
   engine, accepted roles, and capabilities. [ADR 0008](./adr/0008-material3-fragment-layer-type.md)
   narrowly supersedes ADR 0006's fragment layer generic. ADR 0004 is historical and superseded by
-  these decision slices. [ADR 0014](./adr/0014-material3-layer-and-mode-mapping.md) is proposed:
-  it would replace the graph fragment with one layer whose modes map graph modes to generation
-  coordinates, superseding parts of ADR 0006 and all of ADR 0008.
+  these decision slices. [ADR 0014](./adr/0014-material3-layer-and-mode-mapping.md) (accepted) is
+  the contract for the next adapter release. The adapter helper returns one layer whose `modes` map
+  graph modes to Material settings. `colorMode` names the Material light/dark dimension, and the
+  positional source color argument is the only global source color. It supersedes parts of
+  ADR 0006, all of ADR 0008, and ADR 0005's list of named type exports. The released 0.1 adapter
+  stays documented as shipped until that release lands.
 - `packages/material3` is the active production package and sole current adapter authority. Its
   package-local runtime, type, engine, golden, API, tarball, licensing, and packed-consumer gates
   reproduce the accepted phase-1 evidence against the real package.

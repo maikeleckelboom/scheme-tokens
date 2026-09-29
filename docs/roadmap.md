@@ -61,7 +61,7 @@ proposed as `0.4.0`: graph-last composition and visibility-preserving overrides 
 must match the graph's modes, an explicit string-joining expression, reshaped compiled provenance,
 one CSS activation model with single-hyphen names (ADR 0012), format version 2 with source-format
 upgrades, and a supported TypeScript 7.x baseline. The companion Material 3 adapter release is
-designed in [ADR 0014](./adr/0014-material3-layer-and-mode-mapping.md), which is still proposed.
+designed in [ADR 0014](./adr/0014-material3-layer-and-mode-mapping.md) (accepted).
 
 `1.0.0` follows once the production consumer and the Material applications run on that release and
 the gates below hold.

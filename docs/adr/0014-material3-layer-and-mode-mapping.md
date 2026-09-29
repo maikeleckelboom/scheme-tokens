@@ -2,13 +2,25 @@
 
 ## Status
 
-Proposed, for one final review of the concrete API below. It applies the layer mode sets of
-[ADR 0013](./0013-coherent-token-model.md) (accepted), D12, to the Material 3 adapter. If accepted,
-this record supersedes the parts of [ADR 0006](./0006-material3-authoring-and-mode-contract.md)
-listed under [Supersession](#supersession) and
-[ADR 0008](./0008-material3-fragment-layer-type.md) as a whole.
-[ADR 0005](./0005-material3-adapter-package-boundary.md) and
-[ADR 0007](./0007-material3-engine-and-role-contract.md) are unchanged.
+Accepted on 2026-09-29. It applies the layer mode sets of
+[ADR 0013](./0013-coherent-token-model.md), D12, to the Material 3 adapter. This record supersedes:
+
+- the parts of [ADR 0006](./0006-material3-authoring-and-mode-contract.md) listed under
+  [Supersession](#supersession);
+- [ADR 0008](./0008-material3-fragment-layer-type.md) as a whole;
+- the list of named type exports in [ADR 0005](./0005-material3-adapter-package-boundary.md),
+  "Narrow public surface".
+
+The rest of ADR 0005, and all of [ADR 0007](./0007-material3-engine-and-role-contract.md), are
+unchanged.
+
+The review before acceptance made three corrections to the proposed API:
+
+- It removed a second global source color from the options.
+- It renamed the Material light/dark dimension from `appearance` to `colorMode`.
+- It stopped exporting the per-mode settings type.
+
+The evidence is under [Verification](#verification).
 
 ## Context
 
@@ -22,8 +34,8 @@ The production consumer is that case. Its graph has six application-owned modes,
 mono-light  mono-dark  vivid-light  vivid-dark  material3-light  material3-dark
 ```
 
-It generates Material with `exactModes` keyed by those six names and maps each to a generation
-coordinate; the `mono-*` modes use the `monochrome` variant, the others the top-level variant
+It generates Material with `exactModes` keyed by those six names and maps each to generation
+settings; the `mono-*` modes use the `monochrome` variant, the others the top-level variant
 (`tonal-spot` by default, with `vibrant`, `expressive`, and `fidelity` as candidates). It passes
 `material.layers` to a graph whose `modes` come from its own model, and then asserts by hand that
 the fragment's mode set and default mode did not drift from the graph's. The adapter's types give
@@ -38,8 +50,8 @@ with `exactModes: { light: {}, dark: {} }, defaultMode: "light"`, across spec ve
 and contrast levels.
 
 Material generation is not a function of two "source modes". Each value is a function of a
-generation coordinate: appearance, variant, contrast level, source color, and spec version. The
-existing `exactModes` map already maps graph mode names to coordinates, including the six-mode
+generation coordinate: color mode, variant, contrast level, source color, and spec version. The
+existing `exactModes` map already maps graph mode names to these settings, including the six-mode
 case. What is wrong is the ownership around it, not the mapping.
 
 ## Decision
@@ -55,9 +67,6 @@ visibility given by `visibility`. Its mode set (ADR 0013, D12) is the set of gra
 `modes`. It is a requirement that core checks against the graph, never a second mode envelope:
 `material3()` cannot add a mode to a graph, choose its default mode, or order its modes.
 
-`material3()` stays a trusted helper (ADR 0006): it validates and copies its input and throws for
-programmer misuse. Issues from the core helpers it calls propagate in the shape of ADR 0013, D9.
-
 ### Public API
 
 ```ts
@@ -66,7 +75,8 @@ import type { TokenLayer, TokenVisibility } from "scheme-tokens";
 /** The 48 `md.sys.color.*` role keys of ADR 0007. */
 export type Material3TokenKey =
   "md.sys.color.background" | /* … */ "md.sys.color.tertiary-fixed-dim";
-export type Material3Appearance = "light" | "dark";
+/** Material's light or dark color mode. A graph mode is a different, application-owned name. */
+export type Material3ColorMode = "light" | "dark";
 export type Material3SpecVersion = "2021" | "2025";
 export type Material3Variant =
   | "monochrome"
@@ -79,34 +89,41 @@ export type Material3Variant =
   | "rainbow"
   | "fruit-salad";
 
-/** Generation inputs a graph mode may set; unset fields take the top-level defaults. */
-export interface Material3Coordinate {
+/** Global settings a graph mode may override; an unset field takes the global value. */
+interface Material3ModeOverrides {
   readonly sourceColor?: string;
   readonly variant?: Material3Variant;
   readonly contrastLevel?: number;
 }
 
-/** `light` and `dark` imply their appearance; every other graph mode states it. */
-type Material3ModeCoordinate<Mode extends string> = Mode extends Material3Appearance
-  ? Material3Coordinate & { readonly appearance?: never }
-  : Material3Coordinate & { readonly appearance: Material3Appearance };
+/** `light` and `dark` imply their color mode; every other graph mode states it. */
+type Material3ModeSettings<Mode extends string> = Mode extends Material3ColorMode
+  ? Material3ModeOverrides & { readonly colorMode?: never }
+  : Material3ModeOverrides & { readonly colorMode: Material3ColorMode };
 
-/** One coordinate per graph mode, and at least one graph mode. */
+/** Error marker: a Material mode map must name at least one graph mode. */
+interface Material3ModesMustNotBeEmpty {
+  readonly material3ModesMustNotBeEmpty: never;
+}
+
+/** One settings entry per graph mode, and at least one graph mode. */
 export type Material3Modes<Mode extends string> = {
-  readonly [M in Mode]: Material3ModeCoordinate<M>;
-} & ([Mode] extends [never] ? { readonly "at least one graph mode": never } : unknown);
+  readonly [M in Mode]: Material3ModeSettings<M>;
+} & ([Mode] extends [never] ? Material3ModesMustNotBeEmpty : unknown);
 
 export interface Material3Options<
-  Mode extends string,
-  Visibility extends TokenVisibility,
-> extends Material3Coordinate {
+  Mode extends string = Material3ColorMode,
+  Visibility extends TokenVisibility = "public",
+> {
   readonly specVersion?: Material3SpecVersion;
+  readonly variant?: Material3Variant;
+  readonly contrastLevel?: number;
   readonly visibility?: Visibility;
   readonly modes?: Material3Modes<Mode>;
 }
 
 export declare function material3<
-  const Mode extends string = Material3Appearance,
+  const Mode extends string = Material3ColorMode,
   const Visibility extends TokenVisibility = "public",
 >(
   sourceColor: string,
@@ -118,42 +135,122 @@ export declare function material3<
 >;
 ```
 
-- The root exports are `material3`, `Material3TokenKey`, `Material3Appearance`,
-  `Material3SpecVersion`, `Material3Variant`, `Material3Coordinate`, `Material3Modes`, and
-  `Material3Options`. `Material3GraphFragment` is removed. `Material3Modes<Mode>` lets an
-  application check a coordinate map declared apart from the call, as in example B.
+- The root exports are `material3`, `Material3TokenKey`, `Material3ColorMode`,
+  `Material3SpecVersion`, `Material3Variant`, `Material3Modes`, and `Material3Options`.
+  `Material3GraphFragment` and `Material3Appearance` are removed, without aliases.
+- `Material3ModeOverrides`, `Material3ModeSettings`, and `Material3ModesMustNotBeEmpty` are
+  declaration internals. They appear in the emitted declarations and the API snapshot, but they are
+  not exported. Where an application needs one mode's settings type, `Material3Modes<Mode>[M]`
+  names it.
+- `Material3Modes<Mode>` lets an application check a settings map declared apart from the call
+  against its graph's modes, as in example B.
+- `Material3Options<Mode, Visibility>` lets a wrapper accept and forward options with their
+  generics. Its defaults are those of the default call: bare `Material3Options` describes a
+  `light`/`dark` layer with public visibility. A wrapper that accepts any visibility forwards the
+  generics or writes `Material3Options<Mode, TokenVisibility>`.
 - `modes` is exact. Its keys are graph mode names and become the layer's mode set. Omitting `modes`
   means `{ light: {}, dark: {} }`.
-- The keys `light` and `dark` imply their appearance and reject a redundant `appearance`; every
-  other key requires `appearance`. This is ADR 0006's appearance rule, unchanged.
-- The top-level `sourceColor` argument and the `variant` and `contrastLevel` options are defaults
-  that each mode may override. `specVersion` and `visibility` stay global.
+- The keys `light` and `dark` imply their color mode and reject a redundant `colorMode`; every
+  other key requires `colorMode`. This is ADR 0006's appearance rule under its new name.
 - An empty `modes` object is rejected. Without the guard, TypeScript infers `Mode = never` for
   `modes: {}`, which types the layer as fitting every graph while the runtime rejects it.
 - There is no string shorthand such as `"mono-light": "light"`, no `exactModes`, no additive
   `modes` merged with built-in `light` and `dark`, and no `defaultMode`.
 
-At runtime, `material3()` checks, before generating anything: its own options, including the
-appearance rule; each mode's coordinate against the capability matrix of ADR 0007, naming the graph
-mode when a combination is unsupported (for example `specVersion: "2025"` with
-`variant: "monochrome"`); and the mode names through core's envelope validation, so a reserved name
-such as `value` fails as an invalid mode instead of turning a generated mode map into an expanded
-token definition. It then builds the layer with `defineTokenLayer()`. Modes that share a coordinate
-share their generated values; generating each distinct coordinate once is an implementation detail.
+At runtime, `material3()` checks, before generating anything:
 
-### Modes map to generation coordinates, not to `light` and `dark`
+- its own options, including the color-mode rule;
+- each mode's settings against the capability matrix of ADR 0007. An unsupported combination is
+  reported with the graph mode's name, for example `specVersion: "2025"` with
+  `variant: "monochrome"`;
+- the mode names, through core's envelope validation. A reserved name such as `value` then fails as
+  an invalid mode, instead of turning a generated mode map into an expanded token definition.
 
-Every graph mode receives a complete generation coordinate: appearance, variant, contrast level,
-and source color, with the spec version shared. Two graph modes with the same appearance can
+It then builds the layer with `defineTokenLayer()`. Modes that share a generation coordinate share
+their generated values; generating each distinct coordinate once is an implementation detail.
+
+### One global source color
+
+The `sourceColor` argument is the only global source color. The options have no `sourceColor`, so
+two global source colors cannot be written: `material3("#6750a4", { sourceColor: "#ff0000" })`
+fails type checking as an unknown property, and at runtime with the `RangeError` for an unknown
+option.
+
+| Setting        | Global                                | Per graph mode                      | Default      |
+| -------------- | ------------------------------------- | ----------------------------------- | ------------ |
+| source color   | the `sourceColor` argument (required) | `modes[mode].sourceColor`           | —            |
+| variant        | `options.variant`                     | `modes[mode].variant`               | `tonal-spot` |
+| contrast level | `options.contrastLevel`               | `modes[mode].contrastLevel`         | `0`          |
+| color mode     | —                                     | the key, or `modes[mode].colorMode` | —            |
+| spec version   | `options.specVersion`                 | —                                   | `2021`       |
+| visibility     | `options.visibility`                  | —                                   | `public`     |
+
+A graph mode's effective setting is its own field when it sets one, otherwise the global value,
+otherwise the default. The fallback is per field, and there is no third level. The color mode has no
+global value: it comes from the key `light` or `dark`, or from the mode's own `colorMode`.
+
+A per-mode source color is a deliberate choice (ADR 0006). The adapter does not enforce brand or
+palette coherence across modes:
+
+```ts
+material3("#6750a4", {
+  modes: {
+    "brand-light": { colorMode: "light", sourceColor: "#ff0055" },
+    "brand-dark": { colorMode: "dark", sourceColor: "#cc0044" },
+  },
+});
+```
+
+### The source color stays positional
+
+`material3(sourceColor, options?)` is the only call shape. There is no object-only form and no
+overload that accepts both.
+
+- In both real call sites, the source color is data and the options are configuration. The
+  production consumer derives `material3Seed` from its authored palette before the call. Its theme
+  tool reads `recipe.sourceColor` and then maps the rest of the recipe onto options.
+- An object-only form, `material3({ sourceColor, … })`, infers `Mode` and `Visibility` in exactly
+  the same way. It adds no type-level guarantee. It would lengthen the default call to
+  `material3({ sourceColor: "#6750a4" })`, and it would make the one required input an option.
+- Accepting both forms would be two equivalent APIs, which ADR 0013 removes elsewhere.
+
+### `colorMode`, not `appearance`
+
+The public name of Material's light/dark dimension is `colorMode`, typed `Material3ColorMode`.
+Three terms stay distinct:
+
+```text
+graph mode             mono-dark      the application's mode, owned by the graph
+Material color mode    dark           light or dark generation
+Material variant       monochrome     the palette style
+```
+
+`colorMode` is the conventional name for a light/dark choice in UI tooling (for example Chakra UI's
+`colorMode` and VueUse's `useColorMode`), and the prefix keeps it apart from a graph mode. The
+following names were rejected:
+
+- `appearance` is generic, and CSS has an unrelated `appearance` property.
+- `colorScheme` collides with CSS `color-scheme`, which ADR 0013 represents as a token, and with
+  compiled schemes, Material "schemes", and the package name.
+- `theme` and `themeMode` are broader than light and dark.
+- `mode` already means a graph mode.
+
+ADR 0007's prose "light or dark appearance" names the same dimension; its engine contract is
+unchanged.
+
+### Modes map to generation settings, not to `light` and `dark`
+
+Every graph mode receives a complete generation coordinate: color mode, variant, contrast level,
+and source color, with the spec version shared. Two graph modes with the same color mode can
 therefore have different Material values, and two graph modes can share one coordinate.
 
 A mapping such as `"mono-light": "light"` could only say that a mode takes the values of a
-`light`/`dark` pair generated elsewhere. The production consumer needs more than that: its `mono-*`
-modes are generated with the `monochrome` variant, whose palettes differ from the tonal-spot
-palettes of `vivid-*` and `material3-*` in every role, although `mono-light`, `vivid-light`, and
-`material3-light` all have the light appearance. Its theme-report tool varies the spec version,
-the variant, and the contrast level per generated output. None of that is expressible as an alias
-of `light` or `dark`, so the adapter keeps coordinates and has no alias form.
+`light`/`dark` pair generated elsewhere. The production consumer needs more than that. Its `mono-*`
+modes use the `monochrome` variant, and in every role those palettes differ from the tonal-spot
+palettes of `vivid-*` and `material3-*`. Yet `mono-light`, `vivid-light`, and `material3-light` all
+have the light color mode. Its theme-report tool varies the spec version, the variant, and the
+contrast level per generated output. None of that is expressible as an alias of `light` or `dark`,
+so the adapter keeps per-mode settings and has no alias form.
 
 ### Example A: a basic Material graph
 
@@ -176,10 +273,11 @@ const theme = defineTokenGraph({
 ```
 
 The graph declares the modes, their order, and the default mode. `material3()` sees none of it.
-Without `modes`, it generates the coordinates `light` and `dark`, so its layer's mode set is
-`light | dark`, and core accepts the layer because that set equals the graph's. The same call in a
-graph with `modes: ["dark", "light"]` is accepted too, because order belongs to the graph. The
-default public compilation has exactly the keys `action.primary` and `surface.canvas`.
+Without `modes`, it generates the color modes `light` and `dark` for graph modes of the same names,
+so its layer's mode set is `light | dark`. Core accepts the layer because that set equals the
+graph's. The same call in a graph with `modes: ["dark", "light"]` is accepted too, because order
+belongs to the graph. The default public compilation has exactly the keys `action.primary` and
+`surface.canvas`.
 
 ### Example B: the six-mode production graph
 
@@ -197,14 +295,14 @@ const compilerModes = [
 ] as const;
 type CompilerMode = (typeof compilerModes)[number];
 
-// Today's `material3ExactModes`, keyed by the graph's modes.
+// Today's `material3ExactModes`, keyed by the graph's modes and checked against them.
 const material3Modes = {
-  "mono-light": { appearance: "light", variant: "monochrome" },
-  "mono-dark": { appearance: "dark", variant: "monochrome" },
-  "vivid-light": { appearance: "light" },
-  "vivid-dark": { appearance: "dark" },
-  "material3-light": { appearance: "light" },
-  "material3-dark": { appearance: "dark" },
+  "mono-light": { colorMode: "light", variant: "monochrome" },
+  "mono-dark": { colorMode: "dark", variant: "monochrome" },
+  "vivid-light": { colorMode: "light" },
+  "vivid-dark": { colorMode: "dark" },
+  "material3-light": { colorMode: "light" },
+  "material3-dark": { colorMode: "dark" },
 } as const satisfies Material3Modes<CompilerMode>;
 
 const material = material3(material3Seed, {
@@ -225,7 +323,7 @@ const graph = defineTokenGraph({
 
 With the default `variant`, each graph mode gets this coordinate:
 
-| Graph mode        | Appearance | Variant      | Contrast | Source          | Spec   |
+| Graph mode        | Color mode | Variant      | Contrast | Source          | Spec   |
 | ----------------- | ---------- | ------------ | -------- | --------------- | ------ |
 | `mono-light`      | light      | `monochrome` | 0        | `material3Seed` | `2021` |
 | `mono-dark`       | dark       | `monochrome` | 0        | `material3Seed` | `2021` |
@@ -234,10 +332,11 @@ With the default `variant`, each graph mode gets this coordinate:
 | `material3-light` | light      | `tonal-spot` | 0        | `material3Seed` | `2021` |
 | `material3-dark`  | dark       | `tonal-spot` | 0        | `material3Seed` | `2021` |
 
-The layer's mode set is exactly `CompilerMode`, so the graph accepts it; `vivid-*` and
+The layer's mode set is exactly `CompilerMode`, so the graph accepts it. `vivid-*` and
 `material3-*` share values because they share coordinates, and `mono-*` differs from both. The
-consumer still generates four columns it never reads. That is the cost of total mode maps, which
-ADR 0009 keeps; the values are internal and cheap.
+`satisfies` clause rejects a map that misses a graph mode, names a mode the graph does not have, or
+leaves out a custom mode's `colorMode`. The consumer still generates four columns it never reads.
+That is the cost of total mode maps, which ADR 0009 keeps; the values are internal and cheap.
 
 ### Example C: composition with another layer
 
@@ -266,20 +365,23 @@ const theme = defineTokenGraph({
 ```
 
 Composition order is the `layers` array, then the graph's own `tokens`
-([ADR 0010](./0010-graph-tokens-compose-last.md)), and nothing else. `brand` replaces the generated
-`md.sys.color.primary`, the role keeps its internal visibility, and its provenance lists
-`material3` then `brand`. Writing `layers: [brand, material3(…)]` would make the generated value
-win instead. There is no object-spread merging: neither layer carries `modes`, `defaultMode`, or
-`layers`, so nothing can be overwritten by spreading, and both layers are checked against the
-graph's modes independently. Compiled with `selection: "all"`, the key union is the 48 Material
-roles, `brand.radius`, `action.primary`, and `control.radius`; the default public selection has
-exactly `action.primary` and `control.radius`.
+([ADR 0010](./0010-graph-tokens-compose-last.md)), and nothing else.
+
+- `brand` replaces the generated `md.sys.color.primary`. The role keeps its internal visibility,
+  and its provenance lists `material3` then `brand`.
+- Writing `layers: [brand, material3(…)]` would make the generated value win instead.
+- There is no object-spread merging. Neither layer carries `modes`, `defaultMode`, or `layers`, so
+  spreading cannot overwrite anything, and each layer is checked against the graph's modes on its
+  own.
+- Compiled with `selection: "all"`, the key union is the 48 Material roles, `brand.radius`,
+  `action.primary`, and `control.radius`. The default public selection has exactly
+  `action.primary` and `control.radius`.
 
 ### Example D: a mode mismatch
 
 **Static.** When both mode sets are literal, `defineTokenGraph()` rejects the mismatch at compile
-time, on the `layers` entry, and names both sets. The default layer in the six-mode graph, on
-TypeScript 7.0.2 (visibility argument abbreviated):
+time, on the `layers` entry, and names both sets. Here is the default layer in the six-mode graph,
+on TypeScript 7.0.2 (visibility argument abbreviated):
 
 ```ts
 defineTokenGraph({
@@ -291,18 +393,18 @@ defineTokenGraph({
 ```
 
 ```text
-error TS2375: Type 'TokenLayer<Material3TokenKey, Material3Appearance, {…}>' is not assignable to type
-  'TokenLayer<Material3TokenKey, Material3Appearance, {…}> & LayerModeMismatch<...>' with 'exactOptionalPropertyTypes: true'. …
-  Type 'TokenLayer<Material3TokenKey, Material3Appearance, {…}>' is missing the following properties from type
+error TS2375: Type 'TokenLayer<Material3TokenKey, Material3ColorMode, {…}>' is not assignable to type
+  'TokenLayer<Material3TokenKey, Material3ColorMode, {…}> & LayerModeMismatch<...>' with 'exactOptionalPropertyTypes: true'. …
+  Type 'TokenLayer<Material3TokenKey, Material3ColorMode, {…}>' is missing the following properties from type
   'LayerModeMismatch<"dark" | "light", "material3-dark" | "material3-light" | "mono-dark" | "mono-light" | "vivid-dark" | "vivid-light">': layerModes, graphModes
 ```
 
-The same error appears for a six-mode layer in a `light`/`dark` graph, and for a `light`/`dark`
-layer in a `light`/`dark`/`dim` graph: equality, not inclusion. Diagnostic wording is not
-contractual; the rejection is.
+The same error appears in two more cases, because the rule is equality, not inclusion: a six-mode
+layer in a `light`/`dark` graph, and a `light`/`dark` layer in a `light`/`dark`/`dim` graph.
+Diagnostic wording is not contractual; the rejection is.
 
 **Runtime.** When either set is dynamic, the type check steps aside and core checks at runtime. A
-coordinate map read from configuration has the mode set `string`:
+settings map read from configuration has the mode set `string`:
 
 ```ts
 declare const configuredModes: Material3Modes<string>;
@@ -312,8 +414,8 @@ defineTokenGraph({ modes: compilerModes, defaultMode: "mono-light", layers: [mat
 ```
 
 This typechecks. If the configured keys are `light` and `dark`, `defineTokenGraph()` throws with
-one issue in its `cause`, and `parseTokenGraph()` returns the same issue for a persisted graph
-whose Material layer was generated for `light` and `dark`:
+one issue in its `cause`. `parseTokenGraph()` returns the same issue for a persisted graph whose
+Material layer was generated for `light` and `dark`:
 
 ```json
 {
@@ -336,16 +438,31 @@ whose Material layer was generated for `light` and `dark`:
 The per-token `missing-mode-value` and `unknown-mode-value` issues that the mismatch implies are
 not reported for the layer (ADR 0013, D12).
 
+### An empty mode map is rejected
+
+`modes: {}` would infer `Mode = never`, a layer typed as fitting every graph, while the runtime
+rejects the empty map. The type guard maps an empty map to the marker
+`Material3ModesMustNotBeEmpty`, so the diagnostic names the rule:
+
+```text
+error TS2322: Type '{}' is not assignable to type 'Material3Modes<never>'.
+  Property 'material3ModesMustNotBeEmpty' is missing in type '{}' but required in type 'Material3ModesMustNotBeEmpty'.
+```
+
+The marker follows core's named markers such as `LayerModeMismatch` (ADR 0013, D4). It replaces a
+property literally named `"at least one graph mode"`, which rejected the same inputs with a less
+direct message. The marker costs nothing in inference, and a non-empty map never sees it. At
+runtime, an empty `modes` object throws a `TypeError`.
+
 ### The declared mode set is not inferred from context
 
 The return type wraps `Mode` and the visibility in `NoInfer`. Without it, TypeScript infers `Mode`
 for `material3("#6750a4")` from a contextual return type that expects a mode-bearing layer, so the
-type claims modes the runtime never generates. The closing pass found the hazard with an earlier
+type claims modes the runtime never generates. The closing pass found the hazard in an earlier
 `defineTokenGraph` variant whose `layers` constraint supplied that contextual type (ADR 0013,
 Appendix A, case M6). The chosen `defineTokenGraph` signature no longer supplies it, but other
-contexts do. The acceptance pass verified on TypeScript 7.0.2, 7.1-dev, and 6.0.3 that without
-`NoInfer` the default `light`/`dark` layer passes as a six-mode layer in each of these, and that
-with `NoInfer` all three are rejected:
+contexts do. Without `NoInfer`, the default `light`/`dark` layer passes as a six-mode layer in each
+of these; with `NoInfer`, all three are rejected:
 
 ```ts
 // X1: an annotated variable
@@ -370,12 +487,34 @@ boundary. The adapter's type tests and core's runtime check at composition keep 
 honest. This reverses ADR 0008's rule against attaching a mode generic to the layer: its premise,
 that an isolated layer carries no mode information, no longer holds.
 
+### Errors
+
+`material3()` stays a trusted helper (ADR 0006): it validates and copies its input and throws for
+programmer misuse. It returns no `Result`, and there is no Material issue type. Two sources of
+errors exist, with separate owners:
+
+- **Adapter misuse** is detected by the adapter before anything is generated. It throws a
+  `TypeError` or a `RangeError`, as the released adapter does. Examples: a malformed source color,
+  an unknown option such as a top-level `sourceColor`, an unknown variant, a contrast level outside
+  `[-1, 1]`, a custom mode without `colorMode`, a redundant `colorMode`, an empty `modes` object,
+  and a spec-version and variant combination that ADR 0007 does not support.
+- **Structural issues** come from core. Mode names are core's rules, so an invalid or reserved mode
+  name fails in the core helper that the adapter calls. That helper's error propagates unchanged,
+  in the shape of ADR 0013, D9: its `cause` is the issue tuple, and each issue has its code and
+  message. Its pointers refer to the input core received, not to the adapter's options, so callers
+  read the code and the mode named in the message.
+
+A layer that does not fit its graph is not an adapter error. `defineTokenGraph()` and
+`parseTokenGraph()` report it as `layer-mode-mismatch`. The theme-report tool relies on this split
+today: it expects `material3()` to throw for an unsupported 2025 variant. A Material issue framework
+would add a second error model without a consumer that needs one. Messages are not contractual.
+
 ### One Material layer per graph
 
 The layer id stays `material3` and the keys stay `md.sys.color.*`. A second Material layer in one
 graph would repeat the id, which core rejects as `duplicate-layer-id`, and would replace every role
 of the first. A graph therefore holds at most one. Several palettes in one graph remain modes, as
-in the production consumer.
+in the production consumer, including per-mode source colors.
 
 ### CSS and provenance come from core
 
@@ -384,9 +523,31 @@ Under [ADR 0012](./0012-single-hyphen-css-variable-names.md), `md.sys.color.prim
 the README. Provenance is core's compiled metadata (ADR 0013, D6): `declarations` shows `material3`
 and any override, and `expressionByMode` shows which role a public alias reads.
 
+## Verification
+
+The acceptance review re-ran the adapter declarations above with the closing-pass core declarations
+of ADR 0013, Appendix A. It used TypeScript 7.0.2 (the supported floor), 7.1.0-dev.20260929.1, and
+6.0.3 for comparison, under the strict configuration of Appendix A and under `strict` alone. All
+three compilers agree.
+
+- **Positive, with exact type assertions.** Examples A–D; the D12 layer examples; a per-mode
+  `sourceColor` on custom and on `light` modes; bare `Material3Options` passed to `material3()`,
+  giving `light | dark` and `public`; a wrapper that forwards the generics and keeps exact modes and
+  `internal`; an options object declared apart with `satisfies Material3Options<CompilerMode,
+"internal">`; a one-mode map.
+- **Negative, each an `@ts-expect-error` that must be consumed.** A top-level `sourceColor` in
+  the options; `appearance` in a mode's settings; a `colorMode` other than `light` or `dark`; a
+  custom mode without `colorMode`; a redundant `colorMode` on `light`; bare `Material3Options`
+  with `visibility: "internal"`; `modes: {}` inline, as a `Material3Modes<never>` annotation, and
+  in a `satisfies` clause; an extra and a missing graph mode in a `satisfies Material3Modes<…>`
+  map; the removed `exactModes` and `defaultMode`; a string shorthand; the mismatches of example D,
+  with the modes inline and held in a `const` tuple; the disagreeing D12 layer; and X1–X3.
+- **`NoInfer`.** With `NoInfer` removed from the return type, exactly X1, X2, and X3 stop being
+  rejected on all three compilers, and every other case holds. The boundary is still required.
+
 ## Supersession
 
-If this record is accepted, it supersedes these parts of
+This record supersedes these parts of
 [ADR 0006](./0006-material3-authoring-and-mode-contract.md):
 
 | ADR 0006 section                     | Outcome                                                                                                                                         |
@@ -396,11 +557,11 @@ If this record is accepted, it supersedes these parts of
 | Exact finite token-key union         | Kept. `TokenLayer<Material3TokenKey, Mode>` now carries the layer's mode set and visibility phantoms (ADR 0013, D12).                           |
 | Reproduced real-core type proof      | Superseded for additive `modes`, `exactModes`, and `defaultMode`; replaced by the cases of ADR 0013, Appendix A, and this record.               |
 | Heterogeneous layer-tuple proof      | Kept.                                                                                                                                           |
-| Pinned default path                  | Kept, except "default mode light": the default coordinate map is `{ light: {}, dark: {} }`, and the graph chooses its default mode.             |
+| Pinned default path                  | Kept, except "default mode light": the default settings map is `{ light: {}, dark: {} }`, and the graph chooses its default mode.               |
 | Additive `modes`                     | Superseded. Built-in keys are written explicitly.                                                                                               |
 | Replacing `exactModes`               | Superseded: `exactModes`, top-level `defaultMode`, their mutual exclusion, and `NoInfer` on `defaultMode`. The exact map becomes `modes`.       |
-| One appearance rule                  | Kept, applied to the keys of `modes`.                                                                                                           |
-| Per-mode generation coordinates      | Kept.                                                                                                                                           |
+| One appearance rule                  | Kept, applied to the keys of `modes`, and renamed: `appearance` becomes `colorMode` and `Material3Appearance` becomes `Material3ColorMode`.     |
+| Per-mode generation coordinates      | Kept. The positional source color is the only global source color; the options carry none.                                                      |
 | Visibility and ordinary overrides    | `visibility` kept. The override example is superseded by graph tokens or later layers (ADRs 0010 and 0011).                                     |
 | Core remains structural authority    | Two-stage validation through a fragment superseded: names through core, the layer through `defineTokenLayer()`, the fit by D12.                 |
 | One Material fragment per graph      | Kept as one Material layer per graph.                                                                                                           |
@@ -411,11 +572,27 @@ If this record is accepted, it supersedes these parts of
 `Material3GraphFragment.layers`, no longer exists, and its rule that the adapter must not attach a
 mode generic to the layer is reversed under [Typing the implementation](#typing-the-implementation).
 
+From [ADR 0005](./0005-material3-adapter-package-boundary.md), only the named type exports under
+"Narrow public surface" change. They become exactly `Material3TokenKey`, `Material3ColorMode`,
+`Material3SpecVersion`, `Material3Variant`, `Material3Modes`, and `Material3Options`. For those two
+types, this reverses ADR 0005's rule that option and mode-map types stay declaration internals and
+that no option types are named separately:
+
+- `Material3Modes` lets an application check a settings map against its graph's modes before the
+  call.
+- `Material3Options` lets a wrapper forward options with their generics.
+
+Every other internal stays internal, including the per-mode settings type. The single runtime
+export, dependency ownership, bundling, and the rest of ADR 0005 stand.
+
 ## Consequences
 
 ### For the production consumer
 
-- `exactModes` becomes `modes`, and `defaultMode` leaves the Material call.
+- `exactModes` becomes `modes`, `appearance` becomes `colorMode` in its six entries, and
+  `defaultMode` leaves the Material call.
+- Its settings map can add `satisfies Material3Modes<CompilerMode>`. It is declared apart today
+  with `as const` only.
 - `layers: material.layers` becomes `layers: [material]`.
 - The hand-written checks that the fragment's mode set and default mode match `compilerModes` are
   deleted. The type check replaces them for literal maps, and `layer-mode-mismatch` replaces them at
@@ -428,13 +605,16 @@ owns its modes.
 
 ### For other callers
 
-- The README's first example gains the two envelope lines that the fragment used to supply.
+- The README's first example gains the two envelope lines that the fragment used to supply, and its
+  custom-mode examples write `colorMode`.
 - The Material demo applications replace `defineTokenGraph({ ...material, tokens })` with an
   explicit envelope and `layers: [material]`.
-- `@scheme-tokens/material3` needs a breaking release with a changeset, a new API snapshot, and its
-  peer range moved to the core release of ADR 0013. Its type tests replace the fragment proofs with
-  the mode-set cases of ADR 0013, Appendix A, and the cases in this record, including X1–X3 and the
-  empty-map guard, on the TypeScript versions of ADR 0013, D13.
+- `@scheme-tokens/material3` needs a breaking release with a changeset and a new API snapshot. Its
+  API gate's expected type exports become the six names above. Its peer range moves to the core
+  release of ADR 0013.
+- Its type tests replace the fragment proofs with the mode-set cases of ADR 0013, Appendix A, and
+  with the cases under [Verification](#verification). They run on the TypeScript versions of
+  ADR 0013, D13.
 
 ## Alternatives
 
@@ -446,11 +626,31 @@ overwriting, and mode agreement stays a hand-written check.
 ### Map each graph mode to `light` or `dark`
 
 `material3(seed, { modes: { "mono-light": "light", … } })`, or a graph-level mapping that points
-each graph mode at a generated `light` or `dark` column. Rejected: it cannot express the
-production consumer's monochrome modes or any per-mode variant, contrast level, or source color,
-and a graph-level mapping would make layers declare modes of their own and add a per-layer mapping
-to the graph wire format. The generator already receives the mapping as input, so core needs no
-second mapping mechanism.
+each graph mode at a generated `light` or `dark` column. Rejected, for two reasons:
+
+- It cannot express the production consumer's monochrome modes, or any per-mode variant, contrast
+  level, or source color.
+- A graph-level mapping would make layers declare modes of their own, and it would add a per-layer
+  mapping to the graph wire format.
+
+The generator already receives the mapping as input, so core needs no second mapping mechanism.
+
+### A source color in the options as well
+
+`material3(seed, { sourceColor })` next to the positional argument, as the proposed
+`Material3Options extends Material3Coordinate` allowed. Rejected: two global source colors need a
+precedence rule for a state that has no meaning. Per-mode source colors cover every real need.
+
+### An object-only call shape, or both shapes
+
+Rejected under [The source color stays positional](#the-source-color-stays-positional).
+
+### A public per-mode settings type
+
+The proposed `Material3Coordinate` named the three overridable fields only, not the effective
+coordinate, which also includes the color mode and the spec version. After the global and per-mode
+settings were separated, its meaning was less clear still, and no consumer names it. Rejected;
+`Material3Modes<Mode>[M]` names one mode's settings where needed.
 
 ### Allow a layer to cover a subset of the graph's modes
 
