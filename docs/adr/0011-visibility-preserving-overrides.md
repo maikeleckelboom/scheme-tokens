@@ -2,10 +2,11 @@
 
 ## Status
 
-Proposed, as a decision slice of [ADR 0013](./0013-coherent-token-model.md). If accepted, this
-record narrows the rule in [ADR 0009](./0009-core-contract-convergence.md) that "visibility,
-description, deprecation, and extensions do not implicitly merge from a shadowed declaration" to
-description, deprecation, and extensions. It is independent of
+Accepted, as a decision slice of [ADR 0013](./0013-coherent-token-model.md), which remains
+proposed. This record narrows the rule in [ADR 0009](./0009-core-contract-convergence.md) that
+"visibility, description, deprecation, and extensions do not implicitly merge from a shadowed
+declaration" to description, deprecation, and extensions. It ships with format version 2 in the
+breaking release that ADR 0013 designs. It is independent of
 [ADR 0010](./0010-graph-tokens-compose-last.md) and composes with it.
 
 ## Context
@@ -65,7 +66,8 @@ visibility of each declaration in the composition path (ADR 0013, D6).
   direct graph override of an internal role stays internal.
 - Static typing mirrors the same three rules. The type prototype for ADR 0013 (D4) folds layers and
   graph tokens over explicit-visibility key unions and reproduces the runtime result, including an
-  explicitly republished role and an override that stays internal, on TypeScript 5.9 and 6.0.
+  explicitly republished role and an override that stays internal, on every TypeScript version
+  from 5.4 to 7.x.
 - Overrides without explicit visibility change meaning, so the change ships with format version 2.
   Readers upgrade a persisted v1 graph by writing an explicit `visibility` wherever the new rule
   would differ from v1. In the prototype, 772 such values were written across 2,000 randomized v1

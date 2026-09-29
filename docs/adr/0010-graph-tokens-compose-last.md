@@ -2,11 +2,12 @@
 
 ## Status
 
-Proposed, as a decision slice of [ADR 0013](./0013-coherent-token-model.md), which designs
-composition, visibility, authoring, and static typing as one contract. If accepted, this record
-supersedes the composition order in [ADR 0009](./0009-core-contract-convergence.md), "Graph tokens
-compose first. Layers apply afterward in array order.", and the matching part of the roadmap's 1.0
-gate that retains graph-first composition. Override visibility is decided by
+Accepted, as a decision slice of [ADR 0013](./0013-coherent-token-model.md), which designs
+composition, visibility, authoring, and static typing as one contract and remains proposed. This
+record supersedes the composition order in [ADR 0009](./0009-core-contract-convergence.md), "Graph
+tokens compose first. Layers apply afterward in array order.", and the matching part of the
+roadmap's 1.0 gate that retains graph-first composition. It ships with format version 2 in the
+breaking release that ADR 0013 designs. Override visibility is decided by
 [ADR 0011](./0011-visibility-preserving-overrides.md).
 
 ## Context
@@ -50,8 +51,11 @@ Layers compose first, in array order. Graph `tokens` compose last. A later compo
 still replaces the complete earlier declaration with the same key, except for visibility, which
 [ADR 0011](./0011-visibility-preserving-overrides.md) decides.
 
-With this order, token layers compose exactly like CSS cascade layers: later layers win over
-earlier ones, and the unlayered declarations, here the graph's own tokens, win over every layer.
+With this order, token layers follow the precedence intuition of CSS cascade layers: later layers
+win over earlier ones, and the graph's own tokens, like unlayered declarations, win over every
+layer. The analogy covers precedence only. A later token declaration replaces the earlier one for
+its key as a whole, visibility aside; there is no specificity, no `!important` inversion, and no
+per-property cascade.
 
 The rest of the composition contract is unchanged:
 
@@ -62,8 +66,9 @@ The rest of the composition contract is unchanged:
 
 ## Consequences
 
-- The graph's own tokens are the final word. `defineTokens(tokens, material3(…))` overrides
-  generated roles directly, and the README override section no longer needs an extra layer.
+- The graph's own tokens are the final word. A graph token overrides a generated role of
+  `layers: [material3(…)]` directly, and the README override section no longer needs an extra
+  layer.
 - "Which public roles are still generated defaults?" reads directly from provenance: a winning
   `layer` declaration is generated or imported, a winning `graph` declaration is the application's
   own.

@@ -2,10 +2,11 @@
 
 ## Status
 
-Proposed, as a decision slice of [ADR 0013](./0013-coherent-token-model.md), whose CSS activation
-model (D7) uses these names. If accepted, this record changes the default property-name encoding of
-`exportCssVars()`, a CSS exporter contract under [semver.md](../semver.md). The `variableName`
-escape hatch recorded in [ADR 0002](./0002-public-api-reset.md) stays.
+Accepted, as a decision slice of [ADR 0013](./0013-coherent-token-model.md), whose CSS activation
+model (D7) uses these names and which remains proposed. This record changes the default
+property-name encoding of `exportCssVars()`, a CSS exporter contract under
+[semver.md](../semver.md), in the breaking release that ADR 0013 designs. The `variableName` escape
+hatch recorded in [ADR 0002](./0002-public-api-reset.md) stays.
 
 ## Context
 
