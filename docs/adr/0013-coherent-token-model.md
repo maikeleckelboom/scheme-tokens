@@ -344,11 +344,18 @@ part            = string | { ref: Key }
   (D11). Serialized artifacts and retained expressions therefore contain only canonical expressions,
   and a `concat` of one reference is retained as that pure reference (D6).
 
-- `tokenConcat` is a tagged template for authoring:
-  `` tokenConcat`0 0 0 3px ${tokenRef("primary")}` ``. It mirrors the `concat` record as `tokenRef`
+- `tokenConcat` is a tagged template for authoring. It mirrors the `concat` record as `tokenRef`
   mirrors `ref`, and returns the record its template spells. A template always has at least one
-  literal part, so ` tokenConcat` ``is the literal `""` and`` tokenConcat`${tokenRef("a")}` `` is
-  `{ ref: "a" }` once normalized. Adapters write canonical expressions.
+  literal part, and normalization then applies the canonical form above:
+
+  ```ts
+  tokenConcat``; // normalizes to ""
+  tokenConcat`${tokenRef("a")}`; // normalizes to { ref: "a" }
+  tokenConcat`0 0 0 3px ${tokenRef("primary")}`; // stays { concat: ["0 0 0 3px ", { ref: "primary" }] }
+  ```
+
+  Adapters write canonical expressions.
+
 - Nested `concat`, conditionals, fallbacks, and arithmetic are excluded. `calc()` and
   `color-mix()` stay CSS text that `concat` can carry.
 
@@ -648,7 +655,9 @@ tag:maikel.site,2026-09-29:scheme-tokens/schema/compiled-scheme/v2
   format version changes only the last segment, for example `…/token-graph/v3`.
 - RFC 4151 requires the authority name to belong to the minting entity at 00:00 UTC on the date
   in the tag, and the date not to be in the future. `maikel.site` is the domain of the project
-  author's production site, and the date is the day these ids were minted.
+  author's production site, and the date is the day these ids were minted. The author confirmed
+  that `maikel.site` was under their control well before 2026-09-29 00:00 UTC, so the requirement
+  holds.
 - Who holds the domain later does not matter, so the ids stay valid if the domain changes hands.
   The domain is written in lowercase, as RFC 4151 recommends.
 - The specific part uses only unreserved characters and `/`.
@@ -1060,10 +1069,9 @@ These are verification work for the release, not open design questions:
   5.x and 6.0 compilers it was about twice today's. The implementation profiles the constraint
   before release.
 - The v1 → v2 upgrade passes its equivalence gate on frozen fixtures and the randomized corpus.
-- The `tag:` schema ids (D10) assume that the project author held `maikel.site` at 00:00 UTC on
-  2026-09-29. The author confirms this before the v2 schemas are published. It is not yet recorded
-  as confirmed. If it does not hold, the ids take a date on which the author held the domain,
-  before any v2 schema is released.
+- The ownership prerequisite of the `tag:` schema ids (D10) is satisfied. The author confirmed that
+  `maikel.site` was under their control well before 2026-09-29 00:00 UTC, so the ids stand as
+  accepted.
 
 ## Accepted trade-offs
 
