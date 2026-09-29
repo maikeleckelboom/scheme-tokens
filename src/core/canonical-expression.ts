@@ -5,7 +5,7 @@ import type { Issue, Result } from "./result";
 
 export type ExpressionPart = string | TokenReference;
 
-/** Internal D5 model. The public v1 expression grammar remains unchanged. */
+/** Internal canonical subset of the public D5 expression grammar. */
 export type CanonicalExpression =
   | ExpressionPart
   | { readonly concat: readonly [ExpressionPart, ExpressionPart, ...ExpressionPart[]] };
@@ -17,10 +17,38 @@ export interface ExpressionSource {
   readonly referencePaths: readonly string[];
 }
 
-type InvalidExpression = Issue<"invalid-token-value">;
+type InvalidExpression = Issue<"invalid-token-value" | "invalid-reference">;
+
+// Relative occurrence paths survive canonicalization without adding fields to public data.
+// A signature prevents stale locations from surviving mutation of an accepted expression.
+const locations = new WeakMap<
+  object,
+  { readonly signature: string; readonly suffixes: readonly string[] }
+>();
+export function canonicalizeExpression(
+  input: unknown,
+  path: string,
+): Result<ExpressionSource, InvalidExpression> {
+  const result = normalizeExpression(input, path);
+  if (!result.ok || typeof result.value.expression === "string") {
+    return result;
+  }
+  const expression = result.value.expression;
+  const signature = JSON.stringify(expression);
+  const previous = typeof input === "object" && input !== null ? locations.get(input) : undefined;
+  const referencePaths =
+    previous?.signature === signature
+      ? previous.suffixes.map((suffix) => path + suffix)
+      : result.value.referencePaths;
+  locations.set(expression, {
+    signature,
+    suffixes: referencePaths.map((source) => source.slice(path.length)),
+  });
+  return { ok: true, value: { expression, path, referencePaths } };
+}
 
 /** Owns its output; accepts only strings, exact references, and non-empty flat concat. */
-export function canonicalizeExpression(
+function normalizeExpression(
   input: unknown,
   path: string,
 ): Result<ExpressionSource, InvalidExpression> {
@@ -33,7 +61,15 @@ export function canonicalizeExpression(
   }
   const entry = record.value[0];
   if (record.value.length !== 1 || entry === undefined) {
-    return { ok: false, issues: [invalidExpression(path)] };
+    return {
+      ok: false,
+      issues: [
+        invalidExpression(
+          path,
+          record.value.some((item) => item.key === "ref"),
+        ),
+      ],
+    };
   }
   if (entry.key === "ref" && typeof entry.value === "string" && isTokenKey(entry.value)) {
     return {
@@ -42,7 +78,7 @@ export function canonicalizeExpression(
     };
   }
   if (entry.key !== "concat") {
-    return { ok: false, issues: [invalidExpression(path)] };
+    return { ok: false, issues: [invalidExpression(path, entry.key === "ref")] };
   }
   const parts = readArray(entry.value, invalidExpression(path));
   if (!parts.ok) {
@@ -80,7 +116,15 @@ export function canonicalizeExpression(
       typeof target.value !== "string" ||
       !isTokenKey(target.value)
     ) {
-      return { ok: false, issues: [invalidExpression(partPath)] };
+      return {
+        ok: false,
+        issues: [
+          invalidExpression(
+            partPath,
+            reference.value.some((item) => item.key === "ref"),
+          ),
+        ],
+      };
     }
     flushLiterals();
     output.push({ ref: target.value });
@@ -97,9 +141,9 @@ export function canonicalizeExpression(
   return { ok: true, value: { expression, path, referencePaths } };
 }
 
-function invalidExpression(path: string): InvalidExpression {
+function invalidExpression(path: string, reference = false): InvalidExpression {
   return {
-    code: "invalid-token-value",
+    code: reference ? "invalid-reference" : "invalid-token-value",
     message: "Expected a string, exact reference, or non-empty flat concat.",
     path,
   };

@@ -3,7 +3,6 @@ import {
   compileTokenGraph,
   defineTokenGraph,
   defineTokenLayer,
-  defineTokens,
   exportCssVars,
   parseCompiledScheme,
   parseTokenGraph,
@@ -15,9 +14,9 @@ import {
 } from "../../src";
 
 const strictGraph = {
-  $schema: "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json",
+  $schema: "https://scheme-tokens.dev/schemas/token-graph.v2.schema.json",
   kind: "scheme-tokens/token-graph",
-  formatVersion: 1,
+  formatVersion: 2,
   modes: ["light", "dark"],
   defaultMode: "light",
   defaultVisibility: "public",
@@ -63,15 +62,16 @@ describe("pre-release API reset", () => {
       },
     };
 
-    const graph = defineTokens(tokens, {
+    const graph = defineTokenGraph({
       modes: ["dark", "light"],
       defaultMode: "light",
+      tokens: tokens,
     });
 
     expect(graph).toMatchObject({
       kind: "scheme-tokens/token-graph",
-      formatVersion: 1,
-      modes: ["light", "dark"],
+      formatVersion: 2,
+      modes: ["dark", "light"],
       defaultMode: "light",
       defaultVisibility: "public",
       tokens: {
@@ -98,9 +98,11 @@ describe("pre-release API reset", () => {
   });
 
   test("defaults only genuine single-mode authoring to base", () => {
-    const graph = defineTokens({
-      background: "#ffffff",
-      primary: tokenRef("background"),
+    const graph = defineTokenGraph({
+      tokens: {
+        background: "#ffffff",
+        primary: tokenRef("background"),
+      },
     });
 
     expect(graph.modes).toEqual(["base"]);
@@ -110,17 +112,19 @@ describe("pre-release API reset", () => {
 
   test("requires an explicit complete multimode envelope and default", () => {
     expect(() =>
-      defineTokens({ background: { light: "#ffffff", dark: "#111111" } } as never),
-    ).toThrow(/modes/i);
+      defineTokenGraph({ tokens: { background: { light: "#ffffff", dark: "#111111" } } as never }),
+    ).toThrow(/unknown-mode-value/i);
     expect(() =>
-      defineTokens({ background: { light: "#ffffff", dark: "#111111" } }, {
+      defineTokenGraph({
         modes: ["light", "dark"],
+        tokens: { background: { light: "#ffffff", dark: "#111111" } },
       } as never),
     ).toThrow(/defaultMode/i);
     expect(() =>
-      defineTokens({ background: { light: "#ffffff" } } as never, {
+      defineTokenGraph({
         modes: ["light", "dark"],
         defaultMode: "light",
+        tokens: { background: { light: "#ffffff" } } as never,
       }),
     ).toThrow(/dark/i);
   });
@@ -204,7 +208,7 @@ describe("pre-release API reset", () => {
         tokens: {},
         layers: [incomplete],
       }),
-    ).toThrow(/missing mode "dark"/i);
+    ).toThrow(/layer-mode-mismatch/i);
 
     const overcomplete = defineTokenLayer({
       id: "overcomplete",
@@ -217,7 +221,7 @@ describe("pre-release API reset", () => {
         tokens: {},
         layers: [overcomplete],
       }),
-    ).toThrow(/unknown mode "sepia"/i);
+    ).toThrow(/layer-mode-mismatch/i);
   });
 
   test("uses Result<Value, Problem> for every fallible public operation", () => {
@@ -237,7 +241,7 @@ describe("pre-release API reset", () => {
     expect(exported.variableByToken.primary).toBe("--primary");
   });
 
-  test("parsers own accepted data and reject noncanonical schema URIs", () => {
+  test("parsers own accepted data and preserve arbitrary schema hints", () => {
     const input = structuredClone(strictGraph) as {
       $schema: string;
       tokens: { primary: { value: { light: { ref: string }; dark: { ref: string } } } };
@@ -250,10 +254,7 @@ describe("pre-release API reset", () => {
     });
 
     input.$schema = "https://example.invalid/token-graph.json";
-    expect(parseTokenGraph(input)).toMatchObject({
-      ok: false,
-      issues: [{ code: "invalid-schema-uri", path: "/$schema" }],
-    });
+    expect(expectOk(parseTokenGraph(input)).$schema).toBe(input.$schema);
   });
 
   test("resolves public tokens through internal dependencies before filtering", () => {
@@ -265,14 +266,14 @@ describe("pre-release API reset", () => {
         dark: "oklch(78% 0.12 250)",
       },
     });
-    expect(compiled.metadataByToken.primary?.dependenciesByMode).toEqual({
-      dark: ["brand.400"],
-      light: ["brand.600"],
+    expect(compiled.metadataByToken.primary?.expressionByMode).toEqual({
+      dark: { ref: "brand.400" },
+      light: { ref: "brand.600" },
     });
   });
 
   test("validates every explicit selection form and emits code-unit order", () => {
-    const graph = defineTokens({ z: "z", a: "a", m: "m" });
+    const graph = defineTokenGraph({ tokens: { z: "z", a: "a", m: "m" } });
 
     expect(
       Object.keys(
@@ -304,7 +305,7 @@ describe("pre-release API reset", () => {
   test("escapes RFC 6901 reserved characters in every diagnostic pointer", () => {
     const graphEnvelope = {
       kind: "scheme-tokens/token-graph",
-      formatVersion: 1,
+      formatVersion: 2,
       modes: ["base"],
       defaultMode: "base",
       defaultVisibility: "public",
@@ -341,15 +342,14 @@ describe("pre-release API reset", () => {
     expect(
       parseCompiledScheme({
         kind: "scheme-tokens/compiled-scheme",
-        formatVersion: 1,
+        formatVersion: 2,
         modes: ["base"],
         defaultMode: "base",
         tokens: { "a/b": { base: "#ffffff" } },
         metadataByToken: {
           "a/b": {
             visibility: "public",
-            origin: { kind: "graph" },
-            dependenciesByMode: { base: [] },
+            declarations: [{ origin: { kind: "graph" } }],
           },
         },
       }),
@@ -369,7 +369,7 @@ describe("pre-release API reset", () => {
       tokens[`cycle.${index}`] = tokenRef(`cycle.${(index + 1) % size}`);
     }
 
-    expect(compileTokenGraph(defineTokens(tokens))).toMatchObject({
+    expect(compileTokenGraph(defineTokenGraph({ tokens: tokens }))).toMatchObject({
       ok: false,
       issues: [{ code: "reference-cycle" }],
     });
@@ -378,13 +378,14 @@ describe("pre-release API reset", () => {
   test("defines exact pretty and compact CSS contracts", () => {
     const compiled = expectOk(
       compileTokenGraph(
-        defineTokens(
-          {
+        defineTokenGraph({
+          modes: ["light", "dark"],
+          defaultMode: "light",
+          tokens: {
             background: { light: "#ffffff", dark: "#111111" },
             primary: { light: "#6750a4", dark: "#d0bcff" },
           },
-          { modes: ["light", "dark"], defaultMode: "light" },
-        ),
+        }),
       ),
     );
 
@@ -421,7 +422,7 @@ describe("pre-release API reset", () => {
 
   test("contains callback failures and rejects variable and selector collisions", () => {
     const compiled = expectOk(
-      compileTokenGraph(defineTokens({ background: "#fff", primary: "#6750a4" })),
+      compileTokenGraph(defineTokenGraph({ tokens: { background: "#fff", primary: "#6750a4" } })),
     );
 
     expect(exportCssVars(compiled, { prefix: "" })).toMatchObject({
@@ -463,20 +464,22 @@ describe("pre-release API reset", () => {
   });
 
   test("canonical serialization ignores token, mode-map, and mode-envelope insertion order", () => {
-    const left = defineTokens(
-      {
+    const left = defineTokenGraph({
+      modes: ["dark", "light"],
+      defaultMode: "light",
+      tokens: {
         z: { dark: "zd", light: "zl" },
         a: { dark: "ad", light: "al" },
       },
-      { modes: ["dark", "light"], defaultMode: "light" },
-    );
-    const right = defineTokens(
-      {
+    });
+    const right = defineTokenGraph({
+      modes: ["dark", "light"],
+      defaultMode: "light",
+      tokens: {
         a: { light: "al", dark: "ad" },
         z: { light: "zl", dark: "zd" },
       },
-      { modes: ["light", "dark"], defaultMode: "light" },
-    );
+    });
 
     expect(serializeTokenGraph(left)).toBe(serializeTokenGraph(right));
     expect(

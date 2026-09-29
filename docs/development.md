@@ -22,6 +22,11 @@ Node ESM plus strict NodeNext release-candidate consumers. The release-candidate
 pending Changesets transformation only inside a temporary workspace; it never versions the real
 branch.
 
+During P2 that isolated projection is core `0.4.0` plus a peer-only Material `0.1.2` patch, with
+the existing Material API. The repository manifests remain `0.3.0`/`0.1.1`. This proves packed
+runtime/type compatibility; it does not implement the P5 Material API or certify an intermediate
+phase for publication. P5/P7 must update the projected pair when their changesets land.
+
 ## API surface snapshot
 
 `api/scheme-tokens.api.d.ts` is the committed public type surface, generated from the built declaration. `pnpm api:check` fails when the build and the snapshot disagree, so a contract change has to arrive as a reviewable diff rather than as a silent declaration edit.

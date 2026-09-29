@@ -2,12 +2,12 @@
  * Executable reference consumer for application-owned theme coordinates.
  * The packed-consumer gate copies this file byte-for-byte before compiling and running it.
  */
-import tokenGraphSchema from "scheme-tokens/schemas/token-graph.v1.schema.json" with { type: "json" };
+import tokenGraphSchema from "scheme-tokens/schemas/token-graph.v2.schema.json" with { type: "json" };
 import packageManifest from "scheme-tokens/package.json" with { type: "json" };
 import * as packageApi from "scheme-tokens";
 import {
   compileTokenGraph,
-  defineTokens,
+  defineTokenGraph,
   exportCssVars,
   serializeCompiledScheme,
   tokenRef,
@@ -64,11 +64,12 @@ const expectedRuntimeExports = [
   "compileTokenGraph",
   "defineTokenGraph",
   "defineTokenLayer",
-  "defineTokens",
   "exportCssVars",
   "parseCompiledScheme",
   "parseTokenGraph",
   "parseTokenLayer",
+  "orThrow",
+  "tokenConcat",
   "serializeCompiledScheme",
   "serializeTokenGraph",
   "serializeTokenLayer",
@@ -83,7 +84,7 @@ assertDeepEqual(
 assertEqual(packageManifest.name, "scheme-tokens", "package name");
 assertEqual(
   tokenGraphSchema.$id,
-  "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json",
+  "tag:maikel.site,2026-09-29:scheme-tokens/schema/token-graph/v2",
   "schema package export",
 );
 assertEqual(
@@ -148,7 +149,7 @@ assertEqual(
   "shared value across modes",
 );
 
-const expectedBlockModes = ["mono-light", "mono-dark", "vivid-dark", "vivid-light"];
+const expectedBlockModes = ["mono-light", "mono-dark", "vivid-light", "vivid-dark"];
 const expectedDeclarationOrder = [
   "action.primary.background",
   "action.primary.foreground",
@@ -165,7 +166,7 @@ const expectedDeclarationOrder = [
 assertDeepEqual(
   first.exported.blocks.map((block) => block.mode),
   expectedBlockModes,
-  "canonical block ordering",
+  "authored block ordering",
 );
 for (const block of first.exported.blocks) {
   assertEqual(block.selector, exactModeSelectors[block.mode], "exact selector for " + block.mode);
@@ -243,8 +244,10 @@ assertEqual(noScriptDarkCss, second.noScriptDarkCss, "fallback composition deter
 // Complete private modes compose at the compiler boundary; internal sources resolve before
 // exact public selection removes them from the output.
 function projectTheme() {
-  const graph = defineTokens(
-    {
+  const graph = defineTokenGraph({
+    modes: compilerModes,
+    defaultMode: "mono-light",
+    tokens: {
       "source.paper": {
         value: {
           "mono-light": "#ffffff",
@@ -293,11 +296,7 @@ function projectTheme() {
       "renderer.field": tokenRef("source.signal"),
       "renderer.signal": tokenRef("source.signal"),
     },
-    {
-      modes: compilerModes,
-      defaultMode: "mono-light",
-    },
-  );
+  });
 
   const compiled = expectOk(
     compileTokenGraph(graph, {

@@ -1,7 +1,7 @@
 {
   "$schema": "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json",
   "kind": "scheme-tokens/token-graph",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "modes": ["base"],
   "defaultMode": "base",
   "defaultVisibility": "public",

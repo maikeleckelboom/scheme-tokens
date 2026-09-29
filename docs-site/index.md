@@ -14,15 +14,13 @@ hero:
 ---
 
 ```ts
-// ---cut-start---
-import type { Issue, Result } from "scheme-tokens";
-declare function orThrow<Value, Problem extends Issue>(result: Result<Value, Problem>): Value;
-// ---cut-end---
-import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
 
-const graph = defineTokens({
-  background: "#ffffff",
-  foreground: "#111111",
+const graph = defineTokenGraph({
+  tokens: {
+    background: "#ffffff",
+    foreground: "#111111",
+  },
 });
 
 const scheme = orThrow(compileTokenGraph(graph));
@@ -30,5 +28,5 @@ const cssVars = orThrow(exportCssVars(scheme));
 const stylesheet = cssVars.css;
 ```
 
-This uses an [application-local `orThrow` helper](./reference/diagnostics.md#application-local-orthrow)
+This uses the [public `orThrow` helper](./reference/diagnostics.md#throwing-at-an-application-boundary)
 to keep the first path compact without changing the package's `Result` contract.

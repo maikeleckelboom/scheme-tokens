@@ -1,6 +1,6 @@
 {
   "kind": "scheme-tokens/compiled-scheme",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "modes": ["light", "dark"],
   "defaultMode": "light",
   "tokens": {
@@ -16,22 +16,40 @@
   "metadataByToken": {
     "button.background": {
       "visibility": "public",
-      "origin": {
-        "kind": "graph"
-      },
-      "dependenciesByMode": {
-        "light": ["brand.primary"],
-        "dark": ["brand.primary"]
+      "declarations": [
+        {
+          "origin": {
+            "kind": "graph"
+          },
+          "visibility": "public"
+        }
+      ],
+      "expressionByMode": {
+        "light": {
+          "ref": "brand.primary"
+        },
+        "dark": {
+          "ref": "brand.primary"
+        }
       }
     },
     "button.foreground": {
       "visibility": "public",
-      "origin": {
-        "kind": "graph"
-      },
-      "dependenciesByMode": {
-        "light": ["brand.on-primary"],
-        "dark": ["brand.on-primary"]
+      "declarations": [
+        {
+          "origin": {
+            "kind": "graph"
+          },
+          "visibility": "public"
+        }
+      ],
+      "expressionByMode": {
+        "light": {
+          "ref": "brand.on-primary"
+        },
+        "dark": {
+          "ref": "brand.on-primary"
+        }
       }
     }
   }

@@ -1,4 +1,5 @@
-export { defineTokenGraph, defineTokenLayer, defineTokens, tokenRef } from "./core/graph";
+export { orThrow } from "./core/result";
+export { defineTokenGraph, defineTokenLayer, tokenConcat, tokenRef } from "./core/graph";
 export { parseTokenGraph, parseTokenLayer } from "./core/parse-token-graph";
 export { parseCompiledScheme } from "./core/parse-compiled-scheme";
 export { compileTokenGraph } from "./core/compile-token-graph";
@@ -25,6 +26,10 @@ export type {
   CompileTokenGraphIssue,
   CompileTokenGraphOptions,
   CompiledScheme,
+  CompiledExpression,
+  CompiledReference,
+  CompiledConcatPart,
+  TokenDeclarationRecord,
   CompiledToken,
   CompiledTokenMetadata,
   ParseCompiledSchemeIssue,

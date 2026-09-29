@@ -1,20 +1,15 @@
 import type {
   CompiledScheme,
+  CompiledExpression,
+  TokenDeclarationRecord,
   CompiledToken,
   CompiledTokenMetadata,
   ParseCompiledSchemeIssue,
 } from "./compiled-types";
-import {
-  compiledSchemeKind,
-  compiledSchemeSchemaUrl,
-  isModeKey,
-  type TokenOrigin,
-  type TokenVisibility,
-} from "./graph";
+import { compiledSchemeKind, type TokenOrigin } from "./graph";
 import { isSingleSegmentIdentifier, isTokenKey } from "./identifiers";
 import {
   compareCodeUnits,
-  copyJsonValue,
   defineRecordValue,
   escapePointerSegment,
   pointer,
@@ -22,8 +17,15 @@ import {
   readPlainRecord,
   sortedRecord,
 } from "./json";
-import type { JsonValue } from "./json";
 import { IssueCollector, type Result } from "./result";
+
+import {
+  parseModes,
+  parseVisibility,
+  parseDefaultMode,
+  parseDefinitionMetadata as parseOptionalMetadata,
+  rejectUnknownKeys,
+} from "./validation-fields";
 
 const topLevelKeys = new Set([
   "$schema",
@@ -36,8 +38,8 @@ const topLevelKeys = new Set([
 ]);
 const metadataKeys = new Set([
   "visibility",
-  "origin",
-  "dependenciesByMode",
+  "declarations",
+  "expressionByMode",
   "description",
   "deprecated",
   "extensions",
@@ -46,47 +48,38 @@ const metadataKeys = new Set([
 export function parseCompiledScheme(
   input: unknown,
 ): Result<CompiledScheme<string, string, false>, ParseCompiledSchemeIssue> {
-  return parseCompiledSchemeInternal(input);
-}
-
-export function parseCompiledSchemeInternal(
-  input: unknown,
-): Result<CompiledScheme<string, string, false>, ParseCompiledSchemeIssue> {
   const collector = new IssueCollector<ParseCompiledSchemeIssue>();
   const top = readPlainRecord(input, {
     code: "invalid-object",
     message: "Compiled scheme must be a plain object.",
   });
   if (!top.ok) {
-    return top as Result<never, ParseCompiledSchemeIssue>;
+    return top;
   }
 
   const record = new Map(top.value.map((entry) => [entry.key, entry.value]));
   rejectUnknownKeys(top.value, topLevelKeys, "", collector);
   parseKind(record.get("kind"), collector);
-  if (record.get("formatVersion") !== 1) {
+  if (record.get("formatVersion") !== 2) {
     collector.add({
       code: record.has("formatVersion") ? "invalid-format-version" : "missing-property",
-      message: "Compiled scheme formatVersion must be numeric 1.",
+      message: "Compiled scheme formatVersion must be numeric 2; recompile from the source graph.",
       path: pointer("formatVersion"),
     });
   }
 
   const schema = record.get("$schema");
-  if (schema !== undefined && schema !== compiledSchemeSchemaUrl) {
+  if (schema !== undefined && typeof schema !== "string") {
     collector.add({
       code: "invalid-schema-uri",
-      message: `$schema must be ${compiledSchemeSchemaUrl}.`,
+      message: "$schema must be a string.",
       path: pointer("$schema"),
     });
   }
 
   const modes = parseModes(record.get("modes"), collector);
   const defaultMode = parseDefaultMode(record.get("defaultMode"), modes, collector);
-  const canonicalModes =
-    modes === undefined || defaultMode === undefined
-      ? undefined
-      : canonicalizeModes(modes, defaultMode);
+  const canonicalModes = modes === undefined || defaultMode === undefined ? undefined : modes;
   const tokens = parseTokens(record.get("tokens"), canonicalModes ?? [], collector);
   const metadataByToken = parseMetadataByToken(
     record.get("metadataByToken"),
@@ -119,9 +112,9 @@ export function parseCompiledSchemeInternal(
   return {
     ok: true,
     value: {
-      ...(schema === compiledSchemeSchemaUrl ? { $schema: schema } : {}),
+      ...(typeof schema === "string" ? { $schema: schema } : {}),
       kind: compiledSchemeKind,
-      formatVersion: 1,
+      formatVersion: 2,
       modes: canonicalModes as readonly [string, ...string[]],
       defaultMode,
       tokens,
@@ -139,84 +132,6 @@ function parseKind(input: unknown, collector: IssueCollector<ParseCompiledScheme
     message: `Artifact kind must be ${compiledSchemeKind}.`,
     path: pointer("kind"),
   });
-}
-
-function parseModes(
-  input: unknown,
-  collector: IssueCollector<ParseCompiledSchemeIssue>,
-): readonly string[] | undefined {
-  if (input === undefined) {
-    collector.add({
-      code: "missing-property",
-      message: "Compiled scheme requires modes.",
-      path: pointer("modes"),
-    });
-    return undefined;
-  }
-  const array = readArray(input, {
-    code: "invalid-mode-key",
-    message: "modes must be a non-empty dense array.",
-    path: pointer("modes"),
-  });
-  if (!array.ok || array.value.length === 0) {
-    collector.add({
-      code: "invalid-mode-key",
-      message: "modes must be a non-empty array.",
-      path: pointer("modes"),
-    });
-    return undefined;
-  }
-  const modes: string[] = [];
-  const seen = new Set<string>();
-  for (const entry of array.value) {
-    const value = entry.value;
-    if (typeof value !== "string" || !isModeKey(value)) {
-      collector.add({
-        code: "invalid-mode-key",
-        message: "Mode identifiers must be unreserved lower-kebab single segments.",
-        path: pointer("modes", entry.index),
-        ...(typeof value === "string" ? { mode: value } : {}),
-      });
-      continue;
-    }
-    if (seen.has(value)) {
-      collector.add({
-        code: "duplicate-mode-key",
-        message: `Duplicate mode: ${value}.`,
-        path: pointer("modes", entry.index),
-        mode: value,
-      });
-      continue;
-    }
-    seen.add(value);
-    modes.push(value);
-  }
-  return modes.length === 0 ? undefined : modes;
-}
-
-function parseDefaultMode(
-  input: unknown,
-  modes: readonly string[] | undefined,
-  collector: IssueCollector<ParseCompiledSchemeIssue>,
-): string | undefined {
-  if (typeof input !== "string") {
-    collector.add({
-      code: input === undefined ? "missing-property" : "invalid-mode-key",
-      message: "defaultMode must be a declared mode.",
-      path: pointer("defaultMode"),
-    });
-    return undefined;
-  }
-  if (modes !== undefined && !modes.includes(input)) {
-    collector.add({
-      code: "default-mode-not-found",
-      message: "defaultMode must belong to modes.",
-      path: pointer("defaultMode"),
-      mode: input,
-    });
-    return undefined;
-  }
-  return input;
 }
 
 function parseTokens(
@@ -238,7 +153,7 @@ function parseTokens(
     path: pointer("tokens"),
   });
   if (!entries.ok) {
-    collector.addMany(entries.issues as readonly ParseCompiledSchemeIssue[]);
+    collector.addMany(entries.issues);
     return undefined;
   }
   if (entries.value.length === 0) {
@@ -280,7 +195,7 @@ function parseTokenModeValues(
     path,
   });
   if (!entries.ok) {
-    collector.addMany(entries.issues as readonly ParseCompiledSchemeIssue[]);
+    collector.addMany(entries.issues);
     return undefined;
   }
   const modeSet = new Set(modes);
@@ -342,7 +257,7 @@ function parseMetadataByToken(
     path: pointer("metadataByToken"),
   });
   if (!entries.ok) {
-    collector.addMany(entries.issues as readonly ParseCompiledSchemeIssue[]);
+    collector.addMany(entries.issues);
     return undefined;
   }
   if (entries.value.length === 0) {
@@ -411,45 +326,35 @@ function parseTokenMetadata(
     path,
   });
   if (!entries.ok) {
-    collector.addMany(entries.issues as readonly ParseCompiledSchemeIssue[]);
+    collector.addMany(entries.issues);
     return undefined;
   }
   rejectUnknownKeys(entries.value, metadataKeys, path, collector);
   const record = new Map(entries.value.map((entry) => [entry.key, entry.value]));
-  const visibility = parseVisibility(record.get("visibility"), `${path}/visibility`, collector);
-  const origin = parseOrigin(record.get("origin"), `${path}/origin`, collector);
-  const dependenciesByMode = parseDependenciesByMode(
-    record.get("dependenciesByMode"),
-    `${path}/dependenciesByMode`,
-    modes,
+  const visibility = parseVisibility(
+    record.get("visibility"),
+    `${path}/visibility`,
+    "invalid-visibility",
     collector,
   );
+  const declarations = parseDeclarations(
+    record.get("declarations"),
+    `${path}/declarations`,
+    collector,
+  );
+  const expressionByMode = record.has("expressionByMode")
+    ? parseExpressions(record.get("expressionByMode"), `${path}/expressionByMode`, modes, collector)
+    : undefined;
   const metadata = parseOptionalMetadata(record, path, collector);
-  if (visibility === undefined || origin === undefined || dependenciesByMode === undefined) {
+  if (visibility === undefined || declarations === undefined) {
     return undefined;
   }
   return {
     visibility,
-    origin,
-    dependenciesByMode,
+    declarations,
+    ...(expressionByMode === undefined ? {} : { expressionByMode }),
     ...metadata,
   };
-}
-
-function parseVisibility(
-  input: unknown,
-  path: string,
-  collector: IssueCollector<ParseCompiledSchemeIssue>,
-): TokenVisibility | undefined {
-  if (input === "public" || input === "internal") {
-    return input;
-  }
-  collector.add({
-    code: "invalid-visibility",
-    message: "Visibility must be public or internal.",
-    path,
-  });
-  return undefined;
 }
 
 function parseOrigin(
@@ -463,7 +368,7 @@ function parseOrigin(
     path,
   });
   if (!entries.ok) {
-    collector.addMany(entries.issues as readonly ParseCompiledSchemeIssue[]);
+    collector.addMany(entries.issues);
     return undefined;
   }
   const record = new Map(entries.value.map((entry) => [entry.key, entry.value]));
@@ -483,178 +388,181 @@ function parseOrigin(
   return undefined;
 }
 
-function parseDependenciesByMode(
+function parseDeclarations(
+  input: unknown,
+  path: string,
+  collector: IssueCollector<ParseCompiledSchemeIssue>,
+): readonly [TokenDeclarationRecord, ...TokenDeclarationRecord[]] | undefined {
+  const array = readArray(input, {
+    code: "invalid-declarations",
+    message: "declarations must be a non-empty dense array.",
+    path,
+  });
+  if (!array.ok) {
+    collector.addMany(array.issues);
+    return undefined;
+  }
+  if (array.value.length === 0) {
+    collector.add({
+      code: "invalid-declarations",
+      message: "declarations must not be empty.",
+      path,
+    });
+    return undefined;
+  }
+  const declarations: TokenDeclarationRecord[] = [];
+  for (const entry of array.value) {
+    const entryPath = path + pointer(entry.index);
+    const record = readPlainRecord(entry.value, {
+      code: "invalid-declarations",
+      message: "Declaration must be a plain object.",
+      path: entryPath,
+    });
+    if (!record.ok) {
+      collector.addMany(record.issues);
+      continue;
+    }
+    rejectUnknownKeys(record.value, new Set(["origin", "visibility"]), entryPath, collector);
+    const fields = new Map(record.value.map((field) => [field.key, field.value]));
+    const origin = parseOrigin(fields.get("origin"), entryPath + "/origin", collector);
+    const visibility = fields.has("visibility")
+      ? parseVisibility(
+          fields.get("visibility"),
+          entryPath + "/visibility",
+          "invalid-visibility",
+          collector,
+        )
+      : undefined;
+    if (origin !== undefined) {
+      declarations.push({ origin, ...(visibility === undefined ? {} : { visibility }) });
+    }
+  }
+  return declarations.length === 0
+    ? undefined
+    : (declarations as [TokenDeclarationRecord, ...TokenDeclarationRecord[]]);
+}
+
+function parseExpressions(
   input: unknown,
   path: string,
   modes: readonly string[],
   collector: IssueCollector<ParseCompiledSchemeIssue>,
-): Readonly<Record<string, readonly string[]>> | undefined {
-  const entries = readPlainRecord(input, {
-    code: "invalid-dependencies",
-    message: "dependenciesByMode must be a plain object.",
+): Readonly<Record<string, CompiledExpression>> | undefined {
+  const record = readPlainRecord(input, {
+    code: "invalid-expression",
+    message: "expressionByMode must be a non-empty sparse record.",
     path,
   });
-  if (!entries.ok) {
-    collector.addMany(entries.issues as readonly ParseCompiledSchemeIssue[]);
+  if (!record.ok) {
+    collector.addMany(record.issues);
     return undefined;
   }
-  const modeSet = new Set(modes);
-  const seen = new Set<string>();
-  const output: Record<string, readonly string[]> = {};
-  for (const entry of entries.value) {
-    const valuePath = `${path}/${escapePointerSegment(entry.key)}`;
-    if (!modeSet.has(entry.key)) {
+  if (record.value.length === 0) {
+    collector.add({
+      code: "invalid-expression",
+      message: "Omit an empty expressionByMode record.",
+      path,
+    });
+  }
+  const output: Record<string, CompiledExpression> = {};
+  for (const entry of record.value) {
+    const entryPath = path + pointer(entry.key);
+    if (!modes.includes(entry.key)) {
       collector.add({
         code: "unknown-mode-value",
-        message: `dependenciesByMode contains unknown mode: ${entry.key}.`,
-        path: valuePath,
+        message: "Unknown expression mode.",
+        path: entryPath,
         mode: entry.key,
       });
       continue;
     }
-    seen.add(entry.key);
-    const dependenciesInput = readArray(entry.value, {
-      code: "invalid-dependencies",
-      message: "Mode dependencies must be a dense array.",
-      path: valuePath,
-    });
-    if (!dependenciesInput.ok) {
-      collector.add({
-        code: "invalid-dependencies",
-        message: "Mode dependencies must be an array.",
-        path: valuePath,
-      });
-      continue;
-    }
-    const dependencies: string[] = [];
-    const seenDependencies = new Set<string>();
-    for (const dependencyEntry of dependenciesInput.value) {
-      const dependency = dependencyEntry.value;
-      if (typeof dependency !== "string" || !isTokenKey(dependency)) {
-        collector.add({
-          code: "invalid-dependencies",
-          message: "Dependencies must be valid token keys.",
-          path: `${valuePath}/${dependencyEntry.index}`,
-          ...(typeof dependency === "string" ? { key: dependency } : {}),
-        });
-        continue;
-      }
-      if (seenDependencies.has(dependency)) {
-        collector.add({
-          code: "invalid-dependencies",
-          message: `Duplicate dependency: ${dependency}.`,
-          path: `${valuePath}/${dependencyEntry.index}`,
-          key: dependency,
-        });
-        continue;
-      }
-      seenDependencies.add(dependency);
-      dependencies.push(dependency);
-    }
-    defineRecordValue(output, entry.key, [...dependencies].sort(compareCodeUnits));
-  }
-  for (const mode of modes) {
-    if (!seen.has(mode)) {
-      collector.add({
-        code: "missing-mode-value",
-        message: `dependenciesByMode is missing mode: ${mode}.`,
-        path,
-        mode,
-      });
+    const expression = parseRetainedExpression(entry.value, entryPath, collector);
+    if (expression !== undefined) {
+      defineRecordValue(output, entry.key, expression);
     }
   }
   return sortedRecord(Object.entries(output));
 }
 
-function parseOptionalMetadata(
-  record: ReadonlyMap<string, unknown>,
+function parseRetainedExpression(
+  input: unknown,
   path: string,
   collector: IssueCollector<ParseCompiledSchemeIssue>,
-): Pick<CompiledTokenMetadata, "description" | "deprecated" | "extensions"> {
-  const output: {
-    description?: string;
-    deprecated?: boolean | string;
-    extensions?: Readonly<Record<string, JsonValue>>;
-  } = {};
-  const description = record.get("description");
-  if (description !== undefined) {
-    if (typeof description === "string") {
-      output.description = description;
-    } else {
-      collector.add({
-        code: "invalid-description",
-        message: "description must be a string.",
-        path: `${path}/description`,
-      });
-    }
+): CompiledExpression | undefined {
+  const invalid = {
+    code: "invalid-expression",
+    message: "Expected a canonical retained reference or concat.",
+    path,
+  } as const;
+  const record = readPlainRecord(input, invalid);
+  if (!record.ok) {
+    collector.addMany(record.issues);
+    return undefined;
   }
-  const deprecated = record.get("deprecated");
-  if (deprecated !== undefined) {
-    if (deprecated === true || deprecated === false) {
-      output.deprecated = deprecated;
-    } else if (typeof deprecated === "string" && deprecated.length > 0) {
-      output.deprecated = deprecated;
-    } else {
-      collector.add({
-        code: "invalid-deprecated",
-        message: "deprecated must be boolean or non-empty string.",
-        path: `${path}/deprecated`,
-      });
-    }
+  const entry = record.value[0];
+  if (record.value.length !== 1 || entry === undefined) {
+    collector.add(invalid);
+    return undefined;
   }
-  const extensions = record.get("extensions");
-  if (extensions !== undefined) {
-    const entries = readPlainRecord(extensions, {
-      code: "invalid-extensions",
-      message: "extensions must be a plain object.",
-      path: `${path}/extensions`,
-    });
-    if (!entries.ok) {
-      collector.addMany(entries.issues as readonly ParseCompiledSchemeIssue[]);
-    } else {
-      const copied: Record<string, JsonValue> = {};
-      for (const entry of entries.value) {
-        const value = copyJsonValue(entry.value, {
-          code: "invalid-json-value",
-          message: "Extension values must be JSON-safe.",
-          path: `${path}/extensions/${escapePointerSegment(entry.key)}`,
-        });
-        if (value.ok) {
-          defineRecordValue(copied, entry.key, value.value);
-        } else {
-          collector.addMany(value.issues as readonly ParseCompiledSchemeIssue[]);
-        }
+  if (entry.key === "ref" && typeof entry.value === "string" && isTokenKey(entry.value)) {
+    return { ref: entry.value };
+  }
+  if (entry.key !== "concat") {
+    collector.add(invalid);
+    return undefined;
+  }
+  const array = readArray(entry.value, invalid);
+  if (!array.ok) {
+    collector.addMany(array.issues);
+    return undefined;
+  }
+  if (array.value.length < 2) {
+    collector.add(invalid);
+    return undefined;
+  }
+  const parts: (string | { readonly ref: string; readonly value: string })[] = [];
+  let previousLiteral = false;
+  let references = 0;
+  for (const part of array.value) {
+    const partInvalid = { ...invalid, path: path + pointer("concat", part.index) };
+    if (typeof part.value === "string") {
+      if (part.value.length === 0 || previousLiteral) {
+        collector.add(partInvalid);
+        return undefined;
       }
-      output.extensions = sortedRecord(Object.entries(copied));
+      parts.push(part.value);
+      previousLiteral = true;
+    } else {
+      const fields = readPlainRecord(part.value, partInvalid);
+      if (!fields.ok) {
+        collector.addMany(fields.issues);
+        return undefined;
+      }
+      const data = new Map(fields.value.map((field) => [field.key, field.value]));
+      const ref = data.get("ref");
+      const value = data.get("value");
+      if (
+        fields.value.length !== 2 ||
+        typeof ref !== "string" ||
+        !isTokenKey(ref) ||
+        typeof value !== "string"
+      ) {
+        collector.add(partInvalid);
+        return undefined;
+      }
+      parts.push({ ref, value });
+      previousLiteral = false;
+      references += 1;
     }
   }
-  return output;
-}
-
-function rejectUnknownKeys(
-  entries: readonly { readonly key: string }[],
-  allowed: ReadonlySet<string>,
-  path: string,
-  collector: IssueCollector<ParseCompiledSchemeIssue>,
-): void {
-  for (const entry of entries) {
-    if (allowed.has(entry.key)) {
-      continue;
-    }
-    collector.add({
-      code: "unknown-property",
-      message: `Unknown property: ${entry.key}.`,
-      path: path === "" ? pointer(entry.key) : `${path}/${escapePointerSegment(entry.key)}`,
-    });
+  if (references === 0) {
+    collector.add(invalid);
+    return undefined;
   }
-}
-
-function canonicalizeModes(
-  modes: readonly string[],
-  defaultMode: string,
-): readonly [string, ...string[]] {
-  return [
-    defaultMode,
-    ...modes.filter((mode) => mode !== defaultMode).sort(compareCodeUnits),
-  ] as readonly [string, ...string[]];
+  return {
+    concat: parts as [
+      string | { readonly ref: string; readonly value: string },
+      ...(string | { readonly ref: string; readonly value: string })[],
+    ],
+  };
 }

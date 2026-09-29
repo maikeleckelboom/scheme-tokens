@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   compileTokenGraph,
-  defineTokens,
+  defineTokenGraph,
   exportCssVars,
   parseCompiledScheme,
   serializeCompiledScheme,
@@ -51,10 +51,11 @@ describe("CSS export safety", () => {
   test("allows append-safe element, class, id, and attribute compounds", () => {
     const compiled = expectOk(
       compileTokenGraph(
-        defineTokens(
-          { background: { light: "#fff", dark: "#111" } },
-          { modes: ["light", "dark"], defaultMode: "light" },
-        ),
+        defineTokenGraph({
+          modes: ["light", "dark"],
+          defaultMode: "light",
+          tokens: { background: { light: "#fff", dark: "#111" } },
+        }),
       ),
     );
     const exported = expectOk(
@@ -142,7 +143,9 @@ describe("CSS export safety", () => {
     "calc(1px + [2px)",
     'url("unterminated)',
   ])("rejects the declaration-escaping value %j", (value) => {
-    const exported = exportCssVars(expectOk(compileTokenGraph(defineTokens({ unsafe: value }))));
+    const exported = exportCssVars(
+      expectOk(compileTokenGraph(defineTokenGraph({ tokens: { unsafe: value } }))),
+    );
 
     expect(exported).toMatchObject({
       ok: false,
@@ -165,7 +168,7 @@ describe("CSS export safety", () => {
     'var(--label, "a; } !important")',
   ])("preserves the declaration-safe value %j", (value) => {
     const exported = expectOk(
-      exportCssVars(expectOk(compileTokenGraph(defineTokens({ safe: value })))),
+      exportCssVars(expectOk(compileTokenGraph(defineTokenGraph({ tokens: { safe: value } })))),
     );
 
     expect(exported.blocks[0]?.declarations[0]?.value).toBe(value);
@@ -173,16 +176,17 @@ describe("CSS export safety", () => {
 });
 
 function singleModeScheme() {
-  return expectOk(compileTokenGraph(defineTokens({ background: "#fff" })));
+  return expectOk(compileTokenGraph(defineTokenGraph({ tokens: { background: "#fff" } })));
 }
 
 function multiModeScheme() {
   return expectOk(
     compileTokenGraph(
-      defineTokens(
-        { background: { light: "#fff", dark: "#111" } },
-        { modes: ["light", "dark"], defaultMode: "light" },
-      ),
+      defineTokenGraph({
+        modes: ["light", "dark"],
+        defaultMode: "light",
+        tokens: { background: { light: "#fff", dark: "#111" } },
+      }),
     ),
   );
 }

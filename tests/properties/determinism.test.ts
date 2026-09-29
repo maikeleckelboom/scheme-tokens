@@ -3,7 +3,6 @@ import { describe, expect, test } from "vitest";
 import {
   compileTokenGraph,
   defineTokenGraph,
-  defineTokens,
   exportCssVars,
   parseCompiledScheme,
   parseTokenGraph,
@@ -25,20 +24,22 @@ describe("determinism and parser safety properties", () => {
   });
 
   test("construction order does not change canonical graph or compiled serialization", () => {
-    const left = defineTokens(
-      {
+    const left = defineTokenGraph({
+      modes: ["dark", "light"],
+      defaultMode: "light",
+      tokens: {
         "b.color": { dark: "#222222", light: "#111111" },
         "a.color": { dark: "#000000", light: "#ffffff" },
       },
-      { modes: ["dark", "light"], defaultMode: "light" },
-    );
-    const right = defineTokens(
-      {
+    });
+    const right = defineTokenGraph({
+      modes: ["dark", "light"],
+      defaultMode: "light",
+      tokens: {
         "a.color": { light: "#ffffff", dark: "#000000" },
         "b.color": { light: "#111111", dark: "#222222" },
       },
-      { modes: ["light", "dark"], defaultMode: "light" },
-    );
+    });
 
     expect(serializeTokenGraph(left)).toBe(serializeTokenGraph(right));
     const leftCompiled = compileTokenGraph(left);
@@ -55,10 +56,11 @@ describe("determinism and parser safety properties", () => {
 
   test("selector-map insertion order does not change CSS", () => {
     const compiled = compileTokenGraph(
-      defineTokens(
-        { background: { light: "#fff", dark: "#000" } },
-        { modes: ["light", "dark"], defaultMode: "light" },
-      ),
+      defineTokenGraph({
+        modes: ["light", "dark"],
+        defaultMode: "light",
+        tokens: { background: { light: "#fff", dark: "#000" } },
+      }),
     );
     if (!compiled.ok) {
       throw new Error(JSON.stringify(compiled.issues));
@@ -111,7 +113,7 @@ describe("determinism and parser safety properties", () => {
       throw new Error("localeCompare must not participate in canonical ordering");
     };
     try {
-      const graph = defineTokens({ z: "z", a: "a" });
+      const graph = defineTokenGraph({ tokens: { z: "z", a: "a" } });
       const compiled = compileTokenGraph(graph);
       expect(compiled.ok).toBe(true);
       expect(serializeTokenGraph(graph)).toContain('"a"');
@@ -136,8 +138,8 @@ describe("determinism and parser safety properties", () => {
       throw new Error("Expected chain graph to compile");
     }
     expect(Object.keys(result.value.tokens)).toHaveLength(10_001);
-    expect(result.value.metadataByToken["chain.t10000"]?.dependenciesByMode.base).toEqual([
-      "chain.t09999",
-    ]);
+    expect(result.value.metadataByToken["chain.t10000"]?.expressionByMode?.base).toEqual({
+      ref: "chain.t09999",
+    });
   }, 20_000);
 });

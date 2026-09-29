@@ -202,7 +202,7 @@ function modeValue(
   if (value === undefined || typeof value === "string" || "ref" in value) {
     throw new Error(`Expected generated mode map for ${key}.`);
   }
-  const modeValue = value[mode];
+  const modeValue: unknown = Object.getOwnPropertyDescriptor(value, mode)?.value;
   if (typeof modeValue !== "string") {
     throw new Error(`Expected generated value for ${key}/${mode}.`);
   }

@@ -24,13 +24,13 @@ describe("internal canonical expressions", () => {
     [{ concat: [] }, "/value"],
     [{ concat: [{ concat: ["a"] }] }, "/value/concat/0"],
     [{ concat: ["a", 1] }, "/value/concat/1"],
-    [{ concat: ["a"], ref: "a" }, "/value"],
-    [{ ref: "Invalid Key" }, "/value"],
-    [{ concat: [{ ref: "a", extra: true }] }, "/value/concat/0"],
-  ])("rejects invalid structure %j", (input, path) => {
+    [{ concat: ["a"], ref: "a" }, "/value", "invalid-reference"],
+    [{ ref: "Invalid Key" }, "/value", "invalid-reference"],
+    [{ concat: [{ ref: "a", extra: true }] }, "/value/concat/0", "invalid-reference"],
+  ])("rejects invalid structure %j", (input, path, code = "invalid-token-value") => {
     expect(canonicalizeExpression(input, "/value")).toMatchObject({
       ok: false,
-      issues: [{ code: "invalid-token-value", path }],
+      issues: [{ code, path }],
     });
   });
 

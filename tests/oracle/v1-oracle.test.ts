@@ -1,12 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
-import {
-  compileTokenGraph,
-  parseTokenGraph,
-  serializeCompiledScheme,
-  serializeTokenGraph,
-} from "../../src";
+import { compileTokenGraph, parseTokenGraph, serializeTokenGraph } from "../../src";
 import { comparableV1Output, evidenceDigest } from "../../scripts/v1-oracle-evidence.ts";
 import {
   oracleCaseCount,
@@ -19,8 +14,8 @@ interface RepresentativeEvidence {
   readonly id: string;
   readonly input: unknown;
   readonly normalizedGraph: unknown;
-  readonly compiledAll: unknown;
-  readonly compiledPublic: unknown;
+  readonly compiledAll: Parameters<typeof comparableV1Output>[0];
+  readonly compiledPublic: Parameters<typeof comparableV1Output>[0];
 }
 
 interface OracleEvidence {
@@ -51,7 +46,7 @@ function compile(input: unknown, selection: "all" | "public") {
 }
 
 describe("published scheme-tokens@0.3.0 oracle", () => {
-  test("representative v1 artifacts and complete published outputs remain unchanged", () => {
+  test("representative v1 artifacts upgrade with unchanged published semantics", () => {
     expect(evidence.artifact.shasum).toBe("8ce57052b08bbe01536b042168a7480427a6455c");
     expect(evidence.artifact.integrity).toBe(
       "sha512-SqZXKq90uz3ccax4cUDKlRGzckxDJ7T/kWcPiv0gOceVIgFz92yjq6hObcRDRrt7581nqwpnB8bQQ2KXM2oCDA==",
@@ -62,10 +57,14 @@ describe("published scheme-tokens@0.3.0 oracle", () => {
     for (const record of evidence.representative) {
       const all = compile(record.input, "all");
       const publicResult = compile(record.input, "public");
-      expect(JSON.parse(serializeTokenGraph(all.parsed))).toEqual(record.normalizedGraph);
-      expect(JSON.parse(serializeCompiledScheme(all.compiled))).toEqual(record.compiledAll);
-      expect(JSON.parse(serializeCompiledScheme(publicResult.compiled))).toEqual(
-        record.compiledPublic,
+      expect(all.parsed.formatVersion).toBe(2);
+      expect(parseTokenGraph(JSON.parse(serializeTokenGraph(all.parsed)))).toEqual({
+        ok: true,
+        value: all.parsed,
+      });
+      expect(comparableV1Output(all.compiled)).toEqual(comparableV1Output(record.compiledAll));
+      expect(comparableV1Output(publicResult.compiled)).toEqual(
+        comparableV1Output(record.compiledPublic),
       );
     }
   });

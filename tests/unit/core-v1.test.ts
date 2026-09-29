@@ -3,7 +3,6 @@ import {
   compileTokenGraph,
   defineTokenGraph,
   defineTokenLayer,
-  defineTokens,
   exportCssVars,
   parseCompiledScheme,
   parseTokenGraph,
@@ -18,9 +17,11 @@ describe("scheme-tokens core", () => {
   test("compiles direct single-mode tokens", () => {
     const compiled = expectOk(
       compileTokenGraph(
-        defineTokens({
-          background: "#ffffff",
-          foreground: "#111111",
+        defineTokenGraph({
+          tokens: {
+            background: "#ffffff",
+            foreground: "#111111",
+          },
         }),
       ),
     );
@@ -31,8 +32,7 @@ describe("scheme-tokens core", () => {
     });
     expect(compiled.metadataByToken.background).toMatchObject({
       visibility: "public",
-      origin: { kind: "graph" },
-      dependenciesByMode: { base: [] },
+      declarations: [{ origin: { kind: "graph" } }],
     });
   });
 
@@ -51,19 +51,21 @@ describe("scheme-tokens core", () => {
     const compiled = expectOk(compileTokenGraph(graph, { selection: "all" }));
 
     expect(compiled.tokens.primary?.base).toBe("#6750a4");
-    expect(compiled.metadataByToken.primary?.dependenciesByMode.base).toEqual(["brand.600"]);
+    expect(compiled.metadataByToken.primary?.expressionByMode?.base).toEqual({ ref: "brand.600" });
     expect(compiled.tokens.literal?.base).toBe("brand.600");
-    expect(compiled.metadataByToken.literal?.dependenciesByMode.base).toEqual([]);
+    expect(compiled.metadataByToken.literal?.expressionByMode).toBeUndefined();
   });
 
   test("filters internal tokens by default and supports exact and all selection", () => {
-    const graph = defineTokens({
-      "brand.600": {
-        value: "#6750a4",
-        visibility: "internal",
+    const graph = defineTokenGraph({
+      tokens: {
+        "brand.600": {
+          value: "#6750a4",
+          visibility: "internal",
+        },
+        primary: tokenRef("brand.600"),
+        secondary: "#03dac6",
       },
-      primary: tokenRef("brand.600"),
-      secondary: "#03dac6",
     });
 
     expect(Object.keys(expectOk(compileTokenGraph(graph)).tokens)).toEqual([
@@ -83,8 +85,10 @@ describe("scheme-tokens core", () => {
   test("reports when public selection contains no tokens", () => {
     expect(
       compileTokenGraph(
-        defineTokens({
-          secret: { value: "#111111", visibility: "internal" },
+        defineTokenGraph({
+          tokens: {
+            secret: { value: "#111111", visibility: "internal" },
+          },
         }),
       ),
     ).toMatchObject({
@@ -101,10 +105,13 @@ describe("scheme-tokens core", () => {
     const compiled = expectOk(compileTokenGraph(graph));
 
     expect(compiled.tokens.primary?.base).toBe("#ff3b30");
-    expect(compiled.metadataByToken.primary?.origin).toEqual({ kind: "layer", id: "brand" });
+    expect(compiled.metadataByToken.primary?.declarations.at(-1)?.origin).toEqual({
+      kind: "layer",
+      id: "brand",
+    });
   });
 
-  test("composes graph tokens before layers so a layer overrides a graph token", () => {
+  test("composes graph tokens after layers so the graph wins", () => {
     const brand = defineTokenLayer({ id: "brand", tokens: { primary: "#layerwins" } });
     const graph = defineTokenGraph({
       tokens: { primary: "#graphvalue", secondary: "#kept" },
@@ -113,10 +120,14 @@ describe("scheme-tokens core", () => {
 
     const compiled = expectOk(compileTokenGraph(graph));
 
-    expect(compiled.tokens.primary?.base).toBe("#layerwins");
-    expect(compiled.metadataByToken.primary?.origin).toEqual({ kind: "layer", id: "brand" });
+    expect(compiled.tokens.primary?.base).toBe("#graphvalue");
+    expect(compiled.metadataByToken.primary?.declarations.at(-1)?.origin).toEqual({
+      kind: "graph",
+    });
     expect(compiled.tokens.secondary?.base).toBe("#kept");
-    expect(compiled.metadataByToken.secondary?.origin).toEqual({ kind: "graph" });
+    expect(compiled.metadataByToken.secondary?.declarations.at(-1)?.origin).toEqual({
+      kind: "graph",
+    });
   });
 
   test("replaces the complete shadowed declaration instead of merging metadata", () => {
@@ -143,14 +154,18 @@ describe("scheme-tokens core", () => {
     });
 
     const compiled = expectOk(
-      compileTokenGraph(defineTokenGraph({ tokens: {}, layers: [legacy, brand] })),
+      compileTokenGraph(defineTokenGraph({ tokens: {}, layers: [legacy, brand] }), {
+        selection: "all",
+      }),
     );
 
     expect(compiled.tokens.primary?.base).toBe("#winner");
     expect(compiled.metadataByToken.primary).toEqual({
-      visibility: "public",
-      origin: { kind: "layer", id: "brand" },
-      dependenciesByMode: { base: [] },
+      visibility: "internal",
+      declarations: [
+        { origin: { kind: "layer", id: "legacy" }, visibility: "internal" },
+        { origin: { kind: "layer", id: "brand" } },
+      ],
       description: "Winning declaration.",
     });
   });
@@ -168,7 +183,7 @@ describe("scheme-tokens core", () => {
   test("parses and owns graph, layer, and compiled artifacts", () => {
     const graphInput = {
       kind: "scheme-tokens/token-graph",
-      formatVersion: 1,
+      formatVersion: 2,
       modes: ["base"],
       defaultMode: "base",
       defaultVisibility: "public",
@@ -194,8 +209,9 @@ describe("scheme-tokens core", () => {
   test("serializes compiled metadata outside resolved token values", () => {
     const compiled = expectOk(
       compileTokenGraph(
-        defineTokens(
-          {
+        defineTokenGraph({
+          defaultVisibility: "public",
+          tokens: {
             "brand.600": {
               value: "#6750a4",
               visibility: "internal",
@@ -204,15 +220,14 @@ describe("scheme-tokens core", () => {
             },
             primary: tokenRef("brand.600"),
           },
-          { defaultVisibility: "public" },
-        ),
+        }),
         { selection: "all" },
       ),
     );
 
     expect(JSON.parse(serializeCompiledScheme(compiled))).toEqual({
       kind: "scheme-tokens/compiled-scheme",
-      formatVersion: 1,
+      formatVersion: 2,
       modes: ["base"],
       defaultMode: "base",
       tokens: {
@@ -222,15 +237,14 @@ describe("scheme-tokens core", () => {
       metadataByToken: {
         "brand.600": {
           visibility: "internal",
-          origin: { kind: "graph" },
-          dependenciesByMode: { base: [] },
+          declarations: [{ origin: { kind: "graph" }, visibility: "internal" }],
           description: "Brand primary.",
           extensions: { owner: "design" },
         },
         primary: {
           visibility: "public",
-          origin: { kind: "graph" },
-          dependenciesByMode: { base: ["brand.600"] },
+          declarations: [{ origin: { kind: "graph" } }],
+          expressionByMode: { base: { ref: "brand.600" } },
         },
       },
     });
@@ -254,7 +268,7 @@ describe("scheme-tokens core", () => {
     expect(
       parseTokenGraph({
         kind: "scheme-tokens/token-graph",
-        formatVersion: 1,
+        formatVersion: 2,
         modes: ["base"],
         defaultMode: "base",
         defaultVisibility: "public",
@@ -267,7 +281,9 @@ describe("scheme-tokens core", () => {
   });
 
   test("exports structured CSS under the unified result value", () => {
-    const compiled = expectOk(compileTokenGraph(defineTokens({ background: "#ffffff" })));
+    const compiled = expectOk(
+      compileTokenGraph(defineTokenGraph({ tokens: { background: "#ffffff" } })),
+    );
     const exported = expectOk(exportCssVars(compiled));
 
     expect(exported.css).toBe(":root {\n  --background: #ffffff;\n}\n");

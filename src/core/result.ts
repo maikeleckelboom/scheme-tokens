@@ -52,3 +52,19 @@ export class IssueCollector<I extends Issue> {
     return issues === undefined ? { ok: true, value } : { ok: false, issues };
   }
 }
+
+/** Return a success or retain the entire structured failure as the error cause. */
+export function orThrow<Value, Problem extends Issue>(result: Result<Value, Problem>): Value {
+  if (result.ok) {
+    return result.value;
+  }
+  throw new Error(
+    result.issues
+      .map(
+        (issue) =>
+          issue.code + (issue.path === undefined ? "" : " at " + issue.path) + ": " + issue.message,
+      )
+      .join("\n"),
+    { cause: result.issues },
+  );
+}

@@ -2,11 +2,12 @@ import {
   compileTokenGraph,
   defineTokenGraph,
   defineTokenLayer,
-  defineTokens,
   exportCssVars,
   parseCompiledScheme,
   parseTokenGraph,
   tokenRef,
+  tokenConcat,
+  orThrow,
   type CompiledScheme,
   type CssModeSelectors,
   type CssVarsExport,
@@ -34,10 +35,33 @@ export type RemovedGraphInput = Root.TokenGraphInput;
 export type RemovedKind = RootModule["tokenGraphKind"];
 // @ts-expect-error aliases are not a public semantic lane.
 export type RemovedReferenceInput = Root.ReferenceInput;
+// @ts-expect-error the removed graph helper has no compatibility export.
+export type RemovedGraphHelper = RootModule["defineTokens"];
 
-const simpleGraph = defineTokens({
-  "brand.600": "#6750a4",
-  primary: tokenRef("brand.600"),
+const concatGraph = defineTokenGraph({
+  modes: ["concat"],
+  defaultMode: "concat",
+  tokens: {
+    a: "A",
+    direct: tokenConcat`prefix ${tokenRef("a")}`,
+    byMode: { concat: { concat: ["prefix ", tokenRef("a")] } },
+  },
+});
+const concatScheme = orThrow(compileTokenGraph(concatGraph));
+const currentVersion: 2 = concatScheme.formatVersion;
+void currentVersion;
+// @ts-expect-error template substitutions are references, never arbitrary strings.
+void tokenConcat`prefix ${"a"}`;
+// @ts-expect-error persisted schema hints are not graph authoring options.
+defineTokenGraph({ tokens: { a: "A" }, $schema: "hint" });
+// @ts-expect-error persisted schema hints are not layer authoring options.
+defineTokenLayer({ id: "example", tokens: { a: "A" }, $schema: "hint" });
+
+const simpleGraph = defineTokenGraph({
+  tokens: {
+    "brand.600": "#6750a4",
+    primary: tokenRef("brand.600"),
+  },
 });
 
 const typedSimpleGraph = simpleGraph satisfies TokenGraph<"brand.600" | "primary", "base">;
@@ -45,17 +69,21 @@ typedSimpleGraph.defaultMode.toUpperCase();
 export type SimpleKeys = Expect<Equal<keyof typeof simpleGraph.tokens, "brand.600" | "primary">>;
 export type SimpleModes = Expect<Equal<(typeof simpleGraph.modes)[number], "base">>;
 
-defineTokens({
-  background: "#ffffff",
-  // @ts-expect-error finite literal records reject unknown reference targets.
-  primary: tokenRef("missing.600"),
+defineTokenGraph({
+  tokens: {
+    background: "#ffffff",
+    // @ts-expect-error finite literal records reject unknown reference targets.
+    primary: tokenRef("missing.600"),
+  },
 });
 
 // @ts-expect-error a mode map requires an explicit modes/defaultMode envelope.
-defineTokens({ background: { light: "#fff", dark: "#000" } });
+defineTokenGraph({ tokens: { background: { light: "#fff", dark: "#000" } } });
 
-const multiModeGraph = defineTokens(
-  {
+const multiModeGraph = defineTokenGraph({
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  tokens: {
     "brand.400": {
       value: "#d0bcff",
       visibility: "internal",
@@ -70,11 +98,7 @@ const multiModeGraph = defineTokens(
       description: "Primary action fill",
     },
   },
-  {
-    modes: ["light", "dark"],
-    defaultMode: "light",
-  },
-);
+});
 
 const typedMultiModeGraph = multiModeGraph satisfies TokenGraph<
   "brand.400" | "brand.600" | "background" | "primary",
@@ -83,26 +107,30 @@ const typedMultiModeGraph = multiModeGraph satisfies TokenGraph<
 void typedMultiModeGraph.tokens.primary.value;
 export type MultiModes = Expect<Equal<(typeof multiModeGraph.modes)[number], "light" | "dark">>;
 
-const reorderedModes = defineTokens(
-  { background: { dark: "#111", light: "#fff" } },
-  { modes: ["dark", "light"], defaultMode: "light" },
-);
+const reorderedModes = defineTokenGraph({
+  modes: ["dark", "light"],
+  defaultMode: "light",
+  tokens: { background: { dark: "#111", light: "#fff" } },
+});
 const canonicalFirstMode: "light" | "dark" = reorderedModes.modes[0];
 void canonicalFirstMode;
-// @ts-expect-error runtime canonicalization does not preserve the caller's tuple positions.
+// @ts-expect-error the P2 mode type is a union; exact tuple inference is deferred to P3.
 const falselyCallerOrderedMode: "dark" = reorderedModes.modes[0];
 void falselyCallerOrderedMode;
 
-defineTokens(
-  {
+defineTokenGraph({
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  tokens: {
     // @ts-expect-error every declared mode is required in a mode map.
     background: { light: "#fff" },
   },
-  { modes: ["light", "dark"], defaultMode: "light" },
-);
+});
 
-defineTokens(
-  {
+defineTokenGraph({
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  tokens: {
     background: {
       light: "#fff",
       dark: "#000",
@@ -110,26 +138,21 @@ defineTokens(
       sepia: "#eee",
     },
   },
-  { modes: ["light", "dark"], defaultMode: "light" },
-);
+});
 
-defineTokens(
-  { background: { light: "#fff", dark: "#000" } },
-  {
-    modes: ["light", "dark"],
-    // @ts-expect-error defaultMode must belong to the declared mode tuple.
-    defaultMode: "sepia",
-  },
-);
+defineTokenGraph({
+  modes: ["light", "dark"],
+  // @ts-expect-error defaultMode must belong to the declared mode tuple.
+  defaultMode: "sepia",
+  tokens: { background: { light: "#fff", dark: "#000" } },
+});
 
-defineTokens(
-  { background: "#fff" },
-  {
-    // @ts-expect-error token-object control names are reserved as mode names.
-    modes: ["light", "value"],
-    defaultMode: "light",
-  },
-);
+defineTokenGraph({
+  // @ts-expect-error token-object control names are reserved as mode names.
+  modes: ["light", "value"],
+  defaultMode: "light",
+  tokens: { background: "#fff" },
+});
 
 defineTokenGraph({
   tokens: {

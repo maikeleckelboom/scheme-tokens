@@ -44,9 +44,9 @@ const allowedFiles = [
   "package/dist/index.js",
   "package/dist/index.js.map",
   "package/package.json",
-  "package/schemas/compiled-scheme.v1.schema.json",
-  "package/schemas/token-graph.v1.schema.json",
-  "package/schemas/token-layer.v1.schema.json",
+  "package/schemas/compiled-scheme.v2.schema.json",
+  "package/schemas/token-graph.v2.schema.json",
+  "package/schemas/token-layer.v2.schema.json",
 ] as const;
 
 const denied = [
@@ -131,9 +131,9 @@ if (
   JSON.stringify([
     ".",
     "./package.json",
-    "./schemas/compiled-scheme.v1.schema.json",
-    "./schemas/token-graph.v1.schema.json",
-    "./schemas/token-layer.v1.schema.json",
+    "./schemas/compiled-scheme.v2.schema.json",
+    "./schemas/token-graph.v2.schema.json",
+    "./schemas/token-layer.v2.schema.json",
   ])
 ) {
   throw new Error("packed manifest exposes an unexpected package subpath");

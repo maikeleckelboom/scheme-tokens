@@ -1,6 +1,6 @@
 {
   "kind": "scheme-tokens/token-graph",
-  "formatVersion": 2,
+  "formatVersion": 3,
   "modes": ["base"],
   "defaultMode": "base",
   "defaultVisibility": "public",

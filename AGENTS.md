@@ -47,7 +47,7 @@ The package owns:
 - CSS custom-property projection;
 - `Result` and `Issue` contracts.
 
-The package does not own palette generation, color parsing or conversion, gamut mapping, contrast policy, image extraction, repair decisions, design-system role conventions, product project models, or runtime plugin registries. Do not broaden the value model beyond strings and explicit reference records.
+The package does not own palette generation, color parsing or conversion, gamut mapping, contrast policy, image extraction, repair decisions, design-system role conventions, product project models, or runtime plugin registries. Do not broaden the value model beyond strings, explicit references, and flat concat expressions.
 
 The boundary is enforced, not merely documented: `tests/unit/package-boundary.test.ts` asserts the absent color surface and the absent adapter directory, and `scripts/check-api.ts` fails the build when the bundle or the published documentation names a forbidden identifier.
 
@@ -55,10 +55,11 @@ The boundary is enforced, not merely documented: `tests/unit/package-boundary.te
 
 The root runtime exports are exactly:
 
-- `defineTokens`
 - `defineTokenGraph`
 - `defineTokenLayer`
 - `tokenRef`
+- `tokenConcat`
+- `orThrow`
 - `parseTokenGraph`
 - `parseTokenLayer`
 - `parseCompiledScheme`
@@ -88,18 +89,24 @@ Do not add operation-specific success fields.
 - `value` may contain either one expression or an explicit mode map.
 - Do not add `valueByMode`, `aliases`, metadata mixed with mode keys, or alternate expanded forms.
 - Omitted mode options mean `modes: ["base"]` and `defaultMode: "base"`.
-- Providing `modes` requires an explicit `defaultMode`.
-- Mode names reserve `ref`, `value`, `valueByMode`, `visibility`, `description`, `deprecated`, and `extensions` so object authoring stays unambiguous.
-- The graph exclusively owns the mode envelope. Layers never declare modes or a default mode.
-- Layer order is semantic: later layers override earlier definitions by token key.
-- Graph and layer defaults own visibility only for their respective token records.
+- Providing `modes` requires an explicit `defaultMode`. Preserve authored mode order independently of the default.
+- Mode names reserve `ref`, `value`, `visibility`, `description`, `deprecated`, and `extensions` so object authoring stays unambiguous.
+- The graph exclusively owns the mode envelope. Layers never declare modes or a default mode. Their mode maps must share one set, equal to the graph set when non-empty; runtime mismatches use `layer-mode-mismatch`.
+- ADR 0015 supersedes only ADR 0013's reservation of `concat`: exact singleton `{ concat: array }` is an expression; `{ concat: TokenExpression }` is a mode map. `concat` is not reserved.
+- Concat canonicalization merges literals, drops empties, collapses literals/lone refs, and rejects empty/nested concat. Resolution is iterative with a 65,536 UTF-16 concat bound checked before joining.
+- D6 metadata contains non-empty `declarations` and sparse `expressionByMode`, with resolved `value` only on concat reference parts.
+- Current artifacts/writers use format version 2. V1 source upgrades retain published semantics and pass the ordinary v2 validator; compiled v1 is rejected. V2 `$schema` is an uninterpreted optional string; authoring helpers reject it.
+- Layers compose in array order, followed by graph tokens. Graph-owned declarations win.
+- Only explicit visibility changes an existing key. Otherwise the introducing position's default applies; descriptive metadata comes only from the winner.
 - Public tokens may reference internal tokens; compilation resolves against the complete graph before applying selection.
 - Token keys use dot-separated lower-kebab paths. A segment after the first may be numeric, so keys such as `brand.600` are valid.
 - Omitted and explicit `public` compilation produce conservatively partial token records because visibility is resolved at runtime. An exact literal key tuple is complete after runtime validation. `all` is complete only when the authored graph has a finite inferred key union; dynamically parsed graphs remain partial. `parseCompiledScheme()` is always dynamic and incomplete, and CSS export preserves the input completeness in its token-to-variable lookup.
 
-Trusted helpers normalize, validate, and copy input. They may throw for programmer misuse. Parsers accept `unknown`, do not throw for JSON-compatible data, copy accepted input, and report structured `Result` failures.
+Trusted helpers normalize, validate, and copy input. They throw structured `Error` failures with the complete issues tuple in `cause`, matching `orThrow`. Parsers accept `unknown`, do not throw for JSON-compatible data, copy accepted input, and report structured `Result` failures.
 
 Compilation and serialization preserve arbitrary token strings. CSS export is a code-emission boundary: it rejects declaration-unsafe strings with `invalid-css-value`, validates selectors against an intentionally bounded safe grammar, and never treats those checks as token-domain interpretation.
+
+P2 types retain conservative public selection and the existing graph/layer generics. The P3 static inference redesign, P4 CSS redesign, P4a variable references, and P5 Material API are deferred. Current CSS naming remains double-hyphen and Material returns a graph fragment.
 
 ## Implementation rules
 

@@ -17,14 +17,11 @@ import {
   readPlainRecord,
   sortedRecord,
 } from "./json";
-import {
-  parseTokenGraphInternal,
-  type ParsedTokenExpression,
-  type ParsedTokenGraph,
-  type ParsedTokenGraphToken,
-} from "./parse-token-graph";
+import { composeTokenGraph, type ComposedGraph } from "./compose-token-graph";
+import { validateSourceGraph } from "./validate-source";
+import { resolveTokenGraph } from "./resolve-token-graph";
 import { IssueCollector, type Result } from "./result";
-import { createExpressionResolver } from "./resolve-expressions";
+import type { CompiledExpression, CompiledConcatPart } from "./compiled-types";
 
 export type {
   CompileTokenGraphIssue,
@@ -74,93 +71,85 @@ export function compileTokenGraph(
   input: TokenGraph,
   options?: CompileTokenGraphOptions,
 ): Result<CompiledScheme<string, string, boolean>, CompileTokenGraphIssue> {
-  const parsed = parseTokenGraphInternal(input);
+  const parsed = validateSourceGraph(input);
   if (!parsed.ok) {
     return parsed;
   }
 
-  const selection = parseCompileSelection(parsed.value, options);
+  const graph = composeTokenGraph(parsed.value);
+  const selection = parseCompileSelection(graph, options);
   if (!selection.ok) {
     return selection;
   }
 
-  return compileParsedTokenGraph(parsed.value, selection.value);
+  return compileComposedGraph(graph, selection.value);
 }
 
-export function compileParsedTokenGraph<
-  const Mode extends string = string,
-  const Key extends string = string,
->(
-  graph: ParsedTokenGraph<Mode, Key>,
-  selection: TokenSelection<Key> = "public",
-): Result<CompiledScheme<Key, Mode, boolean>, CompileTokenGraphIssue> {
-  const selectedKeys = selectTokenKeys(graph, selection);
-  if (!selectedKeys.ok) {
-    return selectedKeys;
+function compileComposedGraph(
+  graph: ComposedGraph,
+  selection: TokenSelection,
+): Result<CompiledScheme<string, string, boolean>, CompileTokenGraphIssue> {
+  const resolved = resolveTokenGraph(graph);
+  if (!resolved.ok) {
+    return resolved;
   }
-
-  // The unchanged v1 parser has already rejected unknown references and cycles.
-  // Concat cannot cross that boundary during P1; resolver failures here are invariants.
-  const resolve = createExpressionResolver(
-    (key, mode) => {
-      const expression = graph.tokens[key as Key]?.expressionByMode[mode as Mode];
-      return expression === undefined ? undefined : { expression, path: "", referencePaths: [] };
-    },
-    () => {
-      throw new Error("Validated v1 expressions must resolve.");
-    },
-  );
-  const tokens: Record<string, CompiledToken<Mode>> = {};
-  const metadataByToken: Record<string, CompiledTokenMetadata<Mode>> = {};
-
-  for (const key of selectedKeys.value) {
-    const source = graph.tokens[key] as ParsedTokenGraphToken<Mode, Key>;
-    const modeValues: Record<string, string> = {};
-    const dependenciesByMode: Record<string, readonly string[]> = {};
-
-    for (const mode of graph.modes) {
-      const value = resolve(key, mode);
-      if (value === undefined) {
-        throw new Error("Validated v1 expressions must resolve.");
-      }
-      defineRecordValue(modeValues, mode, value);
-      defineRecordValue(dependenciesByMode, mode, directDependencies(source, mode));
+  const selected = selectTokenKeys(graph, selection);
+  if (!selected.ok) {
+    return selected;
+  }
+  const tokens: Record<string, CompiledToken> = {};
+  const metadataByToken: Record<string, CompiledTokenMetadata> = {};
+  for (const key of selected.value) {
+    const source = graph.tokens[key];
+    const values = resolved.value[key];
+    if (source === undefined || values === undefined) {
+      throw new Error("Selected token must exist.");
     }
-
-    defineRecordValue(
-      tokens,
-      key,
-      sortedRecord(Object.entries(modeValues)) as Readonly<Record<Mode, string>>,
-    );
+    const { expressions, ...metadata } = source;
+    const expressionByMode: Record<string, CompiledExpression> = {};
+    for (const mode of graph.modes) {
+      const expression = expressions[mode]?.expression;
+      if (typeof expression === "object") {
+        if ("ref" in expression) {
+          defineRecordValue(expressionByMode, mode, { ref: expression.ref });
+        } else {
+          const concat = expression.concat.map((part) => {
+            if (typeof part === "string") {
+              return part;
+            }
+            const value = resolved.value[part.ref]?.[mode];
+            if (value === undefined) {
+              throw new Error("Resolved reference must exist.");
+            }
+            return { ref: part.ref, value };
+          }) as [CompiledConcatPart, ...CompiledConcatPart[]];
+          defineRecordValue(expressionByMode, mode, { concat });
+        }
+      }
+    }
+    defineRecordValue(tokens, key, values);
     defineRecordValue(metadataByToken, key, {
-      visibility: source.visibility,
-      origin: cloneOrigin(source.origin),
-      dependenciesByMode: sortedRecord(Object.entries(dependenciesByMode)) as Readonly<
-        Record<Mode, readonly string[]>
-      >,
-      ...(source.description === undefined ? {} : { description: source.description }),
-      ...(source.deprecated === undefined ? {} : { deprecated: source.deprecated }),
-      ...(source.extensions === undefined ? {} : { extensions: source.extensions }),
+      ...metadata,
+      ...(Object.keys(expressionByMode).length === 0
+        ? {}
+        : { expressionByMode: sortedRecord(Object.entries(expressionByMode)) }),
     });
   }
-
   return {
     ok: true,
     value: {
       kind: compiledSchemeKind,
-      formatVersion: 1,
-      modes: [...graph.modes] as readonly [Mode, ...Mode[]],
+      formatVersion: 2,
+      modes: [...graph.modes],
       defaultMode: graph.defaultMode,
-      tokens: sortedRecord(Object.entries(tokens)) as Readonly<Record<Key, CompiledToken<Mode>>>,
-      metadataByToken: sortedRecord(Object.entries(metadataByToken)) as Readonly<
-        Record<Key, CompiledTokenMetadata<Mode>>
-      >,
+      tokens,
+      metadataByToken,
     },
   };
 }
 
-export function parseCompileSelection<Key extends string = string>(
-  graph: ParsedTokenGraph<string, Key>,
+function parseCompileSelection<Key extends string = string>(
+  graph: ComposedGraph<string, Key>,
   options: CompileTokenGraphOptions<Key> | undefined,
 ): Result<TokenSelection<Key>, CompileTokenGraphIssue> {
   if (options === undefined) {
@@ -291,7 +280,7 @@ export function parseCompileSelection<Key extends string = string>(
 }
 
 function selectTokenKeys<Key extends string>(
-  graph: ParsedTokenGraph<string, Key>,
+  graph: ComposedGraph<string, Key>,
   selection: TokenSelection<Key>,
 ): Result<readonly Key[], CompileTokenGraphIssue> {
   const keys = Object.keys(graph.tokens) as Key[];
@@ -310,25 +299,4 @@ function selectTokenKeys<Key extends string>(
     };
   }
   return { ok: true, value: canonical };
-}
-
-function isReferenceExpression<Key extends string>(
-  expression: ParsedTokenExpression<Key>,
-): expression is { readonly ref: Key } {
-  return typeof expression === "object" && expression !== null && "ref" in expression;
-}
-
-function cloneOrigin(origin: ParsedTokenGraphToken["origin"]): ParsedTokenGraphToken["origin"] {
-  if (origin.kind === "graph") {
-    return { kind: "graph" };
-  }
-  return { kind: "layer", id: origin.id };
-}
-
-function directDependencies<Mode extends string, Key extends string>(
-  token: ParsedTokenGraphToken<Mode, Key>,
-  mode: Mode,
-): readonly string[] {
-  const expression = token.expressionByMode[mode] as ParsedTokenExpression<Key> | undefined;
-  return expression !== undefined && isReferenceExpression(expression) ? [expression.ref] : [];
 }

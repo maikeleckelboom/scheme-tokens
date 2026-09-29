@@ -16,6 +16,8 @@ type Result<Value, Problem = Issue> = {
   readonly ok: true;
   readonly value: Value;
 } | FailureResult<Problem>;
+/** Return a success or retain the entire structured failure as the error cause. */
+declare function orThrow<Value, Problem extends Issue>(result: Result<Value, Problem>): Value;
 type JsonPrimitive = null | boolean | number | string;
 type JsonValue = JsonPrimitive | readonly JsonValue[] | {
   readonly [key: string]: JsonValue;
@@ -23,14 +25,13 @@ type JsonValue = JsonPrimitive | readonly JsonValue[] | {
 declare const tokenGraphKind = "scheme-tokens/token-graph";
 declare const tokenLayerKind = "scheme-tokens/token-layer";
 declare const compiledSchemeKind = "scheme-tokens/compiled-scheme";
-declare const tokenGraphSchemaUrl = "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json";
-declare const tokenLayerSchemaUrl = "https://scheme-tokens.dev/schemas/token-layer.v1.schema.json";
-declare const compiledSchemeSchemaUrl = "https://scheme-tokens.dev/schemas/compiled-scheme.v1.schema.json";
 type TokenVisibility = "public" | "internal";
 interface TokenReference<Key extends string = string> {
   readonly ref: Key;
 }
-type TokenExpression<Key extends string = string> = string | TokenReference<Key>;
+type TokenExpression<Key extends string = string> = string | TokenReference<Key> | {
+  readonly concat: readonly [string | TokenReference<Key>, ...(string | TokenReference<Key>)[]];
+};
 type TokenModeValues<Mode extends string, Key extends string> = Readonly<Record<Mode, TokenExpression<Key>>>;
 interface TokenDefinitionMetadata {
   readonly visibility?: TokenVisibility;
@@ -42,17 +43,17 @@ type TokenDefinition<Key extends string = string, Mode extends string = string> 
   readonly value: TokenExpression<Key> | TokenModeValues<Mode, Key>;
 };
 interface TokenLayer<Key extends string = string, Mode extends string = string> {
-  readonly $schema?: typeof tokenLayerSchemaUrl;
+  readonly $schema?: string;
   readonly kind: typeof tokenLayerKind;
-  readonly formatVersion: 1;
+  readonly formatVersion: 2;
   readonly id: string;
   readonly defaultVisibility: TokenVisibility;
   readonly tokens: Readonly<Record<Key, TokenDefinition<string, Mode>>>;
 }
 interface TokenGraph<Key extends string = string, Mode extends string = string, Layers extends readonly TokenLayer<string, string>[] = readonly TokenLayer<string, string>[]> {
-  readonly $schema?: typeof tokenGraphSchemaUrl;
+  readonly $schema?: string;
   readonly kind: typeof tokenGraphKind;
-  readonly formatVersion: 1;
+  readonly formatVersion: 2;
   readonly modes: readonly [Mode, ...Mode[]];
   readonly defaultMode: Mode;
   readonly defaultVisibility: TokenVisibility;
@@ -70,13 +71,12 @@ type SingleTokenAuthoring<Key extends string> = TokenExpression<Key> | ExpandedS
 type MultiTokenAuthoring<Mode extends string, Key extends string> = TokenExpression<Key> | TokenModeValues<Mode, Key> | ExpandedMultiTokenAuthoring<Mode, Key>;
 type ModeTuple = readonly [string, ...string[]];
 type LayerTuple = readonly TokenLayer<string, string>[];
-type ReservedMode = "ref" | "value" | "valueByMode" | "visibility" | "description" | "deprecated" | "extensions";
+type ReservedMode = "ref" | "value" | "visibility" | "description" | "deprecated" | "extensions";
 type ValidModes<Modes extends ModeTuple> = Extract<Modes[number], ReservedMode> extends never ? Modes : never;
 type LayerMemberKey<Layer> = Layer extends TokenLayer<infer Key, string> ? Key : never;
 type LayerKeyOf<Layers extends LayerTuple> = Layers extends readonly [] ? never : LayerMemberKey<Layers[number]>;
 type DefinedGraph<DirectKey extends string, Mode extends string, Layers extends LayerTuple> = TokenGraph<DirectKey, Mode, Layers>;
 interface SharedGraphOptions<Layers extends LayerTuple> {
-  readonly $schema?: typeof tokenGraphSchemaUrl;
   readonly defaultVisibility?: TokenVisibility;
   readonly layers?: Layers;
 }
@@ -107,20 +107,20 @@ type TokenKeyOf<T> = T extends TokenGraph<infer DirectKey, string, infer Layers>
 type ModeOf<T> = T extends {
   readonly modes: readonly [infer First, ...infer Rest];
 } ? Extract<First | Rest[number], string> : never;
-type TokenGraphIssue = Issue<"invalid-object" | "unknown-property" | "missing-property" | "invalid-artifact-kind" | "invalid-format-version" | "invalid-schema-uri" | "invalid-json-value" | "empty-modes" | "invalid-mode-key" | "duplicate-mode-key" | "default-mode-not-found" | "invalid-default-visibility" | "invalid-layer-id" | "duplicate-layer-id" | "invalid-token-key" | "invalid-visibility" | "invalid-token-definition" | "missing-token-value" | "invalid-token-value" | "missing-mode-value" | "unknown-mode-value" | "invalid-reference" | "unknown-reference" | "reference-cycle" | "invalid-description" | "invalid-deprecated" | "invalid-extensions"> & {
+type TokenGraphIssue = Issue<"invalid-object" | "unknown-property" | "missing-property" | "invalid-artifact-kind" | "invalid-format-version" | "invalid-schema-uri" | "invalid-json-value" | "empty-modes" | "invalid-mode-key" | "duplicate-mode-key" | "default-mode-not-found" | "invalid-default-visibility" | "layer-mode-mismatch" | "resolved-value-too-long" | "invalid-layer-id" | "duplicate-layer-id" | "invalid-token-key" | "invalid-visibility" | "invalid-token-definition" | "missing-token-value" | "invalid-token-value" | "missing-mode-value" | "unknown-mode-value" | "invalid-reference" | "unknown-reference" | "reference-cycle" | "invalid-description" | "invalid-deprecated" | "invalid-extensions"> & {
   readonly key?: string;
   readonly mode?: string;
   readonly layerId?: string;
   readonly firstPath?: string;
   readonly cycle?: readonly string[];
+  readonly modes?: readonly string[];
+  readonly layerModes?: readonly string[];
 };
 declare function tokenRef<const Key extends string>(key: Key): TokenReference<Key>;
-declare function defineTokens<const Key extends string, const Layers extends LayerTuple = readonly []>(tokens: Readonly<Record<Key, SingleTokenAuthoring<NoInfer<Key | LayerKeyOf<Layers>>>>>, options?: SingleGraphOptions<Layers>): DefinedGraph<Key, "base", Layers>;
-declare function defineTokens<const Modes extends ModeTuple, const Key extends string, const Layers extends LayerTuple = readonly []>(tokens: Readonly<Record<Key, MultiTokenAuthoring<NoInfer<Modes[number]>, NoInfer<Key | LayerKeyOf<Layers>>>>>, options: MultiGraphOptions<Modes, Layers>): DefinedGraph<Key, Modes[number], Layers>;
+declare function tokenConcat<const Key extends string>(strings: TemplateStringsArray, ...references: readonly TokenReference<Key>[]): TokenExpression<Key>;
 declare function defineTokenGraph<const DirectKey extends string, const Layers extends LayerTuple = readonly []>(input: SingleGraphAuthoring<DirectKey, Layers>): DefinedGraph<DirectKey, "base", Layers>;
 declare function defineTokenGraph<const Modes extends ModeTuple, const DirectKey extends string, const Layers extends LayerTuple = readonly []>(input: MultiGraphAuthoring<Modes, DirectKey, Layers>): DefinedGraph<DirectKey, Modes[number], Layers>;
 declare function defineTokenLayer<const Key extends string>(input: {
-  readonly $schema?: typeof tokenLayerSchemaUrl;
   readonly id: string;
   readonly defaultVisibility?: TokenVisibility;
   readonly tokens: Readonly<Record<Key, MultiTokenAuthoring<string, string>>>;
@@ -139,24 +139,38 @@ type CompileSelectionIssue = Issue<"invalid-compile-options" | "invalid-selectio
 type CompileTokenGraphIssue = TokenGraphIssue | CompileSelectionIssue;
 type CompiledToken<Mode extends string = string> = Readonly<Record<Mode, string>>;
 type CompiledRecord<Key extends string, Value, Complete extends boolean> = Complete extends true ? Readonly<Record<Key, Value>> : Readonly<Partial<Record<Key, Value>>>;
+interface TokenDeclarationRecord {
+  readonly origin: TokenOrigin;
+  readonly visibility?: TokenVisibility;
+}
+type CompiledReference = {
+  readonly ref: string;
+};
+type CompiledConcatPart = string | {
+  readonly ref: string;
+  readonly value: string;
+};
+type CompiledExpression = CompiledReference | {
+  readonly concat: readonly [CompiledConcatPart, ...CompiledConcatPart[]];
+};
 interface CompiledTokenMetadata<Mode extends string = string> {
   readonly visibility: TokenVisibility;
-  readonly origin: TokenOrigin;
-  readonly dependenciesByMode: Readonly<Record<Mode, readonly string[]>>;
+  readonly declarations: readonly [TokenDeclarationRecord, ...TokenDeclarationRecord[]];
+  readonly expressionByMode?: Readonly<Partial<Record<Mode, CompiledExpression>>>;
   readonly description?: string;
   readonly deprecated?: boolean | string;
   readonly extensions?: Readonly<Record<string, JsonValue>>;
 }
 interface CompiledScheme<Key extends string = string, Mode extends string = string, Complete extends boolean = true> {
-  readonly $schema?: typeof compiledSchemeSchemaUrl;
+  readonly $schema?: string;
   readonly kind: typeof compiledSchemeKind;
-  readonly formatVersion: 1;
+  readonly formatVersion: 2;
   readonly modes: readonly [Mode, ...Mode[]];
   readonly defaultMode: Mode;
   readonly tokens: CompiledRecord<Key, CompiledToken<Mode>, Complete>;
   readonly metadataByToken: CompiledRecord<Key, CompiledTokenMetadata<Mode>, Complete>;
 }
-type ParseCompiledSchemeIssue = Issue<"invalid-object" | "unknown-property" | "missing-property" | "invalid-artifact-kind" | "invalid-format-version" | "invalid-schema-uri" | "invalid-mode-key" | "duplicate-mode-key" | "default-mode-not-found" | "invalid-token-key" | "invalid-visibility" | "invalid-token-definition" | "invalid-token-value" | "missing-mode-value" | "unknown-mode-value" | "invalid-origin" | "invalid-dependencies" | "invalid-description" | "invalid-deprecated" | "invalid-extensions" | "invalid-json-value"> & {
+type ParseCompiledSchemeIssue = Issue<"invalid-object" | "unknown-property" | "missing-property" | "invalid-artifact-kind" | "invalid-format-version" | "invalid-schema-uri" | "invalid-mode-key" | "duplicate-mode-key" | "default-mode-not-found" | "invalid-token-key" | "invalid-visibility" | "invalid-token-definition" | "invalid-token-value" | "missing-mode-value" | "unknown-mode-value" | "invalid-origin" | "invalid-declarations" | "invalid-expression" | "empty-modes" | "invalid-description" | "invalid-deprecated" | "invalid-extensions" | "invalid-json-value"> & {
   readonly key?: string;
   readonly mode?: string;
 };
@@ -254,4 +268,4 @@ declare function serializeTokenGraph(graph: TokenGraph): string;
 declare function serializeTokenLayer(layer: TokenLayer): string;
 type AnyCompiledScheme = CompiledScheme<string, string, boolean>;
 declare function serializeCompiledScheme(scheme: AnyCompiledScheme): string;
-export { type CompileTokenGraphIssue, type CompileTokenGraphOptions, type CompiledScheme, type CompiledToken, type CompiledTokenMetadata, type CssModeSelectors, type CssScope, type CssVarBlock, type CssVarDeclaration, type CssVarsExport, type ExportCssVarsIssue, type ExportCssVarsOptions, type Issue, type JsonValue, type ParseCompiledSchemeIssue, type Result, type TokenDefinition, type TokenExpression, type TokenGraph, type TokenGraphIssue, type TokenLayer, type TokenOrigin, type TokenReference, type TokenSelection, type TokenVisibility, compileTokenGraph, defineTokenGraph, defineTokenLayer, defineTokens, exportCssVars, parseCompiledScheme, parseTokenGraph, parseTokenLayer, serializeCompiledScheme, serializeTokenGraph, serializeTokenLayer, tokenRef };
+export { type CompileTokenGraphIssue, type CompileTokenGraphOptions, type CompiledConcatPart, type CompiledExpression, type CompiledReference, type CompiledScheme, type CompiledToken, type CompiledTokenMetadata, type CssModeSelectors, type CssScope, type CssVarBlock, type CssVarDeclaration, type CssVarsExport, type ExportCssVarsIssue, type ExportCssVarsOptions, type Issue, type JsonValue, type ParseCompiledSchemeIssue, type Result, type TokenDeclarationRecord, type TokenDefinition, type TokenExpression, type TokenGraph, type TokenGraphIssue, type TokenLayer, type TokenOrigin, type TokenReference, type TokenSelection, type TokenVisibility, compileTokenGraph, defineTokenGraph, defineTokenLayer, exportCssVars, orThrow, parseCompiledScheme, parseTokenGraph, parseTokenLayer, serializeCompiledScheme, serializeTokenGraph, serializeTokenLayer, tokenConcat, tokenRef };

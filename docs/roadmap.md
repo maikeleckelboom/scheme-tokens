@@ -21,6 +21,8 @@ set of evidence gates, not a feature backlog.
 - Compiler behavior, deterministic serialization and CSS output, schemas, declaration snapshots,
   tarball contents, and package resolution already have repository-owned validation.
 
+The current branch implements the P2 core v2 candidate: unified validation/composition/resolution, graph-last precedence, visibility inheritance, concat, D6 metadata, and lossless v1 source upgrades. [ADR 0015](./adr/0015-concat-mode-disambiguation.md) keeps `concat` available as a structurally disambiguated mode. The final static model, CSS redesign, Material API, consumer migration, and publication remain later phases. No 0.4 release is claimed here.
+
 ## Positioning
 
 Core composes and resolves the graph that exists before a token file or platform artifact. It is
@@ -33,9 +35,9 @@ belongs outside core when it can preserve that boundary.
 
 ## Schema identifiers and namespace ownership
 
-The three packaged v1 schemas use canonical `$id` URIs under `https://scheme-tokens.dev/schemas/`.
+Released 0.3 packages archive the three v1 schemas with `$id` URIs under `https://scheme-tokens.dev/schemas/`.
 A JSON Schema identifier is a URI identity and does not require network retrieval for the packaged
-schema contract to work. The schemas remain available through the published package exports. The
+schema contract to work. Those historical schemas remain in their released packages. The current candidate exports only v2 schemas. The
 project does not control that domain, and the URI host is not available over HTTP.
 
 [ADR 0013](./adr/0013-coherent-token-model.md) (D10) settles the question for format version 2

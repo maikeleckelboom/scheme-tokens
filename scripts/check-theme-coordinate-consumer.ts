@@ -77,9 +77,9 @@ assertDeepEqual(
   [
     ".",
     "./package.json",
-    "./schemas/compiled-scheme.v1.schema.json",
-    "./schemas/token-graph.v1.schema.json",
-    "./schemas/token-layer.v1.schema.json",
+    "./schemas/compiled-scheme.v2.schema.json",
+    "./schemas/token-graph.v2.schema.json",
+    "./schemas/token-layer.v2.schema.json",
   ],
   "installed package exports",
 );

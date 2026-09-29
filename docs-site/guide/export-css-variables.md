@@ -3,16 +3,13 @@
 `exportCssVars()` accepts a compiled scheme and returns a `Result` containing CSS, structured blocks, and a token-to-property lookup.
 
 ```ts
-// ---cut-start---
-import type { Issue, Result } from "scheme-tokens";
-declare function orThrow<Value, Problem extends Issue>(result: Result<Value, Problem>): Value;
-// ---cut-end---
-import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
 
-const graph = defineTokens(
-  { background: { light: "#ffffff", dark: "#111111" } },
-  { modes: ["light", "dark"], defaultMode: "light" },
-);
+const graph = defineTokenGraph({
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  tokens: { background: { light: "#ffffff", dark: "#111111" } },
+});
 const scheme = orThrow(compileTokenGraph(graph));
 
 const cssVars = orThrow(
@@ -54,9 +51,9 @@ Compilation and serialization preserve arbitrary token strings. CSS export is a 
 Use `variableName` only when integration requires a non-default property mapping:
 
 ```ts
-import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
 
-const compiled = compileTokenGraph(defineTokens({ background: "#ffffff" }));
+const compiled = compileTokenGraph(defineTokenGraph({ tokens: { background: "#ffffff" } }));
 
 if (compiled.ok) {
   const exported = exportCssVars(compiled.value, {

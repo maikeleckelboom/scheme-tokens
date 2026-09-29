@@ -27,7 +27,8 @@ const expectedRuntimeExports = [
   "compileTokenGraph",
   "defineTokenGraph",
   "defineTokenLayer",
-  "defineTokens",
+  "orThrow",
+  "tokenConcat",
   "exportCssVars",
   "parseCompiledScheme",
   "parseTokenGraph",
@@ -41,6 +42,9 @@ const expectedRuntimeExports = [
 const expectedTypeExports = [
   "CompileTokenGraphIssue",
   "CompileTokenGraphOptions",
+  "CompiledConcatPart",
+  "CompiledExpression",
+  "CompiledReference",
   "CompiledScheme",
   "CompiledToken",
   "CompiledTokenMetadata",
@@ -55,6 +59,7 @@ const expectedTypeExports = [
   "JsonValue",
   "ParseCompiledSchemeIssue",
   "Result",
+  "TokenDeclarationRecord",
   "TokenDefinition",
   "TokenExpression",
   "TokenGraph",
@@ -67,6 +72,7 @@ const expectedTypeExports = [
 ] as const;
 
 const removedPublicNames = [
+  "defineTokens",
   "CompileTokenGraphResult",
   "CompiledSchemeKind",
   "ExportCssVarsResult",
@@ -125,9 +131,9 @@ assertEqual(
   [
     ".",
     "./package.json",
-    "./schemas/compiled-scheme.v1.schema.json",
-    "./schemas/token-graph.v1.schema.json",
-    "./schemas/token-layer.v1.schema.json",
+    "./schemas/compiled-scheme.v2.schema.json",
+    "./schemas/token-graph.v2.schema.json",
+    "./schemas/token-layer.v2.schema.json",
   ],
   "package exports",
 );

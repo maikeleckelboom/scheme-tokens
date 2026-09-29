@@ -24,7 +24,7 @@ scope.
 
 - CSS declaration ordering and block ordering
 - Serialization key ordering
-- Issue codes (49) and their JSON Pointer paths
+- Issue codes and their JSON Pointer paths
 - The wire format / formatVersion Treat these as public API even though they are not types.
 
 The package is published, so a change to any of the above needs a changeset and ships as a minor bump while the line is
@@ -37,12 +37,13 @@ never ships as an alias next to the old shape.
 - Modes are a FLAT list. First-class orthogonal axes (palette x scheme) were evaluated and rejected: formatVersion 2,
   three schema rewrites, ~400 lines, broken pointer contract. docs/application-theme-coordinates.md prescribes
   flattening at the application boundary. Keep it.
-- Bare strings are NEVER references. tokenRef () or {ref} only.
+- Bare strings are NEVER references. References are explicit, including the reference parts of a flat concat.
 - Gamut and color space are APPLICATION concerns, not token concerns. Core never learns what sRGB or P3 are.
 - [ADR 0013](./adr/0013-coherent-token-model.md) (accepted) designs the next breaking release as one contract:
   authoring, composition, visibility, static typing, layer mode sets, compiled provenance, CSS activation, wire-format
   evolution, schema identity, and TypeScript support. ADRs 0010–0012 are its accepted slices. Read it before proposing
-  a change to any of these; the shipped 0.3 contract stays documented in the durable docs until the implementation lands.
+  a change to any of these. The branch now implements the P2 runtime/wire cutover; durable docs describe that candidate. P3 static inference, P4 CSS, and P5 Material remain deferred.
+- [ADR 0015](./adr/0015-concat-mode-disambiguation.md) supersedes only the reserved-mode rule for `concat`. Exact singleton array shape distinguishes concat expressions from mode maps. This preserves valid published v1 source with mode `concat` and D10 retention. Never classify by property presence alone, including in the future P3 static model.
 
 ## Material 3 adapter package
 

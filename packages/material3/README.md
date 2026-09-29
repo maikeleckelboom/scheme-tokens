@@ -121,8 +121,7 @@ if (compiled.ok) {
 ```
 
 The generated layer is normal core data. `serializeTokenLayer()` provides deterministic reviewable
-JSON. After compilation, `metadataByToken[key].origin` identifies the winning layer and
-`dependenciesByMode` records direct reference edges. The adapter adds no serializer, CSS exporter,
+JSON. After compilation, `metadataByToken[key].declarations` records the ordered declaration chain; its last origin identifies the winner. Sparse `expressionByMode` retains references and concat expressions. The adapter adds no serializer, CSS exporter,
 or provenance API of its own.
 
 ## Distribution
@@ -130,6 +129,8 @@ or provenance API of its own.
 The ESM-only package requires Node 24 or newer. Material Color Utilities 0.4.0 is pinned and bundled
 into the adapter; `scheme-tokens` remains the shared peer dependency. Its range is
 `^0.2.0 || ^0.3.0`: the unchanged implementation retains its historical 0.2 certification, and the
-current packed candidate explicitly certifies 0.3. The package is licensed under MIT and
+released peer contract includes core 0.3. The P2 branch also tests this API against core v2 in an
+isolated Changesets projection; repository versions and this call shape remain unchanged pending
+the later Material API and versioning phases. The package is licensed under MIT and
 Apache-2.0 terms because of the bundled engine. See `LICENSE`,
 `LICENSE-MATERIAL-COLOR-UTILITIES`, and `THIRD_PARTY_NOTICES.md`.

@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tag:maikel.site,2026-09-29:scheme-tokens/schema/compiled-scheme/v2",
+  "title": "scheme-tokens compiled scheme v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "formatVersion", "modes", "defaultMode", "tokens", "metadataByToken"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "kind": {
+      "const": "scheme-tokens/compiled-scheme"
+    },
+    "formatVersion": {
+      "const": 2
+    },
+    "modes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/mode"
+      }
+    },
+    "defaultMode": {
+      "$ref": "#/$defs/mode"
+    },
+    "tokens": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "#/$defs/tokenKey"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/compiledToken"
+      }
+    },
+    "metadataByToken": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "#/$defs/tokenKey"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/compiledTokenMetadata"
+      }
+    }
+  },
+  "$defs": {
+    "compiledToken": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "#/$defs/mode"
+      },
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "compiledTokenMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visibility", "declarations"],
+      "properties": {
+        "visibility": {
+          "$ref": "#/$defs/visibility"
+        },
+        "description": {
+          "type": "string"
+        },
+        "deprecated": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        },
+        "declarations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/declaration"
+          }
+        },
+        "expressionByMode": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "#/$defs/mode"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/compiledExpression"
+          }
+        }
+      }
+    },
+    "segment": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "mode": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/segment"
+        },
+        {
+          "not": {
+            "enum": ["ref", "value", "visibility", "description", "deprecated", "extensions"]
+          }
+        }
+      ]
+    },
+    "tokenKey": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$"
+    },
+    "visibility": {
+      "enum": ["public", "internal"]
+    },
+    "extensions": {
+      "type": "object"
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref"],
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/tokenKey"
+        }
+      }
+    },
+    "declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["origin"],
+      "properties": {
+        "origin": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind"],
+              "properties": {
+                "kind": {
+                  "const": "graph"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "id"],
+              "properties": {
+                "kind": {
+                  "const": "layer"
+                },
+                "id": {
+                  "$ref": "#/$defs/segment"
+                }
+              }
+            }
+          ]
+        },
+        "visibility": {
+          "$ref": "#/$defs/visibility"
+        }
+      }
+    },
+    "compiledReferencePart": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "value"],
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/tokenKey"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "compiledConcat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["concat"],
+      "properties": {
+        "concat": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "$ref": "#/$defs/compiledReferencePart"
+              }
+            ]
+          },
+          "contains": {
+            "$ref": "#/$defs/compiledReferencePart"
+          }
+        }
+      }
+    },
+    "compiledExpression": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/reference"
+        },
+        {
+          "$ref": "#/$defs/compiledConcat"
+        }
+      ]
+    }
+  }
+}

@@ -1,19 +1,19 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json",
-  "title": "scheme-tokens token graph v1",
+  "$id": "tag:maikel.site,2026-09-29:scheme-tokens/schema/token-graph/v2",
+  "title": "scheme-tokens token graph v2",
   "type": "object",
   "additionalProperties": false,
   "required": ["kind", "formatVersion", "modes", "defaultMode", "defaultVisibility", "tokens"],
   "properties": {
     "$schema": {
-      "const": "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json"
+      "type": "string"
     },
     "kind": {
       "const": "scheme-tokens/token-graph"
     },
     "formatVersion": {
-      "const": 1
+      "const": 2
     },
     "modes": {
       "type": "array",
@@ -35,7 +35,7 @@
     "layers": {
       "type": "array",
       "items": {
-        "$ref": "token-layer.v1.schema.json"
+        "$ref": "#/$defs/layer"
       }
     }
   },
@@ -51,15 +51,7 @@
         },
         {
           "not": {
-            "enum": [
-              "ref",
-              "value",
-              "valueByMode",
-              "visibility",
-              "description",
-              "deprecated",
-              "extensions"
-            ]
+            "enum": ["ref", "value", "visibility", "description", "deprecated", "extensions"]
           }
         }
       ]
@@ -119,6 +111,9 @@
           "$ref": "#/$defs/reference"
         },
         {
+          "$ref": "#/$defs/concat"
+        },
+        {
           "$ref": "#/$defs/expressionByModeRecord"
         }
       ]
@@ -134,12 +129,15 @@
       }
     },
     "expression": {
-      "anyOf": [
+      "oneOf": [
         {
           "type": "string"
         },
         {
           "$ref": "#/$defs/reference"
+        },
+        {
+          "$ref": "#/$defs/concat"
         }
       ]
     },
@@ -155,6 +153,55 @@
     },
     "extensions": {
       "type": "object"
+    },
+    "concat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["concat"],
+      "properties": {
+        "concat": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/part"
+          }
+        }
+      }
+    },
+    "part": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/reference"
+        }
+      ]
+    },
+    "layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "formatVersion", "id", "defaultVisibility", "tokens"],
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "scheme-tokens/token-layer"
+        },
+        "formatVersion": {
+          "const": 2
+        },
+        "id": {
+          "$ref": "#/$defs/segment"
+        },
+        "defaultVisibility": {
+          "$ref": "#/$defs/visibility"
+        },
+        "tokens": {
+          "$ref": "#/$defs/tokenRecord"
+        }
+      }
     }
   }
 }

@@ -32,6 +32,7 @@ export function createExpressionResolver(
   report: (issue: ResolutionIssue) => void,
 ): (key: string, mode: string) => string | undefined {
   const modes = new Map<string, Map<string, NodeState>>();
+  const cycles = new Set<string>();
 
   return (key, mode) => {
     let memo = modes.get(mode);
@@ -70,6 +71,13 @@ export function createExpressionResolver(
       memo.set(frame.key, { status: "failed" });
       stack.pop();
       if (issue !== undefined) {
+        if (issue.cycle !== undefined) {
+          const identity = JSON.stringify([issue.mode, issue.cycle]);
+          if (cycles.has(identity)) {
+            return;
+          }
+          cycles.add(identity);
+        }
         report(issue);
       }
     };
@@ -132,7 +140,7 @@ export function createExpressionResolver(
         mode,
         path: frame.source.referencePaths[frame.referenceIndex] ?? frame.source.path,
         ...(dependency?.status === "active"
-          ? { cycle: stack.slice(dependency.stackIndex).map((item) => item.key) }
+          ? { cycle: canonicalCycle(stack.slice(dependency.stackIndex).map((item) => item.key)) }
           : {}),
       });
     }
@@ -151,4 +159,14 @@ function joinResolvedConcat(parts: readonly string[]): string | undefined {
     }
   }
   return parts.join("");
+}
+
+function canonicalCycle(cycle: readonly string[]): readonly string[] {
+  let start = 0;
+  for (let index = 1; index < cycle.length; index += 1) {
+    if ((cycle[index] as string) < (cycle[start] as string)) {
+      start = index;
+    }
+  }
+  return [...cycle.slice(start), ...cycle.slice(0, start)];
 }

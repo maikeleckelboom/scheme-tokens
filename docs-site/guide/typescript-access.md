@@ -3,18 +3,16 @@
 Literal token keys and explicit modes flow through trusted authoring, compilation, CSS export, and serialization.
 
 ```ts
-import { compileTokenGraph, defineTokens, serializeCompiledScheme } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, serializeCompiledScheme } from "scheme-tokens";
 
-const graph = defineTokens(
-  {
+const graph = defineTokenGraph({
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  tokens: {
     background: { light: "#ffffff", dark: "#111111" },
     primary: { light: "#6750a4", dark: "#d0bcff" },
   },
-  {
-    modes: ["light", "dark"],
-    defaultMode: "light",
-  },
-);
+});
 
 const publicCompiled = compileTokenGraph(graph);
 
@@ -29,12 +27,12 @@ const compiled = compileTokenGraph(graph, {
 if (compiled.ok) {
   const background = compiled.value.tokens.background.light;
   const primary = compiled.value.tokens.primary.dark;
-  const dependencies = compiled.value.metadataByToken.primary.dependenciesByMode.dark;
+  const declarations = compiled.value.metadataByToken.primary.declarations;
   const json = serializeCompiledScheme(compiled.value);
 
   background.toUpperCase();
   primary.toUpperCase();
-  dependencies.length.toFixed();
+  declarations.length.toFixed();
   json.toUpperCase();
 }
 ```

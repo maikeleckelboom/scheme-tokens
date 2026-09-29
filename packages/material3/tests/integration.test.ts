@@ -24,13 +24,15 @@ describe("core integration", () => {
     if (!compiled.ok) {
       return;
     }
-    expect(compiled.value.metadataByToken["md.sys.color.primary"].origin).toEqual({
+    expect(
+      compiled.value.metadataByToken["md.sys.color.primary"].declarations.at(-1)?.origin,
+    ).toEqual({
       kind: "layer",
       id: "material3",
     });
     expect(
-      compiled.value.metadataByToken["action.primary.background"].dependenciesByMode.light,
-    ).toEqual(["md.sys.color.primary"]);
+      compiled.value.metadataByToken["action.primary.background"].expressionByMode?.light,
+    ).toEqual({ ref: "md.sys.color.primary" });
     expect(compiled.value.tokens["action.primary.background"].light).toBe(
       compiled.value.tokens["md.sys.color.primary"].light,
     );
@@ -58,7 +60,9 @@ describe("core integration", () => {
     }
     expect(compiled.value.tokens["md.sys.color.primary"].light).toBe("#ff0055");
     expect(compiled.value.tokens["action.primary.background"].dark).toBe("#ff0055");
-    expect(compiled.value.metadataByToken["md.sys.color.primary"].origin).toEqual({
+    expect(
+      compiled.value.metadataByToken["md.sys.color.primary"].declarations.at(-1)?.origin,
+    ).toEqual({
       kind: "layer",
       id: "brand-overrides",
     });
@@ -101,6 +105,6 @@ describe("core integration", () => {
         layers: [...first.layers, ...second.layers],
         tokens: {},
       }),
-    ).toThrow(/duplicate id/u);
+    ).toThrow(/duplicate-layer-id/u);
   });
 });

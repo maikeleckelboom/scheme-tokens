@@ -46,14 +46,13 @@ writeJson(join(consumerDirectory, "tsconfig.json"), {
 writeFileSync(
   join(consumerDirectory, "consumer.ts"),
   `
-import tokenGraphSchema from "scheme-tokens/schemas/token-graph.v1.schema.json" with { type: "json" };
-import tokenLayerSchema from "scheme-tokens/schemas/token-layer.v1.schema.json" with { type: "json" };
-import compiledSchemeSchema from "scheme-tokens/schemas/compiled-scheme.v1.schema.json" with { type: "json" };
+import tokenGraphSchema from "scheme-tokens/schemas/token-graph.v2.schema.json" with { type: "json" };
+import tokenLayerSchema from "scheme-tokens/schemas/token-layer.v2.schema.json" with { type: "json" };
+import compiledSchemeSchema from "scheme-tokens/schemas/compiled-scheme.v2.schema.json" with { type: "json" };
 import {
   compileTokenGraph,
   defineTokenGraph,
   defineTokenLayer,
-  defineTokens,
   exportCssVars,
   parseCompiledScheme,
   parseTokenGraph,
@@ -69,8 +68,7 @@ import {
   type TokenGraph,
 } from "scheme-tokens";
 
-const graph = defineTokens(
-  {
+const graph = defineTokenGraph({modes: ["light", "dark"], defaultMode: "light", tokens: {
     "brand.600": {
       value: {
         light: "oklch(62% 0.18 250)",
@@ -86,9 +84,7 @@ const graph = defineTokens(
       },
       description: "Primary action fill",
     },
-  },
-  { modes: ["light", "dark"], defaultMode: "light" },
-);
+  }});
 
 type GraphKey = keyof typeof graph.tokens;
 type GraphMode = (typeof graph.modes)[number];
@@ -103,11 +99,11 @@ const invalidGraphMode: GraphMode = "dim";
 void invalidGraphKey;
 void invalidGraphMode;
 
-defineTokens({
+defineTokenGraph({tokens: {
   "brand.600": "#6750a4",
-  // @ts-expect-error tokenRef targets must exist in the closed defineTokens record
+  // @ts-expect-error tokenRef targets must exist in the closed defineTokenGraph record
   primary: tokenRef("brand.400"),
-});
+}});
 
 compileTokenGraph(graph, {
   selection: {
@@ -219,9 +215,9 @@ if (parsedGraph.value.tokens["brand.600"]?.value === undefined) {
 }
 
 for (const [schema, title] of [
-  [tokenGraphSchema, "scheme-tokens token graph v1"],
-  [tokenLayerSchema, "scheme-tokens token layer v1"],
-  [compiledSchemeSchema, "scheme-tokens compiled scheme v1"],
+  [tokenGraphSchema, "scheme-tokens token graph v2"],
+  [tokenLayerSchema, "scheme-tokens token layer v2"],
+  [compiledSchemeSchema, "scheme-tokens compiled scheme v2"],
 ] as const) {
   if (schema.$schema !== "https://json-schema.org/draft/2020-12/schema" || schema.title !== title) {
     throw new Error("packed schema import failed: " + title);

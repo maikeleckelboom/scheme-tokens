@@ -1,7 +1,7 @@
 import type { CompiledScheme, ParseCompiledSchemeIssue } from "../core/compiled-types";
 import { isClassPrefix, isDataAttributeName, isSingleSegmentIdentifier } from "../core/identifiers";
 import { compareCodeUnits, escapePointerSegment, readPlainRecord } from "../core/json";
-import { parseCompiledSchemeInternal } from "../core/parse-compiled-scheme";
+import { parseCompiledScheme } from "../core/parse-compiled-scheme";
 import type { Issue, Result } from "../core/result";
 import { describeUnknown } from "../core/unknown-description";
 import {
@@ -143,7 +143,7 @@ export function exportCssVars(
   scheme: AnyCompiledScheme,
   options?: ExportCssVarsOptions<string, string>,
 ): Result<CssVarsExport<string, string, boolean>, ExportCssVarsIssue> {
-  const parsedScheme = parseCompiledSchemeInternal(scheme);
+  const parsedScheme = parseCompiledScheme(scheme);
   if (!parsedScheme.ok) {
     return parsedScheme;
   }

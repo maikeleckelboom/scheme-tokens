@@ -1,7 +1,7 @@
 {
   "$schema": "https://scheme-tokens.dev/schemas/token-layer.v1.schema.json",
   "kind": "scheme-tokens/token-layer",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "application",
   "defaultVisibility": "public",
   "tokens": {

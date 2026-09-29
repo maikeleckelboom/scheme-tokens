@@ -98,20 +98,22 @@ function assertReleaseCandidateVersions(candidateRoot: string): {
   readonly core: string;
   readonly adapter: string;
 } {
+  // P2 tests the current adapter API against core v2. Changesets projects a peer-only
+  // patch here; this temporary pair is not the P5 Material API or publication approval.
   const core = readManifest(join(candidateRoot, "package.json"));
   const adapter = readManifest(join(candidateRoot, "packages", "material3", "package.json"));
-  if (core.version !== "0.3.0") {
-    throw new Error(`Core release candidate must be 0.3.0, received ${core.version}.`);
+  if (core.version !== "0.4.0") {
+    throw new Error(`Core release candidate must be 0.4.0, received ${core.version}.`);
   }
-  if (adapter.version !== "0.1.1") {
+  if (adapter.version !== "0.1.2") {
     throw new Error(
-      `Material adapter release candidate must be 0.1.1, received ${adapter.version}.`,
+      `Changesets-projected adapter version must be 0.1.2, received ${adapter.version}.`,
     );
   }
   const corePeer = adapter.peerDependencies?.["scheme-tokens"];
-  if (corePeer !== "^0.2.0 || ^0.3.0") {
+  if (corePeer !== "^0.4.0") {
     throw new Error(
-      `Release-candidate adapter must advertise ^0.2.0 || ^0.3.0, received ${corePeer ?? "<missing>"}.`,
+      `Changesets-projected adapter must advertise ^0.4.0, received ${corePeer ?? "<missing>"}.`,
     );
   }
   return { core: core.version, adapter: adapter.version };
@@ -177,8 +179,8 @@ function checkCoreOnlyConsumer(coreTarball: string): void {
   });
   writeFileSync(
     join(consumer, "consumer.mjs"),
-    `import { compileTokenGraph, defineTokens } from "scheme-tokens";\n\n` +
-      `const compiled = compileTokenGraph(defineTokens({ primary: "#6750a4" }), { selection: "all" });\n` +
+    `import { compileTokenGraph, defineTokenGraph } from "scheme-tokens";\n\n` +
+      `const compiled = compileTokenGraph(defineTokenGraph({tokens: { primary: "#6750a4" }}), { selection: "all" });\n` +
       `if (!compiled.ok || compiled.value.tokens.primary.base !== "#6750a4") throw new Error("core-only consumer failed");\n`,
   );
   runPnpm(["install", "--ignore-scripts", "--strict-peer-dependencies"], consumer);
@@ -283,7 +285,7 @@ void keyProof;
 if (compiled.value.tokens["md.sys.color.primary"].light !== "#ff0055") {
   throw new Error("packed override failed");
 }
-if (compiled.value.metadataByToken["md.sys.color.primary"].origin.kind !== "layer") {
+if (compiled.value.metadataByToken["md.sys.color.primary"].declarations.at(-1)?.origin.kind !== "layer") {
   throw new Error("packed provenance failed");
 }
 const css = exportCssVars(compiled.value, {

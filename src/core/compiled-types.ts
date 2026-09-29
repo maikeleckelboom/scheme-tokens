@@ -1,6 +1,5 @@
 import {
   compiledSchemeKind,
-  compiledSchemeSchemaUrl,
   type TokenGraphIssue,
   type TokenOrigin,
   type TokenVisibility,
@@ -39,10 +38,20 @@ type CompiledRecord<Key extends string, Value, Complete extends boolean> = Compl
   ? Readonly<Record<Key, Value>>
   : Readonly<Partial<Record<Key, Value>>>;
 
+export interface TokenDeclarationRecord {
+  readonly origin: TokenOrigin;
+  readonly visibility?: TokenVisibility;
+}
+export type CompiledReference = { readonly ref: string };
+export type CompiledConcatPart = string | { readonly ref: string; readonly value: string };
+export type CompiledExpression =
+  | CompiledReference
+  | { readonly concat: readonly [CompiledConcatPart, ...CompiledConcatPart[]] };
+
 export interface CompiledTokenMetadata<Mode extends string = string> {
   readonly visibility: TokenVisibility;
-  readonly origin: TokenOrigin;
-  readonly dependenciesByMode: Readonly<Record<Mode, readonly string[]>>;
+  readonly declarations: readonly [TokenDeclarationRecord, ...TokenDeclarationRecord[]];
+  readonly expressionByMode?: Readonly<Partial<Record<Mode, CompiledExpression>>>;
   readonly description?: string;
   readonly deprecated?: boolean | string;
   readonly extensions?: Readonly<Record<string, JsonValue>>;
@@ -53,9 +62,9 @@ export interface CompiledScheme<
   Mode extends string = string,
   Complete extends boolean = true,
 > {
-  readonly $schema?: typeof compiledSchemeSchemaUrl;
+  readonly $schema?: string;
   readonly kind: typeof compiledSchemeKind;
-  readonly formatVersion: 1;
+  readonly formatVersion: 2;
   readonly modes: readonly [Mode, ...Mode[]];
   readonly defaultMode: Mode;
   readonly tokens: CompiledRecord<Key, CompiledToken<Mode>, Complete>;
@@ -79,7 +88,9 @@ export type ParseCompiledSchemeIssue = Issue<
   | "missing-mode-value"
   | "unknown-mode-value"
   | "invalid-origin"
-  | "invalid-dependencies"
+  | "invalid-declarations"
+  | "invalid-expression"
+  | "empty-modes"
   | "invalid-description"
   | "invalid-deprecated"
   | "invalid-extensions"

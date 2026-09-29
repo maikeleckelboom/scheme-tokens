@@ -22,14 +22,15 @@ describe("package boundary", () => {
       "compileTokenGraph",
       "defineTokenGraph",
       "defineTokenLayer",
-      "defineTokens",
       "exportCssVars",
+      "orThrow",
       "parseCompiledScheme",
       "parseTokenGraph",
       "parseTokenLayer",
       "serializeCompiledScheme",
       "serializeTokenGraph",
       "serializeTokenLayer",
+      "tokenConcat",
       "tokenRef",
     ]);
     expect(root).not.toHaveProperty(`defineToken${"Frag"}${"ment"}`);
@@ -42,9 +43,9 @@ describe("package boundary", () => {
     expect(Object.keys(manifest.exports).sort()).toEqual([
       ".",
       "./package.json",
-      "./schemas/compiled-scheme.v1.schema.json",
-      "./schemas/token-graph.v1.schema.json",
-      "./schemas/token-layer.v1.schema.json",
+      "./schemas/compiled-scheme.v2.schema.json",
+      "./schemas/token-graph.v2.schema.json",
+      "./schemas/token-layer.v2.schema.json",
     ]);
   });
 

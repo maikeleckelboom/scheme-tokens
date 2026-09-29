@@ -4,20 +4,21 @@ The root package exposes a small compiler pipeline for authored string-valued to
 
 ## Runtime exports
 
-| Export                    | Purpose                                                       |
-| ------------------------- | ------------------------------------------------------------- |
-| `defineTokens`            | Define the ordinary trusted token graph path.                 |
-| `defineTokenGraph`        | Define a trusted graph with explicit graph options or layers. |
-| `defineTokenLayer`        | Define a trusted reusable layer.                              |
-| `tokenRef`                | Create an explicit token reference.                           |
-| `parseTokenGraph`         | Parse an untrusted strict graph artifact.                     |
-| `parseTokenLayer`         | Parse an untrusted strict layer artifact.                     |
-| `parseCompiledScheme`     | Parse an untrusted strict compiled artifact.                  |
-| `compileTokenGraph`       | Resolve and compile a graph.                                  |
-| `exportCssVars`           | Project a compiled scheme to CSS custom properties.           |
-| `serializeTokenGraph`     | Canonically serialize a strict graph.                         |
-| `serializeTokenLayer`     | Canonically serialize a strict layer.                         |
-| `serializeCompiledScheme` | Canonically serialize a compiled scheme.                      |
+| Export                    | Purpose                                                                |
+| ------------------------- | ---------------------------------------------------------------------- |
+| `defineTokenGraph`        | Define a trusted graph with explicit graph options or layers.          |
+| `defineTokenLayer`        | Define a trusted reusable layer.                                       |
+| `tokenConcat`             | Build a canonical concat from a reference-only tagged template.        |
+| `orThrow`                 | Return success or throw all issues with their original tuple as cause. |
+| `tokenRef`                | Create an explicit token reference.                                    |
+| `parseTokenGraph`         | Parse an untrusted strict graph artifact.                              |
+| `parseTokenLayer`         | Parse an untrusted strict layer artifact.                              |
+| `parseCompiledScheme`     | Parse an untrusted strict compiled artifact.                           |
+| `compileTokenGraph`       | Resolve and compile a graph.                                           |
+| `exportCssVars`           | Project a compiled scheme to CSS custom properties.                    |
+| `serializeTokenGraph`     | Canonically serialize a strict graph.                                  |
+| `serializeTokenLayer`     | Canonically serialize a strict layer.                                  |
+| `serializeCompiledScheme` | Canonically serialize a compiled scheme.                               |
 
 There are no other root runtime exports.
 
@@ -26,9 +27,9 @@ There are no other root runtime exports.
 `Result` is public. Every fallible public success lives under `value`; every failure contains a non-empty `issues` tuple.
 
 ```ts
-import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
 
-const graph = defineTokens({ background: "#ffffff" });
+const graph = defineTokenGraph({ tokens: { background: "#ffffff" } });
 const compiled = compileTokenGraph(graph);
 
 if (!compiled.ok) {
@@ -46,26 +47,30 @@ if (exported.ok) {
 }
 ```
 
+`orThrow()` returns the exact success value. On failure, its `Error` message includes every issue code, optional path, and message; `cause` contains the entire original issue tuple. Trusted helpers use this structured error convention.
+
 ## Authoring grammar
 
 A helper token definition has exactly three forms:
 
 ```ts
-import { defineTokens, tokenRef } from "scheme-tokens";
+import { defineTokenGraph, tokenRef } from "scheme-tokens";
 
-const graph = defineTokens({
-  literal: "brand.600",
-  reference: tokenRef("brand.600"),
-  "brand.600": {
-    value: "oklch(62% 0.18 250)",
-    visibility: "internal",
-    description: "Generated brand source",
-    extensions: { owner: "generator" },
+const graph = defineTokenGraph({
+  tokens: {
+    literal: "brand.600",
+    reference: tokenRef("brand.600"),
+    "brand.600": {
+      value: "oklch(62% 0.18 250)",
+      visibility: "internal",
+      description: "Generated brand source",
+      extensions: { owner: "generator" },
+    },
   },
 });
 ```
 
-- A direct string or `tokenRef()` expression.
+- A direct string, `tokenRef()` reference, or concat expression.
 - A direct explicit mode map.
 - One expanded `{ value, visibility?, description?, deprecated?, extensions? }` object, where `value` is an expression or mode map.
 
@@ -74,10 +79,12 @@ Bare strings are never references. `valueByMode`, `aliases`, and metadata mixed 
 Omitting mode options creates `modes: ["base"]` and `defaultMode: "base"`. Multimode graphs require both `modes` and `defaultMode`:
 
 ```ts
-import { defineTokens, tokenRef } from "scheme-tokens";
+import { defineTokenGraph, tokenRef } from "scheme-tokens";
 
-const graph = defineTokens(
-  {
+const graph = defineTokenGraph({
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  tokens: {
     "brand.600": "oklch(62% 0.18 250)",
     "brand.400": "oklch(78% 0.12 250)",
     background: {
@@ -92,18 +99,18 @@ const graph = defineTokens(
       description: "Primary action fill",
     },
   },
-  {
-    modes: ["light", "dark"],
-    defaultMode: "light",
-  },
-);
+});
 ```
 
-Mode names cannot be `ref`, `value`, `valueByMode`, `visibility`, `description`, `deprecated`, or `extensions`; reserving those names keeps object authoring unambiguous. Token keys use dot-separated lower-kebab paths, and segments after the first may be numeric, so `brand.600` is valid.
+Authored mode order is preserved, independently of `defaultMode`. Token keys use dot-separated lower-kebab paths; segments after the first may be numeric.
+
+`tokenConcat` is a tagged template with reference-only substitutions. An empty template becomes `""`; a lone reference becomes `{ ref }`. Exact `{ concat: [...] }` source expressions merge adjacent literals, drop empty literals, and collapse literal-only content. Empty arrays and nested concat are invalid. Resolved concat is limited to 65,536 UTF-16 code units before joining; arbitrary literals and pure references remain unrestricted.
+
+`concat` is a valid mode name: `{ concat: "opaque" }`, `{ concat: { ref: "a" } }`, and `{ concat: { concat: ["x", { ref: "a" }] } }` are mode maps. Only an exact singleton object with an array under `concat` is a concat expression. `{ concat: [] }` is therefore an invalid expression, never a mode map. `ref`, `value`, `visibility`, `description`, `deprecated`, and `extensions` remain reserved.
 
 ## Layers
 
-Layers have stable identities and local default visibility, but never modes or a default mode. The graph is the sole mode authority. An isolated helper result is therefore `TokenLayer<Key, string>`: the `string` records that no mode envelope is known, not that the layer inferred arbitrary modes. Direct expressions apply to every mode in the owning graph. Explicit layer mode maps are accepted standalone, then must contain every owning graph mode and no unknown mode when composed. Graph tokens compose first; layers then apply in array order, with later definitions overriding earlier keys.
+Layers have stable IDs and local default visibility, but no mode envelope. Direct expressions fit every graph. All mode maps within one layer must name the same set; a non-empty set must exactly match the graph modes, ignoring order. Mismatches return one deterministic `layer-mode-mismatch` per invalid layer. The graph owns mode order and default. Layers compose in array order, then graph tokens compose last. The winner supplies value and descriptive metadata. Omitted visibility preserves prior effective visibility; explicit visibility restates it. With no explicit visibility, the default of the position that introduced the key applies.
 
 ```ts
 import { compileTokenGraph, defineTokenGraph, defineTokenLayer, tokenRef } from "scheme-tokens";
@@ -158,11 +165,13 @@ Parsed key sets are dynamic. `parseCompiledScheme()` therefore always returns an
 ## Compilation selection
 
 ```ts
-import { compileTokenGraph, defineTokens } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph } from "scheme-tokens";
 
-const graph = defineTokens({
-  internal: { value: "source", visibility: "internal" },
-  public: "output",
+const graph = defineTokenGraph({
+  tokens: {
+    internal: { value: "source", visibility: "internal" },
+    public: "output",
+  },
 });
 
 const publicOnly = compileTokenGraph(graph);
@@ -186,21 +195,22 @@ Omitted and explicit `public` selection produce a conservatively partial token-k
 
 Exact selections reject empty arrays, duplicate keys, malformed keys, and unknown keys. A runtime key array remains partial because it is not a finite literal tuple. Emitted token order is deterministic and independent of selection-array order. For advanced type annotations, `CompiledScheme<Key, Mode, Complete>` represents this completeness, and `CssVarsExport<Key, Mode, Complete>` preserves it in `variableByToken`; ordinary consumers should let both types infer.
 
+## Compiled metadata
+
+Compiled values remain `tokens[key][mode]`. Metadata contains effective `visibility` and non-empty `declarations` in composition order. Each declaration contains `origin: { kind: "graph" }` or `{ kind: "layer", id }`, plus `visibility` only when explicitly authored. The last declaration wins. Sparse `expressionByMode` omits literal modes, retains pure `{ ref }` records without duplicated values, and retains canonical concat parts with `{ ref, value }` for referenced parts. Descriptions, deprecation, and extensions come only from the winner.
+
 ## CSS custom properties
 
 `exportCssVars()` returns CSS, structured blocks, and the generated property for each token.
 
 ```ts
-// ---cut-start---
-import type { Issue, Result } from "scheme-tokens";
-declare function orThrow<Value, Problem extends Issue>(result: Result<Value, Problem>): Value;
-// ---cut-end---
-import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
 
-const graph = defineTokens(
-  { background: { light: "#ffffff", dark: "#111111" } },
-  { modes: ["light", "dark"], defaultMode: "light" },
-);
+const graph = defineTokenGraph({
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  tokens: { background: { light: "#ffffff", dark: "#111111" } },
+});
 const scheme = orThrow(compileTokenGraph(graph));
 
 const cssVars = orThrow(
@@ -238,9 +248,9 @@ Strict graph and layer definitions always contain one required `value`; the prop
 import { parseTokenGraph } from "scheme-tokens";
 
 const parsed = parseTokenGraph({
-  $schema: "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json",
+  $schema: "https://cdn.jsdelivr.net/npm/scheme-tokens@0.4.0/schemas/token-graph.v2.schema.json",
   kind: "scheme-tokens/token-graph",
-  formatVersion: 1,
+  formatVersion: 2,
   modes: ["light", "dark"],
   defaultMode: "light",
   defaultVisibility: "public",
@@ -259,13 +269,15 @@ if (parsed.ok) {
 }
 ```
 
-`$schema` is optional. When present, it must be the canonical URI for that graph, layer, or compiled artifact. `kind` identifies the artifact family and `formatVersion` selects its exact supported wire version; parsers do not guess either value.
+Current writers emit `formatVersion: 2`. Source parsers also accept historical v1 graphs/layers, upgrade once, and validate under the same current rules. Shadowed graph declarations move to a deterministic leading synthetic layer; only necessary visibility restatements are added, and historical default-first mode order is preserved. V1 schema hints are validated historically and dropped on upgrade. Standalone inconsistent layer maps return `layer-mode-mismatch`. Compiled v1 is rejected with `invalid-format-version`: recompile its source graph.
+
+In v2, `$schema` may be any string. It is preserved verbatim, never fetched or used for version selection, and never synthesized. Trusted helpers do not accept `$schema`. Only `kind` and `formatVersion` select the runtime format. A documented editor hint for the planned 0.4 release is `https://cdn.jsdelivr.net/npm/scheme-tokens@0.4.0/schemas/token-graph.v2.schema.json`; that release is not published yet. Each packaged schema has a stable identity such as `tag:maikel.site,2026-09-29:scheme-tokens/schema/token-graph/v2`. All three are self-contained Draft 2020-12 with fragment-only internal references.
 
 Schemas are exported at:
 
-- `scheme-tokens/schemas/token-graph.v1.schema.json`
-- `scheme-tokens/schemas/token-layer.v1.schema.json`
-- `scheme-tokens/schemas/compiled-scheme.v1.schema.json`
+- `scheme-tokens/schemas/token-graph.v2.schema.json`
+- `scheme-tokens/schemas/token-layer.v2.schema.json`
+- `scheme-tokens/schemas/compiled-scheme.v2.schema.json`
 
 The three serializers produce the supported deterministic JSON wire representations. Parse and serialize round trips preserve accepted artifacts.
 

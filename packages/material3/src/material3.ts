@@ -137,12 +137,18 @@ function parseOptions(input: unknown): ParsedOptions {
     throw new TypeError("material3 defaultMode must be a string.");
   }
 
-  // Core owns mode grammar, reserved names, default membership, and canonical ordering.
-  const envelope = defineTokenGraph({
-    modes: candidateModes,
-    defaultMode: defaultModeInput,
-    tokens: {},
-  });
+  // Core validates the envelope; the current Material API retains its default-first ordering.
+  const envelope = (() => {
+    try {
+      return defineTokenGraph({ modes: candidateModes, defaultMode: defaultModeInput, tokens: {} });
+    } catch (error) {
+      // Preserve the current Material option-error category across core's structured errors.
+      if (error instanceof Error) {
+        throw new RangeError(error.message, { cause: error.cause });
+      }
+      throw error;
+    }
+  })();
   const overridesByMode = new Map<string, ModeOverrides>();
   for (const entry of modeEntries) {
     overridesByMode.set(entry.key, parseModeOverrides(entry.key, entry.value));
@@ -153,7 +159,10 @@ function parseOptions(input: unknown): ParsedOptions {
     variant: readVariant(record, "variant", "tonal-spot"),
     contrastLevel: readContrast(record, "contrastLevel", 0),
     visibility: readVisibility(record),
-    modes: envelope.modes,
+    modes: [
+      envelope.defaultMode,
+      ...envelope.modes.filter((mode) => mode !== envelope.defaultMode).sort(),
+    ],
     defaultMode: envelope.defaultMode,
     overridesByMode,
   };

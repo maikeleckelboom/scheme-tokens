@@ -12,13 +12,12 @@ import {
   serializeTokenLayer,
 } from "../../src";
 
-const graphSchemaUri = "https://scheme-tokens.dev/schemas/token-graph.v1.schema.json";
-const layerSchemaUri = "https://scheme-tokens.dev/schemas/token-layer.v1.schema.json";
-const compiledSchemaUri = "https://scheme-tokens.dev/schemas/compiled-scheme.v1.schema.json";
+const graphSchemaUri = "https://scheme-tokens.dev/schemas/token-graph.v2.schema.json";
+const layerSchemaUri = "https://scheme-tokens.dev/schemas/token-layer.v2.schema.json";
+const compiledSchemaUri = "https://scheme-tokens.dev/schemas/compiled-scheme.v2.schema.json";
 const reservedModeNames = [
   "ref",
   "value",
-  "valueByMode",
   "visibility",
   "description",
   "deprecated",
@@ -28,9 +27,9 @@ const reservedModeNames = [
 const schemaDirectory = join(process.cwd(), "schemas");
 const fixtureDirectory = join(process.cwd(), "tests", "schemas", "fixtures");
 
-const graphSchema = readJsonObject(join(schemaDirectory, "token-graph.v1.schema.json"));
-const layerSchema = readJsonObject(join(schemaDirectory, "token-layer.v1.schema.json"));
-const compiledSchema = readJsonObject(join(schemaDirectory, "compiled-scheme.v1.schema.json"));
+const graphSchema = readJsonObject(join(schemaDirectory, "token-graph.v2.schema.json"));
+const layerSchema = readJsonObject(join(schemaDirectory, "token-layer.v2.schema.json"));
+const compiledSchema = readJsonObject(join(schemaDirectory, "compiled-scheme.v2.schema.json"));
 
 const strictGraphFixtureFiles = [
   "single-mode-strict-graph.json",
@@ -40,7 +39,7 @@ const strictGraphFixtureFiles = [
 
 const invalidGraphFixtureFiles = [
   "mode-record-token-definition.json",
-  "non-canonical-schema-uri.json",
+  "invalid-schema-hint.json",
   "omitted-default-mode.json",
   "omitted-default-visibility.json",
   "omitted-format-version.json",
@@ -75,7 +74,7 @@ describe("JSON Schemas", () => {
     const compiled = expectResultOk(compileTokenGraph(graph), "numeric scale compilation");
 
     expect(compiled.tokens.primary?.base).toBe("oklch(62% 0.18 250)");
-    expect(compiled.metadataByToken.primary?.dependenciesByMode.base).toEqual(["brand.600"]);
+    expect(compiled.metadataByToken.primary?.expressionByMode?.base).toEqual({ ref: "brand.600" });
 
     const numericFirstSegment = {
       ...validGraphWithValue("#6750a4"),
@@ -102,7 +101,7 @@ describe("JSON Schemas", () => {
       compileTokenGraph(parsed, { selection: "all" }),
       "graph with layer compilation",
     );
-    expect(compiled.metadataByToken["card.background"]?.origin).toEqual({
+    expect(compiled.metadataByToken["card.background"]?.declarations.at(-1)?.origin).toEqual({
       kind: "layer",
       id: "application",
     });
@@ -112,7 +111,7 @@ describe("JSON Schemas", () => {
     const ajv = createAjv();
     const graph = {
       kind: "scheme-tokens/token-graph",
-      formatVersion: 1,
+      formatVersion: 2,
       modes: ["base"],
       defaultMode: "base",
       defaultVisibility: "public",
@@ -123,7 +122,7 @@ describe("JSON Schemas", () => {
     };
     const layer = {
       kind: "scheme-tokens/token-layer",
-      formatVersion: 1,
+      formatVersion: 2,
       id: "application",
       defaultVisibility: "public",
       tokens: {
@@ -176,7 +175,7 @@ describe("JSON Schemas", () => {
     },
   );
 
-  test("unsupported versions, old valueByMode, and non-canonical schema URIs have precise issues", () => {
+  test("unsupported versions, old valueByMode, and non-string schema hints have precise issues", () => {
     expect.hasAssertions();
     expectIssueCode(
       parseTokenGraph(readFixtureObject("invalid", "unsupported-format-version.json")),
@@ -187,7 +186,7 @@ describe("JSON Schemas", () => {
       "unknown-property",
     );
     expectIssueCode(
-      parseTokenGraph(readFixtureObject("invalid", "non-canonical-schema-uri.json")),
+      parseTokenGraph(readFixtureObject("invalid", "invalid-schema-hint.json")),
       "invalid-schema-uri",
     );
     expectIssueCode(
@@ -282,7 +281,7 @@ describe("JSON Schemas", () => {
     expectIssueCode(parseTokenLayer(layer), "unknown-property");
   });
 
-  test("every optional $schema field accepts only its artifact canonical URL", () => {
+  test("every optional v2 $schema field preserves any string hint", () => {
     expect.hasAssertions();
     const ajv = createAjv();
     const graph = { ...validGraphWithValue("#ffffff"), $schema: graphSchemaUri };
@@ -301,10 +300,10 @@ describe("JSON Schemas", () => {
 
     const wrongLayerSchema = { ...layer, $schema: graphSchemaUri };
     const wrongCompiledSchema = { ...compiled, $schema: graphSchemaUri };
-    expectSchemaInvalid(ajv, layerSchema, wrongLayerSchema, "wrong layer schema URI");
-    expectSchemaInvalid(ajv, compiledSchema, wrongCompiledSchema, "wrong compiled schema URI");
-    expectIssueCode(parseTokenLayer(wrongLayerSchema), "invalid-schema-uri");
-    expectIssueCode(parseCompiledScheme(wrongCompiledSchema), "invalid-schema-uri");
+    expectSchemaValid(ajv, layerSchema, wrongLayerSchema, "wrong layer schema URI");
+    expectSchemaValid(ajv, compiledSchema, wrongCompiledSchema, "wrong compiled schema URI");
+    expectResultOk(parseTokenLayer(wrongLayerSchema), "foreign layer hint");
+    expectResultOk(parseCompiledScheme(wrongCompiledSchema), "foreign compiled hint");
   });
 
   test("schemas and parsers reject structured values in every artifact", () => {
@@ -322,21 +321,23 @@ describe("JSON Schemas", () => {
     expectIssueCode(parseCompiledScheme(compiled), "invalid-token-value");
   });
 
-  test("compiled metadata rejects source origins and invalid dependencies", () => {
+  test("compiled metadata rejects source origins and invalid retained references", () => {
     expect.hasAssertions();
     const ajv = createAjv();
     const sourceOrigin = validCompiledWithValue("#ffffff");
-    sourceOrigin.metadataByToken["brand.600"]!.origin = { kind: "source", id: "generator" };
+    sourceOrigin.metadataByToken["brand.600"]!.declarations = [
+      { origin: { kind: "source", id: "generator" } },
+    ];
     const invalidDependency = validCompiledWithValue("#ffffff");
-    invalidDependency.metadataByToken["brand.600"]!.dependenciesByMode.base = ["Bad Key"];
+    invalidDependency.metadataByToken["brand.600"]!.expressionByMode = { base: { ref: "Bad Key" } };
 
     expectSchemaInvalid(ajv, compiledSchema, sourceOrigin, "compiled source origin");
     expectIssueCode(parseCompiledScheme(sourceOrigin), "invalid-origin");
     expectSchemaInvalid(ajv, compiledSchema, invalidDependency, "compiled invalid dependency");
-    expectIssueCode(parseCompiledScheme(invalidDependency), "invalid-dependencies");
+    expectIssueCode(parseCompiledScheme(invalidDependency), "invalid-expression");
   });
 
-  test("compiled parser agrees with non-empty records and unique dependency schema rules", () => {
+  test("compiled parser agrees with non-empty record and canonical expression rules", () => {
     expect.hasAssertions();
     const ajv = createAjv();
     const emptyTokens = validCompiledWithValue("#ffffff");
@@ -354,14 +355,13 @@ describe("JSON Schemas", () => {
     expectSchemaInvalid(ajv, compiledSchema, emptyTokenModes, "empty compiled token modes");
     expectIssueAt(parseCompiledScheme(emptyTokenModes), "missing-mode-value", "/tokens/brand.600");
 
-    const duplicateDependency = validCompiledWithValue("#ffffff");
-    duplicateDependency.metadataByToken["brand.600"]!.dependenciesByMode.base = [
-      "generated.brand.600",
-      "generated.brand.600",
-    ];
+    const noncanonicalExpression = validCompiledWithValue("#ffffff");
+    noncanonicalExpression.metadataByToken["brand.600"]!.expressionByMode = {
+      base: { concat: ["literal only"] },
+    };
 
-    expectSchemaInvalid(ajv, compiledSchema, duplicateDependency, "duplicate dependencies");
-    expectIssueCode(parseCompiledScheme(duplicateDependency), "invalid-dependencies");
+    expectSchemaInvalid(ajv, compiledSchema, noncanonicalExpression, "noncanonical expression");
+    expectIssueCode(parseCompiledScheme(noncanonicalExpression), "invalid-expression");
   });
 
   test("unknown safe extension keys and values round-trip through parsers", () => {
@@ -439,7 +439,7 @@ describe("JSON Schemas", () => {
     const input = {
       $schema: graphSchemaUri,
       kind: "scheme-tokens/token-graph",
-      formatVersion: 1,
+      formatVersion: 2,
       modes: ["light", "dark"],
       defaultMode: "light",
       defaultVisibility: "public",
@@ -453,7 +453,7 @@ describe("JSON Schemas", () => {
       layers: [
         {
           kind: "scheme-tokens/token-layer",
-          formatVersion: 1,
+          formatVersion: 2,
           id: "application",
           defaultVisibility: "public",
           tokens: {
@@ -491,7 +491,7 @@ describe("JSON Schemas", () => {
     const input = {
       $schema: layerSchemaUri,
       kind: "scheme-tokens/token-layer",
-      formatVersion: 1,
+      formatVersion: 2,
       id: "application",
       defaultVisibility: "public",
       tokens: {
@@ -520,15 +520,15 @@ describe("JSON Schemas", () => {
     const input = {
       $schema: compiledSchemaUri,
       kind: "scheme-tokens/compiled-scheme",
-      formatVersion: 1,
+      formatVersion: 2,
       modes: ["base"],
       defaultMode: "base",
       tokens: { "brand.600": { base: "#6750a4" } },
       metadataByToken: {
         "brand.600": {
           visibility: "public",
-          origin: { kind: "graph" },
-          dependenciesByMode: { base: ["brand.500"] },
+          declarations: [{ origin: { kind: "graph" } }],
+          expressionByMode: { base: { ref: "brand.500" } },
           extensions: { nested: { owner: "design" } },
         },
       },
@@ -537,7 +537,7 @@ describe("JSON Schemas", () => {
 
     input.modes[0] = "changed";
     input.tokens["brand.600"].base = "changed";
-    input.metadataByToken["brand.600"].dependenciesByMode.base[0] = "changed";
+    input.metadataByToken["brand.600"].expressionByMode.base.ref = "changed";
     input.metadataByToken["brand.600"].extensions.nested.owner = "changed";
 
     expect(parsed).toMatchObject({
@@ -545,7 +545,7 @@ describe("JSON Schemas", () => {
       tokens: { "brand.600": { base: "#6750a4" } },
       metadataByToken: {
         "brand.600": {
-          dependenciesByMode: { base: ["brand.500"] },
+          expressionByMode: { base: { ref: "brand.500" } },
           extensions: { nested: { owner: "design" } },
         },
       },
@@ -620,7 +620,7 @@ function validGraphWithValue(value: unknown): {
 } {
   return {
     kind: "scheme-tokens/token-graph",
-    formatVersion: 1,
+    formatVersion: 2,
     modes: ["base"],
     defaultMode: "base",
     defaultVisibility: "public",
@@ -639,7 +639,7 @@ function validLayerWithValue(value: unknown): {
 } {
   return {
     kind: "scheme-tokens/token-layer",
-    formatVersion: 1,
+    formatVersion: 2,
     id: "brand",
     defaultVisibility: "public",
     tokens: {
@@ -658,15 +658,15 @@ function validCompiledWithValue(value: unknown): {
     string,
     {
       visibility: string;
-      origin: { kind: string; id?: string };
-      dependenciesByMode: Record<string, string[]>;
+      declarations: { origin: { kind: string; id?: string }; visibility?: string }[];
+      expressionByMode?: Record<string, unknown>;
       extensions?: unknown;
     }
   >;
 } {
   return {
     kind: "scheme-tokens/compiled-scheme",
-    formatVersion: 1,
+    formatVersion: 2,
     modes: ["base"],
     defaultMode: "base",
     tokens: {
@@ -675,8 +675,7 @@ function validCompiledWithValue(value: unknown): {
     metadataByToken: {
       "brand.600": {
         visibility: "public",
-        origin: { kind: "graph" },
-        dependenciesByMode: { base: [] },
+        declarations: [{ origin: { kind: "graph" } }],
       },
     },
   };

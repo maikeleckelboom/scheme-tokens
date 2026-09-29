@@ -38,7 +38,7 @@ writeFileSync(
   `
 import {
   compileTokenGraph,
-  defineTokens,
+  defineTokenGraph,
   exportCssVars,
   parseCompiledScheme,
   parseTokenGraph,
@@ -65,11 +65,11 @@ const invalidMode: ChromavertMode = "dim";
 void invalidGeneratedKey;
 void invalidMode;
 
-defineTokens({
+defineTokenGraph({tokens: {
   "generated.brand.600": "oklch(62% 0.18 250)",
-  // @ts-expect-error tokenRef cannot target a missing key in a closed defineTokens record
+  // @ts-expect-error tokenRef cannot target a missing key in a closed defineTokenGraph record
   "semantic.primary": tokenRef("generated.brand.800"),
-});
+}});
 
 compileTokenGraph(graph, {
   selection: {
@@ -116,17 +116,17 @@ if (
   throw new Error("multi-hop source identity was not recoverable from dependency metadata");
 }
 assertArrayEqual(
-  allCompiled.metadataByToken["semantic.action"].dependenciesByMode.light,
+  [sourceReference(allCompiled, "semantic.action", "light") ?? ""],
   ["semantic.primary"],
   "semantic action direct dependency",
 );
 assertArrayEqual(
-  allCompiled.metadataByToken["semantic.primary"].dependenciesByMode.light,
+  [sourceReference(allCompiled, "semantic.primary", "light") ?? ""],
   ["generated.brand.600"],
   "semantic primary light dependency",
 );
 assertArrayEqual(
-  allCompiled.metadataByToken["semantic.primary"].dependenciesByMode.dark,
+  [sourceReference(allCompiled, "semantic.primary", "dark") ?? ""],
   ["repair.primary.dark"],
   "semantic primary dark repair dependency",
 );
@@ -269,10 +269,13 @@ function defineChromavertGraph(reverse: boolean) {
         "semantic.action": tokenRef("semantic.primary"),
       };
 
-  return defineTokens(definitions, {
-    modes: reverse ? (["dark", "light"] as const) : (["light", "dark"] as const),
-    defaultMode: "light",
-  });
+  return defineTokenGraph({modes: ["light", "dark"] as const,
+    defaultMode: "light", tokens: definitions});
+}
+
+function sourceReference(scheme: CompiledScheme, key: string, mode: string): string | undefined {
+  const expression = scheme.metadataByToken[key]?.expressionByMode?.[mode];
+  return expression !== undefined && "ref" in expression ? expression.ref : undefined;
 }
 
 function sourceLeaf(
@@ -284,7 +287,7 @@ function sourceLeaf(
   let current = start;
   while (!seen.has(current)) {
     seen.add(current);
-    const dependency = scheme.metadataByToken[current]?.dependenciesByMode[mode]?.[0];
+    const dependency = sourceReference(scheme, current, mode);
     if (dependency === undefined) {
       return current;
     }

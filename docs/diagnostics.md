@@ -1,80 +1,47 @@
 # Diagnostics
 
-Every recoverable public failure uses the same result convention:
+Every recoverable public failure is `{ ok: false, issues }` with a non-empty tuple. Success is `{ ok: true, value }`. Issues contain stable `code`, human-readable `message`, and optional JSON Pointer `path`. Structured context may include `key`, `mode`, `layerId`, `firstPath`, `cycle`, `modes`, `layerModes`, `property`, or `selector`.
+
+Codes and pointer semantics are public contracts; message wording is not. Diagnostics are deterministic and JSON-safe, and their construction never calls untrusted coercion methods.
+
+## Throwing at an application boundary
+
+`orThrow()` returns the exact success value or throws `Error`. Its message includes every issue's code, path when present, and message; `error.cause` is the complete original issue tuple.
 
 ```ts
-type Result<Value, Problem> =
-  | { readonly ok: true; readonly value: Value }
-  | { readonly ok: false; readonly issues: readonly [Problem, ...Problem[]] };
+import { compileTokenGraph, defineTokenGraph, orThrow } from "scheme-tokens";
+
+const graph = defineTokenGraph({ tokens: { background: "#ffffff" } });
+const scheme = orThrow(compileTokenGraph(graph));
+scheme.tokens.background?.base;
 ```
 
-```ts
-import { compileTokenGraph, defineTokens } from "scheme-tokens";
+Trusted graph/layer helpers use the same structured error convention for programmer misuse. Unknown targets and cycles remain compiler diagnostics at that boundary. Parsers return `Result` rather than throwing for JSON-compatible input.
 
-const compiled = compileTokenGraph(
-  defineTokens({
-    background: "#ffffff",
-  }),
-);
+## Expressions
 
-if (compiled.ok) {
-  compiled.value.tokens.background?.base;
-} else {
-  compiled.issues;
-}
-```
+- Malformed references use `invalid-reference`.
+- Empty, nested, or otherwise invalid concat uses `invalid-token-value`.
+- Missing targets use `unknown-reference` at the reference occurrence.
+- Cycles use `reference-cycle`, with a canonical `cycle` array and a pointer to the closing occurrence. The same cycle is reported once per mode.
+- Concats exceeding 65,536 UTF-16 code units use `resolved-value-too-long` before allocating the oversized joined string. Failed dependents do not emit additional failures.
 
-Each issue has:
+Concat reference pointers identify the original part index even when adjacent literals merge or the expression collapses to a lone reference. V1 upgrade diagnostics refer to the original document rather than the synthetic layer.
 
-- `code`: a stable string identifier;
-- `message`: a human-readable explanation;
-- `path`: a JSON Pointer when a specific input location exists;
-- optional structured fields such as `key`, `mode`, `layerId`, `firstPath`, `cycle`, `property`, or `selector`.
+## Layer mode sets
 
-Issue objects are deterministic and JSON-safe. Diagnostic construction does not call user-defined coercion methods on unknown input.
+`layer-mode-mismatch` describes either an inconsistent standalone layer or a layer that does not fit its graph. Token keys are considered in code-unit order. An inconsistent layer reports exactly its first conflicting map, with:
 
-## Application-local `orThrow`
+- `layerId` and conflicting `key`;
+- `path` to the conflicting map and `firstPath` to the first map;
+- `modes` for the first map and `layerModes` for the conflicting map, both code-unit sorted.
 
-The package keeps failures explicit and does not export a throwing helper. At an application boundary
-where any issue should stop the operation, a local helper can preserve the complete issue objects while
-keeping the call site short:
+Persisted paths include `/value`; shorthand helper paths identify the authored location. A consistent layer that differs from the graph reports `/layers/<index>`, `layerId`, graph `modes` in authored order, and sorted `layerModes`. Neither case emits implied per-token missing/unknown mode issues. Already-inconsistent layers are not compared against the graph.
 
-```ts
-import type { CompileTokenGraphIssue, ExportCssVarsIssue, Result } from "scheme-tokens";
+## Other boundaries
 
-type RichIssue = CompileTokenGraphIssue | ExportCssVarsIssue;
+Graph/parser codes include `invalid-object`, `unknown-property`, `missing-property`, `invalid-token-definition`, `invalid-mode-key`, `missing-mode-value`, and `unknown-mode-value`. Strict compiled metadata uses `invalid-declarations`, `invalid-origin`, and `invalid-expression` for malformed D6 records.
 
-function formatIssue(issue: RichIssue): string {
-  const { code, message, ...context } = issue;
-  const details = Object.keys(context).length === 0 ? "" : ` ${JSON.stringify(context)}`;
-  return `${code}${details}: ${message}`;
-}
+Compiled v1 input returns `invalid-format-version` and asks the consumer to recompile from its source graph. V2 non-string schema hints use `invalid-schema-uri`; any string hint is accepted without interpretation. Raw v1 input retains historical hint validation before upgrade drops the hint.
 
-export function orThrow<Value, Problem extends RichIssue>(result: Result<Value, Problem>): Value {
-  if (result.ok) {
-    return result.value;
-  }
-
-  throw new Error(result.issues.map(formatIssue).join("\n"));
-}
-```
-
-`Issue` itself contains only `code`, `message`, and optional `path`, so the formatter uses the exported
-concrete issue unions instead. `CompileTokenGraphIssue` includes graph/parser issues, while
-`ExportCssVarsIssue` includes compiled-parser and CSS issues. Object rest keeps every field present on
-an issue in the error text, including `key`, `mode`, `layerId`, `firstPath`, `cycle`, `firstKey`,
-`property`, and `selector` when available. This helper changes only application control flow; the
-package still returns the original binary `Result`.
-
-## Contract rules
-
-- `Issue.code` values are contractual.
-- JSON Pointer path semantics are contractual.
-- Human-readable message wording is not contractual.
-- A failure always contains at least one issue.
-- A success always contains exactly its payload under `value`.
-- Issue-code unions must represent every code an operation can emit.
-
-Common graph and parser codes include `invalid-object`, `unknown-property`, `missing-property`, `invalid-token-value`, `invalid-reference`, `unknown-reference`, and `reference-cycle`.
-
-Compilation adds selection diagnostics such as `empty-selection`, `duplicate-selection-key`, and `unknown-selection-key`. CSS projection adds option, prefix, selector, variable-name, collision, and `invalid-css-value` diagnostics. The advanced `variableName` callback is contained: thrown exceptions and invalid or duplicate names become issues. Declaration-unsafe token strings are rejected at CSS emission; compilation and serialization continue to accept arbitrary strings.
+Compilation adds selection issues such as `empty-selection`, `duplicate-selection-key`, and `unknown-selection-key`. CSS projection adds option, prefix, selector, variable-name, collision, and `invalid-css-value` diagnostics. Callback failures are contained. CSS safety checks do not interpret token domains or restrict source serialization.

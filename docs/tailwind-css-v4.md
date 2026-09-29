@@ -15,14 +15,12 @@ with a generic `segments.join("-")`: that would lose token-segment boundaries an
 different keys collide.
 
 ```ts
-// ---cut-start---
-import type { Issue, Result } from "scheme-tokens";
-declare function orThrow<Value, Problem extends Issue>(result: Result<Value, Problem>): Value;
-// ---cut-end---
-import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
 
-const graph = defineTokens(
-  {
+const graph = defineTokenGraph({
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  tokens: {
     "surface.canvas": {
       light: "oklch(98% 0.01 250)",
       dark: "oklch(18% 0.02 250)",
@@ -32,8 +30,7 @@ const graph = defineTokens(
       dark: "oklch(75% 0.14 250)",
     },
   },
-  { modes: ["light", "dark"], defaultMode: "light" },
-);
+});
 
 const publicKeys = ["surface.canvas", "action.primary.background"] as const;
 const scheme = orThrow(

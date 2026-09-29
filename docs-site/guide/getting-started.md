@@ -7,22 +7,20 @@ pnpm add scheme-tokens
 ```
 
 Define string-valued tokens, compile an exact public contract, then export CSS custom properties. The
-example uses the application-local [`orThrow` helper](../reference/diagnostics.md#application-local-orthrow)
-for boundaries where a failure should stop the operation. It is not a package export.
+example uses the public [`orThrow` helper](../reference/diagnostics.md#throwing-at-an-application-boundary)
+for boundaries where a failure should stop the operation. Failure causes retain the complete issue tuple.
 
 ```ts
-// ---cut-start---
-import type { Issue, Result } from "scheme-tokens";
-declare function orThrow<Value, Problem extends Issue>(result: Result<Value, Problem>): Value;
-// ---cut-end---
-import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
 
 const publicKeys = ["background", "foreground"] as const;
 
 export function createStylesheet(): string {
-  const graph = defineTokens({
-    background: "#ffffff",
-    foreground: "#111111",
+  const graph = defineTokenGraph({
+    tokens: {
+      background: "#ffffff",
+      foreground: "#111111",
+    },
   });
 
   const scheme = orThrow(
@@ -36,7 +34,7 @@ export function createStylesheet(): string {
 }
 ```
 
-Without mode options, `defineTokens()` creates the single `base` mode.
+Without mode options, `defineTokenGraph()` creates the single `base` mode.
 
 `compileTokenGraph(graph)` uses public selection by default. Because visibility is resolved from runtime
 data, that result is conservatively partial and keyed access correctly requires optional handling. An

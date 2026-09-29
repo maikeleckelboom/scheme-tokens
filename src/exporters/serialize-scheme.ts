@@ -5,9 +5,11 @@ import type {
   TokenGraph,
   TokenLayer,
   TokenOrigin,
-  TokenReference,
 } from "../core/graph";
 import { tokenGraphKind, tokenLayerKind, compiledSchemeKind } from "../core/graph";
+import { isExpressionValue } from "../core/validate-source";
+import { canonicalizeExpression } from "../core/canonical-expression";
+import { orThrow } from "../core/result";
 import type { JsonValue } from "../core/json";
 import { compareCodeUnits, defineRecordValue, normalizeNumber } from "../core/json";
 
@@ -31,14 +33,14 @@ function canonicalTokenGraph(graph: TokenGraph): unknown {
     defineRecordValue(output, "$schema", graph.$schema);
   }
   defineRecordValue(output, "kind", tokenGraphKind);
-  defineRecordValue(output, "formatVersion", 1);
-  defineRecordValue(output, "modes", canonicalModes(graph.modes, graph.defaultMode));
+  defineRecordValue(output, "formatVersion", 2);
+  defineRecordValue(output, "modes", [...graph.modes]);
   defineRecordValue(output, "defaultMode", graph.defaultMode);
   defineRecordValue(output, "defaultVisibility", graph.defaultVisibility);
-  defineRecordValue(output, "tokens", canonicalDefinitions(graph.tokens));
   if (graph.layers !== undefined) {
     defineRecordValue(output, "layers", graph.layers.map(canonicalTokenLayer));
   }
+  defineRecordValue(output, "tokens", canonicalDefinitions(graph.tokens));
   return output;
 }
 
@@ -48,7 +50,7 @@ function canonicalTokenLayer(layer: TokenLayer): unknown {
     defineRecordValue(output, "$schema", layer.$schema);
   }
   defineRecordValue(output, "kind", tokenLayerKind);
-  defineRecordValue(output, "formatVersion", 1);
+  defineRecordValue(output, "formatVersion", 2);
   defineRecordValue(output, "id", layer.id);
   defineRecordValue(output, "defaultVisibility", layer.defaultVisibility);
   defineRecordValue(output, "tokens", canonicalDefinitions(layer.tokens));
@@ -87,7 +89,7 @@ function canonicalDefinition(token: TokenDefinition): unknown {
 }
 
 function canonicalCompiledScheme(scheme: AnyCompiledScheme): unknown {
-  const modes = canonicalModes(scheme.modes, scheme.defaultMode);
+  const modes = [...scheme.modes];
   const tokens: Record<string, unknown> = {};
   for (const key of Object.keys(scheme.tokens).sort(compareCodeUnits)) {
     const token = scheme.tokens[key];
@@ -107,19 +109,36 @@ function canonicalCompiledScheme(scheme: AnyCompiledScheme): unknown {
     if (metadata === undefined) {
       continue;
     }
-    const dependenciesByMode: Record<string, readonly string[]> = {};
-    for (const mode of modes) {
-      defineRecordValue(
-        dependenciesByMode,
-        mode,
-        [...(metadata.dependenciesByMode[mode] ?? [])].sort(compareCodeUnits),
-      );
-    }
-
     const output: Record<string, unknown> = {};
     defineRecordValue(output, "visibility", metadata.visibility);
-    defineRecordValue(output, "origin", canonicalOrigin(metadata.origin));
-    defineRecordValue(output, "dependenciesByMode", dependenciesByMode);
+    defineRecordValue(
+      output,
+      "declarations",
+      metadata.declarations.map((declaration) => ({
+        origin: canonicalOrigin(declaration.origin),
+        ...(declaration.visibility === undefined ? {} : { visibility: declaration.visibility }),
+      })),
+    );
+    if (metadata.expressionByMode !== undefined) {
+      const expressions: Record<string, unknown> = {};
+      for (const mode of Object.keys(metadata.expressionByMode).sort(compareCodeUnits)) {
+        const expression = metadata.expressionByMode[mode];
+        if (expression !== undefined) {
+          defineRecordValue(
+            expressions,
+            mode,
+            "ref" in expression
+              ? { ref: expression.ref }
+              : {
+                  concat: expression.concat.map((part) =>
+                    typeof part === "string" ? part : { ref: part.ref, value: part.value },
+                  ),
+                },
+          );
+        }
+      }
+      defineRecordValue(output, "expressionByMode", expressions);
+    }
     if (metadata.description !== undefined) {
       defineRecordValue(output, "description", metadata.description);
     }
@@ -137,7 +156,7 @@ function canonicalCompiledScheme(scheme: AnyCompiledScheme): unknown {
     defineRecordValue(output, "$schema", scheme.$schema);
   }
   defineRecordValue(output, "kind", compiledSchemeKind);
-  defineRecordValue(output, "formatVersion", 1);
+  defineRecordValue(output, "formatVersion", 2);
   defineRecordValue(output, "modes", modes);
   defineRecordValue(output, "defaultMode", scheme.defaultMode);
   defineRecordValue(output, "tokens", tokens);
@@ -155,7 +174,7 @@ function canonicalOrigin(origin: TokenOrigin): unknown {
 }
 
 function canonicalTokenValue(value: TokenDefinition["value"]): unknown {
-  if (typeof value === "string" || isReferenceExpression(value)) {
+  if (isExpressionValue(value)) {
     return canonicalExpression(value);
   }
   const values: Record<string, unknown> = {};
@@ -169,7 +188,7 @@ function canonicalTokenValue(value: TokenDefinition["value"]): unknown {
 }
 
 function canonicalExpression(expression: TokenExpression): unknown {
-  return isReferenceExpression(expression) ? { ref: expression.ref } : expression;
+  return orThrow(canonicalizeExpression(expression, "")).expression;
 }
 
 function canonicalJson(value: JsonValue): JsonValue {
@@ -189,15 +208,4 @@ function canonicalJson(value: JsonValue): JsonValue {
     defineRecordValue(output, key, canonicalJson(record[key] as JsonValue));
   }
   return output;
-}
-
-function isReferenceExpression(expression: unknown): expression is TokenReference {
-  return typeof expression === "object" && expression !== null && "ref" in expression;
-}
-
-function canonicalModes(
-  modes: readonly string[],
-  defaultMode: string,
-): readonly [string, ...string[]] {
-  return [defaultMode, ...modes.filter((mode) => mode !== defaultMode).sort(compareCodeUnits)];
 }

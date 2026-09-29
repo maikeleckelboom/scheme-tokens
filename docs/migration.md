@@ -4,6 +4,8 @@ This guide migrates code written against the earlier, never-published API to the
 
 The 0.1 line is released, so this is a closed handoff rather than a living document: later contract changes are recorded in `CHANGELOG.md` and governed by [Semver](./semver.md).
 
+The examples and trusted-helper names below use the current candidate API; the 0.1 migration history is retained. Current v1 source retention is described in [Public API](./public-api.md).
+
 ## Result payloads
 
 Every fallible success now uses `value`:
@@ -61,7 +63,7 @@ Any multimode graph must now pass both `modes` and `defaultMode`. Remove `modes`
 
 ## Trusted and untrusted entry points
 
-Use `defineTokens`, `defineTokenGraph`, `defineTokenLayer`, and `tokenRef` for trusted TypeScript authoring. These helpers may throw for programmer misuse.
+For current executable code, use `defineTokenGraph`, `defineTokenLayer`, `tokenRef`, and `tokenConcat` for trusted TypeScript authoring. These helpers may throw for programmer misuse.
 
 For `unknown` data, call `parseTokenGraph`, `parseTokenLayer`, or `parseCompiledScheme` first, then pass the parsed `value` to compilation, serialization, or CSS export. The parsers copy accepted input and return structured issues rather than throwing for JSON-compatible data.
 
