@@ -23,6 +23,8 @@ if (role !== "stable" && role !== "next") {
 
 const temporaryRoots: string[] = [];
 try {
+  // Material source resolves core through its package declaration entry on a fresh checkout.
+  runPnpm(["build"], repoRoot);
   if (role === "stable") {
     const versions = new Map<string, string[]>();
     for (const [label, version] of [
