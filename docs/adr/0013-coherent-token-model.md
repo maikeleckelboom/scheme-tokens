@@ -9,7 +9,7 @@ slices: [ADR 0010](./0010-graph-tokens-compose-last.md) (composition order),
 [ADR 0012](./0012-single-hyphen-css-variable-names.md) (CSS names). The other decisions are not
 sliced further; a later change to one of them is a new record that supersedes that decision here.
 [ADR 0014](./0014-material3-layer-and-mode-mapping.md) applies D12 to the Material 3 adapter and
-remains proposed.
+was accepted after the correction pass below.
 
 A closing pass settled the five contracts that were still open (layer mode compatibility and the
 Material mode mapping, custom-condition precedence, conflicting class markers, the TypeScript
@@ -17,7 +17,10 @@ floor, and source-format retention). A product decision then replaced the measur
 floor with support for the current stable major (D13). The acceptance pass fixed the TypeScript
 range notation, specified intra-layer mode disagreement, chose the schema identity, removed the
 resolved value that pure references duplicated in compiled expressions, and restated retention
-and the resolved-value limit normatively. Its evidence is in the appendices.
+and the resolved-value limit normatively. Its evidence is in the appendices. A correction pass on
+the same day corrected two statements of the accepted text, the schema identity of D10 and the
+canonical form of D5, without changing a decision (see
+[Acceptance corrections](#acceptance-corrections)).
 
 Browser coverage beyond Chromium, the emitted declarations, the TypeScript upgrade, and the v1
 upgrade implementation are implementation and release gates, not open design questions (see
@@ -42,6 +45,45 @@ to the composition order and metadata rule that ADRs 0010 and 0011 supersede:
 
 ADR 0009's rejection of partial layers, partial persisted mode maps, metadata merging, and
 mode-bound layer helpers stands.
+
+### Acceptance corrections
+
+The correction pass on 2026-09-29 found two statements in the accepted text that were wrong. Both
+are corrected in place in D10 and D5. Neither correction changes a decision or reopens the design.
+
+**C1. Schema identity (D10).**
+
+- _What was wrong._ The accepted text gave the v2 schemas URN ids,
+  `urn:scheme-tokens:schema:<name>:v2`. It argued that they match the `assigned-name` syntax of
+  RFC 8141 and meet JSON Schema's absolute-URI rule. RFC 8141, section 1, says that syntactic
+  correctness does not make a name a URN: the NID must be registered, and `scheme-tokens` is not.
+  The ids therefore claimed a namespace that IANA could later assign to someone else, so the project could
+  not guarantee that they stay unique. The text also rejected a `tag:` URI on the premise that its
+  authority must be a domain the project owns permanently. RFC 4151, section 2.2, requires the
+  authority name only on the date written in the tag.
+- _Replacement._ The v2 schema ids are `tag:` URIs,
+  `tag:maikel.site,2026-09-29:scheme-tokens/schema/<name>/v<formatVersion>`. D10 gives the spelling
+  and the verification.
+- _Unchanged._ The three identities keep their jobs. `kind` and `formatVersion` alone decide runtime
+  compatibility. `$schema` stays an optional, uninterpreted editor hint whose documented form is an
+  exact-version HTTPS URL on a package CDN. The schemas stay self-contained, with fragment-only
+  `$ref`s, and the released v1 ids stay as they are. Parsers never read `$id`, and nothing
+  dereferences it, so the correction touches only the published schema files. No v2 schema has been
+  released, so no released identifier changes.
+
+**C2. Canonical `concat` (D5).**
+
+- _What was wrong._ The canonical form reduced a `concat` without references to its string. It kept
+  a `concat` of one reference and no literal text, such as `{ concat: [{ ref: "brand.primary" }] }`,
+  although it means exactly `{ ref: "brand.primary" }`. Two spellings of one expression contradict a
+  canonical form. The retained expression of such a token would also carry its target's resolved
+  value, which D6 removes from pure references.
+- _Replacement._ After normalization, only literal content becomes a string, exactly one reference
+  without literal content becomes that `{ ref }`, and anything else stays a `concat`. Canonical
+  form applies wherever an expression is accepted. An empty part list stays invalid. D5 gives the
+  full rule.
+- _Unchanged._ The grammar, the merging of adjacent literal parts, the dropping of empty literal
+  parts, the exclusion of nested `concat`, the resolved-value limit, and `tokenConcat`.
 
 ## Context
 
@@ -288,11 +330,25 @@ part            = string | { ref: Key }
 - Unknown references and cycles through `concat` report the existing `unknown-reference` and
   `reference-cycle` codes with pointers to the part, once, at their source. Tokens that depend on a
   failed value are not reported again.
-- Canonical form: at least one part, adjacent literal parts merged, empty literal parts dropped. A
-  `concat` without references normalizes to its string.
+- Canonical form: every expression has exactly one canonical spelling. A `concat` record has at
+  least one part. An empty part list, `{ concat: [] }`, is invalid: parsers report
+  `invalid-token-value`, as they do for an empty mode map, and the authoring helpers throw it.
+  Normalization merges adjacent literal parts and drops empty literal parts. The result is then:
+  - only literal content: that string, possibly empty;
+  - exactly one reference and no literal content: that reference, `{ ref }`;
+  - otherwise, two or more parts with at least one reference: a `concat` record.
+
+  For example, `{ concat: ["", { ref: "brand.primary" }, ""] }` is `{ ref: "brand.primary" }`.
+  `{ concat: ["a", "b"] }` is `"ab"`, and `{ concat: [""] }` is `""`. Normalization runs wherever
+  an expression is accepted, in the authoring helpers and in the parsers, before the one validator
+  (D11). Serialized artifacts and retained expressions therefore contain only canonical expressions,
+  and a `concat` of one reference is retained as that pure reference (D6).
+
 - `tokenConcat` is a tagged template for authoring:
   `` tokenConcat`0 0 0 3px ${tokenRef("primary")}` ``. It mirrors the `concat` record as `tokenRef`
-  mirrors `ref`. Adapters write the canonical record.
+  mirrors `ref`, and returns the record its template spells. A template always has at least one
+  literal part, so ` tokenConcat` ``is the literal `""` and`` tokenConcat`${tokenRef("a")}` `` is
+  `{ ref: "a" }` once normalized. Adapters write canonical expressions.
 - Nested `concat`, conditionals, fallbacks, and arithmetic are excluded. `calc()` and
   `color-mix()` stay CSS text that `concat` can carry.
 
@@ -315,7 +371,8 @@ MAX_RESOLVED_VALUE_LENGTH = 65_536 UTF-16 code units
   resolver ever builds.
 - The limit does not apply to authored input. Literal values, and references that resolve to them,
   allocate nothing new and stay bounded by the input size. A `concat` without references
-  normalizes to a literal (canonical form above).
+  normalizes to a literal, and one with a single reference and no literal content normalizes to
+  that reference (canonical form above).
 - A failed value is reported once, at its source. Tokens that depend on it are not reported again.
 - There is no graph-wide budget. What remains is fan-out, where many tokens reference one large
   value and serialized or CSS output repeats it. Plain references to a large literal already do
@@ -563,11 +620,11 @@ gets a throwing twin.
 
 **Three identities, three jobs.**
 
-| Identity                                  | Job                   | Form                              |
-| ----------------------------------------- | --------------------- | --------------------------------- |
-| `kind` and `formatVersion` in an artifact | runtime compatibility | fields read by every parser       |
-| `$id` of a published schema               | durable schema name   | a URN, independent of hosting     |
-| `$schema` in an artifact, optional        | editor and tool hint  | a resolvable, versioned HTTPS URL |
+| Identity                                  | Job                   | Form                                 |
+| ----------------------------------------- | --------------------- | ------------------------------------ |
+| `kind` and `formatVersion` in an artifact | runtime compatibility | fields read by every parser          |
+| `$id` of a published schema               | durable schema name   | a `tag:` URI, independent of hosting |
+| `$schema` in an artifact, optional        | editor and tool hint  | a resolvable, versioned HTTPS URL    |
 
 _Runtime compatibility._ `kind` and `formatVersion` alone decide whether and how a parser accepts an
 artifact. `$schema` is optional in every artifact. Parsers accept any string there and never
@@ -576,33 +633,55 @@ stale, or foreign `$schema` never changes how an artifact parses. Parsers preser
 verbatim, and serializers never add one. The v1 → v2 upgrade drops `$schema`, because in v1 it
 could only name the v1 schema.
 
-_Schema identity._ Each published schema has one `$id` per artifact kind and format version,
-`urn:scheme-tokens:schema:<name>:v<formatVersion>`, where `<name>` is the artifact kind without its
-`scheme-tokens/` prefix:
+_Schema identity._ Each published schema has one `$id` per artifact kind and format version. It is
+a `tag:` URI ([RFC 4151](https://www.rfc-editor.org/rfc/rfc4151)),
+`tag:maikel.site,2026-09-29:scheme-tokens/schema/<name>/v<formatVersion>`, where `<name>` is the
+artifact kind without its `scheme-tokens/` prefix:
 
 ```text
-urn:scheme-tokens:schema:token-graph:v2
-urn:scheme-tokens:schema:token-layer:v2
-urn:scheme-tokens:schema:compiled-scheme:v2
+tag:maikel.site,2026-09-29:scheme-tokens/schema/token-graph/v2
+tag:maikel.site,2026-09-29:scheme-tokens/schema/token-layer/v2
+tag:maikel.site,2026-09-29:scheme-tokens/schema/compiled-scheme/v2
 ```
 
-An id never changes for a released format version, whatever the package version, and a new format
-version gets a new id. The released v1 schemas keep their `https://scheme-tokens.dev/schemas/…`
-ids; identifiers are not rewritten after the fact. Nothing requires the project to own or host
-`scheme-tokens.dev`.
+- The tagging entity, `maikel.site,2026-09-29`, is the same for every format version. A later
+  format version changes only the last segment, for example `…/token-graph/v3`.
+- RFC 4151 requires the authority name to belong to the minting entity at 00:00 UTC on the date
+  in the tag, and the date not to be in the future. `maikel.site` is the domain of the project
+  author's production site, and the date is the day these ids were minted.
+- Who holds the domain later does not matter, so the ids stay valid if the domain changes hands.
+  The domain is written in lowercase, as RFC 4151 recommends.
+- The specific part uses only unreserved characters and `/`.
+- A tag has no resolution mechanism. It is an identifier only, which is all `$id` does here.
+- An id never changes for a released format version, whatever the package version, and a new
+  format version gets a new id.
+- The released v1 schemas keep their `https://scheme-tokens.dev/schemas/…` ids. Identifiers are
+  not rewritten after the fact, and nothing requires the project to own or host
+  `scheme-tokens.dev`.
 
-The acceptance pass checked the spelling. Each id matches RFC 8141 `assigned-name` (NID
-`scheme-tokens`, NSS `schema:<name>:v2`) and is an absolute URI without a fragment, which is what
-JSON Schema 2020-12 requires of `$id`. Ajv 8.20 compiles a 2020-12 schema under each id in strict
-mode, validates instances against it, and registers it under the URN. A relative cross-file `$ref`
-cannot resolve against a URN base (Ajv fails with "URN without nid cannot be serialized"), which is
-why the schemas are self-contained: every `$ref` is a fragment such as `#/$defs/mode`. The
-`scheme-tokens` NID is not registered with IANA. JSON Schema needs a unique absolute URI, not a
-registered one, and the id is never dereferenced; the conformant alternatives cost more, because a
-`tag:` URI needs an authority the project controls (a domain it does not own, or a personal e-mail
-address inside every schema) and a `urn:uuid:` id says nothing about what it names. The segment is
-`v2` rather than `2`, the draft spelling, so that it reads as a version and matches the schema file
-names.
+The correction pass checked this spelling against the standards and a validator:
+
+- It matches the RFC 4151 grammar (section 2.1) and meets the requirement of JSON Schema 2020-12
+  (section 8.2.1) that `$id` be an absolute URI without a fragment. That requirement concerns an
+  identifier, not a network locator.
+- The pass rewrote the v1 schemas to be self-contained with fragment-only `$ref`s. The token-graph
+  schema embeds the layer definitions it needs. Ajv 8.20.0, whose URI library is fast-uri 3.1.2,
+  compiled each rewritten schema on its own under its `tag:` id in strict mode. It validated
+  instances, reported errors with instance paths, and registered the schema under the exact id.
+  Another schema can reference each one whole by its id.
+- One tooling defect shapes the rule. When fast-uri resolves a reference, it percent-encodes the
+  comma that every tagging entity contains. A `$ref` from another schema to `<id>#/$defs/…`
+  therefore does not resolve in Ajv, and neither does a cross-file `$ref` between two tag-identified
+  schemas.
+
+The schemas are therefore self-contained, and every `$ref` in them is a fragment such as
+`#/$defs/mode`, which resolves. This also lets an editor that fetches one file through `$schema`
+use it alone. Their `$defs` are not a public contract: a schema that embeds a `scheme-tokens`
+artifact references the whole schema by its `$id`.
+
+The fallback was a `urn:uuid:` id. It meets every requirement and resolves in every case above, but
+says nothing about what it names, and no standards requirement rules out the tag. The segment is
+`v2` rather than `2`, so that it reads as a version and matches the schema file names.
 
 _Instance discovery._ Editors resolve `$schema` over HTTPS. The documented form points at the
 published package's own files on a versioned package CDN:
@@ -905,7 +984,7 @@ condition, which also makes nested dark sections work.
 ## Release scope
 
 The smallest coherent breaking release is one core release, proposed as `0.4.0`, with a companion
-`@scheme-tokens/material3` release under ADR 0014 once that record is accepted.
+`@scheme-tokens/material3` release under ADR 0014.
 
 Included, because each item changes the contract or the wire format and would otherwise force
 another breaking release:
@@ -918,7 +997,7 @@ another breaking release:
 - D7 and ADR 0012: the CSS activation model, names, and collision diagnostics;
 - D9: `orThrow`, because every example in the documentation needs it;
 - D10: format version 2, the source-format retention policy with the v1 upgrade, the `$schema`
-  rule and its versioned HTTPS convention, and self-contained schemas with URN ids;
+  rule and its versioned HTTPS convention, and self-contained schemas with `tag:` ids;
 - D11: the single validation, composition, and resolution pipeline behind it all;
 - D13: the supported TypeScript 7 baseline and its CI gates.
 
@@ -945,7 +1024,8 @@ regression and invariant tests:
 - a v1 compiled scheme fails with `invalid-format-version`;
 - `$schema` never changes how an artifact parses, a v2 value survives a round trip verbatim, and
   the v1 upgrade drops it;
-- the schemas compile under their URN ids and contain only fragment `$ref`s;
+- each schema compiles on its own under its `tag:` id, contains only fragment `$ref`s, and can be
+  referenced whole by its id from another schema;
 - retained expressions: no record for a literal, only `ref` for a pure reference, and a resolved
   value on every reference part of a `concat`;
 - every CSS block declares the complete selected token set;
@@ -957,7 +1037,9 @@ regression and invariant tests:
   and no per-token mode issues for that layer;
 - the default `material3()` layer keeps its own mode set inline in a graph's `layers`, under an
   annotated variable, a declared return type, and a typed layer list (the `NoInfer` regression);
-- canonical `concat`: merged and dropped literal parts, a reference-free `concat` becomes a string;
+- canonical `concat`: merged and dropped literal parts, a reference-free `concat` becomes a string,
+  a lone reference becomes that `{ ref }`, an empty part list is invalid, and a parsed
+  non-canonical `concat` serializes in canonical form;
 - unknown references and cycles inside `concat`, a `concat` that references one key twice, and
   sibling order that is not a cycle;
 - the resolved-value limit fails before allocation on an exponential chain, counts UTF-16 code
@@ -985,7 +1067,9 @@ These are verification work for the release, not open design questions:
   than with TypeScript's own spelling suggestion.
 - 65,536 code units is a judgment: far above any composite value seen, and raising it later is
   compatible.
-- The schema URN uses an unregistered NID (D10).
+- The schema ids name the author's domain and a date (D10). They stay valid whoever holds the domain
+  later, but they read as personal rather than project-owned. Because of a URI-library defect in
+  Ajv 8.20, another schema can reference a schema only as a whole, not into its `$defs`.
 - Compiled v1 schemes are not upgraded. A consumer that persists only compiled output must
   recompile.
 - Removing `defineTokens` changes the first line of every example; it ends the equivalence with

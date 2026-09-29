@@ -39,10 +39,12 @@ schema contract to work. The schemas remain available through the published pack
 project does not control that domain, and the URI host is not available over HTTP.
 
 [ADR 0013](./adr/0013-coherent-token-model.md) (D10) settles the question for format version 2
-without that domain. The v2 schemas use URN identifiers such as
-`urn:scheme-tokens:schema:token-graph:v2`. An artifact may carry `$schema` as a versioned HTTPS
-hint for editors, pointing at the package's own schema files on a package CDN, and only `kind` and
-`formatVersion` decide runtime compatibility. The released v1 identifiers are not rewritten.
+without that domain. The v2 schemas use `tag:` URIs such as
+`tag:maikel.site,2026-09-29:scheme-tokens/schema/token-graph/v2`, which name the project author's
+domain as the tagging authority and need no registration or hosting. An artifact may carry
+`$schema` as a versioned HTTPS hint for editors, pointing at the package's own schema files on a
+package CDN, and only `kind` and `formatVersion` decide runtime compatibility. The released v1
+identifiers are not rewritten.
 
 ## 0.3 convergence release
 
@@ -70,7 +72,7 @@ the gates below hold.
 
 - Exercise the current core release in the production consumer and distinguish package
   compatibility from unrelated consumer-repository failures.
-- Publish the v2 schemas under their URN identifiers, self-contained, and document the versioned
+- Publish the v2 schemas under their `tag:` identifiers, self-contained, and document the versioned
   `$schema` convention (ADR 0013, D10).
 - Keep one readable, executable reference example as the authority used by the packed
   theme-coordinate consumer.
