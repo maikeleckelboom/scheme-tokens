@@ -18,7 +18,8 @@ supersedes.
 A closing pass on 2026-09-29 settled the five contracts that were still open (layer mode
 compatibility and the Material mode mapping, custom-condition precedence, conflicting class
 markers, the TypeScript floor, and source-format retention) and revised D2, D4, D5, D6, D7, and
-D10 accordingly. Its evidence is in the appendices.
+D10 accordingly. Its evidence is in the appendices. A later product decision replaced the measured
+TypeScript 5.4 floor with support for the current stable major, TypeScript 7 (D13).
 
 ## Context
 
@@ -219,8 +220,8 @@ public record claim keys the runtime omits.
 
 The closing pass re-ran the chosen typing in the single-object form, with layer mode sets, on every
 TypeScript version from 5.4.5 to 7.1-dev: all ten error cases, eight mode-compatibility and envelope
-cases, and every positive inference assertion hold on every version (D13, Appendix A). Measured
-cost:
+cases, and every positive inference assertion hold on every version (Appendix A). Only
+TypeScript 7 is supported (D13). Measured cost:
 
 - the real production graph written as literal TypeScript (first pass): 0.36–0.42 s against
   0.33–0.44 s for today's types on 5.9.3 and 6.0.3;
@@ -599,37 +600,43 @@ its output is an ordinary layer; core does not map modes during composition.
 
 ### D13. TypeScript support
 
-The minimum supported TypeScript version is 5.4. `NoInfer` (5.4) is the newest compiler feature the
-declarations need, and the closing pass found no contract difference from 5.4.5 through 7.0.2 and
-7.1-dev (Appendix A):
+`scheme-tokens` targets a modern TypeScript toolchain. It supports the current stable TypeScript
+major, not every older compiler generation on which its declarations happen to work.
 
-| TypeScript          | Error cases caught | Positive assertions | Reference "Did you mean" (E1, E2, E6, E7) |
-| ------------------- | -----------------: | ------------------- | ----------------------------------------- |
-| 5.4.5, 5.5.4        |              18/18 | all hold            | E6 missing                                |
-| 5.6.3 through 6.0.3 |              18/18 | all hold            | all four                                  |
-| 7.0.2, 7.1.0-dev    |              18/18 | all hold            | all four                                  |
+For the breaking release, TypeScript 7 is the current stable major (7.0.2 when this was decided):
 
-The results are identical under `strict` alone and under `strict` with `exactOptionalPropertyTypes`
-and `noUncheckedIndexedAccess`. On 5.4 and 5.5, a reference typo inside an expanded mode map (E6)
-still fails at the reference and names the valid keys, but without the suggestion; today's types
-keep it there. Messages are not contractual, and TypeScript 7 prints union members in a different
-order.
+```text
+Supported consumer TypeScript: >= 7.0
+Repository TypeScript: latest stable 7.x
+Blocking CI: the supported stable 7.x release and the repository version
+Non-blocking signal: typescript@next
+```
 
-This holds for the prototype declarations. The emitted declarations of the implementation must pass
-the same suite on 5.4 before the release. If they need a newer compiler, the minimum is decided
-again before the release, not raised afterwards.
+- `>= 7.0` names the supported stable major. It does not promise that every future major is
+  supported automatically. A new major is tracked through `typescript@next`, and supporting it is a
+  deliberate decision.
+- Moving the supported minimum to a later major, for example from 7.x to 8.x, is an explicit
+  breaking compatibility decision: before 1.0 it needs a changeset, and from 1.0 on a major release.
+- TypeScript 5.x and 6.x are not part of the supported contract and are not tested in CI.
+- The blocking suite is the Appendix A case matrix and the packed-consumer type gate. The emitted
+  declarations of the implementation must pass it on the supported 7.x release before the release.
+- Adopting TypeScript 7 in the repository belongs to the implementation.
 
-CI policy:
+The closing pass ran the prototype declarations on every compiler from 5.4.5 to 7.1-dev (Appendix
+A). The supported compilers catch 18 of 18 error cases, hold every positive assertion, and keep the
+reference suggestion for E1, E2, E6, and E7, under `strict` alone and with
+`exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`:
 
-- the minimum, `typescript@5.4.5`, is blocking;
-- the repository's own version is blocking;
-- the current TypeScript 7 release, pinned (7.0.2 today), is blocking, because it is `latest` and
-  passes;
-- `typescript@next` runs as a non-blocking signal;
-- pinned versions move deliberately, and a new major enters as a signal before it becomes blocking.
+| TypeScript          | Error cases caught | Positive assertions | Reference "Did you mean" (E1, E2, E6, E7) | Status              |
+| ------------------- | -----------------: | ------------------- | ----------------------------------------- | ------------------- |
+| 7.0.2               |              18/18 | all hold            | all four                                  | supported           |
+| 7.1.0-dev           |              18/18 | all hold            | all four                                  | `next` signal       |
+| 5.6.3 through 6.0.3 |              18/18 | all hold            | all four                                  | historical evidence |
+| 5.4.5, 5.5.4        |              18/18 | all hold            | E6 missing                                | historical evidence |
 
-The suite is the Appendix A case matrix and the packed-consumer type gate. Raising the minimum is a
-breaking compatibility change: before 1.0 it needs a changeset, and from 1.0 on a major release.
+The 5.x and 6.x results are kept as evidence that the type design does not depend on one compiler
+generation, not as a compatibility commitment. Messages are not contractual, and TypeScript 7
+prints union members in a different order than 5.x and 6.x.
 
 ## Revalidated hypotheses
 
@@ -700,7 +707,7 @@ another breaking release:
 - D10: format version 2, the retention policy with the v1 upgrade, the `$schema` rule,
   self-contained schemas, and the schema identity decision;
 - D11: the single validation, composition, and resolution pipeline behind it all;
-- D13: the stated minimum TypeScript version and its CI gates.
+- D13: the supported TypeScript 7 baseline and its CI gates.
 
 D8 (`var()` output) is additive once D6 ships, so it is not a release blocker. The prototype shows
 it is small, and it is recommended for the same release.
@@ -735,7 +742,8 @@ regression and invariant tests:
   sibling order that is not a cycle;
 - the resolved-value limit fails before allocation on an exponential chain, and dependants are not
   reported again;
-- the TypeScript case matrix on the minimum, repository, and TypeScript 7 compilers.
+- the TypeScript case matrix on the supported stable 7.x release and the repository version,
+  blocking, and on `typescript@next` as a signal.
 
 ## Remaining uncertainties
 
@@ -745,12 +753,12 @@ regression and invariant tests:
 - `:where(:host)` and `:where(:host(…))` were verified in Chromium only. Firefox and WebKit must be
   checked before release. If an engine does not match `:host` inside `:where()`, host selectors are
   emitted unwrapped and the zero-specificity rule documents that exception.
-- Type-check cost is about twice today's at 2,000 literal tokens on TypeScript 5.x and 6.0, and the
-  same on 7.0. The implementation should profile the constraint before release.
+- On TypeScript 7.0, check cost equals today's types at 2,000 literal tokens; on the unsupported
+  5.x and 6.0 compilers it was about twice today's. The implementation should still profile the
+  constraint before release.
 - The chosen typing reports misspelled metadata keys as `UnknownTokenProperty<"descripton">` rather
-  than with TypeScript's own spelling suggestion, and loses the reference suggestion inside
-  expanded mode maps on TypeScript 5.4 and 5.5.
-- The emitted declarations must pass the 5.4 suite before the minimum is final (D13).
+  than with TypeScript's own spelling suggestion.
+- The emitted declarations must pass the blocking suite on the supported 7.x release (D13).
 - 65,536 code units is a judgment: far above any composite value seen, and raising it later is
   compatible.
 - `tokenConcat` is a working name; it mirrors the `concat` record the way `tokenRef` mirrors `ref`.
@@ -783,7 +791,8 @@ The closing pass rewrote the chosen candidate for `defineTokenGraph({ … })`, a
 and a `material3()` signature with the real 48-role key union, and ran it on TypeScript 5.4.5,
 5.5.4, 5.6.3, 5.7.3, 5.8.3, 5.9.3, 6.0.3, 7.0.2, and 7.1.0-dev.20260929.1, each with `strict`,
 `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax`, and
-`skipLibCheck: false`, and again with `strict` alone.
+`skipLibCheck: false`, and again with `strict` alone. Only TypeScript 7 is supported (D13); the
+5.x and 6.x runs are historical evidence of the design's robustness.
 
 Negative cases, each an `@ts-expect-error` that must be consumed:
 
