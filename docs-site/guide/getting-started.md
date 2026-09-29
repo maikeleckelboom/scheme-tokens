@@ -10,7 +10,7 @@ Define string-valued tokens, compile an exact public contract, then export CSS c
 example uses the application-local [`orThrow` helper](../reference/diagnostics.md#application-local-orthrow)
 for boundaries where a failure should stop the operation. It is not a package export.
 
-```ts twoslash
+```ts
 // ---cut-start---
 import type { Issue, Result } from "scheme-tokens";
 declare function orThrow<Value, Problem extends Issue>(result: Result<Value, Problem>): Value;

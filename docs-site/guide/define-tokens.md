@@ -4,7 +4,7 @@
 
 Use a direct string, a direct `tokenRef()`, a direct explicit mode map, or an expanded definition with required `value` and optional metadata.
 
-```ts twoslash
+```ts
 import { defineTokens, tokenRef } from "scheme-tokens";
 
 const graph = defineTokens({
@@ -28,7 +28,7 @@ export { graph };
 
 Omitted mode options mean `base`/`base`. Multimode graphs require an explicit envelope and default:
 
-```ts twoslash
+```ts
 import { defineTokens, tokenRef } from "scheme-tokens";
 
 const graph = defineTokens(
@@ -67,7 +67,7 @@ retains `TokenLayer<Key, string>` rather than claiming an inferred mode union. D
 apply to every mode in the owning graph. Explicit mode maps stay unbound until graph composition,
 where they must cover the graph's modes exactly. The graph then applies layers in array order.
 
-```ts twoslash
+```ts
 import { defineTokenGraph, defineTokenLayer, tokenRef } from "scheme-tokens";
 
 const generated = defineTokenLayer({

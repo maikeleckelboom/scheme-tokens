@@ -14,7 +14,7 @@ segment-preserving name encoder, so `surface.canvas` becomes `--app-surface--can
 with a generic `segments.join("-")`: that would lose token-segment boundaries and can make structurally
 different keys collide.
 
-```ts twoslash
+```ts
 // ---cut-start---
 import type { Issue, Result } from "scheme-tokens";
 declare function orThrow<Value, Problem extends Issue>(result: Result<Value, Problem>): Value;

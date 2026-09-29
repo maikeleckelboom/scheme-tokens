@@ -13,7 +13,7 @@ The 0.1 contract removes the earlier, never-published parallel forms rather than
 - Remove `modes` from layers.
 - Parse `unknown` input before compiling or serializing it.
 
-```ts twoslash
+```ts
 import { compileTokenGraph, defineTokens, tokenRef } from "scheme-tokens";
 
 const graph = defineTokens(

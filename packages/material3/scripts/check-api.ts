@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { buildSnapshot, packageRoot, snapshotLabel, snapshotPath } from "./api-snapshot.ts";
+import { canonicalizeDeclaration } from "../../../scripts/api-snapshot.ts";
 
 const expectedRuntimeExports = ["material3"] as const;
 const expectedTypeExports = [
@@ -38,7 +39,8 @@ const rootModule = (await import(
 assertEqual(Object.keys(rootModule), expectedRuntimeExports, "runtime exports");
 
 const declaration = readFileSync(join(packageRoot, "dist", "index.d.ts"), "utf8");
-const declarationExports = extractDeclarationExports(declaration);
+const canonicalDeclaration = canonicalizeDeclaration(declaration);
+const declarationExports = extractDeclarationExports(canonicalDeclaration);
 assertEqual(declarationExports.runtime, expectedRuntimeExports, "declaration runtime exports");
 assertEqual(declarationExports.types, expectedTypeExports, "declaration type exports");
 for (const forbidden of forbiddenDeclarationNames) {
@@ -46,7 +48,7 @@ for (const forbidden of forbiddenDeclarationNames) {
     throw new Error(`Adapter declaration leaks forbidden public dependency or type: ${forbidden}`);
   }
 }
-const normalizedDeclaration = declaration.replace(/\s+/gu, " ");
+const normalizedDeclaration = canonicalDeclaration.replace(/\s+/gu, " ");
 for (const required of [
   'type Material3Appearance = "light" | "dark";',
   'type Material3SpecVersion = "2021" | "2025";',

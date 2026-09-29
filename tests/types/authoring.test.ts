@@ -93,31 +93,31 @@ void canonicalFirstMode;
 const falselyCallerOrderedMode: "dark" = reorderedModes.modes[0];
 void falselyCallerOrderedMode;
 
-// @ts-expect-error every declared mode is required in a mode map.
 defineTokens(
   {
+    // @ts-expect-error every declared mode is required in a mode map.
     background: { light: "#fff" },
   },
   { modes: ["light", "dark"], defaultMode: "light" },
 );
 
-// @ts-expect-error undeclared mode keys are rejected.
 defineTokens(
   {
     background: {
       light: "#fff",
       dark: "#000",
+      // @ts-expect-error undeclared mode keys are rejected.
       sepia: "#eee",
     },
   },
   { modes: ["light", "dark"], defaultMode: "light" },
 );
 
-// @ts-expect-error defaultMode must belong to the declared mode tuple.
 defineTokens(
   { background: { light: "#fff", dark: "#000" } },
   {
     modes: ["light", "dark"],
+    // @ts-expect-error defaultMode must belong to the declared mode tuple.
     defaultMode: "sepia",
   },
 );

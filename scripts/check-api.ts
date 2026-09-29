@@ -1,7 +1,12 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { buildSnapshot, snapshotLabel, snapshotPath } from "./api-snapshot.ts";
+import {
+  buildSnapshot,
+  canonicalizeDeclaration,
+  snapshotLabel,
+  snapshotPath,
+} from "./api-snapshot.ts";
 import {
   isContributorDocument,
   listPublicMarkdownFiles,
@@ -145,7 +150,8 @@ const rootModule = (await import(pathToFileURL(join(root, "dist/index.js")).href
 assertEqual(Object.keys(rootModule), expectedRuntimeExports, "root runtime exports");
 
 const declaration = readFileSync(join(root, "dist/index.d.ts"), "utf8");
-const declarationExports = extractDeclarationExports(declaration);
+const canonicalDeclaration = canonicalizeDeclaration(declaration);
+const declarationExports = extractDeclarationExports(canonicalDeclaration);
 assertEqual(declarationExports.runtime, expectedRuntimeExports, "declaration runtime exports");
 assertEqual(declarationExports.types, expectedTypeExports, "declaration type exports");
 
@@ -158,7 +164,7 @@ for (const removedName of removedPublicNames) {
   }
 }
 
-assertDeclarationContracts(normalizeDeclaration(declaration));
+assertDeclarationContracts(normalizeDeclaration(canonicalDeclaration));
 assertDeclarationMatchesSnapshot(declaration);
 
 for (const forbiddenText of forbiddenIdentifiers) {

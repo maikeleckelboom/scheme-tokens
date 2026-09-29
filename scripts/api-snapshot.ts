@@ -20,7 +20,7 @@ const header = [
  * otherwise churn the snapshot on unrelated build changes.
  */
 export function buildSnapshot(declaration: string): string {
-  const body = declaration
+  const body = canonicalizeDeclaration(declaration)
     .replaceAll("\r\n", "\n")
     .split("\n")
     .filter(
@@ -34,6 +34,28 @@ export function buildSnapshot(declaration: string): string {
     .trim();
 
   return `${header}${body}\n`;
+}
+
+/** Keep equivalent declaration export spellings from changing the public API snapshot. */
+export function canonicalizeDeclaration(declaration: string): string {
+  const runtime = [
+    ...new Set(
+      [...declaration.matchAll(/^export declare function (?<name>[A-Za-z_$][\w$]*)\b/gmu)].map(
+        (match) => match.groups?.name ?? "",
+      ),
+    ),
+  ].sort();
+  if (runtime.length === 0) {
+    return declaration;
+  }
+  const typeExport = /^export type \{ (?<names>[^}]*) \};?$/mu.exec(declaration);
+  if (typeExport?.groups?.names === undefined) {
+    throw new Error("Cannot normalize declaration exports from the TypeScript 7 builder");
+  }
+  const types = typeExport.groups.names.split(", ").map((name) => `type ${name}`);
+  return declaration
+    .replace(/^export declare function /gmu, "declare function ")
+    .replace(typeExport[0], `export { ${[...types, ...runtime].join(", ")} };`);
 }
 
 export function buildSnapshotFromDist(): string {

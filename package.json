@@ -45,7 +45,10 @@
     "lint": "oxlint . --import-plugin --vitest-plugin --deny-warnings",
     "test": "vitest run",
     "test:types": "tsc -p tsconfig.type-tests.json",
+    "type:compat:stable": "node --experimental-strip-types scripts/check-type-compatibility.ts stable",
+    "type:compat:next": "node --experimental-strip-types scripts/check-type-compatibility.ts next",
     "test:properties": "vitest run tests/properties",
+    "test:oracle": "vitest run tests/oracle",
     "test:schemas": "vitest run tests/schemas",
     "validate:material3": "pnpm --filter @scheme-tokens/material3 validate",
     "release:material3": "pnpm --filter @scheme-tokens/material3 release:check",
@@ -88,8 +91,8 @@
     "oxfmt": "^0.63.0",
     "oxlint": "^1.78.0",
     "publint": "0.3.23",
-    "tsdown": "0.22.3",
-    "typescript": "6.0.3",
+    "tsdown": "0.23.0",
+    "typescript": "7.0.2",
     "vitest": "^4.1.10"
   },
   "engines": {

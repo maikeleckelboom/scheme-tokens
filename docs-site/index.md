@@ -13,7 +13,7 @@ hero:
       link: /reference/api
 ---
 
-```ts twoslash
+```ts
 // ---cut-start---
 import type { Issue, Result } from "scheme-tokens";
 declare function orThrow<Value, Problem extends Issue>(result: Result<Value, Problem>): Value;

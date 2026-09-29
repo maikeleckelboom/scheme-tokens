@@ -152,7 +152,12 @@ function checkCombinedConsumer(coreTarball: string, adapterTarball: string): voi
   run(process.execPath, ["consumer.mjs"], consumer);
   run(
     process.execPath,
-    [join(repoRoot, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.json"],
+    [
+      process.env.SCHEME_TOKENS_TSC_PATH ??
+        join(repoRoot, "node_modules", "typescript", "bin", "tsc"),
+      "-p",
+      "tsconfig.json",
+    ],
     consumer,
   );
   run(process.execPath, [join("dist", "consumer.js")], consumer);

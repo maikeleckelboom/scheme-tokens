@@ -25,7 +25,7 @@ There are no other root runtime exports.
 
 `Result` is public. Every fallible public success lives under `value`; every failure contains a non-empty `issues` tuple.
 
-```ts twoslash
+```ts
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
 
 const graph = defineTokens({ background: "#ffffff" });
@@ -50,7 +50,7 @@ if (exported.ok) {
 
 A helper token definition has exactly three forms:
 
-```ts twoslash
+```ts
 import { defineTokens, tokenRef } from "scheme-tokens";
 
 const graph = defineTokens({
@@ -73,7 +73,7 @@ Bare strings are never references. `valueByMode`, `aliases`, and metadata mixed 
 
 Omitting mode options creates `modes: ["base"]` and `defaultMode: "base"`. Multimode graphs require both `modes` and `defaultMode`:
 
-```ts twoslash
+```ts
 import { defineTokens, tokenRef } from "scheme-tokens";
 
 const graph = defineTokens(
@@ -105,7 +105,7 @@ Mode names cannot be `ref`, `value`, `valueByMode`, `visibility`, `description`,
 
 Layers have stable identities and local default visibility, but never modes or a default mode. The graph is the sole mode authority. An isolated helper result is therefore `TokenLayer<Key, string>`: the `string` records that no mode envelope is known, not that the layer inferred arbitrary modes. Direct expressions apply to every mode in the owning graph. Explicit layer mode maps are accepted standalone, then must contain every owning graph mode and no unknown mode when composed. Graph tokens compose first; layers then apply in array order, with later definitions overriding earlier keys.
 
-```ts twoslash
+```ts
 import { compileTokenGraph, defineTokenGraph, defineTokenLayer, tokenRef } from "scheme-tokens";
 
 const generated = defineTokenLayer({
@@ -139,7 +139,7 @@ The four authoring helpers are trusted TypeScript entry points. They validate, n
 
 The three parsers are the untrusted entry points. They accept `unknown`, do not throw for JSON-compatible data, return owned copies, reject unknown properties and unsupported versions, and report `Result` issues.
 
-```ts twoslash
+```ts
 import { compileTokenGraph, parseTokenGraph } from "scheme-tokens";
 
 declare const json: string;
@@ -157,7 +157,7 @@ Parsed key sets are dynamic. `parseCompiledScheme()` therefore always returns an
 
 ## Compilation selection
 
-```ts twoslash
+```ts
 import { compileTokenGraph, defineTokens } from "scheme-tokens";
 
 const graph = defineTokens({
@@ -190,7 +190,7 @@ Exact selections reject empty arrays, duplicate keys, malformed keys, and unknow
 
 `exportCssVars()` returns CSS, structured blocks, and the generated property for each token.
 
-```ts twoslash
+```ts
 // ---cut-start---
 import type { Issue, Result } from "scheme-tokens";
 declare function orThrow<Value, Problem extends Issue>(result: Result<Value, Problem>): Value;
@@ -234,7 +234,7 @@ Declarative prefix, scope, selector, and formatting options are the primary path
 
 Strict graph and layer definitions always contain one required `value`; the property holds either an expression or a complete mode map. Strict artifacts include explicit `kind`, `formatVersion`, defaults, and graph modes. Unknown properties and unsupported versions fail parsing.
 
-```ts twoslash
+```ts
 import { parseTokenGraph } from "scheme-tokens";
 
 const parsed = parseTokenGraph({

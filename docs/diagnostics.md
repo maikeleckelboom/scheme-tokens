@@ -8,7 +8,7 @@ type Result<Value, Problem> =
   | { readonly ok: false; readonly issues: readonly [Problem, ...Problem[]] };
 ```
 
-```ts twoslash
+```ts
 import { compileTokenGraph, defineTokens } from "scheme-tokens";
 
 const compiled = compileTokenGraph(
@@ -39,7 +39,7 @@ The package keeps failures explicit and does not export a throwing helper. At an
 where any issue should stop the operation, a local helper can preserve the complete issue objects while
 keeping the call site short:
 
-```ts twoslash
+```ts
 import type { CompileTokenGraphIssue, ExportCssVarsIssue, Result } from "scheme-tokens";
 
 type RichIssue = CompileTokenGraphIssue | ExportCssVarsIssue;

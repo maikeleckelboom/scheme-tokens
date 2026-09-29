@@ -46,7 +46,7 @@ const publicMarkdownFiles = [
 assertNoRemovedPublicNames();
 assertNoPublicColorParserSurface();
 assertResultConvention(publicMarkdownFiles);
-assertPackageImportExamplesUseTwoslash(publicMarkdownFiles);
+assertPackageImportExamplesUseTs(publicMarkdownFiles);
 
 const blocks = extractTypeScriptExamples(publicMarkdownFiles);
 if (blocks.length === 0) {
@@ -138,7 +138,7 @@ interface TypeScriptExample {
 
 function extractTypeScriptExamples(files: readonly MarkdownFile[]): readonly TypeScriptExample[] {
   const examples: TypeScriptExample[] = [];
-  const supportedInfos = new Set(["ts", "typescript", "ts twoslash"]);
+  const supportedInfos = new Set(["ts", "typescript"]);
 
   for (const file of files) {
     for (const match of file.text.matchAll(/^```([^\r\n]*)\r?\n([\s\S]*?)^```/gm)) {
@@ -151,7 +151,12 @@ function extractTypeScriptExamples(files: readonly MarkdownFile[]): readonly Typ
         const isDurableDocsFile = file.label.includes(
           `${join(repoRoot, "docs")}${process.platform === "win32" ? "\\" : "/"}`,
         );
-        if (info === "ts twoslash" || !isDurableDocsFile) {
+        if (
+          !isDurableDocsFile ||
+          code.includes('from "scheme-tokens"') ||
+          code.includes("from 'scheme-tokens'") ||
+          code.includes('from "@scheme-tokens/material3"')
+        ) {
           examples.push({ code, label: file.label });
         }
         continue;
@@ -174,7 +179,7 @@ function normalizeFenceInfo(info: string): string {
   return info.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function assertPackageImportExamplesUseTwoslash(files: readonly MarkdownFile[]): void {
+function assertPackageImportExamplesUseTs(files: readonly MarkdownFile[]): void {
   for (const file of files) {
     for (const match of file.text.matchAll(/^```([^\r\n]*)\r?\n([\s\S]*?)^```/gm)) {
       const info = normalizeFenceInfo(match[1] ?? "");
@@ -182,8 +187,8 @@ function assertPackageImportExamplesUseTwoslash(files: readonly MarkdownFile[]):
       if (!code.includes('from "scheme-tokens"') && !code.includes("from 'scheme-tokens'")) {
         continue;
       }
-      if (info !== "ts twoslash") {
-        throw new Error(`Package import examples must use "ts twoslash" fences in ${file.label}`);
+      if (info !== "ts") {
+        throw new Error(`Package import examples must use "ts" fences in ${file.label}`);
       }
     }
   }
@@ -244,7 +249,7 @@ function assertResultConvention(files: readonly MarkdownFile[]): void {
   }
 
   for (const file of files) {
-    for (const match of file.text.matchAll(/^```ts twoslash\r?\n([\s\S]*?)^```/gm)) {
+    for (const match of file.text.matchAll(/^```ts\r?\n([\s\S]*?)^```/gm)) {
       const code = match[1] ?? "";
       const removedSuccessAccess = code.match(
         /\b(?:compiled|parsed|exported)\.(?:graph|layer|scheme|css|blocks|variableByToken)\b/u,

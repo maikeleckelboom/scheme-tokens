@@ -18,14 +18,10 @@ const cachePath = join(docsSiteRoot, ".vitepress", "cache");
 const distPath = join(docsSiteRoot, ".vitepress", "dist");
 
 assertInstalledVersion("vitepress", "2.0.0-alpha.17");
-assertInstalledVersion("@shikijs/vitepress-twoslash", "4.2.0");
-assertInstalledVersion("typescript", "6.0.3");
+assertInstalledVersion("typescript", "7.0.2");
 
 const config = readFileSync(configPath, "utf8");
-assertContains(config, "transformerTwoslash", configPath);
-assertContains(config, "createFileSystemTypesCache", configPath);
-assertContains(config, "explicitTrigger: true", configPath);
-assertContains(config, "throws: true", configPath);
+assertNotContains(config, "transformerTwoslash", configPath);
 assertContains(config, 'link: "/guide/application-theme-coordinates"', configPath);
 assertNotContains(config, "as any", configPath);
 assertNotContains(config, "as unknown as", configPath);
@@ -40,10 +36,9 @@ assertContains(
 );
 
 const theme = readFileSync(themePath, "utf8");
-assertContains(theme, "@shikijs/vitepress-twoslash/client", themePath);
-assertContains(theme, "@shikijs/vitepress-twoslash/style.css", themePath);
+assertContains(theme, 'import "./style.css"', themePath);
 
-assertPackageImportExamplesUseTwoslash();
+assertPackageImportExamplesUseTs();
 
 rmSync(cachePath, { force: true, recursive: true });
 rmSync(distPath, { force: true, recursive: true });
@@ -96,11 +91,11 @@ function assertNotContains(text: string, denied: string, file: string): void {
   }
 }
 
-function assertPackageImportExamplesUseTwoslash(): void {
+function assertPackageImportExamplesUseTs(): void {
   const publicFiles = listMarkdownFiles(docsSiteRoot).filter(
     (file) => !file.replaceAll("\\", "/").includes("/.vitepress/"),
   );
-  let twoslashExampleCount = 0;
+  let exampleCount = 0;
 
   for (const file of publicFiles) {
     const text = readFileSync(file, "utf8");
@@ -110,15 +105,15 @@ function assertPackageImportExamplesUseTwoslash(): void {
       if (!code.includes('from "scheme-tokens"') && !code.includes("from 'scheme-tokens'")) {
         continue;
       }
-      if (info !== "ts twoslash") {
-        throw new Error(`Package import examples must use "ts twoslash" fences in ${file}`);
+      if (info !== "ts") {
+        throw new Error(`Package import examples must use "ts" fences in ${file}`);
       }
-      twoslashExampleCount += 1;
+      exampleCount += 1;
     }
   }
 
-  if (twoslashExampleCount === 0) {
-    throw new Error("Docs site must contain at least one twoslash package import example");
+  if (exampleCount === 0) {
+    throw new Error("Docs site must contain at least one TypeScript package import example");
   }
 }
 

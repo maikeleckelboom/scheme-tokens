@@ -29,7 +29,7 @@ type Result<Value, Problem> =
   | { readonly ok: false; readonly issues: readonly [Problem, ...Problem[]] };
 ```
 
-```ts twoslash
+```ts
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
 
 const compiled = compileTokenGraph(defineTokens({ background: "#ffffff" }));
@@ -65,7 +65,7 @@ Parsers do not throw for JSON-compatible input. They strictly validate kinds, ve
 
 Parsed key sets are dynamic. `parseCompiledScheme()` always returns an incomplete token record, and exporting CSS from it keeps `variableByToken` partial.
 
-```ts twoslash
+```ts
 import { compileTokenGraph, parseTokenGraph } from "scheme-tokens";
 
 declare const input: unknown;

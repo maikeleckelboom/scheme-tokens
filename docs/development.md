@@ -52,9 +52,9 @@ candidate transformation before changing the exact tool pin.
 
 `@types/node` is pinned to the Node 24 line so repository-owned Node scripts are checked against the minimum supported runtime rather than the forward-compatibility line.
 
-`tsdown` is pinned to `0.22.3`. Later 0.22 releases load a native parser binding that Windows application-control policy blocks on the maintainer's machine, which fails `pnpm build` and every gate downstream of it. Bump it only after confirming the build still runs locally.
+`tsdown` is pinned to `0.23.0`. The prior `0.22.3` pin could not generate declarations with TypeScript 7. The new pin passed a local Windows build; the earlier Windows application-control issue with later 0.22 releases remains a reason to test toolchain bumps on the maintainer's machine.
 
-The docs site pins `vitepress`, `@shikijs/vitepress-twoslash`, and `typescript` to exact versions, and `scripts/check-docs-site.ts` asserts the resolved versions, so a docs toolchain bump is a two-file change.
+The docs site pins `vitepress` and `typescript` to exact versions, and `scripts/check-docs-site.ts` asserts the resolved versions. Its examples use syntax-highlighted TypeScript fences; the repository's packed `pnpm test:docs` gate typechecks them with TypeScript 7. The prior Twoslash hover integration depended on the TypeScript 6 compiler API and was removed for the TypeScript 7 baseline.
 
 ## Packaging gates
 

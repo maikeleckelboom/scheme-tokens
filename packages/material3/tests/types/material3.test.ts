@@ -65,8 +65,8 @@ material3("#6750a4", { exactModes: { dark: { appearance: "dark" } }, defaultMode
 material3("#6750a4", { modes: { "light-high": { contrastLevel: 1 } } });
 // @ts-expect-error defaultMode cannot invent an additive mode.
 material3("#6750a4", { defaultMode: "midnight" });
-// @ts-expect-error an exact default must belong to exactModes.
 material3("#6750a4", {
+  // @ts-expect-error an exact default must belong to exactModes.
   exactModes: { standard: { appearance: "light" } },
   defaultMode: "light",
 });

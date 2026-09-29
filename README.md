@@ -30,7 +30,7 @@ dependencies or filesystem access and runs in browsers.
 
 References are explicit. Bare strings are always literal values.
 
-```ts twoslash
+```ts
 import { compileTokenGraph, defineTokens, exportCssVars, tokenRef } from "scheme-tokens";
 
 const graph = defineTokens({
@@ -73,7 +73,7 @@ token segments stay distinct in CSS names, so `action.primary` becomes `--action
 The sibling package's `material3` helper returns `modes`, `defaultMode`, and one normal `TokenLayer`
 in `layers`.
 
-```ts twoslash
+```ts
 import { material3 } from "@scheme-tokens/material3";
 
 const material = material3("#6750a4");
@@ -104,7 +104,7 @@ serialization, and CSS projection.
 
 Material roles can stay internal while the application exposes its own token names.
 
-```ts twoslash
+```ts
 import { material3 } from "@scheme-tokens/material3";
 import { compileTokenGraph, defineTokenGraph, tokenRef } from "scheme-tokens";
 
@@ -134,7 +134,7 @@ tokens.
 
 Use `modes` to patch the built-in `light` and `dark` modes or add custom ones.
 
-```ts twoslash
+```ts
 import { material3 } from "@scheme-tokens/material3";
 
 const material = material3("#6750a4", {
@@ -160,7 +160,7 @@ const material = material3("#6750a4", {
 
 Use `exactModes` to replace the built-in `light` and `dark` set.
 
-```ts twoslash
+```ts
 import { material3 } from "@scheme-tokens/material3";
 
 const material = material3("#6750a4", {
@@ -187,7 +187,7 @@ graph, and the compiled scheme.
 You can map [shadcn/ui](https://ui.shadcn.com/docs/theming) roles to internal Material roles with
 `tokenRef()`.
 
-```ts twoslash
+```ts
 import { material3 } from "@scheme-tokens/material3";
 import { compileTokenGraph, defineTokenGraph, exportCssVars, tokenRef } from "scheme-tokens";
 
@@ -262,7 +262,7 @@ Sidebar roles are application-specific too, so this example leaves them out.
 
 Generated and authored layers use the same ordering rules.
 
-```ts twoslash
+```ts
 import { material3 } from "@scheme-tokens/material3";
 import { defineTokenGraph, defineTokenLayer, tokenRef } from "scheme-tokens";
 
@@ -299,7 +299,7 @@ Modes belong to the graph. Layers only provide values for those modes. A direct 
 applies to every graph mode. A layer mode map stays unbound while standalone and must exactly cover
 the owning graph's modes when composed; it never contributes or infers a graph mode envelope.
 
-```ts twoslash
+```ts
 import { defineTokens, tokenRef } from "scheme-tokens";
 
 const graph = defineTokens(
@@ -328,7 +328,7 @@ const graph = defineTokens(
 
 References resolve before visibility is applied.
 
-```ts twoslash
+```ts
 import { compileTokenGraph, defineTokens, tokenRef } from "scheme-tokens";
 
 const graph = defineTokens({
@@ -372,7 +372,7 @@ scheme-tokens/schemas/compiled-scheme.v1.schema.json
 CSS export is separate from compilation. `exportCssVars()` takes a compiled scheme and emits CSS
 plus structured block data.
 
-```ts twoslash
+```ts
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
 
 const compiled = compileTokenGraph(

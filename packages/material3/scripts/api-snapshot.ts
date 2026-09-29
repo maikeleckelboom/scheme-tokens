@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { canonicalizeDeclaration } from "../../../scripts/api-snapshot.ts";
 
 export const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 export const repoRoot = dirname(dirname(packageRoot));
@@ -15,7 +16,7 @@ const header = [
 ].join("\n");
 
 export function buildSnapshot(declaration: string): string {
-  const body = declaration
+  const body = canonicalizeDeclaration(declaration)
     .replaceAll("\r\n", "\n")
     .split("\n")
     .filter(
@@ -25,6 +26,8 @@ export function buildSnapshot(declaration: string): string {
         !line.startsWith("//# sourceMappingURL="),
     )
     .join("\n")
+    .replace(/^(import [^\n]+;)\n(?=declare )/gmu, "$1\n\n")
+    .replace(/^(type [^=\n]+ = \{ readonly \[[^\n]+); \};$/gmu, "$1 };")
     .replace(/\n{3,}/gu, "\n\n")
     .trim();
   return `${header}${body}\n`;

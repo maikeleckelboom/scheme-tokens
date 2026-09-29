@@ -252,7 +252,12 @@ for (const subpath of ["conversion", "material3"]) {
 runPnpm(["install", "--ignore-scripts"], consumerDirectory);
 run(
   process.execPath,
-  [join(repoRoot, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.json"],
+  [
+    process.env.SCHEME_TOKENS_TSC_PATH ??
+      join(repoRoot, "node_modules", "typescript", "bin", "tsc"),
+    "-p",
+    "tsconfig.json",
+  ],
   consumerDirectory,
 );
 run(process.execPath, [join("dist", "consumer.js")], consumerDirectory);

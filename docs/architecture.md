@@ -51,7 +51,7 @@ Omitted and explicit `public` selection have conservatively partial token and me
 
 Compiled token values are direct mode maps. Metadata is stored separately under `metadataByToken` so mode names cannot collide with visibility, origin, dependency, or descriptive fields.
 
-```ts twoslash
+```ts
 import { compileTokenGraph, defineTokens } from "scheme-tokens";
 
 const compiled = compileTokenGraph(

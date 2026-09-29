@@ -120,3 +120,38 @@ jobs:
 
       - name: API surface drift has a changeset
         run: pnpm check:changeset
+
+  type-compatibility:
+    name: TypeScript 7 supported compilers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.23.0
+          run_install: false
+          cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm type:compat:stable
+
+  type-compatibility-next:
+    name: TypeScript next signal
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.23.0
+          run_install: false
+          cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm type:compat:next

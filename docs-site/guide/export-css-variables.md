@@ -2,7 +2,7 @@
 
 `exportCssVars()` accepts a compiled scheme and returns a `Result` containing CSS, structured blocks, and a token-to-property lookup.
 
-```ts twoslash
+```ts
 // ---cut-start---
 import type { Issue, Result } from "scheme-tokens";
 declare function orThrow<Value, Problem extends Issue>(result: Result<Value, Problem>): Value;
@@ -53,7 +53,7 @@ Compilation and serialization preserve arbitrary token strings. CSS export is a 
 
 Use `variableName` only when integration requires a non-default property mapping:
 
-```ts twoslash
+```ts
 import { compileTokenGraph, defineTokens, exportCssVars } from "scheme-tokens";
 
 const compiled = compileTokenGraph(defineTokens({ background: "#ffffff" }));

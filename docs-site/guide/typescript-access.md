@@ -2,7 +2,7 @@
 
 Literal token keys and explicit modes flow through trusted authoring, compilation, CSS export, and serialization.
 
-```ts twoslash
+```ts
 import { compileTokenGraph, defineTokens, serializeCompiledScheme } from "scheme-tokens";
 
 const graph = defineTokens(
