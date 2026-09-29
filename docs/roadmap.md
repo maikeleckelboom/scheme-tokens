@@ -5,14 +5,15 @@ set of evidence gates, not a feature backlog.
 
 ## Current proven state
 
-- `scheme-tokens@0.2.0` is the released core: an embedded, zero-runtime-dependency TypeScript
+- `scheme-tokens@0.3.0` is the released core: an embedded, zero-runtime-dependency TypeScript
   compiler for application-owned, string-valued token graphs.
-- `@scheme-tokens/material3@0.1.0` is the released optional sibling composition package. It keeps
+- `@scheme-tokens/material3@0.1.1` is the released optional sibling composition package. It keeps
   Material generation outside the core compiler boundary.
 - `maikel.site`, the current production core consumer, was upgraded from `0.1.0` to `0.2.0`
   without an adapter or application-behaviour migration. Its package compatibility checks passed.
   The feature branch's complete repository gate remained red only on unrelated pre-existing
-  manifest, icon, and visual-baseline drift, so that aggregate command is not recorded as green.
+  manifest, icon, and visual-baseline drift, so that aggregate command is not recorded as green. It
+  now runs core `0.3.0` with the Material 3 adapter at `0.1.1`.
 - The readable theme-coordinate example is the same source that the packed core consumer
   typechecks and executes. It proves four flattened application coordinates, exact public
   selection, internal references, CSS projection, and deterministic output against the tarball.
@@ -32,44 +33,51 @@ belongs outside core when it can preserve that boundary.
 
 ## Schema identifiers and namespace ownership
 
-The three packaged schemas use canonical `$id` URIs under `https://scheme-tokens.dev/schemas/`.
+The three packaged v1 schemas use canonical `$id` URIs under `https://scheme-tokens.dev/schemas/`.
 A JSON Schema identifier is a URI identity and does not require network retrieval for the packaged
-schema contract to work. The schemas remain available through the published package exports.
+schema contract to work. The schemas remain available through the published package exports. The
+project does not control that domain, and the URI host is not available over HTTP.
 
-The project does not currently control that domain, and the URI host is not available over HTTP.
-Because released artifacts already contain these identifiers, controlling the existing namespace
-and deciding whether to host the exact packaged bytes there is a pre-1.0 ownership and reliability
-concern. It is not evidence that the runtime or packaged schemas are invalid, and it does not block
-the current convergence work. This roadmap does not prescribe a replacement identifier.
+[ADR 0013](./adr/0013-coherent-token-model.md) (D10) settles the question for format version 2
+without that domain. The v2 schemas use URN identifiers such as
+`urn:scheme-tokens:schema:token-graph:v2`. An artifact may carry `$schema` as a versioned HTTPS
+hint for editors, pointing at the package's own schema files on a package CDN, and only `kind` and
+`formatVersion` decide runtime compatibility. The released v1 identifiers are not rewritten.
 
-## Planned 0.3 convergence release
+## 0.3 convergence release
 
-`0.3.0` is the planned convergence release. Its purpose is to close evidenced contract and
-ergonomic questions, remove any easy-to-remove public API traps, and leave the current compiler
-boundary ready for stability review. It is not a commitment to add speculative capabilities.
+`0.3.0` shipped as the convergence release. It closed the CSS option-state trap by making exact
+selector maps statically incompatible with a separate scope while retaining the runtime diagnostic
+for untyped input, and it pinned the layer contract of that release: standalone layers are
+mode-unbound, direct expressions apply across the owning graph envelope, and explicit maps are
+validated only when composed.
 
-The current candidate closes the CSS option-state trap by making exact selector maps statically
-incompatible with a separate scope while retaining the runtime diagnostic for untyped input. It
-also pins the existing layer contract: standalone layers remain mode-unbound, direct expressions
-apply across the owning graph envelope, and explicit maps are validated only when composed. No new
-mode or layer helper is introduced.
+## Planned 0.4 breaking release
 
-If the 0.3 exit gates below are satisfied, the next planned core release is `1.0.0`. Any additional
-pre-1.0 minor requires an explicit unresolved contract blocker. This policy does not guarantee that
-0.3 must mathematically be the final 0.x release.
+The 2026-09 audit found contract blockers that are materially cheaper to fix before `1.0.0`.
+[ADR 0013](./adr/0013-coherent-token-model.md) (accepted) designs them as one breaking release,
+proposed as `0.4.0`: graph-last composition and visibility-preserving overrides (ADRs 0010 and
+0011), a single graph helper, complete public records for literal graphs, layers whose mode maps
+must match the graph's modes, an explicit string-joining expression, reshaped compiled provenance,
+one CSS activation model with single-hyphen names (ADR 0012), format version 2 with source-format
+upgrades, and a supported TypeScript 7.x baseline. The companion Material 3 adapter release is
+designed in [ADR 0014](./adr/0014-material3-layer-and-mode-mapping.md), which is still proposed.
+
+`1.0.0` follows once the production consumer and the Material applications run on that release and
+the gates below hold.
 
 ## 1.0 evidence gates
 
 - Exercise the current core release in the production consumer and distinguish package
   compatibility from unrelated consumer-repository failures.
-- Control the published schema identifier namespace and protect any hosted representations against
-  drift from the packaged schema bytes.
+- Publish the v2 schemas under their URN identifiers, self-contained, and document the versioned
+  `$schema` convention (ADR 0013, D10).
 - Keep one readable, executable reference example as the authority used by the packed
   theme-coordinate consumer.
-- Explain early that default public compilation is conservatively partial while exact literal-key
-  selection produces a complete record after runtime validation.
-- Deliberately retain and document graph-first composition, ordered layer precedence, and
-  whole-declaration replacement, unless concrete consumer evidence exposes a contract blocker.
+- Explain early which compiled records are complete: literal graphs get complete public records,
+  while dynamically built graphs and parsed artifacts stay conservatively partial (ADR 0013, D4).
+- Document graph-last composition, ordered layer precedence, and whole-declaration replacement with
+  visibility-preserving overrides (ADRs 0010 and 0011).
 - Keep `Result` binary unless concrete use cases require another success/failure model. Keep
   advisory analysis outside compiler failure diagnostics.
 - Investigate mode-authoring duplication with measured production/reference data before considering
@@ -81,8 +89,9 @@ pre-1.0 minor requires an explicit unresolved contract blocker. This policy does
 ## Material 3 peer maintenance
 
 The released `@scheme-tokens/material3@0.1.0` declares `scheme-tokens: ^0.2.0`; under pre-1.0 semver
-that range does not include core `0.3.0`. The convergence candidate expands the next adapter patch
-to the explicit `^0.2.0 || ^0.3.0` range and exercises the changeset-versioned packages together in
-strict packed consumers. Compatibility must continue to be demonstrated release by release. Do
-not widen the peer range across additional pre-1.0 minors without evidence for each included core
-contract.
+that range does not include core `0.3.0`. The `0.1.1` patch expanded it to the explicit
+`^0.2.0 || ^0.3.0` range after exercising the changeset-versioned packages together in strict
+packed consumers. Compatibility must continue to be demonstrated release by release. Do not widen
+the peer range across additional pre-1.0 minors without evidence for each included core contract.
+The planned 0.4 core changes the layer contract the adapter builds on, so the adapter needs its own
+breaking release with a peer range for that core release (ADR 0014).

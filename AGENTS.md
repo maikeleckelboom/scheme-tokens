@@ -6,7 +6,7 @@
 
 The package is published on npm; the first release went out on 2026-08-01. The only known consumer is the author's own site, so development stays greenfield: before `1.0.0`, a breaking change is allowed whenever it simplifies the final public contract.
 
-Do not add deprecated aliases, compatibility wrappers, old-format readers, migration overloads, or hidden fallback branches. Published does not mean frozen, but it does mean visible: every published-behaviour change lands with a changeset, and a declaration change also lands as an intentional API snapshot diff, never as a silent alias or a quiet widening.
+Do not add deprecated aliases, compatibility wrappers, old-format readers, migration overloads, or hidden fallback branches. The one exception is persisted source artifacts: token graphs and token layers stay readable through the deterministic, lossless format-upgrade steps that [ADR 0013](docs/adr/0013-coherent-token-model.md) (D10) requires, one step per format version. Compiled schemes are never upgraded. Published does not mean frozen, but it does mean visible: every published-behaviour change lands with a changeset, and a declaration change also lands as an intentional API snapshot diff, never as a silent alias or a quiet widening.
 
 Before adding code, check for existing functions, helpers, types, tests, and patterns that can be reused or deleted.
 

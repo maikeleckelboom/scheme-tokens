@@ -39,6 +39,10 @@ never ships as an alias next to the old shape.
   flattening at the application boundary. Keep it.
 - Bare strings are NEVER references. tokenRef () or {ref} only.
 - Gamut and color space are APPLICATION concerns, not token concerns. Core never learns what sRGB or P3 are.
+- [ADR 0013](./adr/0013-coherent-token-model.md) (accepted) designs the next breaking release as one contract:
+  authoring, composition, visibility, static typing, layer mode sets, compiled provenance, CSS activation, wire-format
+  evolution, schema identity, and TypeScript support. ADRs 0010–0012 are its accepted slices. Read it before proposing
+  a change to any of these; the shipped 0.3 contract stays documented in the durable docs until the implementation lands.
 
 ## Material 3 adapter package
 
@@ -47,7 +51,9 @@ never ships as an alias next to the old shape.
   and composition; [ADR 0007](./adr/0007-material3-engine-and-role-contract.md) owns the pinned
   engine, accepted roles, and capabilities. [ADR 0008](./adr/0008-material3-fragment-layer-type.md)
   narrowly supersedes ADR 0006's fragment layer generic. ADR 0004 is historical and superseded by
-  these decision slices.
+  these decision slices. [ADR 0014](./adr/0014-material3-layer-and-mode-mapping.md) is proposed:
+  it would replace the graph fragment with one layer whose modes map graph modes to generation
+  coordinates, superseding parts of ADR 0006 and all of ADR 0008.
 - `packages/material3` is the active production package and sole current adapter authority. Its
   package-local runtime, type, engine, golden, API, tarball, licensing, and packed-consumer gates
   reproduce the accepted phase-1 evidence against the real package.
