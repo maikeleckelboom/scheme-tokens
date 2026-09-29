@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateNextVersion } from "./type-compatibility-version.ts";
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const materialRoot = join(repoRoot, "packages", "material3");
@@ -53,10 +54,7 @@ function resolveNextVersion(): string {
     cwd: repoRoot,
     encoding: "utf8",
   }).trim();
-  if (!/^7\.\d+\.\d+-dev\.\d+(?:\.\d+)?$/u.test(output)) {
-    throw new Error(`Unexpected TypeScript next version: ${output}`);
-  }
-  return output;
+  return validateNextVersion(output);
 }
 
 function localCompiler(root: string): string {

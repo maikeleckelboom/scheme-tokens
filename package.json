@@ -75,7 +75,7 @@
     "check:tarball": "node --experimental-strip-types scripts/check-tarball.ts",
     "format": "oxfmt --check --ignore-path .gitignore --ignore-path .oxfmtignore .",
     "format:fix": "oxfmt --write --ignore-path .gitignore --ignore-path .oxfmtignore .",
-    "validate:core": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:types && pnpm test:properties && pnpm test:schemas && pnpm test:filenames && pnpm api:build && pnpm api:check && pnpm format",
+    "validate:core": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:types && pnpm test:properties && pnpm test:oracle && pnpm test:schemas && pnpm test:filenames && pnpm api:build && pnpm api:check && pnpm format",
     "validate": "pnpm validate:core && pnpm validate:material3",
     "check": "pnpm validate",
     "release:core": "pnpm validate:core && pnpm package:check && pnpm smoke:consumer && pnpm check:module-resolution && pnpm check:theme-coordinate-consumer && pnpm check:tarball",
