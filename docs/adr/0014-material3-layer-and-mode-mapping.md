@@ -20,7 +20,10 @@ The review before acceptance made three corrections to the proposed API:
 - It renamed the Material light/dark dimension from `appearance` to `colorMode`.
 - It stopped exporting the per-mode settings type.
 
-The evidence is under [Verification](#verification).
+A final clarification on the same day changed nothing in the architecture. It recorded why
+`specVersion` stays global (see [The spec version stays global](#the-spec-version-stays-global)),
+and it changed the `Visibility` default of the `Material3Options` type to `TokenVisibility`. The
+evidence is under [Verification](#verification).
 
 ## Context
 
@@ -113,7 +116,7 @@ export type Material3Modes<Mode extends string> = {
 
 export interface Material3Options<
   Mode extends string = Material3ColorMode,
-  Visibility extends TokenVisibility = "public",
+  Visibility extends TokenVisibility = TokenVisibility,
 > {
   readonly specVersion?: Material3SpecVersion;
   readonly variant?: Material3Variant;
@@ -145,9 +148,19 @@ export declare function material3<
 - `Material3Modes<Mode>` lets an application check a settings map declared apart from the call
   against its graph's modes, as in example B.
 - `Material3Options<Mode, Visibility>` lets a wrapper accept and forward options with their
-  generics. Its defaults are those of the default call: bare `Material3Options` describes a
-  `light`/`dark` layer with public visibility. A wrapper that accepts any visibility forwards the
-  generics or writes `Material3Options<Mode, TokenVisibility>`.
+  generics. Bare `Material3Options` describes `light`/`dark` options with any visibility, so
+  `const options: Material3Options = { visibility: "internal" }` is valid, and its visibility is
+  typed conservatively as `TokenVisibility`.
+- The runtime default visibility is not the type's default. The function keeps its precise
+  inference defaults:
+  - `material3(seed)` is typed `public`;
+  - `material3(seed, { visibility: "internal" })` is typed `internal`;
+  - an object checked with `satisfies Material3Options` keeps its literal.
+
+  A layer built from options typed only as `Material3Options` has the default visibility
+  `TokenVisibility`. A graph's static public keys then leave out the keys that layer introduces:
+  they are a subset of the runtime keys, never a superset (ADR 0013, D4).
+
 - `modes` is exact. Its keys are graph mode names and become the layer's mode set. Omitting `modes`
   means `{ light: {}, dark: {} }`.
 - The keys `light` and `dark` imply their color mode and reject a redundant `colorMode`; every
@@ -189,6 +202,15 @@ A graph mode's effective setting is its own field when it sets one, otherwise th
 otherwise the default. The fallback is per field, and there is no third level. The color mode has no
 global value: it comes from the key `light` or `dark`, or from the mode's own `colorMode`.
 
+A per-mode entry is therefore not a generation coordinate on its own. The effective coordinate of a
+graph mode is derived from:
+
+```text
+global     sourceColor argument, specVersion, variant and contrastLevel defaults
++
+per mode   colorMode (or the light/dark key), sourceColor, variant, contrastLevel overrides
+```
+
 A per-mode source color is a deliberate choice (ADR 0006). The adapter does not enforce brand or
 palette coherence across modes:
 
@@ -200,6 +222,21 @@ material3("#6750a4", {
   },
 });
 ```
+
+### The spec version stays global
+
+`specVersion` has no per-mode override. This is a deliberate choice for now, not a constraint:
+
+- Neither core nor the Material engine forces it. The engine takes the spec version with each
+  generation, so it could generate different spec versions for different graph modes.
+- No known real consumer needs mixed spec versions within one Material layer. Neither real
+  consumer mixes them inside one graph. The production graph uses `2021` for all six modes, and the
+  theme-report tool varies the spec version only across separate generated `light`/`dark` graphs.
+- An optional per-mode `specVersion` could be added later as a compatible extension. Adding a field
+  to the per-mode settings is compatible, but removing one after release would be breaking.
+
+The flexibility therefore waits for consumer evidence. `visibility` is global for a different
+reason: a core layer has exactly one default visibility.
 
 ### The source color stays positional
 
@@ -240,9 +277,10 @@ unchanged.
 
 ### Modes map to generation settings, not to `light` and `dark`
 
-Every graph mode receives a complete generation coordinate: color mode, variant, contrast level,
-and source color, with the spec version shared. Two graph modes with the same color mode can
-therefore have different Material values, and two graph modes can share one coordinate.
+Every graph mode receives a complete effective generation coordinate: color mode, variant,
+contrast level, and source color from its entry or the global settings, and the global spec
+version. Two graph modes with the same color mode can therefore have different Material values,
+and two graph modes can share one coordinate.
 
 A mapping such as `"mono-light": "light"` could only say that a mode takes the values of a
 `light`/`dark` pair generated elsewhere. The production consumer needs more than that. Its `mono-*`
@@ -531,14 +569,22 @@ of ADR 0013, Appendix A. It used TypeScript 7.0.2 (the supported floor), 7.1.0-d
 three compilers agree.
 
 - **Positive, with exact type assertions.** Examples A–D; the D12 layer examples; a per-mode
-  `sourceColor` on custom and on `light` modes; bare `Material3Options` passed to `material3()`,
-  giving `light | dark` and `public`; a wrapper that forwards the generics and keeps exact modes and
-  `internal`; an options object declared apart with `satisfies Material3Options<CompilerMode,
-"internal">`; a one-mode map.
+  `sourceColor` on custom and on `light` modes. For visibility:
+  - a variable typed bare `Material3Options` holding `visibility: "internal"`, which gives a
+    `light | dark` layer with `TokenVisibility`, and a graph whose static public keys then omit the
+    Material roles;
+  - an object checked with `satisfies Material3Options`, which keeps `"internal"`;
+  - the default call, typed `public`, and an inline `internal` option, typed `internal`;
+  - a wrapper that forwards the generics and keeps exact modes and `internal`;
+  - an options object declared apart with
+    `satisfies Material3Options<CompilerMode, "internal">`.
+
+  Also a one-mode map.
+
 - **Negative, each an `@ts-expect-error` that must be consumed.** A top-level `sourceColor` in
   the options; `appearance` in a mode's settings; a `colorMode` other than `light` or `dark`; a
-  custom mode without `colorMode`; a redundant `colorMode` on `light`; bare `Material3Options`
-  with `visibility: "internal"`; `modes: {}` inline, as a `Material3Modes<never>` annotation, and
+  custom mode without `colorMode`; a redundant `colorMode` on `light`; a visibility other than
+  `public` or `internal`; `modes: {}` inline, as a `Material3Modes<never>` annotation, and
   in a `satisfies` clause; an extra and a missing graph mode in a `satisfies Material3Modes<…>`
   map; the removed `exactModes` and `defaultMode`; a string shorthand; the mismatches of example D,
   with the modes inline and held in a `const` tuple; the disagreeing D12 layer; and X1–X3.
@@ -657,6 +703,13 @@ settings were separated, its meaning was less clear still, and no consumer names
 The production consumer would generate only the two modes it reads. Rejected: a token would have no
 value in some modes, which breaks the one-value-per-mode invariant, and ADR 0009 rejects partial
 mode maps.
+
+### A per-mode spec version, now
+
+`modes[mode].specVersion` would let one layer mix `2021` and `2025` modes, and the engine would
+allow it. It is deferred rather than rejected. No consumer needs it yet, and it can be added later
+as a compatible extension of the per-mode settings (see
+[The spec version stays global](#the-spec-version-stays-global)).
 
 ### A configurable layer id
 

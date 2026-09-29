@@ -1060,6 +1060,10 @@ These are verification work for the release, not open design questions:
   5.x and 6.0 compilers it was about twice today's. The implementation profiles the constraint
   before release.
 - The v1 → v2 upgrade passes its equivalence gate on frozen fixtures and the randomized corpus.
+- The `tag:` schema ids (D10) assume that the project author held `maikel.site` at 00:00 UTC on
+  2026-09-29. The author confirms this before the v2 schemas are published. It is not yet recorded
+  as confirmed. If it does not hold, the ids take a date on which the author held the domain,
+  before any v2 schema is released.
 
 ## Accepted trade-offs
 
