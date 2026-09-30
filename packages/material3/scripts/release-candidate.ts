@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { cpSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { packageRoot, repoRoot } from "./api-snapshot.ts";
 
@@ -9,14 +9,19 @@ export function packReleaseCandidate(workspace: string): {
   readonly adapterTarball: string;
   readonly versions: { readonly core: string; readonly adapter: string };
 } {
+  const candidateRoot = join(workspace, "release-candidate");
+  const packDirectory = join(workspace, "pack");
+  if (existsSync(candidateRoot) || existsSync(packDirectory)) {
+    throw new Error(
+      "Candidate staging directories already exist. Use a fresh workspace to exclude stale files.",
+    );
+  }
   runPnpm(["build"], repoRoot);
   runPnpm(["build"], packageRoot);
-  const candidateRoot = join(workspace, "release-candidate");
   prepareReleaseCandidate(candidateRoot);
   applyChangesetsIfPending(candidateRoot);
   const versions = assertReleaseCandidateVersions(candidateRoot);
   runPnpm(["install", "--ignore-scripts", "--strict-peer-dependencies"], candidateRoot);
-  const packDirectory = join(workspace, "pack");
   mkdirSync(packDirectory, { recursive: true });
   const coreTarball = pack(candidateRoot, packDirectory);
   const adapterTarball = pack(join(candidateRoot, "packages", "material3"), packDirectory);

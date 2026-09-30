@@ -41,6 +41,7 @@
   },
   "scripts": {
     "candidate:pack": "node --experimental-strip-types scripts/pack-consumer-candidate.ts",
+    "check:candidate": "node --experimental-strip-types scripts/check-candidate-proof.ts",
     "build": "tsdown",
     "typecheck": "tsc -p tsconfig.lib.json && tsc -p tsconfig.test.json && tsc -p tsconfig.scripts.json && tsc -p tsconfig.examples.json",
     "lint": "oxlint . --import-plugin --vitest-plugin --deny-warnings",
@@ -83,7 +84,7 @@
     "validate": "pnpm validate:core && pnpm validate:material3",
     "check": "pnpm validate",
     "release:core": "pnpm validate:core && pnpm package:check && pnpm smoke:consumer && pnpm check:packed-types && pnpm check:module-resolution && pnpm check:theme-coordinate-consumer && pnpm check:tarball",
-    "release:check": "pnpm release:core && pnpm release:material3 && pnpm check:changeset && pnpm docs:check && pnpm audit:external-consumer",
+    "release:check": "pnpm release:core && pnpm release:material3 && pnpm check:candidate && pnpm check:changeset && pnpm docs:check && pnpm audit:external-consumer",
     "prepack": "pnpm build"
   },
   "devDependencies": {
@@ -98,7 +99,8 @@
     "publint": "0.3.23",
     "tsdown": "0.23.0",
     "typescript": "7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "yaml": "2.9.0"
   },
   "engines": {
     "node": ">=24"
