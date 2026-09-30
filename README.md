@@ -9,7 +9,7 @@ Core does not know what a color is. Values are opaque strings.
 Generators such as [`@scheme-tokens/material3`](./packages/material3/README.md) plug in as normal
 token layers.
 
-This branch implements the core v2 candidate for the planned 0.4 release and its static TypeScript contract. The manifests still carry released versions until the later versioning phase. The CSS redesign and the next Material API remain deferred.
+This branch implements the core v2 candidate for the planned 0.4 release, its static TypeScript contract, and its CSS activation exporter. The manifests still carry released versions until the later versioning phase. The next Material API remains deferred.
 
 ## Install
 
@@ -64,13 +64,13 @@ console.log(exported.value.css);
 Output:
 
 ```css
-:root {
-  --action--primary: oklch(62% 0.18 250);
+:where(:root) {
+  --action-primary: oklch(62% 0.18 250);
 }
 ```
 
-References can resolve through `brand.600`, but it stays out of the default public output. Dotted
-token segments stay distinct in CSS names, so `action.primary` becomes `--action--primary`.
+References can resolve through `brand.600`, but it stays out of the default public output. Token
+key segments join with single hyphens, so `action.primary` becomes `--action-primary`.
 
 ## Material 3
 
@@ -240,12 +240,9 @@ if (!compiled.ok) {
 }
 
 const exported = exportCssVars(compiled.value, {
-  modeSelectors: {
-    strategy: "selectors",
-    selectors: {
-      light: ":root",
-      dark: ".dark",
-    },
+  attribute: false,
+  selectors: {
+    dark: ".dark",
   },
 });
 
@@ -255,6 +252,9 @@ if (!exported.ok) {
 
 console.log(exported.value.css);
 ```
+
+The light values land on `:where(:root)` and the dark values on `:where(.dark)`, so a `.dark`
+class on any element, not only the root, switches that subtree.
 
 This is an application mapping, not a built-in shadcn adapter. Material and shadcn/ui do not define
 identical semantics.
@@ -411,6 +411,10 @@ const compiled = compileTokenGraph(
         light: "#6750a4",
         dark: "#d0bcff",
       },
+      "color-scheme": {
+        light: "light",
+        dark: "dark",
+      },
     },
   }),
 );
@@ -421,19 +425,67 @@ if (!compiled.ok) {
 
 const exported = exportCssVars(compiled.value, {
   prefix: "app",
-
-  modeSelectors: {
-    strategy: "selectors",
-
-    selectors: {
-      light: ":root",
-      dark: ".dark",
-    },
+  system: {
+    dark: "(prefers-color-scheme: dark)",
   },
 });
 ```
 
-The result contains emitted CSS, structured blocks, and the token-to-variable lookup:
+Output:
+
+```css
+:where(:root) {
+  --app-color-scheme: light;
+  --app-primary: #6750a4;
+}
+
+@media (prefers-color-scheme: dark) {
+  :where(:root) {
+    --app-color-scheme: dark;
+    --app-primary: #d0bcff;
+  }
+}
+
+:where([data-theme="light"]) {
+  --app-color-scheme: light;
+  --app-primary: #6750a4;
+}
+
+:where([data-theme="dark"]) {
+  --app-color-scheme: dark;
+  --app-primary: #d0bcff;
+}
+```
+
+A mode activates through four tiers, emitted in this order:
+
+1. **base**: the default mode at `root` (`:root`, or `:host` for a shadow root);
+2. **system**: a media condition per mode at `root`, from `system`. No mode is inferred;
+3. **explicit**: one attribute marker per mode, `data-theme` when the scheme has several modes.
+   Set `attribute` to another `data-*` name, or to `false` for no markers;
+4. **custom**: author selectors per mode, from `selectors`, each optionally inside a media
+   condition.
+
+Every selector is wrapped in `:where()`, so precedence comes only from this order: a later
+matching block wins, then the scheme's authored mode order, then the order of a mode's conditions.
+Every block declares every selected token. Markers are unanchored, so `data-theme="dark"` on any
+element switches its subtree, and a light island inside it works. A value that is not a mode, such
+as `data-theme="system"`, leaves the system preference in charge.
+
+Application CSS competes through the ordinary cascade. Any application rule with specificity
+overrides a generated declaration, before or after the tokens; `cascadeLayer: "tokens"` wraps the
+output in `@layer tokens`. The exporter emits custom properties only, so bind `color-scheme` where
+modes activate:
+
+```css
+:root,
+[data-theme] {
+  color-scheme: var(--app-color-scheme);
+}
+```
+
+The result contains the CSS, structured blocks with `tier`, `mode`, `selectors`, optional `media`,
+and `declarations`, and the token-to-variable lookup:
 
 ```text
 exported.value.css
@@ -441,10 +493,9 @@ exported.value.blocks
 exported.value.variableByToken
 ```
 
-Selectors and output policy belong to the CSS export call, not the token graph. Exact selector maps
-already contain the complete selector for every mode, so omit `scope` with
-`modeSelectors.strategy: "selectors"`. A separate scope is only meaningful for generated
-data-attribute or class selectors.
+Default variable names join the optional prefix and the key segments with single hyphens. Keys
+such as `a-b.c` and `a.b-c` would share `--a-b-c`; every such collision among the exported tokens
+fails with both keys and the variable. `variableName` handles genuine naming exceptions.
 
 ## Results
 

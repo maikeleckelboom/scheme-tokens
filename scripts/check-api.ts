@@ -48,8 +48,7 @@ const expectedTypeExports = [
   "CompiledScheme",
   "CompiledToken",
   "CompiledTokenMetadata",
-  "CssModeSelectors",
-  "CssScope",
+  "CssCondition",
   "CssVarBlock",
   "CssVarDeclaration",
   "CssVarsExport",
@@ -77,6 +76,8 @@ const removedPublicNames = [
   "defineTokens",
   "CompileTokenGraphResult",
   "CompiledSchemeKind",
+  "CssModeSelectors",
+  "CssScope",
   "ExportCssVarsResult",
   "FailureResult",
   "ModeOf",
@@ -354,6 +355,12 @@ function assertDeclarationContracts(normalized: string): void {
     "declare function parseTokenLayer(input: unknown): Result<TokenLayer, TokenGraphIssue>;",
     "declare function parseCompiledScheme(input: unknown): Result<CompiledScheme<string, string, false>, ParseCompiledSchemeIssue>;",
     "readonly variableName?: (input: CssVariableNameInput<Key>) => string;",
+    "readonly attribute?: string | false;",
+    "readonly system?: Readonly<Partial<Record<Mode, string>>>;",
+    "readonly selectors?: Readonly<Partial<Record<Mode, string | readonly [CssCondition, ...CssCondition[]]>>>;",
+    "readonly tier: CssActivationTier;",
+    "readonly selectors: readonly [string, ...string[]];",
+    "readonly variableByToken: CssVariableMap<Key, Complete>;",
   ] as const;
 
   for (const fragment of requiredFragments) {
@@ -368,6 +375,10 @@ function assertDeclarationContracts(normalized: string): void {
     "readonly scheme:",
     "readonly valueByMode:",
     "readonly aliases:",
+    "readonly scope?:",
+    "readonly modeSelectors?:",
+    "classPrefix",
+    "readonly selector: string; readonly declarations:",
   ]) {
     if (normalized.includes(forbiddenFragment)) {
       throw new Error(`Declaration contract contains removed shape: ${forbiddenFragment}`);

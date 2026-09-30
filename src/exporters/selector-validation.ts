@@ -1,17 +1,29 @@
 const MAX_SELECTOR_LENGTH = 256;
+const MAX_SELECTOR_NESTING = 8;
 
-interface SafeSelectorParse {
-  readonly appendSafe: boolean;
-  readonly valid: boolean;
-}
+// Functional pseudo-classes and the argument each accepts. `:host()` takes one compound
+// selector; the others take a selector list. Every other pseudo-class is outside the grammar.
+const SELECTOR_LIST_PSEUDO_CLASSES = new Set(["is", "not", "where"]);
 
+/**
+ * Whether `selector` belongs to the exporter's bounded selector grammar: type, universal,
+ * class, id, and attribute selectors, `:root`, `:host`, `:host(<compound>)`, and
+ * `:is()`/`:not()`/`:where()` over selector lists, joined by combinators and commas.
+ */
 export function isValidCssSelector(selector: string): boolean {
-  return parseSafeSelector(selector).valid;
-}
+  if (
+    selector.length === 0 ||
+    selector.length > MAX_SELECTOR_LENGTH ||
+    selector.trim() !== selector ||
+    hasControlCharacters(selector) ||
+    /[{};@\\]/u.test(selector) ||
+    selector.includes("/*") ||
+    selector.includes("*/")
+  ) {
+    return false;
+  }
 
-export function isAppendSafeCssSelector(selector: string): boolean {
-  const parsed = parseSafeSelector(selector);
-  return parsed.valid && parsed.appendSafe;
+  return new SafeSelectorParser(selector).parse();
 }
 
 export function isSafeCssDeclarationValue(value: string): boolean {
@@ -65,54 +77,51 @@ export function isSafeCssDeclarationValue(value: string): boolean {
   );
 }
 
-function parseSafeSelector(selector: string): SafeSelectorParse {
-  if (
-    selector.length === 0 ||
-    selector.length > MAX_SELECTOR_LENGTH ||
-    selector.trim() !== selector ||
-    hasControlCharacters(selector) ||
-    /[{};@\\]/u.test(selector) ||
-    selector.includes("/*") ||
-    selector.includes("*/")
-  ) {
-    return { appendSafe: false, valid: false };
+export function hasControlCharacters(input: string): boolean {
+  for (const character of input) {
+    const codePoint = character.codePointAt(0) as number;
+    if (
+      codePoint <= 0x1f ||
+      (codePoint >= 0x7f && codePoint <= 0x9f) ||
+      codePoint === 0x2028 ||
+      codePoint === 0x2029
+    ) {
+      return true;
+    }
   }
-
-  const parser = new SafeSelectorParser(selector);
-  return parser.parse();
+  return false;
 }
 
+/**
+ * A recursive-descent recognizer. Every branch consumes input before it recurses, and
+ * functional pseudo-classes are bounded by `MAX_SELECTOR_NESTING`, so validation is linear in
+ * the (already bounded) selector length.
+ */
 class SafeSelectorParser {
   readonly #selector: string;
   #index = 0;
-  #sawCombinator = false;
-  #sawList = false;
+  #depth = 0;
 
   constructor(selector: string) {
     this.#selector = selector;
   }
 
-  parse(): SafeSelectorParse {
-    if (!this.#parseComplexSelector()) {
-      return { appendSafe: false, valid: false };
-    }
+  parse(): boolean {
+    return this.#parseSelectorList() && this.#index === this.#selector.length;
+  }
 
-    while (this.#index < this.#selector.length) {
-      if (this.#selector[this.#index] !== ",") {
-        return { appendSafe: false, valid: false };
-      }
-      this.#sawList = true;
+  #parseSelectorList(): boolean {
+    if (!this.#parseComplexSelector()) {
+      return false;
+    }
+    while (this.#selector[this.#index] === ",") {
       this.#index += 1;
       this.#skipSpaces();
       if (!this.#parseComplexSelector()) {
-        return { appendSafe: false, valid: false };
+        return false;
       }
     }
-
-    return {
-      appendSafe: !this.#sawCombinator && !this.#sawList,
-      valid: true,
-    };
+    return true;
   }
 
   #parseComplexSelector(): boolean {
@@ -123,12 +132,11 @@ class SafeSelectorParser {
     while (this.#index < this.#selector.length) {
       const hadSpaces = this.#skipSpaces();
       const character = this.#selector[this.#index];
-      if (character === undefined || character === ",") {
+      if (character === undefined || character === "," || character === ")") {
         return true;
       }
 
       if (character === ">" || character === "+" || character === "~") {
-        this.#sawCombinator = true;
         this.#index += 1;
         this.#skipSpaces();
         if (!this.#parseCompoundSelector()) {
@@ -137,11 +145,7 @@ class SafeSelectorParser {
         continue;
       }
 
-      if (!hadSpaces) {
-        return false;
-      }
-      this.#sawCombinator = true;
-      if (!this.#parseCompoundSelector()) {
+      if (!hadSpaces || !this.#parseCompoundSelector()) {
         return false;
       }
     }
@@ -152,10 +156,7 @@ class SafeSelectorParser {
   #parseCompoundSelector(): boolean {
     let foundComponent = false;
 
-    if (this.#selector.startsWith(":root", this.#index)) {
-      this.#index += ":root".length;
-      foundComponent = true;
-    } else if (this.#selector[this.#index] === "*") {
+    if (this.#selector[this.#index] === "*") {
       this.#index += 1;
       foundComponent = true;
     } else if (this.#readIdentifier()) {
@@ -169,20 +170,54 @@ class SafeSelectorParser {
         if (!this.#readIdentifier()) {
           return false;
         }
-        foundComponent = true;
-        continue;
-      }
-      if (character === "[") {
+      } else if (character === "[") {
         if (!this.#parseAttributeSelector()) {
           return false;
         }
-        foundComponent = true;
-        continue;
+      } else if (character === ":") {
+        if (!this.#parsePseudoClass()) {
+          return false;
+        }
+      } else {
+        break;
       }
-      break;
+      foundComponent = true;
     }
 
     return foundComponent;
+  }
+
+  #parsePseudoClass(): boolean {
+    this.#index += 1;
+    const start = this.#index;
+    while (/[a-z]/u.test(this.#selector[this.#index] ?? "")) {
+      this.#index += 1;
+    }
+    const name = this.#selector.slice(start, this.#index);
+    const functional = this.#selector[this.#index] === "(";
+
+    if (!functional) {
+      return name === "root" || name === "host";
+    }
+    if (name !== "host" && !SELECTOR_LIST_PSEUDO_CLASSES.has(name)) {
+      return false;
+    }
+    if (this.#depth >= MAX_SELECTOR_NESTING) {
+      return false;
+    }
+
+    this.#index += 1;
+    this.#depth += 1;
+    this.#skipSpaces();
+    const parsedArgument =
+      name === "host" ? this.#parseCompoundSelector() : this.#parseSelectorList();
+    this.#skipSpaces();
+    this.#depth -= 1;
+    if (!parsedArgument || this.#selector[this.#index] !== ")") {
+      return false;
+    }
+    this.#index += 1;
+    return true;
   }
 
   #parseAttributeSelector(): boolean {
@@ -218,7 +253,6 @@ class SafeSelectorParser {
   }
 
   #readAttributeName(): boolean {
-    const start = this.#index;
     if (!isNameStart(this.#selector[this.#index])) {
       return false;
     }
@@ -226,7 +260,7 @@ class SafeSelectorParser {
     while (isNameCharacter(this.#selector[this.#index])) {
       this.#index += 1;
     }
-    return this.#index > start;
+    return true;
   }
 
   #readAttributeOperator(): boolean {
@@ -264,7 +298,7 @@ class SafeSelectorParser {
     }
 
     const start = this.#index;
-    while (isUnquotedAttributeValueCharacter(this.#selector[this.#index])) {
+    while (isNameCharacter(this.#selector[this.#index])) {
       this.#index += 1;
     }
     return this.#index > start;
@@ -295,29 +329,10 @@ class SafeSelectorParser {
   }
 }
 
-function hasControlCharacters(input: string): boolean {
-  for (const character of input) {
-    const codePoint = character.codePointAt(0) as number;
-    if (
-      codePoint <= 0x1f ||
-      (codePoint >= 0x7f && codePoint <= 0x9f) ||
-      codePoint === 0x2028 ||
-      codePoint === 0x2029
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
-
 function isNameStart(character: string | undefined): boolean {
   return character !== undefined && /[A-Z_a-z]/u.test(character);
 }
 
 function isNameCharacter(character: string | undefined): boolean {
-  return character !== undefined && /[-0-9A-Z_a-z]/u.test(character);
-}
-
-function isUnquotedAttributeValueCharacter(character: string | undefined): boolean {
   return character !== undefined && /[-0-9A-Z_a-z]/u.test(character);
 }

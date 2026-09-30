@@ -210,11 +210,9 @@ describe("P2 public v2 contract", () => {
     const parsed = orThrow(parseCompiledScheme(JSON.parse(serializeCompiledScheme(compiled))));
     expect(parsed.modes).toEqual(["concat", "dark", "light"]);
     expect(parsed.defaultMode).toBe("light");
-    expect(orThrow(exportCssVars(parsed)).blocks.map((block) => block.mode)).toEqual([
-      "concat",
-      "dark",
-      "light",
-    ]);
+    expect(
+      orThrow(exportCssVars(parsed)).blocks.map((block) => `${block.tier}:${block.mode}`),
+    ).toEqual(["base:light", "explicit:concat", "explicit:dark", "explicit:light"]);
   });
 
   test.each([1, 2])(

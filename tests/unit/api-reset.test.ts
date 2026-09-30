@@ -394,35 +394,28 @@ describe("pre-release API reset", () => {
     const pretty = expectOk(
       exportCssVars(compiled, {
         prefix: "color",
-        modeSelectors: {
-          strategy: "selectors",
-          selectors: { dark: ".dark", light: ":root" },
-        },
+        attribute: false,
+        selectors: { dark: ".dark" },
       }),
     );
     expect(pretty.css).toBe(
-      ":root {\n" +
+      ":where(:root) {\n" +
         "  --color-background: #ffffff;\n" +
         "  --color-primary: #6750a4;\n" +
         "}\n\n" +
-        ".dark {\n" +
+        ":where(.dark) {\n" +
         "  --color-background: #111111;\n" +
         "  --color-primary: #d0bcff;\n" +
         "}\n",
     );
-    expect(
-      expectOk(
-        exportCssVars(compiled, {
-          format: "compact",
-          modeSelectors: { strategy: "class", classPrefix: "theme-" },
-        }),
-      ).css,
-    ).toBe(
-      ":root{--background:#ffffff;--primary:#6750a4;}:root.theme-dark{--background:#111111;--primary:#d0bcff;}",
+    expect(expectOk(exportCssVars(compiled, { format: "compact" })).css).toBe(
+      ":where(:root){--background:#ffffff;--primary:#6750a4;}" +
+        ':where([data-theme="light"]){--background:#ffffff;--primary:#6750a4;}' +
+        ':where([data-theme="dark"]){--background:#111111;--primary:#d0bcff;}',
     );
   });
 
-  test("contains callback failures and rejects variable and selector collisions", () => {
+  test("contains callback failures and rejects variable collisions", () => {
     const compiled = expectOk(
       compileTokenGraph(defineTokenGraph({ tokens: { background: "#fff", primary: "#6750a4" } })),
     );
@@ -432,37 +425,41 @@ describe("pre-release API reset", () => {
       issues: [{ code: "invalid-css-prefix" }],
     });
 
+    const everyKeyFails = {
+      ok: false,
+      issues: [
+        { code: "invalid-css-variable", key: "background" },
+        { code: "invalid-css-variable", key: "primary" },
+      ],
+    };
     expect(
       exportCssVars(compiled, {
         variableName() {
           throw new Error("consumer failure");
         },
       }),
-    ).toMatchObject({ ok: false, issues: [{ code: "invalid-css-variable" }] });
+    ).toMatchObject(everyKeyFails);
     expect(
       exportCssVars(compiled, {
         variableName: () => undefined as unknown as string,
       }),
-    ).toMatchObject({ ok: false, issues: [{ code: "invalid-css-variable" }] });
+    ).toMatchObject(everyKeyFails);
     expect(
       exportCssVars(compiled, {
         variableName: () => null as unknown as string,
       }),
-    ).toMatchObject({ ok: false, issues: [{ code: "invalid-css-variable" }] });
+    ).toMatchObject(everyKeyFails);
     expect(exportCssVars(compiled, { variableName: () => "--same" })).toMatchObject({
       ok: false,
-      issues: [{ code: "duplicate-css-variable", property: "--same" }],
-    });
-
-    const multimode = expectOk(compileTokenGraph(expectOk(parseTokenGraph(strictGraph))));
-    expect(
-      exportCssVars(multimode, {
-        modeSelectors: {
-          strategy: "selectors",
-          selectors: { light: ":root", dark: ":root" },
+      issues: [
+        {
+          code: "duplicate-css-variable",
+          key: "primary",
+          firstKey: "background",
+          property: "--same",
         },
-      }),
-    ).toMatchObject({ ok: false, issues: [{ code: "duplicate-mode-selector" }] });
+      ],
+    });
   });
 
   test("canonical serialization ignores token, mode-map, and mode-envelope insertion order", () => {

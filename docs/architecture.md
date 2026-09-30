@@ -48,4 +48,17 @@ V1 source upgrades preserve published 0.3 semantics: shadowed graph declarations
 
 All three current schemas are self-contained Draft 2020-12 files with `tag:` identities and fragment-only references. Runtime validation additionally enforces semantic relationships such as layer mode-set equality and canonical compiled concat adjacency.
 
-Compilation and serialization preserve arbitrary strings. The current CSS exporter separately rejects declaration-unsafe values and keeps its existing selector API and double-hyphen token naming. P4's CSS redesign is deferred. Material 3 still returns its existing graph fragment; its adapter owns default-first mode ordering until P5.
+Compilation and serialization preserve arbitrary strings. Material 3 still returns its existing graph fragment; its adapter owns default-first mode ordering until P5.
+
+## CSS activation
+
+`exportCssVars()` parses the compiled scheme, validates its options as untrusted plain data, plans activation blocks, derives variable names, checks each emitted value once, and formats the blocks:
+
+```text
+compiled scheme ─ options ─ activations ─┬─ names and collisions ─┐
+                                         └─ declaration values ──┴─ complete blocks ─ CSS
+```
+
+Blocks come in tier order base, system, explicit, custom; within a tier in the scheme's authored mode order; within a mode in condition order. Each block declares every selected token in canonical key order and is emitted as `:where(<selectors>)`, optionally inside `@media`, all inside one optional `@layer`. Because every activation selector has zero specificity, source order alone decides between matching blocks, and application CSS competes through the ordinary cascade. Explicit markers are unanchored `data-*` attributes and cover the host as well when `root` is `:host`. The exporter emits custom properties only. Real-engine behaviour is proved by the Chromium, Firefox, and WebKit browser suite.
+
+Default names join the optional prefix and key segments with single hyphens (ADR 0012). The encoding is not injective, so every collision among emitted names fails. Option, name, and value failures are collected; each phase only runs when the data it needs parsed. `css-options.ts` owns option parsing; `selector-validation.ts` and `media-validation.ts` are bounded recursive-descent recognizers with length and nesting limits, and layer names reuse the identifier grammar. Values are opaque, and only declaration safety is checked. Resolved values are emitted today; the complete-block invariant is also what the optional `var()` output needs.

@@ -9,10 +9,65 @@ maps each coordinate to a complete compiler mode. Flattened names such as `mono-
 are compiler-boundary details, not a theme-coordinate abstraction that the library or application state
 needs to expose.
 
-Exact token selection makes the downstream semantic contract explicit. Exact selector maps can then
-attach each private compiler mode to the application's compound selectors. When an application needs
-another selector or an at-rule, reuse the exporter's structured declarations and compose that policy
-outside the package.
+Exact token selection makes the downstream semantic contract explicit. The CSS exporter then activates
+each private compiler mode from the application's own attributes: turn off the generated markers with
+`attribute: false`, map the system preference with `system`, and describe each coordinate with custom
+conditions in `selectors`.
+
+## Ordering two axes
+
+When several conditions match one element, the block emitted later wins: custom conditions come after
+the system tier, then the graph's authored mode order decides, then the order of a mode's conditions.
+Author the flattened modes from general to specific, and use `:not()` where a fallback must not
+override an explicit choice:
+
+```ts
+import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
+
+const modes = ["mono-light", "mono-dark", "vivid-light", "vivid-dark"] as const;
+const scheme = orThrow(
+  compileTokenGraph(
+    defineTokenGraph({
+      modes,
+      defaultMode: "mono-light",
+      tokens: {
+        "surface.canvas": {
+          "mono-light": "#ffffff",
+          "mono-dark": "#111111",
+          "vivid-light": "#fffaf5",
+          "vivid-dark": "#111321",
+        },
+      },
+    }),
+  ),
+);
+
+const theme = orThrow(
+  exportCssVars(scheme, {
+    prefix: "app",
+    attribute: false,
+    system: { "mono-dark": "(prefers-color-scheme: dark)" },
+    selectors: {
+      "mono-light": '[data-scheme="light"]',
+      "mono-dark": '[data-scheme="dark"]',
+      "vivid-light": '[data-palette="vivid"]',
+      "vivid-dark": [
+        {
+          selector: '[data-palette="vivid"]:not([data-scheme="light"])',
+          media: "(prefers-color-scheme: dark)",
+        },
+        { selector: '[data-palette="vivid"][data-scheme="dark"]' },
+      ],
+    },
+  }),
+);
+```
+
+`data-palette` absent means mono and `data-scheme` absent means "follow the system". An element with
+`data-palette="vivid"` and no scheme is vivid-light, or vivid-dark under a dark system preference; an
+explicit `data-scheme` always wins over the preference. Conditions are unanchored, so a section that
+carries both attributes re-themes its subtree. Put both attributes on the same element: a compound
+condition does not see an ancestor's attribute.
 
 ## Executable reference
 
@@ -23,14 +78,17 @@ is the source that the packed release-consumer gate typechecks and executes. Its
 demonstrates:
 
 - independent palette and resolved-scheme application types mapped to four complete compiler modes;
-- exact literal mode and public-role types;
+- exact literal mode and public-role types, including for activation options;
 - public semantic roles that reference internal source tokens;
 - exact-key selection that excludes those source tokens from compiled and CSS output;
-- application-owned exact selectors and reuse of structured declaration blocks;
+- the activation above: a system fallback and ordered custom conditions with no generated markers;
+- complete, canonical declarations in every block, and CSS rebuilt from the structured blocks alone;
 - deterministic compiled serialization, CSS, block, and variable-map output.
 
-Run `pnpm check:theme-coordinate-consumer` from the repository root to pack the package, install that
-tarball into a strict NodeNext consumer, then typecheck and execute the same checked-in source.
+The CSS browser suite verifies the same activation shape in Chromium, Firefox, and WebKit under both
+system preferences. Run `pnpm check:theme-coordinate-consumer` from the repository root to pack the
+package, install that tarball into a strict NodeNext consumer, then typecheck and execute the checked-in
+source.
 
 ## Ownership boundary
 
@@ -38,7 +96,8 @@ The compiler receives four explicit, complete modes and returns only the selecte
 Internal source tokens remain available during reference resolution but are absent from the selected
 compiled record and CSS output.
 
-The application remains responsible for browser preference handling, theme state, persistence,
-controls, URLs, selector precedence, and media-query policy. Color parsing, conversion, color-gamut
-decisions, palette generation, and contrast policy also remain outside `scheme-tokens`; the graph stores
-and preserves the strings the application supplies.
+The application remains responsible for theme state, persistence, controls, URLs, which attributes it
+sets, the order of its flattened modes, and binding mode-level properties such as `color-scheme` at
+every activated element. The exporter owns only the generated blocks and their order. Color parsing,
+conversion, color-gamut decisions, palette generation, and contrast policy also remain outside
+`scheme-tokens`; the graph stores and preserves the strings the application supplies.

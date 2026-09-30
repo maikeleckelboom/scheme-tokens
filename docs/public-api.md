@@ -218,13 +218,8 @@ const scheme = orThrow(compileTokenGraph(graph));
 const cssVars = orThrow(
   exportCssVars(scheme, {
     prefix: "color",
-    modeSelectors: {
-      strategy: "selectors",
-      selectors: {
-        light: ":root",
-        dark: ".dark",
-      },
-    },
+    system: { dark: "(prefers-color-scheme: dark)" },
+    selectors: { dark: ".dark" },
     format: "pretty",
   }),
 );
@@ -234,13 +229,46 @@ cssVars.variableByToken.background.toUpperCase();
 
 `variableByToken` mirrors the compiled record: complete for a finite, fully known public selection, a finite `all` selection, or an exact literal tuple, and partial for dynamic or uncertain selections and for `parseCompiledScheme()` output.
 
-Exact selector maps are typed to the compiled mode union: every mode is required and unknown modes are rejected. Each entry is already the complete selector for its mode, so `scope` must be omitted with the exact `selectors` strategy. TypeScript rejects that incompatible option combination; the runtime still returns `invalid-scope` for untyped or mutated input. Selector validation intentionally implements a bounded safe grammar rather than every browser selector feature. Generated data-attribute and class strategies require an append-safe scope; use exact per-mode selectors for supported complex selectors.
+### Activation
 
-See [Application Theme Coordinates](./application-theme-coordinates.md) for combining independent application axes into private compiler modes, selecting an exact semantic contract, and reusing structured declarations for application-owned selector and media-query policy. See [Tailwind CSS v4](./tailwind-css-v4.md) for bridging application-owned runtime variables into Tailwind color utilities.
+A block holds one mode's declarations under one condition. Blocks are emitted in four tiers:
 
-Compilation and serialization accept arbitrary token strings. CSS export is stricter because it emits declarations: a declaration-unsafe string fails with `invalid-css-value` instead of being written. This is an output-safety check, not token-domain interpretation.
+| Tier       | Condition                                              | Option and default                                        |
+| ---------- | ------------------------------------------------------ | --------------------------------------------------------- |
+| `base`     | the default mode at `root`                             | `root`, default `:root`; `:host` for a shadow root        |
+| `system`   | a media condition selects a mode at `root`             | `system`, none: core does not know which mode is dark     |
+| `explicit` | an attribute marker selects a mode on any element      | `attribute`, `data-theme` with several modes; `false` off |
+| `custom`   | author selectors, each optionally inside a media query | `selectors`, none                                         |
 
-Declarative prefix, scope, selector, and formatting options are the primary path. `variableName` is an advanced integration escape hatch. It runs in deterministic token order; exceptions, unsafe names, and collisions become issues rather than escaping the operation.
+Within a tier, blocks follow the scheme's authored mode order, and a mode's custom conditions keep their order. Every generated selector, custom ones included, is wrapped in `:where()` and has zero specificity, so when several blocks match one element, the later block wins. The tier order therefore makes explicit markers beat the system preference and custom conditions beat both. Every block declares every selected token, in canonical key order, so a later block replaces all of an earlier one.
+
+- Explicit markers are unanchored and include the default mode, so any element can switch modes and nested islands work in both directions. A marker value that is not a mode, such as `data-theme="system"`, matches nothing and leaves the system preference in charge. There is no exclusion guard.
+- With `root: ":host"`, base and system blocks target the host, and each marker targets both the host and elements inside the shadow tree: `:where(:host([data-theme="dark"]), [data-theme="dark"])`.
+- `system` and `selectors` are partial maps keyed by the compiled mode union; TypeScript rejects unknown modes of a finite scheme, and the runtime returns `unknown-condition-mode` for dynamic input. A custom entry is one selector, or a non-empty list of `{ selector, media? }` conditions.
+- Custom conditions may overlap. When conditions of two modes match one element, the later mode in authored order wins, so author two-axis modes from general to specific, and use `:not()` in a selector for conditions that must stay disjoint. Two mode classes on one element are an application error with a deterministic outcome, not a supported way to express intent.
+- Omitting `attribute` and setting it to `false` differ: omission selects the conventional default, and `false` generates no markers. An explicit attribute applies to a one-mode scheme too.
+
+Application rules follow the normal cascade. Origin, importance, and cascade layers are compared before specificity. In the same layer, an application rule with any specificity overrides a generated declaration whether its stylesheet comes before or after the tokens, and a zero-specificity rule such as `:where(…)` competes by order. `cascadeLayer` wraps the whole output in `@layer <name>`: unlayered declarations and later layers then win over the tokens, earlier layers lose, and `!important` reverses layer order. The exporter never emits `!important`.
+
+The exporter emits custom properties only. A mode-level value such as `color-scheme` is a token that application CSS binds. `color-scheme` inherits as a computed value, so a binding on `:root` alone leaves a nested differently themed section with the root's scheme. Bind it wherever a mode can activate, with `:root, [data-theme] { color-scheme: var(--color-scheme); }`, or with `:where(*)` when custom conditions activate modes.
+
+Each block reports `tier`, `mode`, `selectors`, optional `media`, and `declarations` of `{ tokenKey, property, value }`. Its CSS rule is `:where(<selectors joined by ", ">)`, inside `@media <media>` when present, so an application can re-emit blocks without parsing the generated CSS.
+
+### Names and grammar
+
+Default names are `--`, the optional lower-kebab `prefix` and a hyphen, then the key segments joined with single hyphens: `action.primary.background` becomes `--action-primary-background`, or `--app-action-primary-background` with `prefix: "app"`. Structurally different keys such as `a-b.c` and `a.b-c` then share `--a-b-c`. Every collision among the exported tokens fails with `duplicate-css-variable`, naming the first key in code-unit order, the later key, and the shared property; internal tokens outside the selection never collide. `variableName` is an escape hatch for genuine exceptions: it receives the token key, its segments, the default name, and the prefix when one is supplied, runs in deterministic token order, and its results pass the same safety and collision checks. Exceptions, unsafe names, and collisions become issues rather than escaping the operation.
+
+Selectors, media conditions, and layer names use intentionally bounded grammars rather than every browser feature:
+
+- selectors: type, universal, class, id, and attribute selectors, `:root`, `:host`, `:host(<compound>)`, and `:is()`, `:not()`, `:where()` over selector lists, joined by combinators and commas, up to 256 characters and eight nested functional pseudo-classes;
+- media conditions: an optional `not` or `only` media type (`all`, `print`, `screen`) followed by `and` conditions, or conditions of parenthesized features joined by `not`, `and`, or `or` without mixing them; features are `(name)`, `(name: value)`, or a range such as `(width >= 48rem)`; keywords, names, and units are lowercase, query lists with commas are excluded, up to 256 characters and eight nested parentheses;
+- `cascadeLayer`: dot-separated lower-kebab segments, none of them a CSS-wide keyword, such as `tokens` or `app.tokens`.
+
+Input outside a grammar returns a structured issue; it is never sanitized.
+
+See [Application Theme Coordinates](./application-theme-coordinates.md) for combining independent application axes into private compiler modes and activating them with a system fallback and ordered custom conditions. See [Tailwind CSS v4](./tailwind-css-v4.md) for bridging runtime variables into Tailwind color utilities.
+
+Compilation and serialization accept arbitrary token strings. CSS export is stricter because it emits declarations: a declaration-unsafe string fails with `invalid-css-value` instead of being written. Each emitted value is checked once, however many blocks declare it. This is an output-safety check, not token-domain interpretation. Option, name, and value failures are all collected rather than reported one at a time.
 
 ## Strict artifacts and serializers
 
@@ -295,6 +323,6 @@ Explicit assertions, and runtime rewrites that TypeScript still types as the ori
 
 ## Public types
 
-The root type surface centers on `Result`, `Issue`, `TokenReference`, `TokenGraph`, `DefinedTokenGraph`, `TokenLayer`, `LayerVisibility`, `CompiledScheme`, `CssVarsExport`, and the authoring, option, and issue types needed to use those operations. Public declarations do not expose dependency-internal types or validation machinery.
+The root type surface centers on `Result`, `Issue`, `TokenReference`, `TokenGraph`, `DefinedTokenGraph`, `TokenLayer`, `LayerVisibility`, `CompiledScheme`, `CssVarsExport`, `CssVarBlock`, `CssCondition`, and the authoring, option, and issue types needed to use those operations. Public declarations do not expose dependency-internal types or validation machinery.
 
 See [Diagnostics](./diagnostics.md) for issue contracts and [Migration to 0.1](./migration.md) for the reset from the earlier, never-published surface.

@@ -23,14 +23,20 @@ export function isExtensionKey(input: string): boolean {
   return segments.length >= 2 && segments.every((segment) => isIdentifierSegment(segment));
 }
 
-export function isClassPrefix(input: string): boolean {
-  if (!input.endsWith("-")) {
-    return false;
-  }
-  const withoutTrailingHyphen = input.slice(0, -1);
-  return isIdentifierSegment(withoutTrailingHyphen);
-}
-
 export function isDataAttributeName(input: string): boolean {
   return /^data-[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(input);
+}
+
+// CSS Cascade 5 makes a layer rule invalid when any name segment is a CSS-wide keyword.
+const CSS_WIDE_KEYWORDS = new Set(["inherit", "initial", "revert", "revert-layer", "unset"]);
+const MAX_CASCADE_LAYER_NAME_LENGTH = 128;
+
+/** A dot-separated cascade layer name whose segments are lower-kebab identifiers. */
+export function isCascadeLayerName(input: string): boolean {
+  return (
+    input.length <= MAX_CASCADE_LAYER_NAME_LENGTH &&
+    input
+      .split(".")
+      .every((segment) => isIdentifierSegment(segment) && !CSS_WIDE_KEYWORDS.has(segment))
+  );
 }

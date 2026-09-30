@@ -5,8 +5,9 @@ complete compiler modes: mono-light, mono-dark, vivid-light, and vivid-dark.
 
 Flattening happens only at the compiler boundary. Application state can keep the axes independent
 while scheme-tokens receives one explicit mode envelope. The example then selects an exact public
-role contract, resolves references through internal source tokens, and projects deterministic CSS
-with application-owned selectors.
+role contract, resolves references through internal source tokens, and activates the modes from the
+application's own `data-palette` and `data-scheme` attributes: no generated markers, a system
+fallback, and custom conditions ordered from general to specific.
 
 From the repository root, run:
 
@@ -17,4 +18,4 @@ exact [theme.ts](./theme.ts) source into a strict NodeNext consumer, typechecks 
 runtime assertions. pnpm typecheck also checks the source directly in the repository.
 
 See [Application Theme Coordinates](../../docs/application-theme-coordinates.md) for the design
-boundary and selector/media-query guidance.
+boundary and the ordering rule.

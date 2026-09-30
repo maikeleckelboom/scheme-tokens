@@ -20,7 +20,7 @@ These are versioned contracts:
 - graph mode and layer composition semantics;
 - compilation selection, static public-key and completeness typing, and output ordering;
 - canonical serialization;
-- CSS exporter option, block, formatting, declaration-safety, bounded-selector, and collision semantics.
+- CSS exporter options, activation tiers and block order, zero-specificity selectors, complete blocks, block metadata, variable naming, formatting, declaration safety, bounded selector, media, and layer-name grammars, and collision semantics.
 
 Human-readable issue messages, internal file layout, and implementation strategy are not compatibility contracts unless explicitly documented otherwise. The same holds for TypeScript diagnostic wording and the unexported diagnostic marker types; rejection of invalid literal input is the contract.
 

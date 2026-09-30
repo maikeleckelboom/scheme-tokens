@@ -180,10 +180,9 @@ if (serializeCompiledScheme(parsedCompiled) !== serializedCompiled) {
 const publicCss = expectOk(
   exportCssVars(publicCompiled, {
     prefix: "color",
-    modeSelectors: {
-      strategy: "selectors",
-      selectors: { light: ":root", dark: ".dark" },
-    },
+    attribute: false,
+    system: { dark: "(prefers-color-scheme: dark)" },
+    selectors: { light: ".light", dark: ".dark" },
   }),
   "export public Chromavert CSS",
 );
@@ -195,18 +194,17 @@ const permutedPublic = expectOk(
 );
 const permutedCss = expectOk(
   exportCssVars(permutedPublic, {
+    selectors: { dark: ".dark", light: ".light" },
+    system: { dark: "(prefers-color-scheme: dark)" },
+    attribute: false,
     prefix: "color",
-    modeSelectors: {
-      strategy: "selectors",
-      selectors: { dark: ".dark", light: ":root" },
-    },
   }),
   "export permuted public CSS",
 );
-if (publicCss.css !== permutedCss.css || publicCss.blocks.length !== 2) {
-  throw new Error("CSS artifacts depend on construction or selector-map order");
+if (publicCss.css !== permutedCss.css || publicCss.blocks.length !== 4) {
+  throw new Error("CSS artifacts depend on construction or condition-map order");
 }
-if (publicCss.variableByToken["semantic.action"] !== "--color-semantic--action") {
+if (publicCss.variableByToken["semantic.action"] !== "--color-semantic-action") {
   throw new Error("semantic token CSS variable lookup was not preserved");
 }
 

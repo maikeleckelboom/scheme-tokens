@@ -69,7 +69,7 @@ describe("core integration", () => {
     expect(compiled.value.tokens["brand.seed"].light).toBe("#6750a4");
   });
 
-  test("uses the core variableName hook for Material-compatible CSS names", () => {
+  test("core default CSS names match Material Web names", () => {
     const generated = material3("#6750a4");
     const compiled = compileTokenGraph(defineTokenGraph({ ...generated, tokens: {} }), {
       selection: "all",
@@ -78,14 +78,24 @@ describe("core integration", () => {
     if (!compiled.ok) {
       return;
     }
-    const exported = exportCssVars(compiled.value, {
-      variableName: ({ segments }) => `--${segments.join("-")}`,
-    });
+    const exported = exportCssVars(compiled.value, { selectors: { dark: ".dark" } });
     expect(exported.ok).toBe(true);
     if (!exported.ok) {
       throw new Error(JSON.stringify(exported.issues));
     }
     expect(exported.value.variableByToken["md.sys.color.primary"]).toBe("--md-sys-color-primary");
+    expect(exported.value.variableByToken["md.sys.color.on-primary-container"]).toBe(
+      "--md-sys-color-on-primary-container",
+    );
+    expect(exported.value.blocks.map((block) => `${block.tier}:${block.mode}`)).toEqual([
+      "base:light",
+      "explicit:light",
+      "explicit:dark",
+      "custom:dark",
+    ]);
+    for (const block of exported.value.blocks) {
+      expect(block.declarations).toHaveLength(48);
+    }
   });
 
   test("serializes a generated layer deterministically", () => {

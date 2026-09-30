@@ -1,120 +1,18 @@
-import type { CompiledScheme, ParseCompiledSchemeIssue } from "../core/compiled-types";
-import { isClassPrefix, isDataAttributeName, isSingleSegmentIdentifier } from "../core/identifiers";
-import { compareCodeUnits, escapePointerSegment, readPlainRecord } from "../core/json";
+import type { CompiledScheme } from "../core/compiled-types";
+import { compareCodeUnits, escapePointerSegment } from "../core/json";
 import { parseCompiledScheme } from "../core/parse-compiled-scheme";
-import type { Issue, Result } from "../core/result";
+import { IssueCollector, type Result } from "../core/result";
 import { describeUnknown } from "../core/unknown-description";
-import {
-  isAppendSafeCssSelector,
-  isSafeCssDeclarationValue,
-  isValidCssSelector,
-} from "./selector-validation";
-
-export type CssScope =
-  | {
-      readonly strategy: "root";
-    }
-  | {
-      readonly strategy: "selector";
-      readonly selector: string;
-    };
-
-export type CssModeSelectors<Mode extends string = string> =
-  | {
-      readonly strategy: "data-attribute";
-      readonly attribute: string;
-    }
-  | {
-      readonly strategy: "class";
-      readonly classPrefix: string;
-    }
-  | {
-      readonly strategy: "selectors";
-      readonly selectors: Readonly<Record<Mode, string>>;
-    };
-
-interface CssVariableNameInput<Key extends string = string> {
-  readonly tokenKey: Key;
-  readonly segments: readonly [string, ...string[]];
-  readonly defaultName: string;
-  readonly prefix?: string;
-}
-
-interface CommonExportCssVarsOptions<Key extends string = string> {
-  readonly prefix?: string;
-  readonly variableName?: (input: CssVariableNameInput<Key>) => string;
-  readonly format?: "pretty" | "compact";
-}
-
-type GeneratedCssModeSelectors<Mode extends string> = Exclude<
-  CssModeSelectors<Mode>,
-  { readonly strategy: "selectors" }
->;
-
-export type ExportCssVarsOptions<
-  Key extends string = string,
-  Mode extends string = string,
-> = CommonExportCssVarsOptions<Key> &
-  (
-    | {
-        readonly scope?: CssScope;
-        readonly modeSelectors?: GeneratedCssModeSelectors<Mode>;
-      }
-    | {
-        readonly scope?: never;
-        readonly modeSelectors?: CssModeSelectors<Mode>;
-      }
-  );
-
-export interface CssVarDeclaration<Key extends string = string> {
-  readonly tokenKey: Key;
-  readonly property: string;
-  readonly value: string;
-}
-
-export interface CssVarBlock<Key extends string = string, Mode extends string = string> {
-  readonly mode: Mode;
-  readonly selector: string;
-  readonly declarations: readonly CssVarDeclaration<Key>[];
-}
-
-type CssVariableMap<Key extends string, Complete extends boolean> = Complete extends true
-  ? Readonly<Record<Key, string>>
-  : Readonly<Partial<Record<Key, string>>>;
-
-export interface CssVarsExport<
-  Key extends string = string,
-  Mode extends string = string,
-  Complete extends boolean = true,
-> {
-  readonly css: string;
-  readonly blocks: readonly CssVarBlock<Key, Mode>[];
-  readonly variableByToken: CssVariableMap<Key, Complete>;
-}
-
-export type ExportCssVarsIssue =
-  | ParseCompiledSchemeIssue
-  | (Issue<
-      | "invalid-css-options"
-      | "invalid-css-prefix"
-      | "invalid-css-variable"
-      | "invalid-css-value"
-      | "duplicate-css-variable"
-      | "invalid-scope"
-      | "invalid-selector"
-      | "invalid-data-attribute"
-      | "invalid-class-prefix"
-      | "invalid-mode-selectors"
-      | "missing-mode-selector"
-      | "unknown-mode-selector"
-      | "duplicate-mode-selector"
-    > & {
-      readonly key?: string;
-      readonly firstKey?: string;
-      readonly mode?: string;
-      readonly property?: string;
-      readonly selector?: string;
-    });
+import { parseCssOptions, type ParsedCssOptions } from "./css-options";
+import type {
+  CssActivationTier,
+  CssVarBlock,
+  CssVarDeclaration,
+  CssVarsExport,
+  ExportCssVarsIssue,
+  ExportCssVarsOptions,
+} from "./css-types";
+import { isSafeCssDeclarationValue } from "./selector-validation";
 
 type AnyCompiledScheme = CompiledScheme<string, string, boolean>;
 type SchemeKey<Scheme extends AnyCompiledScheme> = Extract<keyof Scheme["tokens"], string>;
@@ -133,7 +31,10 @@ type ExportedCssVars<Scheme extends AnyCompiledScheme> = Result<
 >;
 
 /**
- * Export a compiled scheme as deterministic CSS custom properties.
+ * Export a compiled scheme as deterministic CSS custom properties. Blocks follow the tier order
+ * base, system, explicit, custom; within a tier, the scheme's authored mode order; within one
+ * mode, the order of its conditions. Every activation selector is wrapped in `:where()`, so the
+ * later matching block wins and application CSS competes through the ordinary cascade.
  */
 export function exportCssVars<const Scheme extends AnyCompiledScheme>(
   scheme: Scheme,
@@ -141,557 +42,254 @@ export function exportCssVars<const Scheme extends AnyCompiledScheme>(
 ): ExportedCssVars<Scheme>;
 export function exportCssVars(
   scheme: AnyCompiledScheme,
-  options?: ExportCssVarsOptions<string, string>,
+  options?: ExportCssVarsOptions,
 ): Result<CssVarsExport<string, string, boolean>, ExportCssVarsIssue> {
   const parsedScheme = parseCompiledScheme(scheme);
   if (!parsedScheme.ok) {
     return parsedScheme;
   }
+  const compiled = parsedScheme.value;
 
-  const parsed = parseOptions(parsedScheme.value, options);
-  if (!parsed.ok) {
-    return parsed;
+  const parsedOptions = parseCssOptions(compiled, options);
+  if (!parsedOptions.ok) {
+    return parsedOptions;
   }
 
-  const variables = buildVariableMap(parsedScheme.value, parsed.value);
-  if (!variables.ok) {
-    return variables;
+  const activations = planActivations(compiled, parsedOptions.value);
+  const tokenKeys = Object.keys(compiled.tokens).sort(compareCodeUnits);
+  const emittedModes = compiled.modes.filter((mode) =>
+    activations.some((activation) => activation.mode === mode),
+  );
+
+  // Names and values are independent, so both are checked before either can fail the export.
+  const collector = new IssueCollector<ExportCssVarsIssue>();
+  const variableByToken = buildVariableNames(tokenKeys, parsedOptions.value, collector);
+  checkDeclarationValues(compiled, tokenKeys, emittedModes, collector);
+  const issues = collector.issues();
+  if (issues !== undefined) {
+    return { ok: false, issues };
   }
 
-  const blocks = buildCssVarBlocks(parsedScheme.value, parsed.value, variables.value);
-  if (!blocks.ok) {
-    return blocks;
-  }
+  const declarationsByMode = new Map<string, readonly CssVarDeclaration[]>(
+    emittedModes.map((mode) => [
+      mode,
+      tokenKeys.map((tokenKey) => ({
+        tokenKey,
+        property: variableByToken[tokenKey] as string,
+        value: compiled.tokens[tokenKey]?.[mode] as string,
+      })),
+    ]),
+  );
+  const blocks: CssVarBlock[] = activations.map((activation) => ({
+    tier: activation.tier,
+    mode: activation.mode,
+    selectors: activation.selectors,
+    ...(activation.media === undefined ? {} : { media: activation.media }),
+    declarations: declarationsByMode.get(activation.mode) ?? [],
+  }));
 
   return {
     ok: true,
     value: {
-      css: formatBlocks(blocks.value, parsed.value.compact),
-      blocks: blocks.value,
-      variableByToken: variables.value,
+      css: formatCss(blocks, parsedOptions.value),
+      blocks,
+      variableByToken,
     },
   };
 }
 
-function buildVariableMap(
-  scheme: AnyCompiledScheme,
-  options: ParsedCssOptions,
-): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
-  const tokenKeys = Object.keys(scheme.tokens).sort(compareCodeUnits);
-  const variables: Record<string, string> = {};
-  const seen = new Map<string, string>();
-  for (const key of tokenKeys) {
-    const segments = key.split(".") as [string, ...string[]];
-    const defaultName = defaultCssVariableName(segments, options.prefix);
-    let property: unknown = defaultName;
-    if (options.variableName !== undefined) {
-      try {
-        property = options.variableName({
-          tokenKey: key,
-          segments,
-          defaultName,
-          ...(options.prefix === undefined ? {} : { prefix: options.prefix }),
-        });
-      } catch {
-        return {
-          ok: false,
-          issues: [
-            {
-              code: "invalid-css-variable",
-              message: "variableName must return a CSS custom property name.",
-              key,
-            },
-          ],
-        };
-      }
-    }
-    if (typeof property !== "string" || !isSafeCssCustomPropertyName(property)) {
-      return {
-        ok: false,
-        issues: [
-          {
-            code: "invalid-css-variable",
-            message: "Generated CSS variable names must be safe custom properties.",
-            key,
-            property: typeof property === "string" ? property : describeUnknown(property),
-          },
-        ],
-      };
-    }
-    const firstKey = seen.get(property);
-    if (firstKey !== undefined) {
-      return {
-        ok: false,
-        issues: [
-          {
-            code: "duplicate-css-variable",
-            message: "Generated CSS variable names must be unique.",
-            key,
-            firstKey,
-            property,
-          },
-        ],
-      };
-    }
-    seen.set(property, key);
-    variables[key] = property;
-  }
-  return { ok: true, value: variables };
+interface Activation {
+  readonly tier: CssActivationTier;
+  readonly mode: string;
+  readonly selectors: readonly [string, ...string[]];
+  readonly media?: string;
 }
 
-function buildCssVarBlocks(
-  scheme: AnyCompiledScheme,
-  options: ParsedCssOptions,
-  variableByToken: Readonly<Record<string, string>>,
-): Result<readonly CssVarBlock[], ExportCssVarsIssue> {
-  const tokenKeys = Object.keys(scheme.tokens).sort(compareCodeUnits);
-  const blocks: CssVarBlock[] = [];
-  for (const mode of scheme.modes) {
-    const selector = options.selectors[mode];
-    if (selector === undefined) {
-      return {
-        ok: false,
-        issues: [
-          {
-            code: "missing-mode-selector",
-            message: `Missing selector for mode: ${mode}.`,
-            mode,
-          },
-        ],
-      };
-    }
+function planActivations(scheme: AnyCompiledScheme, options: ParsedCssOptions): Activation[] {
+  const root: readonly [string] = [options.root];
+  const activations: Activation[] = [{ tier: "base", mode: scheme.defaultMode, selectors: root }];
 
-    const declarations: CssVarDeclaration[] = [];
-    for (const key of tokenKeys) {
-      const token = scheme.tokens[key];
-      const property = variableByToken[key];
-      const value = token?.[mode];
-      if (token === undefined || property === undefined || value === undefined) {
-        return {
-          ok: false,
-          issues: [
-            {
-              code: "invalid-object",
-              message: "Compiled scheme is missing a parsed token value.",
-              path:
-                token === undefined
-                  ? `/tokens/${escapePointerSegment(key)}`
-                  : `/tokens/${escapePointerSegment(key)}/${escapePointerSegment(mode)}`,
-            },
-          ],
-        };
-      }
-      if (!isSafeCssDeclarationValue(value)) {
-        return {
-          ok: false,
-          issues: [
-            {
-              code: "invalid-css-value",
-              message: "Compiled token value is not safe in a CSS declaration.",
-              path: `/tokens/${escapePointerSegment(key)}/${escapePointerSegment(mode)}`,
-              key,
-              mode,
-            },
-          ],
-        };
-      }
-      declarations.push({
-        tokenKey: key,
-        property,
-        value,
+  for (const mode of scheme.modes) {
+    const media = options.system.get(mode);
+    if (media !== undefined) {
+      activations.push({ tier: "system", mode, selectors: root, media });
+    }
+  }
+
+  const attribute = options.attribute;
+  if (attribute !== undefined) {
+    for (const mode of scheme.modes) {
+      activations.push({
+        tier: "explicit",
+        mode,
+        selectors: explicitSelectors(options.root, attribute, mode),
       });
     }
-    blocks.push({
-      mode,
-      selector,
-      declarations,
+  }
+
+  for (const mode of scheme.modes) {
+    for (const condition of options.selectors.get(mode) ?? []) {
+      activations.push({
+        tier: "custom",
+        mode,
+        selectors: [condition.selector],
+        ...(condition.media === undefined ? {} : { media: condition.media }),
+      });
+    }
+  }
+
+  return activations;
+}
+
+// A marker is unanchored so any element can switch modes. Inside a shadow tree the host is not
+// matched by an ordinary selector, so a `:host` root also gets the host form of the marker.
+function explicitSelectors(
+  root: string,
+  attribute: string,
+  mode: string,
+): readonly [string, ...string[]] {
+  const marker = `[${attribute}="${mode}"]`;
+  return root === ":host" ? [`:host(${marker})`, marker] : [marker];
+}
+
+function buildVariableNames(
+  tokenKeys: readonly string[],
+  options: ParsedCssOptions,
+  collector: IssueCollector<ExportCssVarsIssue>,
+): Record<string, string> {
+  const variables: Record<string, string> = {};
+  const firstKeyByProperty = new Map<string, string>();
+  for (const key of tokenKeys) {
+    const property = variableNameFor(key, options, collector);
+    if (property === undefined) {
+      continue;
+    }
+    const firstKey = firstKeyByProperty.get(property);
+    if (firstKey !== undefined) {
+      collector.add({
+        code: "duplicate-css-variable",
+        message: `Tokens ${JSON.stringify(firstKey)} and ${JSON.stringify(key)} both map to the CSS variable ${property}.`,
+        key,
+        firstKey,
+        property,
+      });
+      continue;
+    }
+    firstKeyByProperty.set(property, key);
+    variables[key] = property;
+  }
+  return variables;
+}
+
+function variableNameFor(
+  key: string,
+  options: ParsedCssOptions,
+  collector: IssueCollector<ExportCssVarsIssue>,
+): string | undefined {
+  const segments = key.split(".") as [string, ...string[]];
+  const defaultName = `--${options.prefix === undefined ? "" : `${options.prefix}-`}${segments.join("-")}`;
+  if (options.variableName === undefined) {
+    return defaultName;
+  }
+
+  let property: unknown;
+  try {
+    property = options.variableName({
+      tokenKey: key,
+      segments,
+      defaultName,
+      ...(options.prefix === undefined ? {} : { prefix: options.prefix }),
     });
+  } catch {
+    collector.add({
+      code: "invalid-css-variable",
+      message: `variableName threw for token ${JSON.stringify(key)}.`,
+      key,
+    });
+    return undefined;
   }
-  return { ok: true, value: blocks };
+  if (typeof property === "string" && isSafeCssCustomPropertyName(property)) {
+    return property;
+  }
+  collector.add({
+    code: "invalid-css-variable",
+    message: `variableName must return a safe CSS custom property name for token ${JSON.stringify(key)}, received ${describeUnknown(property)}.`,
+    key,
+    ...(typeof property === "string" ? { property } : {}),
+  });
+  return undefined;
 }
 
-function formatBlocks(blocks: readonly CssVarBlock[], compact: boolean): string {
-  return compact
-    ? blocks.map((block) => formatBlock(block, true)).join("")
-    : `${blocks.map((block) => formatBlock(block, false)).join("\n\n")}\n`;
-}
-
-function formatBlock(block: CssVarBlock, compact: boolean): string {
-  const declarations = block.declarations.map((declaration) =>
-    compact
-      ? `${declaration.property}:${declaration.value};`
-      : `  ${declaration.property}: ${declaration.value};`,
-  );
-  return compact
-    ? `${block.selector}{${declarations.join("")}}`
-    : [`${block.selector} {`, ...declarations, "}"].join("\n");
-}
-
-interface ParsedCssOptions {
-  readonly prefix?: string;
-  readonly variableName?: (input: CssVariableNameInput) => unknown;
-  readonly selectors: Readonly<Record<string, string>>;
-  readonly compact: boolean;
-}
-
-function parseOptions(
+// Each emitted token value is checked once, however many blocks declare it.
+function checkDeclarationValues(
   scheme: AnyCompiledScheme,
-  options: ExportCssVarsOptions | undefined,
-): Result<ParsedCssOptions, ExportCssVarsIssue> {
-  const entries =
-    options === undefined
-      ? ({ ok: true, value: [] } as const)
-      : readPlainRecord(options, {
-          code: "invalid-css-options",
-          message: "CSS options must be a plain object.",
+  tokenKeys: readonly string[],
+  modes: readonly string[],
+  collector: IssueCollector<ExportCssVarsIssue>,
+): void {
+  for (const key of tokenKeys) {
+    for (const mode of modes) {
+      const path = `/tokens/${escapePointerSegment(key)}/${escapePointerSegment(mode)}`;
+      const value = scheme.tokens[key]?.[mode];
+      if (value === undefined) {
+        collector.add({
+          code: "invalid-object",
+          message: "Compiled scheme is missing a parsed token value.",
+          path,
         });
-  if (!entries.ok) {
-    return entries as Result<never, ExportCssVarsIssue>;
-  }
-
-  for (const entry of entries.value) {
-    if (
-      entry.key !== "prefix" &&
-      entry.key !== "variableName" &&
-      entry.key !== "scope" &&
-      entry.key !== "modeSelectors" &&
-      entry.key !== "format"
-    ) {
-      return {
-        ok: false,
-        issues: [{ code: "invalid-css-options", message: `Unknown CSS option: ${entry.key}.` }],
-      };
+      } else if (!isSafeCssDeclarationValue(value)) {
+        collector.add({
+          code: "invalid-css-value",
+          message: "Compiled token value is not safe in a CSS declaration.",
+          path,
+          key,
+          mode,
+        });
+      }
     }
   }
-
-  const record = new Map(entries.value.map((entry) => [entry.key, entry.value]));
-  const prefix = record.get("prefix");
-  if (prefix !== undefined && (typeof prefix !== "string" || !isSingleSegmentIdentifier(prefix))) {
-    return {
-      ok: false,
-      issues: [
-        {
-          code: "invalid-css-prefix",
-          message: "prefix must be a lower-kebab single segment.",
-        },
-      ],
-    };
-  }
-  const variableNameInput = record.get("variableName");
-  if (variableNameInput !== undefined && typeof variableNameInput !== "function") {
-    return {
-      ok: false,
-      issues: [{ code: "invalid-css-options", message: "variableName must be a function." }],
-    };
-  }
-  const variableName =
-    typeof variableNameInput === "function"
-      ? (input: CssVariableNameInput) => variableNameInput(input)
-      : undefined;
-  const format = record.get("format") ?? "pretty";
-  if (format !== "pretty" && format !== "compact") {
-    return {
-      ok: false,
-      issues: [{ code: "invalid-css-options", message: "format must be pretty or compact." }],
-    };
-  }
-
-  const modeSelectors = record.get("modeSelectors");
-  const scope = record.get("scope");
-  const selectors = parseSelectors(scheme, scope, modeSelectors);
-  if (!selectors.ok) {
-    return selectors;
-  }
-
-  return {
-    ok: true,
-    value: {
-      ...(typeof prefix === "string" && prefix !== "" ? { prefix } : {}),
-      ...(variableName === undefined ? {} : { variableName }),
-      selectors: selectors.value,
-      compact: format === "compact",
-    },
-  };
 }
 
-function parseSelectors(
-  scheme: AnyCompiledScheme,
-  scopeInput: unknown,
-  modeSelectorsInput: unknown,
-): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
-  const modeSelector = modeSelectorsInput ?? {
-    strategy: "data-attribute",
-    attribute: "data-scheme",
-  };
-  const selectorStrategy = readPlainRecord(modeSelector, {
-    code: "invalid-mode-selectors",
-    message: "modeSelectors must be a plain object.",
-  });
-  if (!selectorStrategy.ok) {
-    return selectorStrategy as Result<never, ExportCssVarsIssue>;
-  }
-  const strategyRecord = new Map(selectorStrategy.value.map((entry) => [entry.key, entry.value]));
-  const strategy = strategyRecord.get("strategy");
-
-  if (strategy === "selectors") {
-    const exactKeys = requireExactModeSelectorKeys(selectorStrategy.value, [
-      "strategy",
-      "selectors",
-    ]);
-    if (!exactKeys.ok) {
-      return exactKeys;
-    }
-    if (scopeInput !== undefined) {
-      return {
-        ok: false,
-        issues: [{ code: "invalid-scope", message: "scope must be omitted with exact selectors." }],
-      };
-    }
-    return parseExactSelectors(scheme, strategyRecord.get("selectors"));
+function formatCss(blocks: readonly CssVarBlock[], options: ParsedCssOptions): string {
+  const layer = options.cascadeLayer;
+  if (options.compact) {
+    const body = blocks.map(formatCompactBlock).join("");
+    return layer === undefined ? body : `@layer ${layer}{${body}}`;
   }
 
-  const scope = parseScope(scopeInput);
-  if (!scope.ok) {
-    return scope;
-  }
-  if (!isAppendSafeCssSelector(scope.value)) {
-    return {
-      ok: false,
-      issues: [
-        {
-          code: "invalid-scope",
-          message:
-            "Generated mode selectors require an append-safe scope; use exact modeSelectors for complex selectors.",
-          selector: scope.value,
-        },
-      ],
-    };
-  }
-
-  if (strategy === "data-attribute") {
-    const exactKeys = requireExactModeSelectorKeys(selectorStrategy.value, [
-      "strategy",
-      "attribute",
-    ]);
-    if (!exactKeys.ok) {
-      return exactKeys;
-    }
-    const attribute = strategyRecord.get("attribute");
-    if (typeof attribute !== "string" || !isDataAttributeName(attribute)) {
-      return {
-        ok: false,
-        issues: [
-          {
-            code: "invalid-data-attribute",
-            message: "data attribute must be a safe data-* attribute.",
-          },
-        ],
-      };
-    }
-    return generatedSelectors(
-      scheme,
-      (mode) => `${scope.value}[${attribute}="${mode}"]`,
-      scope.value,
-    );
-  }
-
-  if (strategy === "class") {
-    const exactKeys = requireExactModeSelectorKeys(selectorStrategy.value, [
-      "strategy",
-      "classPrefix",
-    ]);
-    if (!exactKeys.ok) {
-      return exactKeys;
-    }
-    const classPrefix = strategyRecord.get("classPrefix");
-    if (typeof classPrefix !== "string" || !isClassPrefix(classPrefix)) {
-      return {
-        ok: false,
-        issues: [
-          {
-            code: "invalid-class-prefix",
-            message: "classPrefix must be a lower-kebab prefix ending in '-'.",
-          },
-        ],
-      };
-    }
-    return generatedSelectors(
-      scheme,
-      (mode) => `${scope.value}.${classPrefix}${mode}`,
-      scope.value,
-    );
-  }
-
-  return {
-    ok: false,
-    issues: [{ code: "invalid-mode-selectors", message: "Unsupported mode selector strategy." }],
-  };
+  const depth = layer === undefined ? 0 : 1;
+  const body = blocks.map((block) => formatPrettyBlock(block, depth).join("\n")).join("\n\n");
+  return layer === undefined ? `${body}\n` : `@layer ${layer} {\n${body}\n}\n`;
 }
 
-function requireExactModeSelectorKeys(
-  entries: readonly { readonly key: string }[],
-  allowedKeys: readonly string[],
-): Result<void, ExportCssVarsIssue> {
-  const allowed = new Set(allowedKeys);
-  for (const entry of entries) {
-    if (!allowed.has(entry.key)) {
-      return {
-        ok: false,
-        issues: [
-          {
-            code: "invalid-mode-selectors",
-            message: `Unknown modeSelectors property: ${entry.key}.`,
-          },
-        ],
-      };
-    }
-  }
-  for (const key of allowedKeys) {
-    if (!entries.some((entry) => entry.key === key)) {
-      return {
-        ok: false,
-        issues: [
-          {
-            code: "invalid-mode-selectors",
-            message: `Missing modeSelectors property: ${key}.`,
-          },
-        ],
-      };
-    }
-  }
-  return { ok: true, value: undefined };
+function formatCompactBlock(block: CssVarBlock): string {
+  const declarations = block.declarations
+    .map((declaration) => `${declaration.property}:${declaration.value};`)
+    .join("");
+  const rule = `:where(${block.selectors.join(",")}){${declarations}}`;
+  return block.media === undefined ? rule : `@media ${block.media}{${rule}}`;
 }
 
-function parseScope(input: unknown): Result<string, ExportCssVarsIssue> {
-  if (input === undefined) {
-    return { ok: true, value: ":root" };
-  }
-  const entries = readPlainRecord(input, {
-    code: "invalid-scope",
-    message: "scope must be a plain object.",
-  });
-  if (!entries.ok) {
-    return entries as Result<never, ExportCssVarsIssue>;
-  }
-  const record = new Map(entries.value.map((entry) => [entry.key, entry.value]));
-  if (record.get("strategy") === "root" && record.size === 1) {
-    return { ok: true, value: ":root" };
-  }
-  if (
-    record.get("strategy") === "selector" &&
-    record.size === 2 &&
-    typeof record.get("selector") === "string"
-  ) {
-    const selector = record.get("selector") as string;
-    return isValidCssSelector(selector)
-      ? { ok: true, value: selector }
-      : {
-          ok: false,
-          issues: [{ code: "invalid-selector", message: "Invalid CSS selector.", selector }],
-        };
-  }
-  return { ok: false, issues: [{ code: "invalid-scope", message: "Invalid scope strategy." }] };
+function formatPrettyBlock(block: CssVarBlock, depth: number): readonly string[] {
+  const ruleDepth = block.media === undefined ? depth : depth + 1;
+  const rule = [
+    `${indent(ruleDepth)}:where(${block.selectors.join(", ")}) {`,
+    ...block.declarations.map(
+      (declaration) => `${indent(ruleDepth + 1)}${declaration.property}: ${declaration.value};`,
+    ),
+    `${indent(ruleDepth)}}`,
+  ];
+  return block.media === undefined
+    ? rule
+    : [`${indent(depth)}@media ${block.media} {`, ...rule, `${indent(depth)}}`];
 }
 
-function parseExactSelectors(
-  scheme: AnyCompiledScheme,
-  input: unknown,
-): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
-  const entries = readPlainRecord(input, {
-    code: "invalid-mode-selectors",
-    message: "selectors must be a plain object.",
-  });
-  if (!entries.ok) {
-    return entries as Result<never, ExportCssVarsIssue>;
-  }
-
-  const modeSet = new Set(scheme.modes);
-  const selectors: Record<string, string> = {};
-  for (const entry of entries.value) {
-    if (!modeSet.has(entry.key)) {
-      return {
-        ok: false,
-        issues: [
-          {
-            code: "unknown-mode-selector",
-            message: `Unknown mode selector: ${entry.key}.`,
-            mode: entry.key,
-          },
-        ],
-      };
-    }
-    if (typeof entry.value !== "string" || !isValidCssSelector(entry.value)) {
-      return {
-        ok: false,
-        issues: [
-          {
-            code: "invalid-selector",
-            message: "Invalid CSS selector.",
-            mode: entry.key,
-            selector: typeof entry.value === "string" ? entry.value : describeUnknown(entry.value),
-          },
-        ],
-      };
-    }
-    selectors[entry.key] = entry.value;
-  }
-  for (const mode of scheme.modes) {
-    if (selectors[mode] === undefined) {
-      return {
-        ok: false,
-        issues: [
-          { code: "missing-mode-selector", message: `Missing selector for mode: ${mode}.`, mode },
-        ],
-      };
-    }
-  }
-  return rejectDuplicateSelectors(selectors);
+function indent(depth: number): string {
+  return "  ".repeat(depth);
 }
 
-function generatedSelectors(
-  scheme: AnyCompiledScheme,
-  selectorForMode: (mode: string) => string,
-  defaultSelector: string,
-): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
-  const selectors: Record<string, string> = {};
-  for (const mode of scheme.modes) {
-    selectors[mode] = mode === scheme.defaultMode ? defaultSelector : selectorForMode(mode);
-  }
-  return rejectDuplicateSelectors(selectors);
-}
-
-function rejectDuplicateSelectors(
-  selectors: Readonly<Record<string, string>>,
-): Result<Readonly<Record<string, string>>, ExportCssVarsIssue> {
-  const seen = new Map<string, string>();
-  for (const [mode, selector] of Object.entries(selectors)) {
-    const first = seen.get(selector);
-    if (first !== undefined) {
-      return {
-        ok: false,
-        issues: [
-          {
-            code: "duplicate-mode-selector",
-            message: "Mode selectors must be unique.",
-            mode,
-            selector,
-          },
-        ],
-      };
-    }
-    seen.set(selector, mode);
-  }
-  return { ok: true, value: selectors };
-}
-
-function defaultCssVariableName(
-  segments: readonly [string, ...string[]],
-  prefix: string | undefined,
-): string {
-  const encodedKey = segments.join("--");
-  return prefix === undefined ? `--${encodedKey}` : `--${prefix}-${encodedKey}`;
-}
-
+// Equivalent to the former `^--[a-z][a-z0-9-]*(?:--[a-z0-9][a-z0-9-]*)*$`, without the nested
+// quantifier that could backtrack on a hostile callback result.
 function isSafeCssCustomPropertyName(input: string): boolean {
-  return /^--[a-z][a-z0-9-]*(?:--[a-z0-9][a-z0-9-]*)*$/.test(input);
+  return /^--[a-z][a-z0-9-]*$/.test(input);
 }

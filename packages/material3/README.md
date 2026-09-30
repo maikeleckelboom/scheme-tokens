@@ -104,7 +104,8 @@ const graph = defineTokenGraph({
 });
 ```
 
-Material-compatible CSS property names stay a consumer-owned core projection:
+CSS export is a core projection. Its default names join token-key segments with single hyphens, so
+the Material roles already get the `--md-sys-color-*` names that Material Web reads:
 
 ```ts
 import { compileTokenGraph, exportCssVars } from "scheme-tokens";
@@ -112,7 +113,7 @@ import { compileTokenGraph, exportCssVars } from "scheme-tokens";
 const compiled = compileTokenGraph(graph, { selection: "all" });
 if (compiled.ok) {
   const css = exportCssVars(compiled.value, {
-    variableName: ({ segments }) => `--${segments.join("-")}`,
+    system: { dark: "(prefers-color-scheme: dark)" },
   });
 
   if (css.ok) {
@@ -121,6 +122,10 @@ if (compiled.ok) {
   }
 }
 ```
+
+The light values apply at `:root`, the dark values under a dark system preference, and a
+`data-theme="light"` or `data-theme="dark"` marker on any element overrides both for its subtree.
+Use `selectors: { dark: ".dark" }` for class-based dark mode.
 
 The generated layer is normal core data. `serializeTokenLayer()` provides deterministic reviewable
 JSON. After compilation, `metadataByToken[key].declarations` records the ordered declaration chain; its last origin identifies the winner. Sparse `expressionByMode` retains references and concat expressions. The adapter adds no serializer, CSS exporter,

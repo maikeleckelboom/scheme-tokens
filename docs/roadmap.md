@@ -21,7 +21,7 @@ set of evidence gates, not a feature backlog.
 - Compiler behavior, deterministic serialization and CSS output, schemas, declaration snapshots,
   tarball contents, and package resolution already have repository-owned validation.
 
-The current branch implements the core v2 candidate: unified validation/composition/resolution, graph-last precedence, visibility inheritance, concat, D6 metadata, lossless v1 source upgrades, and the static contract with complete public records for literal graphs and layer mode sets on TypeScript 7. [ADR 0015](./adr/0015-concat-mode-disambiguation.md) keeps `concat` available as a structurally disambiguated mode. The CSS redesign, Material API, consumer migration, and publication remain later phases. No 0.4 release is claimed here.
+The current branch implements the core v2 candidate: unified validation/composition/resolution, graph-last precedence, visibility inheritance, concat, D6 metadata, lossless v1 source upgrades, the static contract with complete public records for literal graphs and layer mode sets on TypeScript 7, and the CSS activation exporter with single-hyphen names, proved in Chromium, Firefox, and WebKit. [ADR 0015](./adr/0015-concat-mode-disambiguation.md) keeps `concat` available as a structurally disambiguated mode. Optional `var()` output, the Material API, consumer migration, and publication remain later phases. No 0.4 release is claimed here.
 
 ## Positioning
 

@@ -1,6 +1,6 @@
 # Diagnostics
 
-Every recoverable public failure is `{ ok: false, issues }` with a non-empty tuple. Success is `{ ok: true, value }`. Issues contain stable `code`, human-readable `message`, and optional JSON Pointer `path`. Structured context may include `key`, `mode`, `layerId`, `firstPath`, `cycle`, `modes`, `layerModes`, `property`, or `selector`.
+Every recoverable public failure is `{ ok: false, issues }` with a non-empty tuple. Success is `{ ok: true, value }`. Issues contain stable `code`, human-readable `message`, and optional JSON Pointer `path`. Structured context may include `key`, `mode`, `layerId`, `firstPath`, `cycle`, `modes`, `layerModes`, or, for CSS export, `option`, `firstKey`, `tier`, `index`, `property`, `selector`, and `media`.
 
 Codes and pointer semantics are public contracts; message wording is not. Diagnostics are deterministic and JSON-safe, and their construction never calls untrusted coercion methods.
 
@@ -48,4 +48,25 @@ Graph/parser codes include `invalid-object`, `unknown-property`, `missing-proper
 
 Compiled v1 input returns `invalid-format-version` and asks the consumer to recompile from its source graph. V2 non-string schema hints use `invalid-schema-uri`; any string hint is accepted without interpretation. Raw v1 input retains historical hint validation before upgrade drops the hint.
 
-Compilation adds selection issues such as `empty-selection`, `duplicate-selection-key`, and `unknown-selection-key`. CSS projection adds option, prefix, selector, variable-name, collision, and `invalid-css-value` diagnostics. Callback failures are contained. CSS safety checks do not interpret token domains or restrict source serialization.
+Compilation adds selection issues such as `empty-selection`, `duplicate-selection-key`, and `unknown-selection-key`.
+
+## CSS export
+
+`exportCssVars()` first returns the compiled-scheme parser's issues unchanged. Otherwise it collects every option failure, in code-unit order of the option name and then of the mode. When the options are valid, it collects every variable-name failure in canonical token-key order, then every unsafe value in token-key and authored mode order, and returns them together.
+
+| Code                       | Cause and structured context                                                                                                       |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `invalid-css-options`      | Options, `system`, or `selectors` are not plain data; an unknown option; an invalid `format` or `variableName`. `option` names it. |
+| `invalid-css-prefix`       | `prefix` is not a lower-kebab single segment.                                                                                      |
+| `invalid-root`             | `root` is outside the bounded selector grammar; `selector` when it is a string.                                                    |
+| `invalid-attribute`        | `attribute` is neither `false` nor a lower-kebab `data-*` name.                                                                    |
+| `invalid-cascade-layer`    | `cascadeLayer` is outside the bounded layer-name grammar.                                                                          |
+| `unknown-condition-mode`   | `system` (`tier: "system"`) or `selectors` (`tier: "custom"`) names a mode the scheme does not have; `mode`.                       |
+| `invalid-media`            | A system or custom media condition is outside the bounded media grammar; `tier`, `mode`, `index` for a list, `media` if a string.  |
+| `invalid-selector`         | A custom selector is outside the bounded selector grammar; `tier`, `mode`, `index` for a list, `selector` if a string.             |
+| `invalid-custom-condition` | A custom entry is not a selector or a non-empty list of `{ selector, media? }` objects; `tier`, `mode`, and `index`.               |
+| `invalid-css-variable`     | `variableName` threw or returned an unsafe name; `key`, and `property` when the result was a string.                               |
+| `duplicate-css-variable`   | Two exported tokens share a variable; `firstKey` is first in code-unit order, `key` is the later key, `property` the variable.     |
+| `invalid-css-value`        | An emitted value could escape its declaration; `key`, `mode`, and `path` into the compiled scheme. Reported once per value.        |
+
+Callback failures are contained. Only emitted names can collide, and only emitted values are checked, so internal tokens and modes without any block never fail an export. CSS safety checks do not interpret token domains or restrict source serialization.

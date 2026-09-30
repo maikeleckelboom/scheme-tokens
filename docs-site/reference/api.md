@@ -97,15 +97,17 @@ Omitted and explicit `public` selection have complete token and metadata records
 
 ## CSS export
 
-`exportCssVars()` supports prefix, scope, mode selector, and formatting options. The structured `value` contains `css`, `blocks`, and `variableByToken`. Exact selector maps already contain complete selectors, so their option lane excludes a separate `scope`; scope remains available with generated data-attribute and class selectors.
+`exportCssVars()` takes `prefix`, `variableName`, `format` (`pretty` or `compact`), `root`, `attribute`, `system`, `selectors`, and `cascadeLayer`. The structured `value` contains `css`, `blocks`, and `variableByToken`.
 
-The `variableName` callback is advanced and contained. Exceptions, unsafe names, and collisions return issues.
+Blocks come in tier order base (the default mode at `root`), system (media conditions at `root`), explicit (one `data-*` attribute marker per mode, `data-theme` by default for several modes, `false` to disable), and custom (author selectors, optionally with media). Within a tier they follow the scheme's authored mode order, and within a mode the order of its conditions. Every selector is wrapped in `:where()`, so the later matching block wins, and every block declares every selected token. Each block reports `tier`, `mode`, `selectors`, optional `media`, and `declarations`. See [Export CSS Variables](../guide/export-css-variables.md) for the full activation rules.
 
-`variableByToken` mirrors the compiled record's partial or complete key contract, including the partial result from a parsed compiled artifact and the complete result of a finite, fully known public selection. Exact selector maps are typed to the compiled mode union, requiring every mode and rejecting unknown modes.
+Default names join the prefix and key segments with single hyphens; every collision among exported names returns `duplicate-css-variable`. The `variableName` callback is advanced and contained: exceptions, unsafe names, and collisions return issues.
 
-Compilation and serialization preserve arbitrary strings. CSS export rejects declaration-unsafe strings with `invalid-css-value`. Its selector validation is an intentionally bounded safe grammar rather than a complete browser CSS parser.
+`variableByToken` mirrors the compiled record's partial or complete key contract, including the partial result from a parsed compiled artifact and the complete result of a finite, fully known public selection. `system` and `selectors` are partial maps keyed by the compiled mode union, so TypeScript rejects an unknown mode of a finite scheme.
 
-See [Application Theme Coordinates](../guide/application-theme-coordinates.md) for a complete exact-selection and structured-block composition example.
+Compilation and serialization preserve arbitrary strings. CSS export rejects declaration-unsafe strings with `invalid-css-value`. Selectors, media conditions, and layer names use intentionally bounded grammars rather than a complete browser CSS parser.
+
+See [Application Theme Coordinates](../guide/application-theme-coordinates.md) for a complete exact-selection example activated through a system fallback and ordered custom conditions.
 
 ## TypeScript
 

@@ -424,51 +424,52 @@ type SelectedCompiled<Input, Options> = [Options] extends [{
  */
 declare function compileTokenGraph<const Input extends TokenGraph>(input: Input): Result<Input extends unknown ? PublicCompiled<Input> : never, CompileTokenGraphIssue>;
 declare function compileTokenGraph<const Input extends TokenGraph, const Options extends CompileTokenGraphOptions<GraphKey<Input>>>(input: Input, options: Options): Result<Input extends unknown ? SelectedCompiled<Input, Options> : never, CompileTokenGraphIssue>;
-type CssScope = {
-  readonly strategy: "root";
-} | {
-  readonly strategy: "selector";
+/** A custom activation condition: an author selector, optionally inside a media condition. */
+interface CssCondition {
   readonly selector: string;
-};
-type CssModeSelectors<Mode extends string = string> = {
-  readonly strategy: "data-attribute";
-  readonly attribute: string;
-} | {
-  readonly strategy: "class";
-  readonly classPrefix: string;
-} | {
-  readonly strategy: "selectors";
-  readonly selectors: Readonly<Record<Mode, string>>;
-};
+  readonly media?: string;
+}
 interface CssVariableNameInput<Key extends string = string> {
   readonly tokenKey: Key;
   readonly segments: readonly [string, ...string[]];
   readonly defaultName: string;
   readonly prefix?: string;
 }
-interface CommonExportCssVarsOptions<Key extends string = string> {
+interface ExportCssVarsOptions<Key extends string = string, Mode extends string = string> {
+  /** Lower-kebab segment placed after `--` in every default variable name. */
   readonly prefix?: string;
+  /** Replace a default variable name; results pass the same safety and collision checks. */
   readonly variableName?: (input: CssVariableNameInput<Key>) => string;
   readonly format?: "pretty" | "compact";
+  /** Element that receives the default mode and system conditions. Defaults to `:root`. */
+  readonly root?: string;
+  /**
+   * `data-*` attribute whose value selects a mode on any element. Omitted, it is `data-theme`
+   * when the scheme has more than one mode; `false` disables generated markers.
+   */
+  readonly attribute?: string | false;
+  /** Media condition that activates a mode at `root`. No mode is inferred. */
+  readonly system?: Readonly<Partial<Record<Mode, string>>>;
+  /** Custom conditions per mode: one selector, or a list of selectors with optional media. */
+  readonly selectors?: Readonly<Partial<Record<Mode, string | readonly [CssCondition, ...CssCondition[]]>>>;
+  /** Wrap the output in `@layer <name>`. */
+  readonly cascadeLayer?: string;
 }
-type GeneratedCssModeSelectors<Mode extends string> = Exclude<CssModeSelectors<Mode>, {
-  readonly strategy: "selectors";
-}>;
-type ExportCssVarsOptions<Key extends string = string, Mode extends string = string> = CommonExportCssVarsOptions<Key> & ({
-  readonly scope?: CssScope;
-  readonly modeSelectors?: GeneratedCssModeSelectors<Mode>;
-} | {
-  readonly scope?: never;
-  readonly modeSelectors?: CssModeSelectors<Mode>;
-});
+type CssActivationTier = "base" | "system" | "explicit" | "custom";
 interface CssVarDeclaration<Key extends string = string> {
   readonly tokenKey: Key;
   readonly property: string;
   readonly value: string;
 }
+/**
+ * One mode's complete declarations under one activation condition. The emitted rule is
+ * `:where(<selectors joined by ", ">)`, inside `@media <media>` when `media` is present.
+ */
 interface CssVarBlock<Key extends string = string, Mode extends string = string> {
+  readonly tier: CssActivationTier;
   readonly mode: Mode;
-  readonly selector: string;
+  readonly selectors: readonly [string, ...string[]];
+  readonly media?: string;
   readonly declarations: readonly CssVarDeclaration<Key>[];
 }
 type CssVariableMap<Key extends string, Complete extends boolean> = Complete extends true ? Readonly<Record<Key, string>> : Readonly<Partial<Record<Key, string>>>;
@@ -477,12 +478,16 @@ interface CssVarsExport<Key extends string = string, Mode extends string = strin
   readonly blocks: readonly CssVarBlock<Key, Mode>[];
   readonly variableByToken: CssVariableMap<Key, Complete>;
 }
-type ExportCssVarsIssue = ParseCompiledSchemeIssue | (Issue<"invalid-css-options" | "invalid-css-prefix" | "invalid-css-variable" | "invalid-css-value" | "duplicate-css-variable" | "invalid-scope" | "invalid-selector" | "invalid-data-attribute" | "invalid-class-prefix" | "invalid-mode-selectors" | "missing-mode-selector" | "unknown-mode-selector" | "duplicate-mode-selector"> & {
+type ExportCssVarsIssue = ParseCompiledSchemeIssue | (Issue<"invalid-css-options" | "invalid-css-prefix" | "invalid-css-variable" | "invalid-css-value" | "duplicate-css-variable" | "invalid-root" | "invalid-attribute" | "invalid-selector" | "invalid-media" | "invalid-custom-condition" | "unknown-condition-mode" | "invalid-cascade-layer"> & {
+  readonly option?: string;
   readonly key?: string;
   readonly firstKey?: string;
   readonly mode?: string;
+  readonly tier?: "system" | "custom";
+  readonly index?: number;
   readonly property?: string;
   readonly selector?: string;
+  readonly media?: string;
 });
 type AnyCompiledScheme$1 = CompiledScheme<string, string, boolean>;
 type SchemeKey<Scheme extends AnyCompiledScheme$1> = Extract<keyof Scheme["tokens"], string>;
@@ -491,11 +496,14 @@ type SchemeCompleteness<Scheme extends AnyCompiledScheme$1> = Scheme extends Com
 type ExportCssVarsOptionsFor<Scheme extends AnyCompiledScheme$1> = ExportCssVarsOptions<SchemeKey<Scheme>, SchemeMode<Scheme>>;
 type ExportedCssVars<Scheme extends AnyCompiledScheme$1> = Result<CssVarsExport<SchemeKey<Scheme>, SchemeMode<Scheme>, SchemeCompleteness<Scheme>>, ExportCssVarsIssue>;
 /**
- * Export a compiled scheme as deterministic CSS custom properties.
+ * Export a compiled scheme as deterministic CSS custom properties. Blocks follow the tier order
+ * base, system, explicit, custom; within a tier, the scheme's authored mode order; within one
+ * mode, the order of its conditions. Every activation selector is wrapped in `:where()`, so the
+ * later matching block wins and application CSS competes through the ordinary cascade.
  */
 declare function exportCssVars<const Scheme extends AnyCompiledScheme$1>(scheme: Scheme, options?: ExportCssVarsOptionsFor<Scheme>): ExportedCssVars<Scheme>;
 declare function serializeTokenGraph(graph: TokenGraph): string;
 declare function serializeTokenLayer(layer: TokenLayer): string;
 type AnyCompiledScheme = CompiledScheme<string, string, boolean>;
 declare function serializeCompiledScheme(scheme: AnyCompiledScheme): string;
-export { type CompileTokenGraphIssue, type CompileTokenGraphOptions, type CompiledConcatPart, type CompiledExpression, type CompiledReference, type CompiledScheme, type CompiledToken, type CompiledTokenMetadata, type CssModeSelectors, type CssScope, type CssVarBlock, type CssVarDeclaration, type CssVarsExport, type DefinedTokenGraph, type ExportCssVarsIssue, type ExportCssVarsOptions, type Issue, type JsonValue, type LayerVisibility, type ParseCompiledSchemeIssue, type Result, type TokenDeclarationRecord, type TokenDefinition, type TokenExpression, type TokenGraph, type TokenGraphIssue, type TokenLayer, type TokenOrigin, type TokenReference, type TokenSelection, type TokenVisibility, compileTokenGraph, defineTokenGraph, defineTokenLayer, exportCssVars, orThrow, parseCompiledScheme, parseTokenGraph, parseTokenLayer, serializeCompiledScheme, serializeTokenGraph, serializeTokenLayer, tokenConcat, tokenRef };
+export { type CompileTokenGraphIssue, type CompileTokenGraphOptions, type CompiledConcatPart, type CompiledExpression, type CompiledReference, type CompiledScheme, type CompiledToken, type CompiledTokenMetadata, type CssCondition, type CssVarBlock, type CssVarDeclaration, type CssVarsExport, type DefinedTokenGraph, type ExportCssVarsIssue, type ExportCssVarsOptions, type Issue, type JsonValue, type LayerVisibility, type ParseCompiledSchemeIssue, type Result, type TokenDeclarationRecord, type TokenDefinition, type TokenExpression, type TokenGraph, type TokenGraphIssue, type TokenLayer, type TokenOrigin, type TokenReference, type TokenSelection, type TokenVisibility, compileTokenGraph, defineTokenGraph, defineTokenLayer, exportCssVars, orThrow, parseCompiledScheme, parseTokenGraph, parseTokenLayer, serializeCompiledScheme, serializeTokenGraph, serializeTokenLayer, tokenConcat, tokenRef };

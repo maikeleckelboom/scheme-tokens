@@ -9,7 +9,6 @@ import {
   tokenConcat,
   orThrow,
   type CompiledScheme,
-  type CssModeSelectors,
   type CssVarsExport,
   type DefinedTokenGraph,
   type Result,
@@ -198,55 +197,13 @@ publicCss.variableByToken.primary.toUpperCase();
 // @ts-expect-error CSS lookups mirror the public record.
 void publicCss.variableByToken["brand.400"];
 
-declare const inferredModeSelectors: CssModeSelectors<"light" | "dark">;
 const allCompiled = compileTokenGraph(multiModeGraph, { selection: "all" });
 if (allCompiled.ok) {
   allCompiled.value.tokens["brand.400"].light.toUpperCase();
-  const allCss = exportCssVars(allCompiled.value, {
-    modeSelectors: {
-      strategy: "selectors",
-      selectors: { light: ":root", dark: ".dark" },
-    },
-  });
+  const allCss = exportCssVars(allCompiled.value, { selectors: { dark: ".dark" } });
   if (allCss.ok) {
     allCss.value.variableByToken["brand.400"].toUpperCase();
   }
-
-  exportCssVars(allCompiled.value, { modeSelectors: inferredModeSelectors });
-
-  exportCssVars(allCompiled.value, {
-    scope: { strategy: "selector", selector: "#app" },
-    modeSelectors: { strategy: "class", classPrefix: "theme-" },
-  });
-
-  exportCssVars(allCompiled.value, {
-    scope: { strategy: "root" },
-    modeSelectors: {
-      // @ts-expect-error exact selectors own the complete selector and cannot be combined with scope.
-      strategy: "selectors",
-      selectors: { light: ":root", dark: ".dark" },
-    },
-  });
-
-  exportCssVars(allCompiled.value, {
-    modeSelectors: {
-      strategy: "selectors",
-      // @ts-expect-error exact selector maps require every compiled mode.
-      selectors: { light: ":root" },
-    },
-  });
-
-  exportCssVars(allCompiled.value, {
-    modeSelectors: {
-      strategy: "selectors",
-      selectors: {
-        light: ":root",
-        dark: ".dark",
-        // @ts-expect-error exact selector maps reject unknown compiled modes.
-        sepia: ".sepia",
-      },
-    },
-  });
 }
 
 const exactCompiled = compileTokenGraph(simpleGraph, {

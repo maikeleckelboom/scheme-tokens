@@ -216,9 +216,7 @@ if (compiled.value.tokens["md.sys.color.primary"].light !== "#65558f") {
 if (compiled.value.tokens["action.primary.background"].dark !== "#cfbdfe") {
   throw new Error("raw Node ESM composition failed");
 }
-const css = exportCssVars(compiled.value, {
-  variableName: ({ segments }) => \`--\${segments.join("-")}\`,
-});
+const css = exportCssVars(compiled.value);
 if (!css.ok || css.value.variableByToken["md.sys.color.primary"] !== "--md-sys-color-primary") {
   throw new Error("raw Node ESM Material CSS naming failed");
 }
@@ -288,11 +286,12 @@ if (compiled.value.tokens["md.sys.color.primary"].light !== "#ff0055") {
 if (compiled.value.metadataByToken["md.sys.color.primary"].declarations.at(-1)?.origin.kind !== "layer") {
   throw new Error("packed provenance failed");
 }
-const css = exportCssVars(compiled.value, {
-  variableName: ({ segments }) => \`--\${segments.join("-")}\`,
-});
+const css = exportCssVars(compiled.value, { selectors: { dark: ".dark" } });
 if (!css.ok || css.value.variableByToken["md.sys.color.primary"] !== "--md-sys-color-primary") {
   throw new Error("packed Material CSS naming failed");
+}
+if (!css.value.css.includes(":where(.dark) {\\n  --action-primary-background: ")) {
+  throw new Error("packed Material custom condition failed");
 }
 `;
 }

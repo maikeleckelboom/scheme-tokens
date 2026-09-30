@@ -286,7 +286,7 @@ describe("scheme-tokens core", () => {
     );
     const exported = expectOk(exportCssVars(compiled));
 
-    expect(exported.css).toBe(":root {\n  --background: #ffffff;\n}\n");
+    expect(exported.css).toBe(":where(:root) {\n  --background: #ffffff;\n}\n");
     expect(exported.blocks[0]?.declarations[0]).toEqual({
       tokenKey: "background",
       property: "--background",

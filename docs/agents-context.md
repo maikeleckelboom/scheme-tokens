@@ -42,7 +42,7 @@ never ships as an alias next to the old shape.
 - [ADR 0013](./adr/0013-coherent-token-model.md) (accepted) designs the next breaking release as one contract:
   authoring, composition, visibility, static typing, layer mode sets, compiled provenance, CSS activation, wire-format
   evolution, schema identity, and TypeScript support. ADRs 0010–0012 are its accepted slices. Read it before proposing
-  a change to any of these. The branch now implements the P2 runtime/wire cutover and the P3 static contract; durable docs describe that candidate. P4 CSS and P5 Material remain deferred.
+  a change to any of these. The branch now implements the P2 runtime/wire cutover, the P3 static contract, and the P4 CSS activation exporter; durable docs describe that candidate. P4a `var()` output and P5 Material remain deferred.
 - [ADR 0015](./adr/0015-concat-mode-disambiguation.md) supersedes only the reserved-mode rule for `concat`. Exact singleton array shape distinguishes concat expressions from mode maps. This preserves valid published v1 source with mode `concat` and D10 retention. Never classify by property presence alone, including in the static model.
 
 ## Material 3 adapter package

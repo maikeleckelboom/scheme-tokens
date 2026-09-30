@@ -150,10 +150,9 @@ if ("brand.600" in compiled.value.tokens) {
 
 const exported = exportCssVars(compiled.value, {
   prefix: "color",
-  modeSelectors: {
-    strategy: "selectors",
-    selectors: { light: ":root", dark: ".dark" },
-  },
+  attribute: false,
+  system: { dark: "(prefers-color-scheme: dark)" },
+  selectors: { dark: ".dark" },
 });
 if (!exported.ok) {
   throw new Error(JSON.stringify(exported.issues));
@@ -169,11 +168,20 @@ if (!exported.value.css.includes("--color-background: #ffffff;")) {
 if (exported.value.variableByToken.primary !== "--color-primary") {
   throw new Error("packed variableByToken output failed");
 }
+const activationOrder = exported.value.blocks
+  .map((block) => block.tier + ":" + block.mode + ":" + block.selectors.join(",") + ":" + (block.media ?? ""))
+  .join(" | ");
+if (activationOrder !== "base:light::root: | system:dark::root:(prefers-color-scheme: dark) | custom:dark:.dark:") {
+  throw new Error("packed activation block order failed: " + activationOrder);
+}
+if (!exported.value.css.includes(":where(.dark) {") || exported.value.css.includes("important")) {
+  throw new Error("packed activation CSS failed");
+}
 
 const advancedNames = exportCssVars(compiled.value, {
-  variableName: ({ segments }) => \`--app-\${segments.join("-")}\`,
+  variableName: ({ tokenKey, defaultName }) => (tokenKey === "primary" ? "--brand" : defaultName),
 });
-if (!advancedNames.ok || advancedNames.value.variableByToken.primary !== "--app-primary") {
+if (!advancedNames.ok || advancedNames.value.variableByToken.primary !== "--brand") {
   throw new Error("advanced variableName callback failed");
 }
 

@@ -12,7 +12,8 @@ import {
   serializeCompiledScheme,
   tokenRef,
   type CompiledScheme,
-  type CssVarDeclaration,
+  type CssVarBlock,
+  type ExportCssVarsOptions,
 } from "scheme-tokens";
 
 type Equal<Left, Right> =
@@ -26,6 +27,8 @@ type PaletteId = "mono" | "vivid";
 type ResolvedScheme = "light" | "dark";
 type CoordinateKey = "mono:light" | "mono:dark" | "vivid:light" | "vivid:dark";
 
+// Authored from general to specific: when several conditions match one element, the later mode
+// wins, so the vivid modes come after the mono modes they refine.
 const compilerModes = ["mono-light", "mono-dark", "vivid-light", "vivid-dark"] as const;
 type CompilerMode = (typeof compilerModes)[number];
 
@@ -52,12 +55,28 @@ const publicRoleKeys = [
 ] as const;
 type PublicRoleKey = (typeof publicRoleKeys)[number];
 
-const exactModeSelectors = {
-  "mono-light": ":root",
-  "mono-dark": ':root[data-scheme="dark"]',
-  "vivid-light": ':root[data-palette="vivid"][data-scheme="light"]',
-  "vivid-dark": ':root[data-palette="vivid"][data-scheme="dark"]',
-} as const satisfies Readonly<Record<CompilerMode, string>>;
+// The application owns two attributes on the themed element: `data-palette` (absent means mono)
+// and `data-scheme` (absent means follow the system preference). The exporter only needs the
+// system fallback and ordered custom conditions; `:not()` keeps the vivid system fallback from
+// overriding an explicit light choice.
+const activation = {
+  prefix: "app",
+  attribute: false,
+  system: { "mono-dark": "(prefers-color-scheme: dark)" },
+  selectors: {
+    "mono-light": '[data-scheme="light"]',
+    "mono-dark": '[data-scheme="dark"]',
+    "vivid-light": '[data-palette="vivid"]',
+    "vivid-dark": [
+      {
+        selector: '[data-palette="vivid"]:not([data-scheme="light"])',
+        media: "(prefers-color-scheme: dark)",
+      },
+      { selector: '[data-palette="vivid"][data-scheme="dark"]' },
+    ],
+  },
+  format: "pretty",
+} as const satisfies ExportCssVarsOptions<PublicRoleKey, CompilerMode>;
 
 // These assertions also keep the example honest when it runs against the packed artifact.
 const expectedRuntimeExports = [
@@ -101,11 +120,15 @@ type SelectedRole = keyof typeof first.compiled.tokens;
 type SelectedMode = (typeof first.compiled.modes)[number];
 type SelectedRolesAreExact = Expect<Equal<SelectedRole, PublicRoleKey>>;
 type SelectedModesAreExact = Expect<Equal<SelectedMode, CompilerMode>>;
+type BlockModesAreExact = Expect<
+  Equal<(typeof first.exported.blocks)[number]["mode"], CompilerMode>
+>;
 const exactCompiledRecord: Readonly<Record<PublicRoleKey, Readonly<Record<CompilerMode, string>>>> =
   first.compiled.tokens;
 const exactVariableRecord: Readonly<Record<PublicRoleKey, string>> = first.exported.variableByToken;
 void (0 as unknown as SelectedRolesAreExact);
 void (0 as unknown as SelectedModesAreExact);
+void (0 as unknown as BlockModesAreExact);
 void exactCompiledRecord;
 void exactVariableRecord;
 
@@ -115,6 +138,13 @@ void first.compiled.tokens["surface.missing"];
 void first.compiled.tokens["source.paper"];
 // @ts-expect-error compiled mode keys remain the exact private mode union
 void first.compiled.tokens["surface.canvas"]["mono-sepia"];
+const unknownModeCondition: ExportCssVarsOptions<PublicRoleKey, CompilerMode> = {
+  system: {
+    // @ts-expect-error activation conditions are keyed by the exact private mode union
+    "mono-sepia": "print",
+  },
+};
+void unknownModeCondition;
 
 for (const role of publicRoleKeys) {
   for (const mode of compilerModes) {
@@ -148,8 +178,38 @@ assertEqual(
   first.compiled.tokens["renderer.signal"]["vivid-dark"],
   "shared value across modes",
 );
+assertEqual(
+  first.exported.variableByToken["action.primary.background"],
+  "--app-action-primary-background",
+  "single-hyphen variable name",
+);
 
-const expectedBlockModes = ["mono-light", "mono-dark", "vivid-light", "vivid-dark"];
+// Tier order, then authored mode order, then condition order.
+assertDeepEqual(
+  first.exported.blocks.map((block) => [
+    block.tier,
+    block.mode,
+    block.selectors,
+    block.media ?? null,
+  ]),
+  [
+    ["base", "mono-light", [":root"], null],
+    ["system", "mono-dark", [":root"], "(prefers-color-scheme: dark)"],
+    ["custom", "mono-light", ['[data-scheme="light"]'], null],
+    ["custom", "mono-dark", ['[data-scheme="dark"]'], null],
+    ["custom", "vivid-light", ['[data-palette="vivid"]'], null],
+    [
+      "custom",
+      "vivid-dark",
+      ['[data-palette="vivid"]:not([data-scheme="light"])'],
+      "(prefers-color-scheme: dark)",
+    ],
+    ["custom", "vivid-dark", ['[data-palette="vivid"][data-scheme="dark"]'], null],
+  ],
+  "activation block ordering",
+);
+
+// Every block is complete: a later matching block replaces every declaration of an earlier one.
 const expectedDeclarationOrder = [
   "action.primary.background",
   "action.primary.foreground",
@@ -163,83 +223,52 @@ const expectedDeclarationOrder = [
   "surface.canvas",
   "surface.default",
 ];
-assertDeepEqual(
-  first.exported.blocks.map((block) => block.mode),
-  expectedBlockModes,
-  "authored block ordering",
-);
 for (const block of first.exported.blocks) {
-  assertEqual(block.selector, exactModeSelectors[block.mode], "exact selector for " + block.mode);
   assertDeepEqual(
     block.declarations.map((declaration) => declaration.tokenKey),
     expectedDeclarationOrder,
-    "canonical declaration ordering for " + block.mode,
+    "complete canonical declarations for " + block.tier + " " + block.mode,
   );
+  for (const declaration of block.declarations) {
+    assertEqual(
+      declaration.value,
+      first.compiled.tokens[declaration.tokenKey][block.mode],
+      "declaration value for " + declaration.tokenKey + " in " + block.mode,
+    );
+  }
 }
 
-const monoLight = requiredBlock(first, "mono-light");
-const monoDark = requiredBlock(first, "mono-dark");
-const explicitLight = {
-  selector: ':root[data-scheme="light"]',
-  declarations: monoLight.declarations,
-};
-const fallbackDeclarations = monoDark.declarations;
-if (explicitLight.declarations !== monoLight.declarations) {
-  throw new Error("explicit light composition did not reuse canonical declarations");
-}
-if (fallbackDeclarations !== monoDark.declarations) {
-  throw new Error("fallback composition did not reuse canonical declarations");
-}
-
-const explicitLightCss = formatBlock(explicitLight.selector, explicitLight.declarations);
-const noScriptDarkCss = formatDarkFallback(fallbackDeclarations);
+// The exporter now emits the no-script system fallback itself.
 assertEqual(
-  explicitLightCss,
-  [
-    ':root[data-scheme="light"] {',
-    "  --app-action--primary--background: #1a1a1a;",
-    "  --app-action--primary--foreground: #ffffff;",
-    "  --app-content--muted: #5f6368;",
-    "  --app-content--primary: #111111;",
-    "  --app-focus--ring: currentColor;",
-    "  --app-renderer--field: currentColor;",
-    "  --app-renderer--signal: currentColor;",
-    "  --app-selection--background: #1a1a1a;",
-    "  --app-selection--foreground: #ffffff;",
-    "  --app-surface--canvas: #ffffff;",
-    "  --app-surface--default: #ffffff;",
-    "}",
-  ].join("\n"),
-  "explicit light selector formatting",
-);
-assertEqual(
-  noScriptDarkCss,
+  first.exported.css.split("\n\n")[1] ?? "",
   [
     "@media (prefers-color-scheme: dark) {",
-    "  :root:not([data-scheme]) {",
-    "    --app-action--primary--background: #f0f0f0;",
-    "    --app-action--primary--foreground: #111111;",
-    "    --app-content--muted: #a0a4aa;",
-    "    --app-content--primary: #f5f5f5;",
-    "    --app-focus--ring: currentColor;",
-    "    --app-renderer--field: currentColor;",
-    "    --app-renderer--signal: currentColor;",
-    "    --app-selection--background: #f0f0f0;",
-    "    --app-selection--foreground: #111111;",
-    "    --app-surface--canvas: #111111;",
-    "    --app-surface--default: #111111;",
+    "  :where(:root) {",
+    "    --app-action-primary-background: #f0f0f0;",
+    "    --app-action-primary-foreground: #111111;",
+    "    --app-content-muted: #a0a4aa;",
+    "    --app-content-primary: #f5f5f5;",
+    "    --app-focus-ring: currentColor;",
+    "    --app-renderer-field: currentColor;",
+    "    --app-renderer-signal: currentColor;",
+    "    --app-selection-background: #f0f0f0;",
+    "    --app-selection-foreground: #111111;",
+    "    --app-surface-canvas: #111111;",
+    "    --app-surface-default: #111111;",
     "  }",
     "}",
   ].join("\n"),
-  "no-script dark fallback formatting",
+  "system fallback formatting",
 );
+
+// Structured blocks describe the stylesheet completely: an application can re-emit them, for
+// example inside its own wrapper, without parsing the generated CSS.
+assertEqual(formatBlocks(first.exported.blocks), first.exported.css, "structured block reuse");
 
 assertEqual(first.serialized, second.serialized, "compiled serialization determinism");
 assertEqual(first.exported.css, second.exported.css, "CSS byte determinism");
 assertEqual(first.blockSnapshot, second.blockSnapshot, "structured block determinism");
 assertEqual(first.variableSnapshot, second.variableSnapshot, "variable mapping determinism");
-assertEqual(explicitLightCss, second.explicitLightCss, "explicit light composition determinism");
-assertEqual(noScriptDarkCss, second.noScriptDarkCss, "fallback composition determinism");
 
 // Complete private modes compose at the compiler boundary; internal sources resolve before
 // exact public selection removes them from the output.
@@ -309,23 +338,7 @@ function projectTheme() {
   const exactContract: CompiledScheme<PublicRoleKey, CompilerMode, true> = compiled;
   void exactContract;
 
-  const exported = expectOk(
-    exportCssVars(compiled, {
-      prefix: "app",
-      modeSelectors: {
-        strategy: "selectors",
-        selectors: exactModeSelectors,
-      },
-      format: "pretty",
-    }),
-    "export exact theme selectors",
-  );
-
-  const monoLight = exported.blocks.find((block) => block.mode === "mono-light");
-  const monoDark = exported.blocks.find((block) => block.mode === "mono-dark");
-  if (monoLight === undefined || monoDark === undefined) {
-    throw new Error("structured export omitted a required mono block");
-  }
+  const exported = expectOk(exportCssVars(compiled, activation), "export theme activation");
 
   return {
     compiled,
@@ -333,8 +346,6 @@ function projectTheme() {
     serialized: serializeCompiledScheme(compiled),
     blockSnapshot: JSON.stringify(exported.blocks),
     variableSnapshot: JSON.stringify(exported.variableByToken),
-    explicitLightCss: formatBlock(':root[data-scheme="light"]', monoLight.declarations),
-    noScriptDarkCss: formatDarkFallback(monoDark.declarations),
   };
 }
 
@@ -345,34 +356,22 @@ function coordinateKey(palette: PaletteId, scheme: ResolvedScheme): CoordinateKe
   return scheme === "light" ? "vivid:light" : "vivid:dark";
 }
 
-function requiredBlock(projection: ReturnType<typeof projectTheme>, mode: CompilerMode) {
-  const block = projection.exported.blocks.find((candidate) => candidate.mode === mode);
-  if (block === undefined) {
-    throw new Error("missing CSS block for mode: " + mode);
-  }
-  return block;
-}
-
-function formatBlock(selector: string, declarations: readonly CssVarDeclaration[]): string {
-  return [
-    selector + " {",
-    ...declarations.map(
-      (declaration) => "  " + declaration.property + ": " + declaration.value + ";",
-    ),
-    "}",
-  ].join("\n");
-}
-
-function formatDarkFallback(declarations: readonly CssVarDeclaration[]): string {
-  return [
-    "@media (prefers-color-scheme: dark) {",
-    "  :root:not([data-scheme]) {",
-    ...declarations.map(
-      (declaration) => "    " + declaration.property + ": " + declaration.value + ";",
-    ),
-    "  }",
-    "}",
-  ].join("\n");
+function formatBlocks(blocks: readonly CssVarBlock[]): string {
+  const rules = blocks.map((block) => {
+    const depth = block.media === undefined ? 0 : 1;
+    const rule = [
+      "  ".repeat(depth) + ":where(" + block.selectors.join(", ") + ") {",
+      ...block.declarations.map(
+        (declaration) =>
+          "  ".repeat(depth + 1) + declaration.property + ": " + declaration.value + ";",
+      ),
+      "  ".repeat(depth) + "}",
+    ];
+    return (block.media === undefined ? rule : ["@media " + block.media + " {", ...rule, "}"]).join(
+      "\n",
+    );
+  });
+  return rules.join("\n\n") + "\n";
 }
 
 function expectOk<Value>(

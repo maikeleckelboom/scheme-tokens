@@ -38,11 +38,10 @@ export type {
   TokenSelection,
 } from "./core/compiled-types";
 export type {
-  CssModeSelectors,
-  CssScope,
+  CssCondition,
   CssVarBlock,
   CssVarDeclaration,
   CssVarsExport,
   ExportCssVarsIssue,
   ExportCssVarsOptions,
-} from "./exporters/export-css-variables";
+} from "./exporters/css-types";
