@@ -36,7 +36,7 @@ Resolution is iterative and memoized by mode/key. Repeated siblings and diamond 
 
 `tokens[key][mode]` contains resolved strings. `metadataByToken[key]` contains effective visibility and a non-empty `declarations` array in composition order. Each declaration has `origin` and only explicitly authored `visibility`. The final declaration is the winner.
 
-Sparse `expressionByMode` retains `{ ref }` for a pure reference or canonical concat parts, with `{ ref, value }` for each concat reference part. Literal modes have no entry. Retained reference values are output data for future exporters, not provenance.
+Sparse `expressionByMode` retains `{ ref }` for a pure reference or canonical concat parts, with `{ ref, value }` for each concat reference part. Literal modes have no entry. Retained reference values supply CSS projection's per-part literal inlining; they are output data, not provenance. The compiled parser checks this structure without proving that retained expressions recompute to `tokens` or that edited references are acyclic.
 
 Selection is `public` by default, `all`, or an exact non-empty key set. Resolution sees all composed tokens and modes before selection. Public selection is complete when the static public union is finite and fully known, and partial otherwise. Exact literal key tuples are complete after validation; `all` is complete only for a finite composed key union; parsed and dynamic graphs stay partial. CSS token-to-variable lookups preserve that completeness.
 
@@ -52,13 +52,22 @@ Compilation and serialization preserve arbitrary strings. Material 3 still retur
 
 ## CSS activation
 
-`exportCssVars()` parses the compiled scheme, validates its options as untrusted plain data, plans activation blocks, derives variable names, checks each emitted value once, and formats the blocks:
+`exportCssVars()` parses the entire compiled scheme before validating its options as untrusted plain data, plans activation blocks, derives variable names once, projects and safety-checks one declaration list per emitted mode, and formats the blocks:
 
 ```text
-compiled scheme ─ options ─ activations ─┬─ names and collisions ─┐
-                                         └─ declaration values ──┴─ complete blocks ─ CSS
+compiled scheme ─ options ─ activations ─ names and collisions
+                                           │
+                   selected keys + sparse retained expressions
+                                           │
+                         projected declarations + safety ─ complete blocks ─ CSS
 ```
 
 Blocks come in tier order base, system, explicit, custom; within a tier in the scheme's authored mode order; within a mode in condition order. Each block declares every selected token in canonical key order and is emitted as `:where(<selectors>)`, optionally inside `@media`, all inside one optional `@layer`. Because every activation selector has zero specificity, source order alone decides between matching blocks, and application CSS competes through the ordinary cascade. Explicit markers are unanchored `data-*` attributes and cover the host as well when `root` is `:host`. The exporter emits custom properties only. Real-engine behaviour is proved by the Chromium, Firefox, and WebKit browser suite.
 
-Default names join the optional prefix and key segments with single hyphens (ADR 0012). The encoding is not injective, so every collision among emitted names fails. Option, name, and value failures are collected; each phase only runs when the data it needs parsed. `css-options.ts` owns option parsing; `selector-validation.ts` and `media-validation.ts` are bounded recursive-descent recognizers with length and nesting limits, and layer names reuse the identifier grammar. Values are opaque, and only declaration safety is checked. Resolved values are emitted today; the complete-block invariant is also what the optional `var()` output needs.
+Default names join the optional prefix and key segments with single hyphens (ADR 0012). The encoding is not injective, so every collision among emitted names fails. Option, name, and value failures are collected; each phase only runs when the data it needs parsed. `css-options.ts` owns option parsing; `selector-validation.ts` and `media-validation.ts` are bounded recursive-descent recognizers with length and nesting limits, and layer names reuse the identifier grammar.
+
+`references` defaults to `resolved`. In `var` output, only the selected key/mode's retained expression supplies links. A direct target must be in the scheme's own emitted key set, regardless of metadata visibility or naming success. Pure references to absent targets use their own resolved value; concat preserves literals and links each emitted target or inlines the part's retained value independently. No graph is reconstructed or resolved, no dependencies are added, no chain bypasses an omitted intermediate, and authored CSS strings remain opaque. Links reuse actual names, honoring prefix and callback results; the callback runs once per emitted key in canonical order. Naming failures still fail the export and permit independent value diagnostics using a fixed safe diagnostic-only name, never returned CSS.
+
+Projected declaration values have one authority: complete-string safety, `blocks[].declarations[].value`, and both formatters share the same values. Each emitted key/mode is checked once, regardless of activation count. Unused resolved values, unused retained fallbacks, and isolated concat fragments are not checked in `var` mode. Unsafe concat projection uses `/metadataByToken/<key>/expressionByMode/<mode>`; resolved or directly sourced token values retain `/tokens/<key>/<mode>`. Structural parsing still checks the whole artifact. Every emitted target has its own declaration checked.
+
+Complete alias declarations make nested mode blocks and same-element target overrides propagate locally, including unlayered overrides of layered tokens. Unmarked descendants inherit already-computed aliases, so overriding their target alone cannot update the alias. Concat remains deterministic string projection, not CSS interpretation: `calc(var(--spacing) * 2)` can stay live, `var(--number)px` with a target of `20` is not `20px`, and inserted `var()` inside quotes is literal text. Resolved output remains available for arbitrary character assembly.

@@ -9,7 +9,7 @@ Core does not know what a color is. Values are opaque strings.
 Generators such as [`@scheme-tokens/material3`](./packages/material3/README.md) plug in as normal
 token layers.
 
-This branch implements the core v2 candidate for the planned 0.4 release, its static TypeScript contract, and its CSS activation exporter. The manifests still carry released versions until the later versioning phase. The next Material API remains deferred.
+This branch implements the core v2 candidate for the planned 0.4 release, its static TypeScript contract, and its CSS activation exporter with optional variable references. The manifests still carry released versions until the later versioning phase. The next Material API remains deferred.
 
 ## Install
 
@@ -496,6 +496,40 @@ exported.value.variableByToken
 Default variable names join the optional prefix and the key segments with single hyphens. Keys
 such as `a-b.c` and `a.b-c` would share `--a-b-c`; every such collision among the exported tokens
 fails with both keys and the variable. `variableName` handles genuine naming exceptions.
+
+### Live references
+
+Resolved output is the default: omission, explicit `undefined`, and `references: "resolved"` keep the compiled strings and existing CSS unchanged. Use `references: "var"` to project retained explicit references:
+
+```ts
+import {
+  compileTokenGraph,
+  defineTokenGraph,
+  exportCssVars,
+  orThrow,
+  tokenConcat,
+  tokenRef,
+} from "scheme-tokens";
+
+const scheme = orThrow(
+  compileTokenGraph(
+    defineTokenGraph({
+      tokens: {
+        spacing: "20px",
+        gap: tokenRef("spacing"),
+        width: tokenConcat`calc(${tokenRef("spacing")} * 2)`,
+      },
+    }),
+  ),
+);
+const css = orThrow(exportCssVars(scheme, { references: "var", prefix: "app" })).css;
+```
+
+This emits `--app-gap: var(--app-spacing)` and `--app-width: calc(var(--app-spacing) * 2)`. A direct target links only when it is in the compiled scheme's emitted key set. Otherwise a pure reference inlines its own resolved value, and each concat reference part inlines its retained value. A selected internal target can link; an omitted public target cannot. References never bypass an omitted intermediate or add dependencies. Links reuse actual `prefix`/`variableName` results, built once per selected key in canonical order. Authored `var(...)` strings remain opaque.
+
+Every activation block redeclares all aliases, so target overrides on that element propagate, including unlayered application overrides when tokens use a cascade layer. An unmarked descendant's target override leaves its inherited alias unchanged. Core concat joins characters while CSS substitutes token streams: with a numeric target of `20`, `var(--number)px` is not `20px`, and inserted `var()` inside a quoted string remains literal text. Use resolved output for arbitrary string assembly.
+
+CSS safety checks the complete emitted declaration once per key/mode. Unsafe retained concat points to `/metadataByToken/<key>/expressionByMode/<mode>`; resolved or directly inlined token values retain `/tokens/<key>/<mode>`. Unused resolved values, unused fallbacks, and isolated fragments are not checked in `"var"` mode. Compiled parsing validates metadata structure without proving consistency with tokens or acyclicity of edited references. Invalid options and names remain collected failures. See the [CSS export guide](./docs-site/guide/export-css-variables.md#reference-output) for selection, propagation, concat, and safety details, including the existing HTML embedding boundary.
 
 ## Results
 

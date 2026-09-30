@@ -441,6 +441,12 @@ interface ExportCssVarsOptions<Key extends string = string, Mode extends string 
   /** Replace a default variable name; results pass the same safety and collision checks. */
   readonly variableName?: (input: CssVariableNameInput<Key>) => string;
   readonly format?: "pretty" | "compact";
+  /**
+   * Resolved values by default. `var` links retained references to emitted direct targets using
+   * their actual variable names; other targets are inlined. Concat is projected verbatim, so
+   * CSS token-stream substitution need not match core string concatenation.
+   */
+  readonly references?: "resolved" | "var";
   /** Element that receives the default mode and system conditions. Defaults to `:root`. */
   readonly root?: string;
   /**
@@ -459,6 +465,7 @@ type CssActivationTier = "base" | "system" | "explicit" | "custom";
 interface CssVarDeclaration<Key extends string = string> {
   readonly tokenKey: Key;
   readonly property: string;
+  /** The complete, safety-checked value inserted into CSS in either format. */
   readonly value: string;
 }
 /**
@@ -500,6 +507,9 @@ type ExportedCssVars<Scheme extends AnyCompiledScheme$1> = Result<CssVarsExport<
  * base, system, explicit, custom; within a tier, the scheme's authored mode order; within one
  * mode, the order of its conditions. Every activation selector is wrapped in `:where()`, so the
  * later matching block wins and application CSS competes through the ordinary cascade.
+ * Resolved values are the default; `references: "var"` links retained direct references only
+ * to targets in this scheme's emitted key set. Every block redeclares every token, including
+ * aliases, so target overrides at activation elements propagate through the local references.
  */
 declare function exportCssVars<const Scheme extends AnyCompiledScheme$1>(scheme: Scheme, options?: ExportCssVarsOptionsFor<Scheme>): ExportedCssVars<Scheme>;
 declare function serializeTokenGraph(graph: TokenGraph): string;

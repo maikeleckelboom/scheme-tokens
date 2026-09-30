@@ -20,6 +20,7 @@ export interface ParsedCssOptions {
   readonly prefix?: string;
   readonly variableName?: (input: CssVariableNameInput) => unknown;
   readonly compact: boolean;
+  readonly references: "resolved" | "var";
   readonly root: string;
   /** The explicit-tier attribute, or `undefined` when no explicit markers are generated. */
   readonly attribute?: string;
@@ -60,6 +61,7 @@ export function parseCssOptions(
   let prefix: string | undefined;
   let variableName: ((input: CssVariableNameInput) => unknown) | undefined;
   let compact = false;
+  let references: "resolved" | "var" = "resolved";
   let root = DEFAULT_ROOT;
   let attribute: string | false | undefined;
   let system: ReadonlyMap<string, string> = new Map();
@@ -91,6 +93,9 @@ export function parseCssOptions(
       case "prefix":
         prefix = parsePrefix(value, collector);
         break;
+      case "references":
+        references = parseReferences(value, collector);
+        break;
       case "root":
         root = parseRoot(value, collector);
         break;
@@ -110,6 +115,7 @@ export function parseCssOptions(
     ...(prefix === undefined ? {} : { prefix }),
     ...(variableName === undefined ? {} : { variableName }),
     compact,
+    references,
     root,
     ...resolveAttribute(attribute, scheme.modes.length),
     system,
@@ -123,6 +129,7 @@ const OPTION_NAMES = new Set([
   "cascadeLayer",
   "format",
   "prefix",
+  "references",
   "root",
   "selectors",
   "system",
@@ -184,6 +191,18 @@ function parseFormat(value: unknown, collector: Collector): boolean {
     option: "format",
   });
   return false;
+}
+
+function parseReferences(value: unknown, collector: Collector): "resolved" | "var" {
+  if (value === "resolved" || value === "var") {
+    return value;
+  }
+  collector.add({
+    code: "invalid-css-options",
+    message: `references must be "resolved" or "var", received ${describeUnknown(value)}.`,
+    option: "references",
+  });
+  return "resolved";
 }
 
 function parseRoot(value: unknown, collector: Collector): string {

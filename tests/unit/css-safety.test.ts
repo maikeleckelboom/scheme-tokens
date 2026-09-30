@@ -255,6 +255,11 @@ describe("declaration value safety", () => {
         },
       ],
     });
+    expect(
+      exportCssVars(orThrow(compileTokenGraph(defineTokenGraph({ tokens: { unsafe: value } }))), {
+        references: "resolved",
+      }),
+    ).toEqual(exported);
   });
 
   test.each([

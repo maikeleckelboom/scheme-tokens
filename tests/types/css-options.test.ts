@@ -1,4 +1,4 @@
-// The D7 activation options and block shape, checked against the compiled mode union.
+// The D7 activation/D8 reference options and block shape preserve keys, modes, and completeness.
 import {
   compileTokenGraph,
   defineTokenGraph,
@@ -44,9 +44,13 @@ orThrow(
     },
     cascadeLayer: "tokens",
     format: "compact",
+    references: "var",
   }),
 );
 exportCssVars(scheme, { attribute: false, root: ":host" });
+exportCssVars(scheme, { references: "resolved" });
+// @ts-expect-error reference projection accepts only the two documented output semantics.
+exportCssVars(scheme, { references: "linked" });
 
 const conditions = [
   { selector: ".dark" },
@@ -91,11 +95,59 @@ exportCssVars(scheme, { modeSelectors: { strategy: "class", classPrefix: "theme-
 // A dynamically parsed scheme has unknown modes, so any mode key is left to runtime validation.
 const parsed = parseCompiledScheme({});
 if (parsed.ok) {
-  exportCssVars(parsed.value, { system: { anything: "print" }, selectors: { other: ".x" } });
+  const partial = orThrow(
+    exportCssVars(parsed.value, {
+      references: "var",
+      system: { anything: "print" },
+      selectors: { other: ".x" },
+    }),
+  );
+  const variable: string | undefined = partial.variableByToken.anything;
+  // @ts-expect-error a parsed record stays incomplete even with reference projection.
+  partial.variableByToken.anything.toUpperCase();
+  void variable;
 }
 
 // Blocks carry structured activation metadata and keep the compiled completeness.
 const exported = orThrow(exportCssVars(scheme));
+const linked = orThrow(
+  exportCssVars(scheme, {
+    references: "var",
+    variableName({ tokenKey, defaultName }) {
+      const key: "background" = tokenKey;
+      void key;
+      return defaultName;
+    },
+  }),
+);
+const resolved = orThrow(exportCssVars(scheme, { references: "resolved" }));
+export type LinkedKeepsInference = Expect<Equal<typeof linked, typeof exported>>;
+export type ResolvedKeepsInference = Expect<Equal<typeof resolved, typeof exported>>;
+linked.variableByToken.background.toUpperCase();
+const exact = orThrow(
+  compileTokenGraph(defineTokenGraph({ tokens: { a: "1px", b: "2px" } }), {
+    selection: { keys: ["a"] },
+  }),
+);
+const exactExport = orThrow(exportCssVars(exact, { references: "var" }));
+export type ExactKeysStayComplete = Expect<
+  Equal<typeof exactExport, CssVarsExport<"a", "base", true>>
+>;
+exactExport.variableByToken.a.toUpperCase();
+// @ts-expect-error projection does not add omitted dependencies to the key set.
+void exactExport.variableByToken.b;
+const runtimeKeys: readonly ("a" | "b")[] = ["a"];
+const runtimeSelection = orThrow(
+  compileTokenGraph(defineTokenGraph({ tokens: { a: "1px", b: "2px" } }), {
+    selection: { keys: runtimeKeys },
+  }),
+);
+const runtimeExport = orThrow(exportCssVars(runtimeSelection, { references: "var" }));
+export type RuntimeKeysStayPartial = Expect<
+  Equal<typeof runtimeExport, CssVarsExport<"a" | "b", "base", false>>
+>;
+// @ts-expect-error runtime key arrays do not prove which variables exist.
+runtimeExport.variableByToken.a.toUpperCase();
 type Block = (typeof exported.blocks)[number];
 export type ExportKeepsCompleteness = Expect<
   Equal<typeof exported, CssVarsExport<"background", Mode, true>>

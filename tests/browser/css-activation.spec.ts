@@ -438,3 +438,161 @@ test("color-scheme follows its token only where application CSS binds it", async
   await render(page, { tokens, after: ":where(*) { color-scheme: var(--color-scheme); }", body });
   expect(await read(page, ids, "color-scheme")).toEqual(["light", "dark", "dark", "dark", "dark"]);
 });
+
+// D8: aliases sort before their targets; the concat links its public part and inlines its
+// internal part under ordinary public selection. Every standalone target is declaration-safe.
+function referenceCss(options: SchemeTokens.ExportCssVarsOptions<string, Mode> = {}): string {
+  const graph = api.defineTokenGraph({
+    modes: ["light", "dark"],
+    defaultMode: "light",
+    tokens: {
+      "a.alias": api.tokenRef("b.alias"),
+      "b.alias": api.tokenRef("z.spacing"),
+      "z.spacing": { light: "10px", dark: "20px" },
+      private: { value: { light: "3px", dark: "5px" }, visibility: "internal" },
+      width: api.tokenConcat`calc(${api.tokenRef("b.alias")} + ${api.tokenRef("private")})`,
+    },
+  });
+  return api.orThrow(
+    api.exportCssVars(api.orThrow(api.compileTokenGraph(graph)), {
+      ...options,
+      references: "var",
+    }),
+  ).css;
+}
+
+test("reference chains and mixed concat follow nested light/dark/light activation", async ({
+  page,
+}) => {
+  const tokens = referenceCss();
+  expect(tokens.indexOf("--a-alias:")).toBeLessThan(tokens.indexOf("--b-alias:"));
+  expect(tokens.indexOf("--b-alias:")).toBeLessThan(tokens.indexOf("--z-spacing:"));
+  const body = island("dark", "light");
+  const ids = ["root", "section", "plain", "island", "deep"];
+  await render(page, {
+    tokens,
+    body,
+    after:
+      "#section, #plain, #island, #deep { width: var(--a-alias); padding-left: var(--width); }",
+  });
+  for (const property of ["--a-alias", "--b-alias"]) {
+    expect(await read(page, ids, property)).toEqual(["10px", "20px", "20px", "10px", "10px"]);
+  }
+  expect(await read(page, ids.slice(1), "width")).toEqual(["20px", "20px", "10px", "10px"]);
+  expect(await read(page, ids.slice(1), "padding-left")).toEqual(["25px", "25px", "13px", "13px"]);
+});
+
+test("unlayered target overrides propagate locally through chains and concat, regardless of stylesheet order", async ({
+  page,
+}) => {
+  const tokens = referenceCss({ cascadeLayer: "tokens" });
+  const body =
+    '<section id="active" class="app probe" data-theme="dark"><p id="child" class="probe"></p></section>';
+  const application =
+    ":where(.app) { --z-spacing: 30px; --private: 1000px; } .probe { width: var(--a-alias); padding-left: var(--width); }";
+  for (const placement of ["before", "after"] as const) {
+    await render(page, { tokens, body, [placement]: application });
+    expect(await read(page, ["active", "child"], "--z-spacing"), placement).toEqual([
+      "30px",
+      "30px",
+    ]);
+    expect(await read(page, ["active", "child"], "width"), placement).toEqual(["30px", "30px"]);
+    // The linked part follows the override, while the omitted private part stays at dark's 5px.
+    expect(await read(page, ["active", "child"], "padding-left"), placement).toEqual([
+      "35px",
+      "35px",
+    ]);
+    expect(await read(page, ["active", "child"], "--private"), placement).toEqual([
+      "1000px",
+      "1000px",
+    ]);
+  }
+});
+
+test("an unmarked descendant target override leaves inherited aliases and concat computed at their declaration element", async ({
+  page,
+}) => {
+  await render(page, {
+    tokens: referenceCss(),
+    body: '<section data-theme="dark"><div id="local" style="--z-spacing: 40px"><p id="child"></p></div></section>',
+    after: "#local, #child { width: var(--a-alias); padding-left: var(--width); }",
+  });
+  expect(await read(page, ["local", "child"], "--z-spacing")).toEqual(["40px", "40px"]);
+  expect(await read(page, ["local", "child"], "width")).toEqual(["20px", "20px"]);
+  expect(await read(page, ["local", "child"], "padding-left")).toEqual(["25px", "25px"]);
+});
+
+test("var references compute at a shadow host and at nested shadow activation elements", async ({
+  page,
+}) => {
+  const tokens = referenceCss({ root: ":host", cascadeLayer: "tokens" });
+  await render(page, { tokens: "", body: '<div id="host" data-theme="dark"></div>' });
+  const computed = await page.evaluate((css) => {
+    const host = document.getElementById("host");
+    if (host === null) {
+      throw new Error("missing #host");
+    }
+    const shadow = host.attachShadow({ mode: "open" });
+    shadow.innerHTML =
+      '<p id="inner"></p><section id="light" data-theme="light"><div id="dark" data-theme="dark"></div></section>';
+    const style = document.createElement("style");
+    style.textContent =
+      css +
+      ":host, p, section, div { width: var(--a-alias); padding-left: var(--width); } #light { --z-spacing: 15px; }";
+    shadow.prepend(style);
+    return [
+      host,
+      ...["inner", "light", "dark"].map((id) => {
+        const element = shadow.getElementById(id);
+        if (element === null) {
+          throw new Error(`missing #${id}`);
+        }
+        return element;
+      }),
+    ].map((element) => {
+      const style = getComputedStyle(element);
+      return [style.getPropertyValue("--a-alias").trim(), style.width, style.paddingLeft];
+    });
+  }, tokens);
+  expect(computed).toEqual([
+    ["20px", "20px", "25px"],
+    ["20px", "20px", "25px"],
+    ["15px", "15px", "18px"],
+    ["20px", "20px", "25px"],
+  ]);
+});
+
+test("var concat substitutes CSS tokens rather than assembling dimensions or quoted strings", async ({
+  page,
+}) => {
+  const scheme = api.orThrow(
+    api.compileTokenGraph(
+      api.defineTokenGraph({
+        tokens: {
+          number: "20",
+          dimension: api.tokenConcat`${api.tokenRef("number")}px`,
+          quoted: api.tokenConcat`"${api.tokenRef("number")}"`,
+        },
+      }),
+    ),
+  );
+  const body = '<p id="probe"></p>';
+  const application =
+    "#probe { padding-left: var(--dimension); } #probe::before { content: var(--quoted); }";
+  const content = () =>
+    page.locator("#probe").evaluate((element) => getComputedStyle(element, "::before").content);
+  await render(page, {
+    tokens: api.orThrow(api.exportCssVars(scheme)).css,
+    body,
+    after: application,
+  });
+  expect(await read(page, ["probe"], "padding-left")).toEqual(["20px"]);
+  expect(await content()).toBe('"20"');
+  await render(page, {
+    tokens: api.orThrow(api.exportCssVars(scheme, { references: "var" })).css,
+    body,
+    after: application,
+  });
+  expect(await read(page, ["probe"], "padding-left")).toEqual(["0px"]);
+  expect(await content()).toBe('"var(--number)"');
+});

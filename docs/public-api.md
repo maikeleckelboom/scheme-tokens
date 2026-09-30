@@ -205,6 +205,8 @@ Compiled values remain `tokens[key][mode]`. Metadata contains effective `visibil
 
 `exportCssVars()` returns CSS, structured blocks, and the generated property for each token.
 
+Options are `prefix`, `variableName`, `format` (`pretty` or `compact`), `references` (`resolved` or `var`), `root`, `attribute`, `system`, `selectors`, and `cascadeLayer`.
+
 ```ts
 import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
 
@@ -229,6 +231,16 @@ cssVars.variableByToken.background.toUpperCase();
 
 `variableByToken` mirrors the compiled record: complete for a finite, fully known public selection, a finite `all` selection, or an exact literal tuple, and partial for dynamic or uncertain selections and for `parseCompiledScheme()` output.
 
+### Reference projection
+
+Omission, explicit `undefined`, and `references: "resolved"` preserve resolved output exactly. `references: "var"` uses only the emitted token/mode's sparse `metadataByToken[key].expressionByMode[mode]`. Without an expression the resolved string is unchanged. A pure reference links its direct target as `var(<actual name>)` when that target is in the compiled scheme's own token key set; otherwise it inlines the referencing token's own resolved mode value. Concat preserves literal parts and their order, linking each emitted direct target independently or inlining the part's retained `value`, with no added separators or `var()` fallback argument.
+
+Actual emitted membership governs links, independently of visibility: an internal target in `all` or exact selection links; an omitted public target is inlined. D8's internal/public example describes ordinary public selection. The exporter adds no dependencies and has no selection option. A → B → C with B omitted inlines A instead of bypassing B. Authored `var(...)` strings stay opaque; no compiler reference is inferred from CSS syntax. Names are built once, in canonical code-unit token order, and links reuse `variableByToken[target]`, honoring `prefix` and `variableName`. Omitted targets never invoke the callback. A naming failure or collision fails export rather than changing an eligible link to literal output.
+
+Every block redeclares every alias, even when its projected text is identical across modes. A target override on a declaration/activation element propagates through its local aliases, including a same-element unlayered override when tokens are in a cascade layer, in either stylesheet order. An unmarked descendant's target override does not update an inherited alias, because custom properties inherit already-computed values. Declaration order remains canonical rather than topological.
+
+Core concat joins characters, while CSS `var()` substitutes token streams. `calc(var(--spacing) * 2)` can stay live when consumed as width or padding, but with a numeric target of `20`, `var(--number)px` is not `20px`. Inserted `var()` text inside a quoted CSS string remains literal text: `"20"` becomes `"var(--number)"`. Resolved output supports arbitrary string assembly; projection never repairs quoting, infers separators, rewrites `calc()`, or inlines based on CSS context. See the [CSS export guide](../docs-site/guide/export-css-variables.md#reference-output) for an executable example and browser-proved propagation limits.
+
 ### Activation
 
 A block holds one mode's declarations under one condition. Blocks are emitted in four tiers:
@@ -252,7 +264,7 @@ Application rules follow the normal cascade. Origin, importance, and cascade lay
 
 The exporter emits custom properties only. A mode-level value such as `color-scheme` is a token that application CSS binds. `color-scheme` inherits as a computed value, so a binding on `:root` alone leaves a nested differently themed section with the root's scheme. Bind it wherever a mode can activate, with `:root, [data-theme] { color-scheme: var(--color-scheme); }`, or with `:where(*)` when custom conditions activate modes.
 
-Each block reports `tier`, `mode`, `selectors`, optional `media`, and `declarations` of `{ tokenKey, property, value }`. Its CSS rule is `:where(<selectors joined by ", ">)`, inside `@media <media>` when present, so an application can re-emit blocks without parsing the generated CSS.
+Each block reports `tier`, `mode`, `selectors`, optional `media`, and `declarations` of `{ tokenKey, property, value }`. The declaration `value` is the exact complete, safety-checked value inserted into either CSS format. Its rule is `:where(<selectors joined by ", ">)`, inside `@media <media>` when present. Blocks preserve declaration fidelity, but do not independently encode formatting or the `cascadeLayer` wrapper.
 
 ### Names and grammar
 
@@ -269,6 +281,10 @@ Input outside a grammar returns a structured issue; it is never sanitized.
 See [Application Theme Coordinates](./application-theme-coordinates.md) for combining independent application axes into private compiler modes and activating them with a system fallback and ordered custom conditions. See [Tailwind CSS v4](./tailwind-css-v4.md) for bridging runtime variables into Tailwind color utilities.
 
 Compilation and serialization accept arbitrary token strings. CSS export is stricter because it emits declarations: a declaration-unsafe string fails with `invalid-css-value` instead of being written. Each emitted value is checked once, however many blocks declare it. This is an output-safety check, not token-domain interpretation. Option, name, and value failures are all collected rather than reported one at a time.
+
+The complete artifact is structurally parsed before options. Compiled parsing validates retained-expression structure, not agreement with resolved tokens or acyclicity of edited retained references. Projection does not recompile it. For valid options, safety checks use the complete projected declaration, only in modes with emitted activation blocks. In `"var"` mode, unused resolved alias/concat values and unused retained fallbacks are not checked. Literal and fallback fragments are not checked separately: `"calc("` and `")"` can be safe within a complete value. Every emitted target has its own declaration checked, and naming failures do not stop independent value checks or create value issues by inserting invalid names.
+
+`invalid-css-value` retains `/tokens/<key>/<mode>` for resolved output and projected values taken directly from that field. An unsafe retained concat projection points to `/metadataByToken/<key>/expressionByMode/<mode>`, with `key` and `mode`. Invalid `references` values use `invalid-css-options` with `option: "references"`, collected alongside independent option failures.
 
 CSS safety checks protect CSS syntax and declaration boundaries. The returned CSS string is not HTML-escaped: even a quoted CSS string containing `</style>` can terminate a style element when interpolated into HTML source. If generated CSS can contain untrusted strings, do not interpolate it into HTML markup; assign stylesheet text through the DOM, for example with a style element's `textContent`. These checks do not sanitize valid CSS semantics.
 

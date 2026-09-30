@@ -54,19 +54,25 @@ Compilation adds selection issues such as `empty-selection`, `duplicate-selectio
 
 `exportCssVars()` first returns the compiled-scheme parser's issues unchanged. Otherwise it collects every option failure, in code-unit order of the option name and then of the mode. When the options are valid, it collects every variable-name failure in canonical token-key order, then every unsafe value in token-key and authored mode order, and returns them together.
 
-| Code                       | Cause and structured context                                                                                                       |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `invalid-css-options`      | Options, `system`, or `selectors` are not plain data; an unknown option; an invalid `format` or `variableName`. `option` names it. |
-| `invalid-css-prefix`       | `prefix` is not a lower-kebab single segment.                                                                                      |
-| `invalid-root`             | `root` is outside the bounded selector grammar; `selector` when it is a string.                                                    |
-| `invalid-attribute`        | `attribute` is neither `false` nor a lower-kebab `data-*` name.                                                                    |
-| `invalid-cascade-layer`    | `cascadeLayer` is outside the bounded layer-name grammar.                                                                          |
-| `unknown-condition-mode`   | `system` (`tier: "system"`) or `selectors` (`tier: "custom"`) names a mode the scheme does not have; `mode`.                       |
-| `invalid-media`            | A system or custom media condition is outside the bounded media grammar; `tier`, `mode`, `index` for a list, `media` if a string.  |
-| `invalid-selector`         | A custom selector is outside the bounded selector grammar; `tier`, `mode`, `index` for a list, `selector` if a string.             |
-| `invalid-custom-condition` | A custom entry is not a selector or a non-empty list of `{ selector, media? }` objects; `tier`, `mode`, and `index`.               |
-| `invalid-css-variable`     | `variableName` threw or returned an unsafe name; `key`, and `property` when the result was a string.                               |
-| `duplicate-css-variable`   | Two exported tokens share a variable; `firstKey` is first in code-unit order, `key` is the later key, `property` the variable.     |
-| `invalid-css-value`        | An emitted value could escape its declaration; `key`, `mode`, and `path` into the compiled scheme. Reported once per value.        |
+| Code                       | Cause and structured context                                                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `invalid-css-options`      | Options, `system`, or `selectors` are not plain data; an unknown option; an invalid `format`, `references`, or `variableName`. `option` names it. |
+| `invalid-css-prefix`       | `prefix` is not a lower-kebab single segment.                                                                                                     |
+| `invalid-root`             | `root` is outside the bounded selector grammar; `selector` when it is a string.                                                                   |
+| `invalid-attribute`        | `attribute` is neither `false` nor a lower-kebab `data-*` name.                                                                                   |
+| `invalid-cascade-layer`    | `cascadeLayer` is outside the bounded layer-name grammar.                                                                                         |
+| `unknown-condition-mode`   | `system` (`tier: "system"`) or `selectors` (`tier: "custom"`) names a mode the scheme does not have; `mode`.                                      |
+| `invalid-media`            | A system or custom media condition is outside the bounded media grammar; `tier`, `mode`, `index` for a list, `media` if a string.                 |
+| `invalid-selector`         | A custom selector is outside the bounded selector grammar; `tier`, `mode`, `index` for a list, `selector` if a string.                            |
+| `invalid-custom-condition` | A custom entry is not a selector or a non-empty list of `{ selector, media? }` objects; `tier`, `mode`, and `index`.                              |
+| `invalid-css-variable`     | `variableName` threw or returned an unsafe name; `key`, and `property` when the result was a string.                                              |
+| `duplicate-css-variable`   | Two exported tokens share a variable; `firstKey` is first in code-unit order, `key` is the later key, `property` the variable.                    |
+| `invalid-css-value`        | An emitted value could escape its declaration; `key`, `mode`, and `path` into the compiled scheme. Reported once per value.                       |
 
-Callback failures are contained. Only emitted names can collide, and only emitted values are checked, so internal tokens and modes without any block never fail an export. CSS safety checks do not interpret token domains or restrict source serialization.
+Callback failures are contained. Only emitted names can collide, and only complete emitted declaration values are safety-checked, once per key/mode. Omitted tokens and modes without any block do not undergo CSS safety checks; selected internal tokens do. Structural parsing still covers the entire artifact.
+
+Omitted, explicit `undefined`, and `"resolved"` reference output preserve `invalid-css-value` paths at `/tokens/<key>/<mode>`. In `"var"` output, values taken directly from that field, including a pure reference's literal inlining for an omitted target, keep that path. Unsafe retained concat instead points to its complete expression at `/metadataByToken/<key>/expressionByMode/<mode>`, with `key` and `mode`. A fragment is not blamed for being incomplete on its own: balanced `"calc("`, a projected reference, and `")"` are checked together. Unused resolved alias/concat values and unused retained fallback strings are not checked. An emitted target's standalone declaration still is.
+
+Invalid `references` values use `invalid-css-options` with `option: "references"` and collect with independent option failures. Naming failures and collisions do not stop independently discoverable projected-value failures or silently force literal inlining; unsafe names are not inserted into diagnostic values. Any naming issue prevents returned CSS.
+
+The compiled parser validates retained-expression structure, not consistency with resolved tokens or acyclicity of edited references. Benign resolved values therefore do not exempt unsafe retained concat from projection safety checks. CSS safety does not interpret token domains, validate arbitrary CSS semantics, restrict source serialization, or HTML-escape returned CSS. Use DOM stylesheet-text assignment for untrusted strings containing `</style>`; the public API reference details this boundary.

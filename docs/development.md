@@ -28,7 +28,7 @@ The CSS activation order promises computed-style behaviour, which unit tests can
 `pnpm test:browsers` builds the package and runs `tests/browser` with Playwright in Chromium,
 Firefox, and WebKit: tier order, system preferences, explicit and nested markers, custom
 conditions, application cascade and cascade-layer precedence, shadow roots with `:where(:host)`,
-and `color-scheme` binding. The suite loads the built `dist/` exporter, not workspace source.
+and `color-scheme` binding. P4a additionally covers nested live reference chains, aliases before targets, mixed concat linking/inlining, same-element unlayered target overrides in both stylesheet orders, inherited aliases on unmarked descendants, and Shadow DOM reference activation. Ordinary width/padding and generated content record CSS token-stream concat behavior, including dimensional and quoted-string limits. The suite loads the built `dist/` exporter, not workspace source.
 It is separate from `pnpm release:check` because it needs browser binaries; CI runs it as the
 blocking `CSS browser contract` job. Install the engines once per Playwright version:
 

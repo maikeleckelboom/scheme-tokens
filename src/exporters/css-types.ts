@@ -20,6 +20,12 @@ export interface ExportCssVarsOptions<Key extends string = string, Mode extends 
   /** Replace a default variable name; results pass the same safety and collision checks. */
   readonly variableName?: (input: CssVariableNameInput<Key>) => string;
   readonly format?: "pretty" | "compact";
+  /**
+   * Resolved values by default. `var` links retained references to emitted direct targets using
+   * their actual variable names; other targets are inlined. Concat is projected verbatim, so
+   * CSS token-stream substitution need not match core string concatenation.
+   */
+  readonly references?: "resolved" | "var";
   /** Element that receives the default mode and system conditions. Defaults to `:root`. */
   readonly root?: string;
   /**
@@ -42,6 +48,7 @@ export type CssActivationTier = "base" | "system" | "explicit" | "custom";
 export interface CssVarDeclaration<Key extends string = string> {
   readonly tokenKey: Key;
   readonly property: string;
+  /** The complete, safety-checked value inserted into CSS in either format. */
   readonly value: string;
 }
 

@@ -10,6 +10,30 @@ import {
 } from "../../src";
 
 describe("CSS activation blocks", () => {
+  test.each(["pretty", "compact"] as const)(
+    "explicit resolved output preserves the P4 %s activation fixture exactly",
+    (format) => {
+      const scheme = threeModeScheme();
+      const options = {
+        format,
+        prefix: "app",
+        root: ":host",
+        cascadeLayer: "tokens",
+        system: { dark: "(prefers-color-scheme: dark)", sepia: "print" },
+        selectors: {
+          light: ".light",
+          dark: [{ selector: ".dark", media: "screen" }, { selector: ".night" }],
+        },
+      } as const;
+      expect(exportCssVars(scheme, { ...options, references: "resolved" })).toEqual(
+        exportCssVars(scheme, options),
+      );
+      expect(exportCssVars(scheme, { ...options, references: undefined } as never)).toEqual(
+        exportCssVars(scheme, options),
+      );
+    },
+  );
+
   test("a one-mode scheme emits only the base block by default", () => {
     const exported = orThrow(exportCssVars(singleModeScheme()));
 
@@ -352,6 +376,7 @@ describe("CSS activation options", () => {
     expect(
       exportCssVars(lightDarkScheme(), {
         prefix: undefined,
+        references: undefined,
         root: undefined,
         attribute: undefined,
         system: { dark: undefined },
@@ -386,6 +411,7 @@ describe("CSS activation options", () => {
       selectors: { light: ".ok", dark: ".a{", sepia: ".s" },
       root: ":root > ",
       prefix: "App",
+      references: "linked",
       format: "minified",
       cascadeLayer: "revert",
       attribute: "theme",
@@ -399,6 +425,7 @@ describe("CSS activation options", () => {
         expect.objectContaining({ code: "invalid-cascade-layer" }),
         expect.objectContaining({ code: "invalid-css-options", option: "format" }),
         expect.objectContaining({ code: "invalid-css-prefix" }),
+        expect.objectContaining({ code: "invalid-css-options", option: "references" }),
         expect.objectContaining({ code: "invalid-root", selector: ":root > " }),
         expect.objectContaining({
           code: "invalid-selector",
@@ -451,6 +478,18 @@ describe("CSS activation options", () => {
     });
     expect(reads).toBe(0);
   });
+
+  test.each([null, 42, true, {}, "linked"])(
+    "an invalid references option %j uses the existing option diagnostic",
+    (references) => {
+      expect(exportCssVars(singleModeScheme(), { references } as never)).toEqual({
+        ok: false,
+        issues: [
+          { code: "invalid-css-options", option: "references", message: expect.any(String) },
+        ],
+      });
+    },
+  );
 
   test("custom condition shapes are validated per mode and per condition index", () => {
     const result = exportCssVars(threeModeScheme(), {

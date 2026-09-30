@@ -1,5 +1,5 @@
-import type { CompiledScheme } from "../core/compiled-types";
-import { compareCodeUnits, escapePointerSegment } from "../core/json";
+import type { CompiledExpression, CompiledScheme } from "../core/compiled-types";
+import { compareCodeUnits, pointer } from "../core/json";
 import { parseCompiledScheme } from "../core/parse-compiled-scheme";
 import { IssueCollector, type Result } from "../core/result";
 import { describeUnknown } from "../core/unknown-description";
@@ -35,6 +35,9 @@ type ExportedCssVars<Scheme extends AnyCompiledScheme> = Result<
  * base, system, explicit, custom; within a tier, the scheme's authored mode order; within one
  * mode, the order of its conditions. Every activation selector is wrapped in `:where()`, so the
  * later matching block wins and application CSS competes through the ordinary cascade.
+ * Resolved values are the default; `references: "var"` links retained direct references only
+ * to targets in this scheme's emitted key set. Every block redeclares every token, including
+ * aliases, so target overrides at activation elements propagate through the local references.
  */
 export function exportCssVars<const Scheme extends AnyCompiledScheme>(
   scheme: Scheme,
@@ -61,25 +64,22 @@ export function exportCssVars(
     activations.some((activation) => activation.mode === mode),
   );
 
-  // Names and values are independent, so both are checked before either can fail the export.
+  // Build names once. Naming issues must not hide independently unsafe projected values.
   const collector = new IssueCollector<ExportCssVarsIssue>();
   const variableByToken = buildVariableNames(tokenKeys, parsedOptions.value, collector);
-  checkDeclarationValues(compiled, tokenKeys, emittedModes, collector);
+  const declarationsByMode = projectDeclarations(
+    compiled,
+    tokenKeys,
+    emittedModes,
+    variableByToken,
+    parsedOptions.value,
+    collector,
+  );
   const issues = collector.issues();
   if (issues !== undefined) {
     return { ok: false, issues };
   }
 
-  const declarationsByMode = new Map<string, readonly CssVarDeclaration[]>(
-    emittedModes.map((mode) => [
-      mode,
-      tokenKeys.map((tokenKey) => ({
-        tokenKey,
-        property: variableByToken[tokenKey] as string,
-        value: compiled.tokens[tokenKey]?.[mode] as string,
-      })),
-    ]),
-  );
   const blocks: CssVarBlock[] = activations.map((activation) => ({
     tier: activation.tier,
     mode: activation.mode,
@@ -220,34 +220,97 @@ function variableNameFor(
   return undefined;
 }
 
-// Each emitted token value is checked once, however many blocks declare it.
-function checkDeclarationValues(
+// This safe name is used only while collecting diagnostics after a naming failure. It cannot
+// be returned: every absent name already has an issue, and the caller checks issues before
+// constructing blocks or formatting CSS. Selection membership is always checked separately.
+const FAILED_VARIABLE_NAME = "--scheme-tokens-invalid-name";
+
+function nameForDiagnostics(
+  key: string,
+  variableByToken: Readonly<Record<string, string>>,
+): string {
+  return Object.hasOwn(variableByToken, key)
+    ? (variableByToken[key] as string)
+    : FAILED_VARIABLE_NAME;
+}
+
+// Project and check each emitted key/mode once, however many activation blocks declare it.
+function projectDeclarations(
   scheme: AnyCompiledScheme,
   tokenKeys: readonly string[],
   modes: readonly string[],
+  variableByToken: Readonly<Record<string, string>>,
+  options: ParsedCssOptions,
   collector: IssueCollector<ExportCssVarsIssue>,
-): void {
+): ReadonlyMap<string, readonly CssVarDeclaration[]> {
+  const emittedKeys = new Set(tokenKeys);
+  const declarationsByMode = new Map<string, CssVarDeclaration[]>(modes.map((mode) => [mode, []]));
   for (const key of tokenKeys) {
     for (const mode of modes) {
-      const path = `/tokens/${escapePointerSegment(key)}/${escapePointerSegment(mode)}`;
-      const value = scheme.tokens[key]?.[mode];
-      if (value === undefined) {
+      const tokenPath = pointer("tokens", key, mode);
+      const resolved = scheme.tokens[key]?.[mode];
+      if (resolved === undefined) {
         collector.add({
           code: "invalid-object",
           message: "Compiled scheme is missing a parsed token value.",
-          path,
+          path: tokenPath,
         });
-      } else if (!isSafeCssDeclarationValue(value)) {
+        continue;
+      }
+      const expressions = scheme.metadataByToken[key]?.expressionByMode;
+      const expression =
+        options.references === "var" &&
+        expressions !== undefined &&
+        Object.hasOwn(expressions, mode)
+          ? expressions[mode]
+          : undefined;
+      const value = projectValue(resolved, expression, emittedKeys, variableByToken);
+      if (!isSafeCssDeclarationValue(value)) {
         collector.add({
           code: "invalid-css-value",
           message: "Compiled token value is not safe in a CSS declaration.",
-          path,
+          path:
+            expression !== undefined && "concat" in expression
+              ? pointer("metadataByToken", key, "expressionByMode", mode)
+              : tokenPath,
           key,
           mode,
         });
       }
+      declarationsByMode.get(mode)?.push({
+        tokenKey: key,
+        property: nameForDiagnostics(key, variableByToken),
+        value,
+      });
     }
   }
+  return declarationsByMode;
+}
+
+function projectValue(
+  resolved: string,
+  expression: CompiledExpression | undefined,
+  emittedKeys: ReadonlySet<string>,
+  variableByToken: Readonly<Record<string, string>>,
+): string {
+  if (expression === undefined) {
+    return resolved;
+  }
+  if ("ref" in expression) {
+    return emittedKeys.has(expression.ref)
+      ? `var(${nameForDiagnostics(expression.ref, variableByToken)})`
+      : resolved;
+  }
+  return expression.concat
+    .map((part) => {
+      if (typeof part === "string") {
+        return part;
+      }
+      return emittedKeys.has(part.ref)
+        ? `var(${nameForDiagnostics(part.ref, variableByToken)})`
+        : part.value;
+    })
+    .join("");
 }
 
 function formatCss(blocks: readonly CssVarBlock[], options: ParsedCssOptions): string {
