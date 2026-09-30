@@ -76,10 +76,13 @@ Requested 2021 supports all nine variants. Requested 2025 supports only `neutral
 
 ## Overrides, CSS, and artifacts
 
-Use a later core layer for ordinary overrides. A layer's declarations take that layer's
-`defaultVisibility`, so an override layer for internal Material roles declares
-`defaultVisibility: "internal"`; otherwise the overridden role becomes public and appears in the
-default compiled and CSS output.
+Use a later core layer for ordinary overrides. An override that omits token `visibility` preserves
+the key's existing effective visibility. A layer's `defaultVisibility` applies when it introduces
+a new key without explicit visibility. Set explicit token visibility when an override intentionally
+changes visibility.
+
+Here, `md.sys.color.primary` stays internal even though the override layer defaults to public.
+The public `action.primary.background` token resolves that internal role:
 
 ```ts
 import { defineTokenGraph, defineTokenLayer, tokenRef } from "scheme-tokens";
@@ -87,7 +90,6 @@ import { defineTokenGraph, defineTokenLayer, tokenRef } from "scheme-tokens";
 const material = material3("#6750a4", { visibility: "internal" });
 const overrides = defineTokenLayer({
   id: "brand-overrides",
-  defaultVisibility: "internal",
   tokens: {
     "md.sys.color.primary": "#ff0055",
   },
