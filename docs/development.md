@@ -38,7 +38,7 @@ pnpm exec playwright install chromium firefox webkit
 
 Run it for any change to CSS output, options, or selector and media validation. The representative resolved-versus-var unit test uses `tests/fixtures/css-reference-p4-output.json`, captured by building and executing P4 commit `05ebcdf4cdf655b5545e81ef42d77a90ddc11116`. The fixed pretty/compact expectations cover omitted, undefined and resolved reference options; never regenerate them from the current exporter or alter the published-0.3.0 oracle.
 
-The P5 isolated projection is core `0.4.0` plus Material `0.2.0`, with peer `^0.4.0` and the new layer API. `packages/material3/scripts/release-candidate.ts` applies pending Changesets only in a temporary workspace and shares paired tarballs between Material packed consumers and executable documentation. Combined installations use strict peer checking. The repository manifests remain `0.3.0`/`0.1.1`; this is candidate evidence, with P6 external migration and P7 release preparation deferred. No publication is implied.
+The P5 isolated projection is core `0.4.0` plus Material `0.2.0`, with peer `^0.4.0` and the new layer API. `packages/material3/scripts/release-candidate.ts` applies pending Changesets only in a temporary workspace and shares paired tarballs between Material packed consumers and executable documentation. Combined installations use strict peer checking. The repository manifests remain `0.3.0`/`0.1.1`; this is candidate evidence, with P6 consumer proof incomplete and P7 release preparation deferred. No publication is implied.
 
 ## TypeScript compatibility
 
@@ -99,3 +99,5 @@ The docs site pins `vitepress` and `typescript` to exact versions, and `scripts/
 `pnpm check:module-resolution` installs that tarball into a scratch project and reads all five export keys under `moduleResolution` `bundler` and `node16`, then executes the compiled Node consumer.
 
 Do not publish, tag, create a GitHub release, change repository visibility, or change the publication safety switch unless explicitly instructed.
+
+See [P6 consumer evidence](./p6-consumer-evidence.md) for real-application results and remaining exit criteria.

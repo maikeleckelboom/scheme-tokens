@@ -3,6 +3,7 @@
   "compilerOptions": {
     "paths": {
       "scheme-tokens": ["./src/index.ts"],
+      "@scheme-tokens/material3": ["./packages/material3/src/index.ts"],
       "scheme-tokens/package.json": ["./package.json"],
       "scheme-tokens/schemas/*": ["./schemas/*"]
     },

@@ -149,4 +149,4 @@ forwarding. Required wrappers retain precise supplied facts; bare options remain
 The return carries NoInfer modes/default visibility and `omitted: Material3TokenKey`, since every
 generated declaration omits explicit visibility. Unknown visibility keeps public output partial
 over all composed keys, including possibly public roles. The candidate requires peer `^0.4.0`;
-committed versions are unchanged and P6/P7 remain deferred. See the [adapter reference](https://github.com/maikeleckelboom/scheme-tokens/blob/dev/packages/material3/README.md).
+committed versions are unchanged and P6 is incomplete and P7 remains deferred. See the [adapter reference](https://github.com/maikeleckelboom/scheme-tokens/blob/dev/packages/material3/README.md).

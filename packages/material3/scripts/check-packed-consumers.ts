@@ -1,5 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, parse, relative, resolve } from "node:path";
 import { repoRoot } from "./api-snapshot.ts";
@@ -46,9 +54,13 @@ function checkCombinedConsumer(coreTarball: string, adapterTarball: string): voi
       rootDir: ".",
       outDir: "dist",
     },
-    include: ["consumer.ts"],
+    include: ["consumer.ts", "material-coordinates.ts"],
   });
   writeFileSync(join(consumer, "consumer.ts"), combinedConsumerSource());
+  copyFileSync(
+    join(repoRoot, "examples", "theme-coordinates", "material.ts"),
+    join(consumer, "material-coordinates.ts"),
+  );
   writeFileSync(join(consumer, "consumer.mjs"), rawNodeConsumerSource());
 
   runPnpm(["install", "--ignore-scripts", "--strict-peer-dependencies"], consumer);
@@ -64,6 +76,7 @@ function checkCombinedConsumer(coreTarball: string, adapterTarball: string): voi
     consumer,
   );
   run(process.execPath, [join("dist", "consumer.js")], consumer);
+  run(process.execPath, [join("dist", "material-coordinates.js")], consumer);
   checkMaterialTypeMatrix(consumer);
   process.stdout.write("Paired raw Node ESM and strict NodeNext runtime passed.\n");
 

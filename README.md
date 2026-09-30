@@ -9,7 +9,7 @@ Core does not know what a color is. Values are opaque strings.
 Generators such as [`@scheme-tokens/material3`](./packages/material3/README.md) plug in as normal
 token layers.
 
-This branch implements the core v2 candidate for the planned 0.4 release, its static TypeScript contract, and its CSS activation exporter with optional variable references. The manifests still carry released versions until the later versioning phase. The P5 Material layer API is implemented as a candidate; P6 external migrations and P7 release preparation remain deferred. Nothing has been published from this candidate.
+This branch implements the core v2 candidate for the planned 0.4 release, its static TypeScript contract, and its CSS activation exporter with optional variable references. The manifests still carry released versions until the later versioning phase. The P5 Material layer API is implemented as a candidate; P6 real-consumer migrations are partially implemented and blocked; [the evidence report](docs/p6-consumer-evidence.md) records the remaining requirements. P7 release preparation remains separate. Nothing has been published from this candidate.
 
 ## Install
 

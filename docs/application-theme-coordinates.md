@@ -101,3 +101,10 @@ sets, the order of its flattened modes, and binding mode-level properties such a
 every activated element. The exporter owns only the generated blocks and their order. Color parsing,
 conversion, color-gamut decisions, palette generation, and contrast policy also remain outside
 `scheme-tokens`; the graph stores and preserves the strings the application supplies.
+
+## Paired Material example
+
+`examples/theme-coordinates/material.ts` composes a Material layer across six application-owned
+coordinates. The paired packed-consumer gate copies and executes that exact source, including
+its precise mode and exact-selection checks. The core-only coordinate gate still installs core alone.
+Real application verification and framework limitations are recorded in the P6 consumer evidence report.

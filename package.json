@@ -40,6 +40,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
+    "candidate:pack": "node --experimental-strip-types scripts/pack-consumer-candidate.ts",
     "build": "tsdown",
     "typecheck": "tsc -p tsconfig.lib.json && tsc -p tsconfig.test.json && tsc -p tsconfig.scripts.json && tsc -p tsconfig.examples.json",
     "lint": "oxlint . --import-plugin --vitest-plugin --deny-warnings",

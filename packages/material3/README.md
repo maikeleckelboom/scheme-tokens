@@ -4,8 +4,7 @@ Generate the accepted Material 3 system color roles as one ordinary `scheme-toke
 adapter is optional: core remains a string-token compiler and does not install a color engine.
 
 This README describes the P5 candidate, including P5.1 option-presence typing, for Material `0.2.0` and core `0.4.0`. The committed versions
-remain `0.1.1` and `0.3.0`; the new API has not been published. External consumer migration and final
-release preparation remain P6 and P7.
+remain `0.1.1` and `0.3.0`; the new API has not been published. P6 consumer migration is partially implemented and blocked by real framework gates and a missing application identity. P7 release preparation remains separate. See the [P6 evidence](../../docs/p6-consumer-evidence.md).
 
 ## Generate and compose
 
