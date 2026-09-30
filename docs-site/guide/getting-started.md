@@ -36,11 +36,10 @@ export function createStylesheet(): string {
 
 Without mode options, `defineTokenGraph()` creates the single `base` mode.
 
-`compileTokenGraph(graph)` uses public selection by default. Because visibility is resolved from runtime
-data, that result is conservatively partial and keyed access correctly requires optional handling. An
-exact literal tuple such as `publicKeys` is validated at runtime, then produces a complete record where
-`scheme.tokens.background.base` is definite. This is a choice between two accurate contracts, not a
-workaround for incorrect typing.
+`compileTokenGraph(graph)` uses public selection by default. For a literal graph TypeScript knows the
+public keys, so that result is a complete record too. An exact literal tuple such as `publicKeys` states
+the contract explicitly: it is validated at runtime, then `scheme.tokens.background.base` is definite even
+when the public set comes from dynamic data.
 
 Continue with [Define Tokens](./define-tokens.md) for explicit modes, references, metadata, visibility,
 and layers.

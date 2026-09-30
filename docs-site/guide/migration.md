@@ -2,7 +2,7 @@
 
 The 0.1 contract removes the earlier, never-published parallel forms rather than preserving compatibility aliases. The 0.1 line is released, so this is a closed handoff; later contract changes are recorded in the changelog.
 
-The executable examples below follow the current P2 candidate API; the migration history remains a closed 0.1 handoff.
+The executable examples below follow the current candidate API; the migration history remains a closed 0.1 handoff.
 
 ## Mechanical changes
 
@@ -44,12 +44,12 @@ if (compiled.ok) {
 }
 ```
 
-The exact literal selection makes `primary` a definite key after runtime validation. Omitted or explicit `public` selection is conservatively partial because internal keys are filtered at runtime; use optional access when reading that result by key.
+The exact literal selection makes `primary` a definite key after runtime validation. For a literal graph, omitted or explicit `public` selection is complete as well, because TypeScript knows which keys are public; it stays partial when visibility or keys are dynamic.
 
 ## Chromavert
 
 Keep generated source outputs as internal string tokens. Express semantic roles and explicit repair tokens as ordinary definitions and explicit references. Put the light/dark envelope on the graph, replace persisted `valueByMode` records with `value`, and replace alias records with `tokenRef()` definitions.
 
-Use `parseTokenGraph()` for persisted project data, then compile `parsed.value`. Use the default public selection for emitted semantics and `selection: "all"` when an artifact also needs internal generated or repair tokens. Public semantic tokens can continue to resolve through those internal tokens, and retained expression metadata remains available under `compiled.value.metadataByToken`. Parsed graph keys are dynamic, so public and `all` output remain partial; use optional access or an exact literal key tuple for definite reads after validation.
+Use `parseTokenGraph()` for persisted project data, then compile `parsed.value`. Use the default public selection for emitted semantics and `selection: "all"` when an artifact also needs internal generated or repair tokens. Public semantic tokens can continue to resolve through those internal tokens, and retained expression metadata remains available under `compiled.value.metadataByToken`. Parsed graph keys are dynamic, so public and `all` output remain partial; use optional access, or an exact literal key tuple for definite reads after validation.
 
 Chromavert's project, proof, relationship, and repair policy remains outside `scheme-tokens`.

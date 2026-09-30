@@ -20,9 +20,9 @@ Trusted helpers copy accepted data and throw structured errors for misuse. Parse
 
 The graph owns the mode set, authored mode order, and default. Omitted options mean `base`; explicit modes require an explicit default, which need not be first. Layers have an ID, local default visibility, and tokens, with no mode envelope.
 
-Direct expressions impose no layer mode requirement. All mode maps in a layer must have the same set; a non-empty set must equal the graph's set, independently of key order. Inconsistent layers emit one deterministic `layer-mode-mismatch`. The P2 type surface still represents a standalone layer as `TokenLayer<Key, string>`; the full static layer/public-key model belongs to P3.
+Direct expressions impose no layer mode requirement. All mode maps in a layer must have the same set; a non-empty set must equal the graph's set, independently of key order. Inconsistent layers emit one deterministic `layer-mode-mismatch`. Statically, `TokenLayer<Key, Mode, Visibility>` carries the same mode set: `never` without mode maps, a finite union for a literal layer, and `string` when unknown. Literal disagreement and finite graph mismatches fail type checking; dynamic sets rely on the runtime check.
 
-Layers compose in array order, then graph tokens compose last. The last declaration supplies value, description, deprecation, and extensions. Visibility alone follows the chain: the most recent explicit visibility wins, otherwise the default of the position that introduced the key applies. An omitted override visibility preserves the preceding effective visibility.
+Layers compose in array order, then graph tokens compose last. The last declaration supplies value, description, deprecation, and extensions. Visibility alone follows the chain: the most recent explicit visibility wins, otherwise the default of the position that introduced the key applies. An omitted override visibility preserves the preceding effective visibility. `TokenGraph<Key, Mode, PublicKey>` mirrors this composition in its static public key union; any uncertain visibility or dynamic key set makes that union `string`.
 
 ## Expressions and resolution
 
@@ -38,7 +38,7 @@ Resolution is iterative and memoized by mode/key. Repeated siblings and diamond 
 
 Sparse `expressionByMode` retains `{ ref }` for a pure reference or canonical concat parts, with `{ ref, value }` for each concat reference part. Literal modes have no entry. Retained reference values are output data for future exporters, not provenance.
 
-Selection is `public` by default, `all`, or an exact non-empty key set. Resolution sees all composed tokens and modes before selection. P2 retains conservative partial records for public selection and dynamic parsed graphs. Exact literal key tuples are complete after validation; `all` is complete only for a finite authored key union. CSS token-to-variable lookups preserve that completeness.
+Selection is `public` by default, `all`, or an exact non-empty key set. Resolution sees all composed tokens and modes before selection. Public selection is complete when the static public union is finite and fully known, and partial otherwise. Exact literal key tuples are complete after validation; `all` is complete only for a finite composed key union; parsed and dynamic graphs stay partial. CSS token-to-variable lookups preserve that completeness.
 
 ## Persistence and output boundaries
 

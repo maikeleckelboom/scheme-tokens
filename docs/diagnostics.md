@@ -13,7 +13,7 @@ import { compileTokenGraph, defineTokenGraph, orThrow } from "scheme-tokens";
 
 const graph = defineTokenGraph({ tokens: { background: "#ffffff" } });
 const scheme = orThrow(compileTokenGraph(graph));
-scheme.tokens.background?.base;
+scheme.tokens.background.base;
 ```
 
 Trusted graph/layer helpers use the same structured error convention for programmer misuse. Unknown targets and cycles remain compiler diagnostics at that boundary. Parsers return `Result` rather than throwing for JSON-compatible input.
@@ -37,6 +37,10 @@ Concat reference pointers identify the original part index even when adjacent li
 - `modes` for the first map and `layerModes` for the conflicting map, both code-unit sorted.
 
 Persisted paths include `/value`; shorthand helper paths identify the authored location. A consistent layer that differs from the graph reports `/layers/<index>`, `layerId`, graph `modes` in authored order, and sorted `layerModes`. Neither case emits implied per-token missing/unknown mode issues. Already-inconsistent layers are not compared against the graph.
+
+## Compile-time rejections
+
+For literal input, TypeScript rejects the same authoring mistakes before runtime: reference typos, incomplete or foreign mode maps, invalid visibility, unknown metadata, invalid mode names, disagreeing layer maps, and finite layer/graph mode mismatches. Those are compiler errors, not issues, and their messages may name the diagnostic markers `UnknownTokenProperty`, `UnknownMode`, `InvalidModeName`, and `LayerModeMismatch`. The runtime checks above still apply to every input, including dynamic and parsed data that TypeScript cannot check.
 
 ## Other boundaries
 

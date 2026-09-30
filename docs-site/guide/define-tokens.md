@@ -88,6 +88,6 @@ const graph = defineTokenGraph({
 export { graph };
 ```
 
-Later layers override earlier definitions with the same key. This is deterministic token composition, not CSS cascade behavior.
+Later layers override earlier definitions with the same key. This is deterministic token composition, not CSS cascade behavior. TypeScript tracks the same composition, so the inferred public keys of a literal graph match what compilation returns; see [TypeScript Access](./typescript-access.md).
 
 The graph/layer helpers, `tokenRef`, and `tokenConcat` are trusted TypeScript entry points. They copy accepted data and may throw for programmer misuse. Use the parser functions for untrusted persisted input.

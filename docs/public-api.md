@@ -36,7 +36,7 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues, null, 2));
 }
 
-compiled.value.tokens.background?.base;
+compiled.value.tokens.background.base;
 
 const exported = exportCssVars(compiled.value);
 
@@ -74,7 +74,7 @@ const graph = defineTokenGraph({
 - A direct explicit mode map.
 - One expanded `{ value, visibility?, description?, deprecated?, extensions? }` object, where `value` is an expression or mode map.
 
-Bare strings are never references. `valueByMode`, `aliases`, and metadata mixed directly with mode keys are not accepted.
+Bare strings are never references. `valueByMode`, `aliases`, and metadata mixed directly with mode keys are not accepted. For literal input TypeScript rejects these at the offending property, together with reference typos, missing or undeclared modes in a mode map, invalid visibility, and misspelled metadata; see [TypeScript contract](#typescript-contract).
 
 Omitting mode options creates `modes: ["base"]` and `defaultMode: "base"`. Multimode graphs require both `modes` and `defaultMode`:
 
@@ -102,7 +102,7 @@ const graph = defineTokenGraph({
 });
 ```
 
-Authored mode order is preserved, independently of `defaultMode`. Token keys use dot-separated lower-kebab paths; segments after the first may be numeric.
+Authored mode order is preserved, independently of `defaultMode`. Mode names are single lower-kebab identifiers such as `light`, `mono-light`, or `material3-dark`; `ref`, `value`, `visibility`, `description`, `deprecated`, and `extensions` are reserved. Token keys use dot-separated lower-kebab paths; segments after the first may be numeric.
 
 `tokenConcat` is a tagged template with reference-only substitutions. An empty template becomes `""`; a lone reference becomes `{ ref }`. Exact `{ concat: [...] }` source expressions merge adjacent literals, drop empty literals, and collapse literal-only content. Empty arrays and nested concat are invalid. Resolved concat is limited to 65,536 UTF-16 code units before joining; arbitrary literals and pure references remain unrestricted.
 
@@ -140,6 +140,8 @@ const compiled = compileTokenGraph(graph);
 
 The public `primary` token resolves through the internal `brand.600` token before public selection is applied.
 
+A literal layer carries its mode set in its type: `never` without mode maps, the union of its mode-map names otherwise, and `string` for a parsed or dynamically built layer. Every mode map in a literal layer must name that whole set, so a disagreeing map fails on its own token. `defineTokenGraph` rejects a finite layer set that differs from a finite graph set with a `LayerModeMismatch<LayerModes, GraphModes>` diagnostic; when either set is `string`, only the runtime `layer-mode-mismatch` check applies.
+
 ## Parsing untrusted data
 
 The four authoring helpers are trusted TypeScript entry points. They validate, normalize, and copy accepted input and may throw for programmer misuse.
@@ -160,7 +162,7 @@ if (parsed.ok) {
 
 Do not pass untrusted input directly to compilation or serialization.
 
-Parsed key sets are dynamic. `parseCompiledScheme()` therefore always returns an incomplete token record, and CSS export from it keeps `variableByToken` partial.
+Parsed key sets are dynamic. `parseTokenGraph()` returns `TokenGraph`, whose keys and public keys are `string`, and `parseTokenLayer()` returns `TokenLayer`, whose mode set and visibility TypeScript does not know. `parseCompiledScheme()` always returns an incomplete token record, and CSS export from it keeps `variableByToken` partial.
 
 ## Compilation selection
 
@@ -181,7 +183,7 @@ const exact = compileTokenGraph(graph, {
 });
 
 if (publicOnly.ok) {
-  publicOnly.value.tokens.public?.base;
+  publicOnly.value.tokens.public.base;
 }
 if (everything.ok) {
   everything.value.tokens.internal.base;
@@ -191,7 +193,7 @@ if (exact.ok) {
 }
 ```
 
-Omitted and explicit `public` selection produce a conservatively partial token-key type because visibility is applied at runtime. Use optional access for public records. An exact literal key tuple is complete after runtime validation. `all` is complete for a graph with a finite authored key union, but remains partial for `parseTokenGraph(...).value` and other dynamic key sets.
+Omitted and explicit `public` selection return a complete record keyed exactly by the public keys when TypeScript knows them: every key is finite, and every visibility along layer order and graph-last composition is a literal. Uncertain visibility, such as a value typed `TokenVisibility`, or a dynamic key set anywhere in the composition keeps the public record partial over every graph key. `all` is complete whenever the composed key set is finite, whatever the visibility. An exact literal key tuple is complete after runtime validation. `parseTokenGraph(...).value`, graphs built from `Record<string, …>` or `Object.fromEntries`, layer lists that are not tuples, and parsed layers stay partial.
 
 Exact selections reject empty arrays, duplicate keys, malformed keys, and unknown keys. A runtime key array remains partial because it is not a finite literal tuple. Emitted token order is deterministic and independent of selection-array order. For advanced type annotations, `CompiledScheme<Key, Mode, Complete>` represents this completeness, and `CssVarsExport<Key, Mode, Complete>` preserves it in `variableByToken`; ordinary consumers should let both types infer.
 
@@ -227,10 +229,10 @@ const cssVars = orThrow(
   }),
 );
 
-cssVars.variableByToken.background?.toUpperCase();
+cssVars.variableByToken.background.toUpperCase();
 ```
 
-The optional lookup mirrors the partial default-public compiled record. CSS from an exact literal selection, or from `all` compilation of a finite authored graph, has a complete token-to-variable map. CSS from `parseCompiledScheme()` stays partial.
+`variableByToken` mirrors the compiled record: complete for a finite, fully known public selection, a finite `all` selection, or an exact literal tuple, and partial for dynamic or uncertain selections and for `parseCompiledScheme()` output.
 
 Exact selector maps are typed to the compiled mode union: every mode is required and unknown modes are rejected. Each entry is already the complete selector for its mode, so `scope` must be omitted with the exact `selectors` strategy. TypeScript rejects that incompatible option combination; the runtime still returns `invalid-scope` for untyped or mutated input. Selector validation intentionally implements a bounded safe grammar rather than every browser selector feature. Generated data-attribute and class strategies require an append-safe scope; use exact per-mode selectors for supported complex selectors.
 
@@ -281,8 +283,16 @@ Schemas are exported at:
 
 The three serializers produce the supported deterministic JSON wire representations. Parse and serialize round trips preserve accepted artifacts.
 
+## TypeScript contract
+
+The supported compiler is TypeScript `>= 7.0 < 8.0`. `defineTokenGraph` infers `TokenGraph<Key, Mode, PublicKey>`: every composed key, the mode union, and the effective public keys after layers compose in array order and graph tokens compose last. The mode type is a union; it says nothing about authored order or which mode is the default. `defineTokenLayer` infers `TokenLayer<Key, Mode, Visibility>`, where `Mode` is the layer mode set and `Visibility` is a `LayerVisibility`: the layer default, and the keys that may declare `public`, declare `internal`, or omit visibility. A wider type only adds possibilities, so plain `TokenGraph` and `TokenLayer` describe unknown data.
+
+Literal input is checked by a strict constraint, and each failure lands on the offending property. Reference typos keep TypeScript's "Did you mean" suggestion. Other failures name a diagnostic marker in the compiler message: `UnknownTokenProperty<Name>`, `UnknownMode<Name>`, `InvalidModeName<Name>` for a mode outside the lower-kebab grammar or a reserved name, and `LayerModeMismatch<LayerModes, GraphModes>`. Markers explain a rejection; their wording and shape are not a compatibility contract, and they are not exported.
+
+A finite key union is an exact claim: a graph or layer type with other keys is not assignable to it, while every graph and layer is assignable to the plain `TokenGraph` and `TokenLayer` forms. Compiling a union of graphs yields one scheme type per graph.
+
 ## Public types
 
-The root type surface centers on `Result`, `Issue`, `TokenReference`, `TokenGraph`, `TokenLayer`, `CompiledScheme`, `CssVarsExport`, and the authoring, option, and issue types needed to use those operations. Public declarations do not expose dependency-internal types.
+The root type surface centers on `Result`, `Issue`, `TokenReference`, `TokenGraph`, `TokenLayer`, `LayerVisibility`, `CompiledScheme`, `CssVarsExport`, and the authoring, option, and issue types needed to use those operations. Public declarations do not expose dependency-internal types or validation machinery.
 
 See [Diagnostics](./diagnostics.md) for issue contracts and [Migration to 0.1](./migration.md) for the reset from the earlier, never-published surface.

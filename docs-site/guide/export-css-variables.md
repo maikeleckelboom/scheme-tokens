@@ -28,10 +28,10 @@ const cssVars = orThrow(
 const css = cssVars.css;
 const blocks = cssVars.blocks;
 const backgroundProperty = cssVars.variableByToken.background;
-backgroundProperty?.toUpperCase();
+backgroundProperty.toUpperCase();
 ```
 
-`backgroundProperty` is `string | undefined` because omitted selection means runtime-filtered public output. Use optional access. An exact literal key tuple makes the lookup definite after validation; `selection: "all"` does so only for a finite authored key union. CSS exported from `parseCompiledScheme()` remains partial.
+`backgroundProperty` is a `string` because the literal graph's public keys are known, so the default public result is complete. The lookup mirrors the compiled record: it stays partial when the public set is uncertain or dynamic, and CSS exported from `parseCompiledScheme()` remains partial.
 
 The declarative options cover:
 

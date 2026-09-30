@@ -9,7 +9,7 @@ Core does not know what a color is. Values are opaque strings.
 Generators such as [`@scheme-tokens/material3`](./packages/material3/README.md) plug in as normal
 token layers.
 
-This branch implements the P2 core v2 candidate for the planned 0.4 release. The manifests still carry released versions until the later versioning phase. Advanced static inference, the CSS redesign, and the next Material API remain deferred.
+This branch implements the core v2 candidate for the planned 0.4 release and its static TypeScript contract. The manifests still carry released versions until the later versioning phase. The CSS redesign and the next Material API remain deferred.
 
 ## Install
 
@@ -373,7 +373,9 @@ const exactScheme = compileTokenGraph(graph, {
 ```
 
 Default compilation selects public tokens. `selection: "all"` includes internal tokens. A literal
-`keys` selection stays exact in TypeScript.
+`keys` selection stays exact in TypeScript. For a literal graph TypeScript also knows the public keys
+after layers and graph tokens compose, so `publicScheme` is a complete record of `primary`; dynamic or
+parsed graphs stay partial. The supported compiler is TypeScript `>= 7.0 < 8.0`.
 
 ## Persisted artifacts
 

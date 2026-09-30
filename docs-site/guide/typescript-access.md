@@ -1,46 +1,52 @@
 # TypeScript Access
 
-Literal token keys and explicit modes flow through trusted authoring, compilation, CSS export, and serialization.
+Literal token keys, explicit modes, and visibility flow through trusted authoring, compilation, CSS export, and serialization. The supported compiler is TypeScript `>= 7.0 < 8.0`.
 
 ```ts
-import { compileTokenGraph, defineTokenGraph, serializeCompiledScheme } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, orThrow, tokenRef } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
   defaultMode: "light",
   tokens: {
+    "brand.600": { value: { light: "#6750a4", dark: "#d0bcff" }, visibility: "internal" },
     background: { light: "#ffffff", dark: "#111111" },
-    primary: { light: "#6750a4", dark: "#d0bcff" },
+    primary: tokenRef("brand.600"),
   },
 });
 
-const publicCompiled = compileTokenGraph(graph);
+const scheme = orThrow(compileTokenGraph(graph));
+scheme.tokens.primary.dark.toUpperCase();
+scheme.metadataByToken.background.declarations.length.toFixed();
 
-if (publicCompiled.ok) {
-  publicCompiled.value.tokens.background?.light.toUpperCase();
-}
+const everything = orThrow(compileTokenGraph(graph, { selection: "all" }));
+everything.tokens["brand.600"].light.toUpperCase();
 
-const compiled = compileTokenGraph(graph, {
-  selection: { keys: ["background", "primary"] },
-});
-
-if (compiled.ok) {
-  const background = compiled.value.tokens.background.light;
-  const primary = compiled.value.tokens.primary.dark;
-  const declarations = compiled.value.metadataByToken.primary.declarations;
-  const json = serializeCompiledScheme(compiled.value);
-
-  background.toUpperCase();
-  primary.toUpperCase();
-  declarations.length.toFixed();
-  json.toUpperCase();
-}
+const exact = orThrow(compileTokenGraph(graph, { selection: { keys: ["primary"] } }));
+exact.tokens.primary.light.toUpperCase();
 ```
 
-`tokenRef()` preserves its literal target. Compilation validates references against the composed graph, while exact selections reject misspelled keys at the type and runtime boundaries where possible.
+`defineTokenGraph` infers `TokenGraph<Key, Mode, PublicKey>`: every composed key, the mode union, and the public keys after layers compose in array order and graph tokens compose last. Visibility follows the runtime rule: explicit visibility replaces, an omitted override keeps what it replaces, and a new key takes the default of the position that introduced it. Here `PublicKey` is `"background" | "primary"`, so the default public result is a complete record of exactly those keys.
 
-Omitted and explicit `public` selection expose partial token and metadata records because internal keys are filtered at runtime. Optional access reflects that uncertainty. An exact literal tuple is complete after validation, as in the second compilation above. `all` is complete only for a finite authored key union; dynamic parsed graphs and runtime selection arrays remain partial.
+The public record stays partial whenever TypeScript cannot know the public set: a visibility typed `TokenVisibility` rather than a literal, a graph built from `Record<string, …>` or `Object.fromEntries`, a parsed graph or layer, a layer list that is not a tuple, or a layer typed only as `TokenLayer<Key>`. `all` is complete whenever the key set is finite, because visibility never removes a key from it. An exact literal tuple is complete after runtime validation; a runtime key array is partial.
 
-The third `Complete` generic on `CompiledScheme<Key, Mode, Complete>` represents this distinction. `parseCompiledScheme()` always returns the incomplete form. `CssVarsExport<Key, Mode, Complete>` carries the input completeness into `variableByToken`, so CSS exported from a parsed compiled artifact remains partial. Let inference provide these generics unless an integration boundary needs an explicit annotation.
+The third `Complete` generic on `CompiledScheme<Key, Mode, Complete>` represents this distinction. `parseCompiledScheme()` always returns the incomplete form. `CssVarsExport<Key, Mode, Complete>` carries the input completeness into `variableByToken`. Let inference provide these generics unless an integration boundary needs an explicit annotation.
 
-Public types center on `Result`, `Issue`, `TokenReference`, `TokenGraph`, `TokenLayer`, `CompiledScheme`, `CssVarsExport`, and their essential option and issue types.
+## Layer mode sets
+
+`defineTokenLayer` infers `TokenLayer<Key, Mode, Visibility>`. `Mode` is the layer mode set: `never` when the layer has only direct expressions, which fits every graph, and the union of its mode-map names otherwise. Every mode map in a literal layer must name the whole set. A finite layer set must equal a finite graph set, in any order; otherwise the `layers` entry fails with `LayerModeMismatch<LayerModes, GraphModes>` naming both sets. Parsed and dynamic layers have the mode set `string` and rely on the runtime `layer-mode-mismatch` check.
+
+## Rejected at compile time
+
+For literal input the helpers reject, at the offending property:
+
+- a reference to a key the graph and its layers do not define, with TypeScript's "Did you mean" suggestion;
+- a mode map that misses a graph mode, or names one the graph does not declare (`UnknownMode<Name>`);
+- metadata mixed directly with mode keys, or a misspelled metadata property (`UnknownTokenProperty<Name>`);
+- a visibility other than `"public"` or `"internal"`;
+- a mode outside the lower-kebab grammar, or a reserved name such as `value` (`InvalidModeName<Name>`); `concat` is a valid mode;
+- `modes` without `defaultMode`, or a `defaultMode` outside `modes`.
+
+The marker names appear in compiler messages to explain a rejection. They are not exported, and their wording is not a compatibility contract.
+
+Public types center on `Result`, `Issue`, `TokenReference`, `TokenGraph`, `TokenLayer`, `LayerVisibility`, `CompiledScheme`, `CssVarsExport`, and their essential option and issue types.

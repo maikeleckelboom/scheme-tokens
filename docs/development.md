@@ -13,7 +13,7 @@ git diff --check
 
 `pnpm validate` runs typecheck, lint, unit/property/schema/type tests, filename checks, API build/check, and formatting.
 
-`pnpm release:check` adds package checks, packed root consumer smoke, packed consumer module resolution, a packed theme-coordinate consumer, tarball checks, docs-site checks, docs example checks, and an external packed-consumer audit.
+`pnpm release:check` adds package checks, packed root consumer smoke, the packed declaration type matrix, packed consumer module resolution, a packed theme-coordinate consumer, tarball checks, docs-site checks, docs example checks, and an external packed-consumer audit.
 
 The workspace also contains `@scheme-tokens/material3` under `packages/material3`. Root validation
 runs its normal type, runtime, API, and build gates. Root release validation additionally runs its
@@ -26,6 +26,16 @@ During P2 that isolated projection is core `0.4.0` plus a peer-only Material `0.
 the existing Material API. The repository manifests remain `0.3.0`/`0.1.1`. This proves packed
 runtime/type compatibility; it does not implement the P5 Material API or certify an intermediate
 phase for publication. P5/P7 must update the projected pair when their changesets land.
+
+## TypeScript compatibility
+
+The supported compiler range is `>= 7.0 < 8.0`. `pnpm test:types` runs the source type matrix in `tests/types` under the repository's strict configuration and again under `strict` alone, both with `skipLibCheck: false`. The matrix covers the authoring error cases, visibility composition, selection completeness, layer mode sets, dynamic and parsed inputs, and ADR 0015's structural `concat` classification.
+
+`pnpm check:packed-types` packs the real tarball, installs it into an isolated NodeNext consumer, and runs the same `tests/types` files against the emitted declarations under both configurations. It then checks diagnostic quality by fragments rather than whole messages: reference suggestions for graph, layer, expanded mode-map, and concat typos, and the diagnostic marker names, including both mode sets of a layer mismatch.
+
+`pnpm type:compat:stable` runs the source matrices, both packages' type cases, the packed smoke consumer, the packed declaration matrix, and the Material packed consumers with the latest 7.0 patch and the repository's stable 7.x. When both resolve to one version, the runner executes it once. `pnpm type:compat:next` runs the same suite with `typescript@next` as a non-blocking signal.
+
+`pnpm profile:types [runs] [declaration]` measures the check time of a generated 2,000-token literal graph against the built declarations, or against another declaration file for comparison. It reports evidence and is not a gate. On TypeScript 7.0.2, with 11 paired runs on the maintainer machine, the P2 declarations measured a 0.255 s median (0.249–0.261 s) and the P3 declarations 0.150 s (0.143–0.154 s). The strict authoring constraint resolves to `unknown` for valid input, so contextual typing does not expand the expected shapes; a variant that kept them in the valid branch measured about 0.4 s.
 
 ## API surface snapshot
 

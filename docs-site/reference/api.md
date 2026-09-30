@@ -56,7 +56,7 @@ if (compiled.ok) {
 
 Trusted helpers normalize and copy accepted TypeScript authoring input. They may throw for malformed keys, invalid references, contradictory mode options, or other programmer misuse.
 
-Omitted mode options mean `base`/`base`. Explicit `modes` require `defaultMode`. Authored mode order survives independently of the default.
+Omitted mode options mean `base`/`base`. Explicit `modes` require `defaultMode`. Authored mode order survives independently of the default. Mode names are single lower-kebab identifiers; `ref`, `value`, `visibility`, `description`, `deprecated`, and `extensions` are reserved.
 
 Layers have stable IDs and local default visibility, but no mode envelope. Direct expressions fit every graph. All mode maps within one layer must name the same set; a non-empty set must exactly match the graph modes, ignoring order. Mismatches return one deterministic `layer-mode-mismatch` per invalid layer. The graph owns mode order and default. Layers compose in array order, then graph tokens compose last. The winner supplies value and descriptive metadata. Omitted visibility preserves prior effective visibility; explicit visibility restates it. With no explicit visibility, the default of the position that introduced the key applies.
 
@@ -72,7 +72,7 @@ Layers have stable IDs and local default visibility, but no mode envelope. Direc
 
 Parsers do not throw for JSON-compatible input. They strictly validate kinds, versions, properties, definition and reference shapes, and available mode coverage, then return an owned canonical artifact under `value`. Graph parsing also validates reference targets and cycles.
 
-Parsed key sets are dynamic. `parseCompiledScheme()` always returns an incomplete token record, and exporting CSS from it keeps `variableByToken` partial.
+Parsed key sets are dynamic. `parseTokenGraph()` returns `TokenGraph` with `string` keys and public keys, and `parseTokenLayer()` returns `TokenLayer` with an unknown mode set and visibility. `parseCompiledScheme()` always returns an incomplete token record, and exporting CSS from it keeps `variableByToken` partial.
 
 ```ts
 import { compileTokenGraph, parseTokenGraph } from "scheme-tokens";
@@ -93,7 +93,7 @@ if (parsed.ok) {
 
 Compiled values remain `tokens[key][mode]`. Metadata contains effective `visibility` and non-empty `declarations` in composition order. Each declaration contains `origin: { kind: "graph" }` or `{ kind: "layer", id }`, plus `visibility` only when explicitly authored. The last declaration wins. Sparse `expressionByMode` omits literal modes, retains pure `{ ref }` records without duplicated values, and retains canonical concat parts with `{ ref, value }` for referenced parts. Descriptions, deprecation, and extensions come only from the winner.
 
-Omitted and explicit `public` selection have conservatively partial token and metadata records because runtime visibility may filter any authored key. Use optional access for those records. An exact literal key tuple is complete after runtime validation. `all` is complete only for a finite authored key union; a dynamically parsed graph remains partial. Runtime key arrays are also partial because they are not finite tuples. Advanced annotations can express this through `CompiledScheme<Key, Mode, Complete>`; inference is preferred.
+Omitted and explicit `public` selection have complete token and metadata records keyed by the public keys when TypeScript knows them: a finite key set and literal visibility at every composition position. Otherwise they are partial over every graph key. `all` is complete for a finite key set; an exact literal key tuple is complete after runtime validation. Parsed graphs, dynamic key sets, and runtime key arrays remain partial. Advanced annotations can express this through `CompiledScheme<Key, Mode, Complete>`; inference is preferred.
 
 ## CSS export
 
@@ -101,11 +101,15 @@ Omitted and explicit `public` selection have conservatively partial token and me
 
 The `variableName` callback is advanced and contained. Exceptions, unsafe names, and collisions return issues.
 
-`variableByToken` mirrors the compiled record's partial or complete key contract, including the partial result from a parsed compiled artifact. Exact selector maps are typed to the compiled mode union, requiring every mode and rejecting unknown modes.
+`variableByToken` mirrors the compiled record's partial or complete key contract, including the partial result from a parsed compiled artifact and the complete result of a finite, fully known public selection. Exact selector maps are typed to the compiled mode union, requiring every mode and rejecting unknown modes.
 
 Compilation and serialization preserve arbitrary strings. CSS export rejects declaration-unsafe strings with `invalid-css-value`. Its selector validation is an intentionally bounded safe grammar rather than a complete browser CSS parser.
 
 See [Application Theme Coordinates](../guide/application-theme-coordinates.md) for a complete exact-selection and structured-block composition example.
+
+## TypeScript
+
+The supported compiler is TypeScript `>= 7.0 < 8.0`. `defineTokenGraph` infers `TokenGraph<Key, Mode, PublicKey>` and `defineTokenLayer` infers `TokenLayer<Key, Mode, Visibility>`, where a layer `Mode` is `never` without mode maps, a finite union for a literal layer, and `string` when unknown, and `Visibility` is a `LayerVisibility`. Literal input is validated strictly; failures name the offending property, keep reference suggestions, and use the diagnostic markers described in [TypeScript Access](../guide/typescript-access.md). A finite key union is an exact claim, and plain `TokenGraph` or `TokenLayer` describes unknown data.
 
 ## Serializers and schemas
 
