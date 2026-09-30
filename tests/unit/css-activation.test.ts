@@ -494,6 +494,89 @@ describe("CSS activation options", () => {
     });
   });
 
+  test("a missing custom selector does not skip invalid sibling media", () => {
+    // Deliberately bypass authoring types to exercise untrusted JavaScript input.
+    const media = "not valid media !!!";
+    const result = exportCssVars(lightDarkScheme(), {
+      selectors: { dark: [{ media }] },
+    } as never);
+
+    expect(result).toEqual({
+      ok: false,
+      issues: [
+        {
+          code: "invalid-custom-condition",
+          message: expect.any(String),
+          tier: "custom",
+          mode: "dark",
+          index: 0,
+        },
+        {
+          code: "invalid-media",
+          message: expect.any(String),
+          tier: "custom",
+          mode: "dark",
+          index: 0,
+          media,
+        },
+      ],
+    });
+  });
+
+  test("unknown custom properties, missing selector, and invalid media collect in stable order", () => {
+    const media = "not valid media !!!";
+    const options = { selectors: { dark: [{ media, extra: true }] } };
+    const result = exportCssVars(lightDarkScheme(), options as never);
+
+    expect(result).toEqual({
+      ok: false,
+      issues: [
+        // Unknown properties are collected first, then selector, then media failures.
+        {
+          code: "invalid-custom-condition",
+          message: expect.stringContaining("extra"),
+          tier: "custom",
+          mode: "dark",
+          index: 0,
+        },
+        {
+          code: "invalid-custom-condition",
+          message: expect.any(String),
+          tier: "custom",
+          mode: "dark",
+          index: 0,
+        },
+        {
+          code: "invalid-media",
+          message: expect.any(String),
+          tier: "custom",
+          mode: "dark",
+          index: 0,
+          media,
+        },
+      ],
+    });
+    expect(
+      exportCssVars(lightDarkScheme(), {
+        selectors: { dark: [{ extra: true, media }] },
+      } as never),
+    ).toEqual(result);
+  });
+
+  test("an invalid custom selector does not skip invalid sibling media", () => {
+    expect(
+      exportCssVars(lightDarkScheme(), {
+        selectors: { dark: [{ selector: ".a{", media: "tv" }] },
+      }),
+    ).toMatchObject({
+      ok: false,
+      issues: [
+        { code: "invalid-selector", tier: "custom", mode: "dark", index: 0, selector: ".a{" },
+        { code: "invalid-media", tier: "custom", mode: "dark", index: 0, media: "tv" },
+      ],
+    });
+  });
+
   test("compiled-scheme issues are returned unchanged before options are read", () => {
     expect(exportCssVars({} as never, { unknown: true } as never)).toEqual(parseCompiledScheme({}));
   });

@@ -370,6 +370,7 @@ function parseCondition(
     }
   }
 
+  let selector: string | undefined;
   if (selectorInput === undefined) {
     collector.add({
       code: "invalid-custom-condition",
@@ -377,9 +378,9 @@ function parseCondition(
       tier: "custom",
       ...context,
     });
-    return undefined;
+  } else {
+    selector = parseSelector(selectorInput, context, collector);
   }
-  const selector = parseSelector(selectorInput, context, collector);
   const media =
     mediaInput === undefined
       ? undefined

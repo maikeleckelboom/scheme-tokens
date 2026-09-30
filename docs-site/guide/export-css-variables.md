@@ -146,6 +146,8 @@ The callback runs in deterministic token order. A thrown exception, unsafe custo
 
 Compilation and serialization preserve arbitrary token strings. CSS export is a stricter code-emission boundary: declaration-unsafe values return `invalid-css-value` instead of being written. The check does not interpret color, spacing, or any other token semantics.
 
+CSS safety checks protect CSS syntax and declaration boundaries. The returned CSS string is not HTML-escaped: even a quoted CSS string containing `</style>` can terminate a style element when interpolated into HTML source. If generated CSS can contain untrusted strings, do not interpolate it into HTML markup; assign stylesheet text through the DOM, for example with a style element's `textContent`. These checks do not sanitize valid CSS semantics.
+
 Selectors, media conditions, and layer names use intentionally bounded grammars rather than the complete browser language:
 
 - selectors: type, universal, class, id, and attribute selectors, `:root`, `:host`, `:host(<compound>)`, and `:is()`, `:not()`, `:where()` over selector lists, with combinators and commas; at most 256 characters and eight nested functional pseudo-classes;

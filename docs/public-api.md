@@ -270,6 +270,8 @@ See [Application Theme Coordinates](./application-theme-coordinates.md) for comb
 
 Compilation and serialization accept arbitrary token strings. CSS export is stricter because it emits declarations: a declaration-unsafe string fails with `invalid-css-value` instead of being written. Each emitted value is checked once, however many blocks declare it. This is an output-safety check, not token-domain interpretation. Option, name, and value failures are all collected rather than reported one at a time.
 
+CSS safety checks protect CSS syntax and declaration boundaries. The returned CSS string is not HTML-escaped: even a quoted CSS string containing `</style>` can terminate a style element when interpolated into HTML source. If generated CSS can contain untrusted strings, do not interpolate it into HTML markup; assign stylesheet text through the DOM, for example with a style element's `textContent`. These checks do not sanitize valid CSS semantics.
+
 ## Strict artifacts and serializers
 
 Strict graph and layer definitions always contain one required `value`; the property holds either an expression or a complete mode map. Strict artifacts include explicit `kind`, `formatVersion`, defaults, and graph modes. Unknown properties and unsupported versions fail parsing.
