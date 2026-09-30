@@ -81,7 +81,10 @@ function compilerVersion(compiler: string): string {
 function runSuite(compiler: string, label: string): void {
   process.stdout.write(`Type compatibility: ${label}\n`);
   for (const [root, configurations] of [
-    [repoRoot, ["tsconfig.lib.json", "tsconfig.type-tests.json"]],
+    [
+      repoRoot,
+      ["tsconfig.lib.json", "tsconfig.type-tests.json", "tsconfig.type-tests.strict.json"],
+    ],
     [materialRoot, ["tsconfig.lib.json", "tsconfig.type-tests.json"]],
   ] as const) {
     for (const config of configurations) {
@@ -90,6 +93,7 @@ function runSuite(compiler: string, label: string): void {
   }
   const environment = { ...process.env, SCHEME_TOKENS_TSC_PATH: compiler };
   runPnpm(["smoke:consumer"], repoRoot, environment);
+  runPnpm(["check:packed-types"], repoRoot, environment);
   runPnpm(
     ["--filter", "@scheme-tokens/material3", "check:packed-consumers"],
     repoRoot,

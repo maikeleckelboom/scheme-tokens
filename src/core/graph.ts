@@ -1,3 +1,15 @@
+import type {
+  AcceptedModeNames,
+  CheckLayers,
+  CheckModeNames,
+  TokensConstraint,
+  DefaultModeInput,
+  DeclaredStateKeys,
+  GraphModes,
+  LayerModeEntries,
+  ModeTuple,
+} from "./authoring-types";
+import type { GraphState, LayerKeyOf, StateKey, StatePublicKey } from "./composition-types";
 import type { JsonValue } from "./json";
 import type { Issue } from "./result";
 import { orThrow } from "./result";
@@ -17,16 +29,20 @@ export interface TokenReference<Key extends string = string> {
   readonly ref: Key;
 }
 
+type TokenConcatPart<Key extends string> = string | TokenReference<Key>;
+export type TokenConcat<Key extends string> = {
+  readonly concat: readonly [TokenConcatPart<Key>, ...TokenConcatPart<Key>[]];
+};
+
 export type TokenExpression<Key extends string = string> =
   | string
   | TokenReference<Key>
-  | {
-      readonly concat: readonly [string | TokenReference<Key>, ...(string | TokenReference<Key>)[]];
-    };
+  | TokenConcat<Key>;
 
-type TokenModeValues<Mode extends string, Key extends string> = Readonly<
-  Record<Mode, TokenExpression<Key>>
->;
+/** A total mode map; a layer without mode maps (`never`) has none. */
+export type TokenModeValues<Mode extends string, Key extends string> = [Mode] extends [never]
+  ? never
+  : Readonly<Record<Mode, TokenExpression<Key>>>;
 
 export interface TokenDefinitionMetadata {
   readonly visibility?: TokenVisibility;
@@ -42,19 +58,64 @@ export type TokenDefinition<
   readonly value: TokenExpression<Key> | TokenModeValues<Mode, Key>;
 };
 
-export interface TokenLayer<Key extends string = string, Mode extends string = string> {
+/**
+ * Type-only visibility facts of a layer. `public` and `internal` name the keys whose
+ * declaration may state that visibility, and `omitted` the keys whose declaration may omit
+ * it. A key in exactly one set is known; a wider type only adds possibilities, so the
+ * default `LayerVisibility` describes a layer whose visibility is not statically known.
+ */
+export interface LayerVisibility {
+  readonly default: TokenVisibility;
+  readonly public: string;
+  readonly internal: string;
+  readonly omitted: string;
+}
+
+declare const layerStatic: unique symbol;
+declare const graphStatic: unique symbol;
+
+/**
+ * A finite key union is an exact claim: no other finite union is assignable to it, so
+ * neither an annotation nor union subtype reduction can add or hide a key. Every claim is
+ * still assignable to the dynamic `string` form.
+ */
+type ExactClaim<Claim extends string> = string extends Claim ? unknown : (claim: Claim) => Claim;
+
+type GraphTokens<Key extends string, Mode extends string> = string extends Key
+  ? Readonly<Record<string, TokenDefinition<string, Mode>>>
+  : Readonly<Partial<Record<Key, TokenDefinition<string, Mode>>>>;
+
+/**
+ * `Mode` is the layer's derived mode set: `never` without mode maps, a literal union for a
+ * literal layer, and `string` when unknown.
+ */
+export interface TokenLayer<
+  Key extends string = string,
+  Mode extends string = string,
+  Visibility extends LayerVisibility = LayerVisibility,
+> {
   readonly $schema?: string;
   readonly kind: typeof tokenLayerKind;
   readonly formatVersion: 2;
   readonly id: string;
-  readonly defaultVisibility: TokenVisibility;
+  readonly defaultVisibility: Visibility["default"];
   readonly tokens: Readonly<Record<Key, TokenDefinition<string, Mode>>>;
+  /** Static information only; never present at runtime or in serialized output. */
+  readonly [layerStatic]?: {
+    readonly mode: Mode;
+    readonly visibility: Visibility;
+    readonly exactKey: ExactClaim<Key>;
+  };
 }
 
+/**
+ * `Key` is every composed key, `PublicKey` the effective public keys after layer order and
+ * graph-last visibility. Either is `string` when it is not statically known.
+ */
 export interface TokenGraph<
   Key extends string = string,
   Mode extends string = string,
-  Layers extends readonly TokenLayer<string, string>[] = readonly TokenLayer<string, string>[],
+  PublicKey extends string = string,
 > {
   readonly $schema?: string;
   readonly kind: typeof tokenGraphKind;
@@ -62,88 +123,30 @@ export interface TokenGraph<
   readonly modes: readonly [Mode, ...Mode[]];
   readonly defaultMode: Mode;
   readonly defaultVisibility: TokenVisibility;
-  readonly tokens: Readonly<Record<Key, TokenDefinition<string, Mode>>>;
-  readonly layers?: Layers;
+  readonly layers?: readonly TokenLayer<string, Mode>[];
+  /** The graph's own declarations; layer keys appear here only when the graph overrides them. */
+  readonly tokens: GraphTokens<Key, Mode>;
+  /** Static information only; never present at runtime or in serialized output. */
+  readonly [graphStatic]?: {
+    readonly key: Key;
+    readonly publicKey: PublicKey;
+    readonly exactKey: ExactClaim<Key>;
+    readonly exactPublicKey: ExactClaim<PublicKey>;
+  };
 }
 
-type TokenMetadataAuthoring = TokenDefinitionMetadata;
-
-type ExpandedSingleTokenAuthoring<Key extends string> = TokenMetadataAuthoring & {
-  readonly value: TokenExpression<Key>;
-};
-
-type ExpandedMultiTokenAuthoring<
-  Mode extends string,
-  Key extends string,
-> = TokenMetadataAuthoring & {
-  readonly value: TokenExpression<Key> | TokenModeValues<Mode, Key>;
-};
-
-type SingleTokenAuthoring<Key extends string> =
-  | TokenExpression<Key>
-  | ExpandedSingleTokenAuthoring<Key>;
-
-type MultiTokenAuthoring<Mode extends string, Key extends string> =
-  | TokenExpression<Key>
-  | TokenModeValues<Mode, Key>
-  | ExpandedMultiTokenAuthoring<Mode, Key>;
-
-type ModeTuple = readonly [string, ...string[]];
-type LayerTuple = readonly TokenLayer<string, string>[];
-type ReservedMode = "ref" | "value" | "visibility" | "description" | "deprecated" | "extensions";
-type ValidModes<Modes extends ModeTuple> =
-  Extract<Modes[number], ReservedMode> extends never ? Modes : never;
-
-type LayerMemberKey<Layer> = Layer extends TokenLayer<infer Key, string> ? Key : never;
-type LayerKeyOf<Layers extends LayerTuple> = Layers extends readonly []
-  ? never
-  : LayerMemberKey<Layers[number]>;
-
-type DefinedGraph<
-  DirectKey extends string,
-  Mode extends string,
-  Layers extends LayerTuple,
-> = TokenGraph<DirectKey, Mode, Layers>;
-
-interface SharedGraphOptions<Layers extends LayerTuple> {
-  readonly defaultVisibility?: TokenVisibility;
-  readonly layers?: Layers;
+/**
+ * A layer as data, without static facts. `layers` is constrained by this shape so that the
+ * expected type never supplies a mode set to an inline generic layer (ADR 0013 Appendix A).
+ */
+interface TokenLayerData {
+  readonly $schema?: string;
+  readonly kind: typeof tokenLayerKind;
+  readonly formatVersion: 2;
+  readonly id: string;
+  readonly defaultVisibility: TokenVisibility;
+  readonly tokens: Readonly<Record<string, TokenDefinitionMetadata & { readonly value: unknown }>>;
 }
-
-type SingleGraphOptions<Layers extends LayerTuple> = SharedGraphOptions<Layers> & {
-  readonly modes?: never;
-  readonly defaultMode?: never;
-};
-
-type MultiGraphOptions<
-  Modes extends ModeTuple,
-  Layers extends LayerTuple,
-> = SharedGraphOptions<Layers> & {
-  readonly modes: ValidModes<Modes>;
-  readonly defaultMode: NoInfer<Modes[number]>;
-};
-
-type SingleGraphAuthoring<
-  DirectKey extends string,
-  Layers extends LayerTuple,
-> = SingleGraphOptions<Layers> & {
-  readonly tokens: Readonly<
-    Record<DirectKey, SingleTokenAuthoring<NoInfer<DirectKey | LayerKeyOf<Layers>>>>
-  >;
-};
-
-type MultiGraphAuthoring<
-  Modes extends ModeTuple,
-  DirectKey extends string,
-  Layers extends LayerTuple,
-> = MultiGraphOptions<Modes, Layers> & {
-  readonly tokens: Readonly<
-    Record<
-      DirectKey,
-      MultiTokenAuthoring<NoInfer<Modes[number]>, NoInfer<DirectKey | LayerKeyOf<Layers>>>
-    >
-  >;
-};
 
 export type TokenOrigin =
   | {
@@ -153,19 +156,6 @@ export type TokenOrigin =
       readonly kind: "layer";
       readonly id: string;
     };
-
-type DirectTokenKeyOf<T> = T extends { readonly tokens: Readonly<Record<infer Key, unknown>> }
-  ? Extract<Key, string>
-  : never;
-
-export type TokenKeyOf<T> =
-  T extends TokenGraph<infer DirectKey, string, infer Layers>
-    ? DirectKey | LayerKeyOf<Layers>
-    : DirectTokenKeyOf<T>;
-
-export type ModeOf<T> = T extends { readonly modes: readonly [infer First, ...infer Rest] }
-  ? Extract<First | Rest[number], string>
-  : never;
 
 export type TokenGraphIssue = Issue<
   | "invalid-object"
@@ -217,10 +207,24 @@ export function tokenRef<const Key extends string>(key: Key): TokenReference<Key
   return { ref: key };
 }
 
-export function tokenConcat<const Key extends string>(
+/** Canonical results (D5): no reference is a string, one may collapse to that reference. */
+type TokenConcatResult<References extends readonly TokenReference[]> =
+  number extends References["length"]
+    ? TokenExpression<References[number]["ref"]>
+    : References extends readonly []
+      ? string
+      : References extends readonly [TokenReference]
+        ? TokenReference<References[0]["ref"]> | TokenConcat<References[0]["ref"]>
+        : TokenConcat<References[number]["ref"]>;
+
+export function tokenConcat<const References extends readonly TokenReference[]>(
   strings: TemplateStringsArray,
-  ...references: readonly TokenReference<Key>[]
-): TokenExpression<Key> {
+  ...references: References
+): TokenConcatResult<References>;
+export function tokenConcat(
+  strings: TemplateStringsArray,
+  ...references: readonly TokenReference[]
+): TokenExpression {
   const literals = orThrow(
     readArray(strings, {
       code: "invalid-token-value",
@@ -275,30 +279,64 @@ export function tokenConcat<const Key extends string>(
       parts.push(reference);
     }
   }
-  return orThrow(canonicalizeExpression({ concat: parts }, "")).expression as TokenExpression<Key>;
+  return orThrow(canonicalizeExpression({ concat: parts }, "")).expression;
 }
 
+/**
+ * Define a graph. Literal input infers every composed key, the mode union, and the public
+ * keys after layers compose in order and graph tokens compose last.
+ */
 export function defineTokenGraph<
-  const DirectKey extends string,
-  const Layers extends LayerTuple = readonly [],
->(input: SingleGraphAuthoring<DirectKey, Layers>): DefinedGraph<DirectKey, "base", Layers>;
-export function defineTokenGraph<
-  const Modes extends ModeTuple,
-  const DirectKey extends string,
-  const Layers extends LayerTuple = readonly [],
+  const Tokens extends TokensConstraint<
+    Tokens,
+    NoInfer<Extract<keyof Tokens, string> | LayerKeyOf<Layers[number]>>,
+    NoInfer<GraphModes<Modes>>
+  >,
+  const Modes extends ModeTuple | undefined = undefined,
+  const Layers extends readonly TokenLayerData[] = readonly [],
+  const Default extends TokenVisibility = "public",
 >(
-  input: MultiGraphAuthoring<Modes, DirectKey, Layers>,
-): DefinedGraph<DirectKey, Modes[number], Layers>;
+  input: {
+    readonly modes?: Modes & CheckModeNames<Modes>;
+    readonly defaultVisibility?: Default;
+    readonly layers?: Layers & CheckLayers<Layers, NoInfer<GraphModes<Modes>>>;
+    readonly tokens: Tokens;
+  } & DefaultModeInput<Modes>,
+): TokenGraph<
+  StateKey<GraphState<Tokens, Layers, Default>>,
+  GraphModes<Modes>,
+  StatePublicKey<GraphState<Tokens, Layers, Default>>
+>;
 export function defineTokenGraph(input: unknown): TokenGraph {
   const normalized = orThrow(normalizeAuthoring(input, "graph"));
   return orThrow(validateSourceGraph(normalized.input, { paths: normalized.paths })).artifact;
 }
 
-export function defineTokenLayer<const Key extends string>(input: {
+/**
+ * Define a reusable layer. Its mode set is the union of its mode-map names, and every mode
+ * map must name all of them (D12).
+ */
+export function defineTokenLayer<
+  const Tokens extends TokensConstraint<
+    Tokens,
+    string,
+    NoInfer<AcceptedModeNames<LayerModeEntries<Tokens>[keyof Tokens]>>
+  >,
+  const Default extends TokenVisibility = "public",
+>(input: {
   readonly id: string;
-  readonly defaultVisibility?: TokenVisibility;
-  readonly tokens: Readonly<Record<Key, MultiTokenAuthoring<string, string>>>;
-}): TokenLayer<Key, string>;
+  readonly defaultVisibility?: Default;
+  readonly tokens: Tokens;
+}): TokenLayer<
+  Extract<keyof Tokens, string>,
+  LayerModeEntries<Tokens>[keyof Tokens],
+  {
+    readonly default: Default;
+    readonly public: DeclaredStateKeys<Tokens, "public">;
+    readonly internal: DeclaredStateKeys<Tokens, "internal">;
+    readonly omitted: DeclaredStateKeys<Tokens, "omitted">;
+  }
+>;
 export function defineTokenLayer(input: unknown): TokenLayer {
   const normalized = orThrow(normalizeAuthoring(input, "layer"));
   return orThrow(validateSourceLayer(normalized.input, { paths: normalized.paths })).artifact;

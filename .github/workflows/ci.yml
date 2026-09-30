@@ -58,6 +58,9 @@ jobs:
       - name: Packed consumer smoke
         run: pnpm smoke:consumer
 
+      - name: Packed declaration type matrix
+        run: pnpm check:packed-types
+
       - name: Packed consumer module resolution (bundler + node16)
         run: pnpm check:module-resolution
 

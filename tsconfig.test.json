@@ -2,7 +2,10 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "types": ["node", "vitest"],
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "scheme-tokens": ["./src/index.ts"]
+    }
   },
   "include": ["tests/**/*.ts"],
   "exclude": ["tests/rnd/material3"]

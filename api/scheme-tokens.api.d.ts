@@ -18,6 +18,162 @@ type Result<Value, Problem = Issue> = {
 } | FailureResult<Problem>;
 /** Return a success or retain the entire structured failure as the error cause. */
 declare function orThrow<Value, Problem extends Issue>(result: Result<Value, Problem>): Value;
+/** Diagnostic marker: this property is not part of a token definition. */
+interface UnknownTokenProperty<Name extends PropertyKey> {
+  readonly unknownTokenProperty: Name;
+}
+/** Diagnostic marker: this mode is not in the mode set the value must use. */
+interface UnknownMode<Name extends PropertyKey> {
+  readonly unknownMode: Name;
+}
+/** Diagnostic marker: a layer's mode maps name a different set than the graph declares. */
+interface LayerModeMismatch<LayerModes extends string, GraphModes extends string> {
+  readonly layerModes: LayerModes;
+  readonly graphModes: GraphModes;
+}
+/** Diagnostic marker: not a lower-kebab mode identifier, or a reserved token property. */
+interface InvalidModeName<Name extends string> {
+  readonly invalidModeName: Name;
+}
+type ModeTuple = readonly [string, ...string[]];
+type LowerLetter = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z";
+type Digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
+type ReservedMode = "ref" | "value" | "visibility" | "description" | "deprecated" | "extensions";
+/** A literal member; `string` and template patterns are dynamic and checked at runtime. */
+type IsLiteral<Name extends PropertyKey> = {} extends Record<Name, 0> ? false : true;
+/** Every member is a literal, so the union is a finite known set. */
+type IsFinite<Names extends string> = false extends (Names extends unknown ? IsLiteral<Names> : never) ? false : true;
+type IsModeName<Name extends string> = Name extends ReservedMode ? false : Name extends `${LowerLetter}${infer Rest}` ? IsModeTail<Rest> : false;
+type IsModeTail<Rest extends string> = Rest extends "" ? true : Rest extends `-${LowerLetter | Digit}${infer Next}` ? IsModeTail<Next> : Rest extends `${LowerLetter | Digit}${infer Next}` ? IsModeTail<Next> : false;
+type IsAcceptedModeName<Name extends string> = IsLiteral<Name> extends true ? IsModeName<Name> : true;
+/** Literal mode names that the runtime grammar accepts; dynamic names pass through. */
+type AcceptedModeNames<Mode extends string> = Mode extends unknown ? IsAcceptedModeName<Mode> extends true ? Mode : never : never;
+type CheckModeNames<Modes> = Modes extends ModeTuple ? { readonly [Index in keyof Modes]: Modes[Index] extends string ? IsAcceptedModeName<Modes[Index]> extends true ? Modes[Index] : InvalidModeName<Modes[Index]> : Modes[Index]; } : Modes;
+type GraphModes<Modes> = Modes extends ModeTuple ? Modes[number] : "base";
+type DefinitionKey = "value" | "visibility" | "description" | "deprecated" | "extensions";
+/**
+ * ADR 0015 classification of one value: a string, an exact `{ ref }`, or an exact
+ * `{ concat }` whose value is an array. Property presence alone never decides it.
+ */
+type IsExpression<Value> = Value extends string ? true : Value extends object ? string extends keyof Value ? false : [keyof Value] extends ["ref"] ? Value extends {
+  readonly ref: unknown;
+} ? true : false : [keyof Value] extends ["concat"] ? Value extends {
+  readonly concat: readonly unknown[];
+} ? true : false : false : false;
+type IsExactReference<Value> = [keyof Value] extends ["ref"] ? true : false;
+type HasExactParts<Parts> = false extends (Parts extends unknown ? (Parts extends string ? true : IsExactReference<Parts>) : never) ? false : true;
+type IsValidConcat<Value, Key extends string> = Value extends TokenConcat<Key> ? HasExactParts<Value["concat"][number]> : false;
+/** One member in expression position: a string, an exact reference, or an exact concat. */
+type IsValidExpression<Value, Key extends string> = Value extends string ? true : Value extends object ? [keyof Value] extends ["ref"] ? Value extends TokenReference<Key> ? true : false : [keyof Value] extends ["concat"] ? IsValidConcat<Value, Key> : false : false;
+/** Every union member is an expression that targets a known key. */
+type AreValidExpressions<Value, Key extends string> = false extends (Value extends unknown ? IsValidExpression<Value, Key> : never) ? false : true;
+type AreValidModeValues<Value, Key extends string> = Value[keyof Value] extends string ? true : false extends { readonly [Mode in keyof Value]-?: AreValidExpressions<Value[Mode], Key>; }[keyof Value] ? false : true;
+type IsValidModeMap<Value, Key extends string, Mode extends string> = string extends Mode ? AreValidModeValues<Value, Key> : [Exclude<keyof Value, Mode>] extends [never] ? [Exclude<Mode, keyof Value>] extends [never] ? AreValidModeValues<Value, Key> : false : false;
+/** One member in value position: an expression, or a total mode map of expressions. */
+type IsValidValueMember<Value, Key extends string, Mode extends string> = Value extends string ? true : Value extends object ? string extends keyof Value ? AreValidExpressions<Value[keyof Value], Key> : [keyof Value] extends ["ref"] ? Value extends TokenReference<Key> ? true : false : [keyof Value] extends ["concat"] ? Value extends {
+  readonly concat: readonly unknown[];
+} ? IsValidConcat<Value, Key> : IsValidModeMap<Value, Key, Mode> : IsValidModeMap<Value, Key, Mode> : false;
+type AreValidValues<Value, Key extends string, Mode extends string> = false extends (Value extends unknown ? IsValidValueMember<Value, Key, Mode> : never) ? false : true;
+type IsDefinition<Value> = Value extends object ? string extends keyof Value ? false : [Extract<keyof Value, DefinitionKey>] extends [never] ? false : true : false;
+type IsValidDefinition<Value, Key extends string, Mode extends string> = [Exclude<keyof Value, DefinitionKey>] extends [never] ? Value extends TokenDefinitionMetadata & {
+  readonly value: infer Inner;
+} ? AreValidValues<Inner, Key, Mode> : false : false;
+type ForbidModes<Value, Mode extends string> = { readonly [Name in Exclude<keyof Value, Mode>]: UnknownMode<Name>; };
+type ForbidProperties<Value> = { readonly [Name in Exclude<keyof Value, DefinitionKey>]: UnknownTokenProperty<Name>; };
+type AnyValue<Key extends string, Mode extends string> = TokenExpression<Key> | TokenModeValues<Mode, Key>;
+type ObjectExpression<Key extends string> = Exclude<TokenExpression<Key>, string>;
+type ForbidExtra<Value, Allowed extends PropertyKey> = { readonly [Name in Exclude<keyof Value, Allowed>]: UnknownTokenProperty<Name>; };
+type ExpectedReference<Value, Key extends string> = IsExactReference<Value> extends true ? TokenReference<Key> : TokenReference<Key> & ForbidExtra<Value, "ref">;
+type ExpectedParts<Parts extends readonly unknown[], Key extends string> = Parts extends readonly [] ? ObjectExpression<Key> : { readonly [Index in keyof Parts]: Parts[Index] extends string ? string : Parts[Index] extends object ? ExpectedReference<Parts[Index], Key> : string | TokenReference<Key>; };
+type ExpectedExpression<Value, Key extends string> = Value extends unknown ? Value extends string ? string : Value extends object ? "ref" extends keyof Value ? ExpectedReference<Value, Key> : Value extends {
+  readonly concat: infer Parts extends readonly unknown[];
+} ? {
+  readonly concat: ExpectedParts<Parts, Key>;
+} & ForbidExtra<Value, "concat"> : ObjectExpression<Key> : TokenExpression<Key> : never;
+type ExpectedModeMap<Value, Key extends string, Mode extends string> = string extends Mode ? { readonly [Name in keyof Value]: ExpectedExpression<Value[Name], Key>; } : { readonly [Name in Mode]: Name extends keyof Value ? ExpectedExpression<Value[Name], Key> : TokenExpression<Key>; } & ForbidModes<Value, Mode>;
+/** The precise shape an invalid value must have, so the diagnostic lands on its property. */
+type ExpectedValue<Value, Key extends string, Mode extends string> = Value extends unknown ? IsExpression<Value> extends true ? ExpectedExpression<Value, Key> : Value extends object ? string extends keyof Value ? {
+  readonly [name: string]: TokenExpression<Key>;
+} : [keyof Value] extends [never] ? AnyValue<Key, Mode> : ExpectedModeMap<Value, Key, Mode> : AnyValue<Key, Mode> : never;
+type ExpectedDefinition<Value, Key extends string, Mode extends string> = TokenDefinitionMetadata & {
+  readonly value: "value" extends keyof Value ? ExpectedValue<Value["value" & keyof Value], Key, Mode> : AnyValue<Key, Mode>;
+} & ForbidProperties<Value>;
+type IsValidToken<Value, Key extends string, Mode extends string> = Value extends string ? true : IsDefinition<Value> extends true ? IsValidDefinition<Value, Key, Mode> : IsValidValueMember<Value, Key, Mode>;
+/**
+ * Validate one captured token value against the reference universe and mode set. A valid
+ * member is returned unchanged; an invalid one maps to the shape it should have had.
+ */
+type CheckToken<Value, Key extends string, Mode extends string> = Value extends unknown ? IsValidToken<Value, Key, Mode> extends true ? Value : IsDefinition<Value> extends true ? ExpectedDefinition<Value, Key, Mode> : ExpectedValue<Value, Key, Mode> : never;
+type AreValidTokens<Tokens, Key extends string, Mode extends string> = [Tokens] extends [Required<Tokens>] ? false extends { readonly [Name in keyof Tokens]-?: IsValidToken<Tokens[Name], Key, Mode>; }[keyof Tokens] ? false : true : false;
+/**
+ * The strict constraint for a captured token record (ADR 0013 D4). Valid input meets
+ * `unknown`, so contextual typing never expands the expected shapes; invalid input is
+ * checked against them, and the diagnostic lands on the offending property. A key that
+ * may be absent has no known definition and is rejected.
+ */
+type TokensConstraint<Tokens, Key extends string, Mode extends string> = AreValidTokens<Tokens, Key, Mode> extends true ? unknown : { readonly [Name in keyof Tokens]-?: CheckToken<Tokens[Name], Key, Mode>; };
+type ValueModes<Value> = Value extends unknown ? IsExpression<Value> extends true ? never : Value extends object ? string extends keyof Value ? string : Extract<keyof Value, string> : never : never;
+type EntryModes<Value> = Value extends unknown ? IsDefinition<Value> extends true ? ValueModes<Value["value" & keyof Value]> : ValueModes<Value> : never;
+/** Index with `[keyof Tokens]` at the use site, so the mode set prints as its members. */
+type LayerModeEntries<Tokens> = { readonly [Key in keyof Tokens]-?: EntryModes<Tokens[Key]>; };
+type LayerModeOf<Layer> = Layer extends TokenLayer<string, infer Mode> ? Mode : string;
+type SameSet<Left, Right> = [Left] extends [Right] ? [Right] extends [Left] ? true : false : false;
+type CheckLayer<Layer, GraphMode extends string> = [LayerModeOf<Layer>] extends [never] ? Layer : IsFinite<LayerModeOf<Layer> | GraphMode> extends false ? Layer : SameSet<LayerModeOf<Layer>, GraphMode> extends true ? Layer : LayerModeMismatch<LayerModeOf<Layer>, GraphMode>;
+type CheckLayers<Layers extends readonly unknown[], GraphMode extends string> = { readonly [Index in keyof Layers]: CheckLayer<Layers[Index], GraphMode>; };
+type DefaultModeInput<Modes> = Modes extends ModeTuple ? {
+  readonly defaultMode: NoInfer<Modes[number]>;
+} : {
+  readonly defaultMode?: never;
+};
+/** What one declaration may state: an explicit visibility, or none (ADR 0011). */
+type DeclaredState = TokenVisibility | "omitted";
+type DeclaredStates<Value> = Value extends unknown ? Value extends object ? string extends keyof Value ? DeclaredState : "visibility" extends keyof Value ? Value extends {
+  readonly visibility: unknown;
+} ? Extract<Value["visibility" & keyof Value], TokenVisibility> : Extract<Value["visibility" & keyof Value], TokenVisibility> | "omitted" : "omitted" : "omitted" : never;
+/** Keys whose declaration may have this state. */
+type DeclaredStateKeys<Tokens, State extends DeclaredState> = { readonly [Key in keyof Tokens]-?: State extends DeclaredStates<Tokens[Key]> ? Key : never; }[keyof Tokens] & string;
+/**
+ * Static mirror of ADR 0011 composition. Each composed key is in exactly one of `public`,
+ * `internal`, or `unknown`; `all` is `string` when the key set is not finite and exact.
+ */
+interface VisibilityState {
+  readonly all: string;
+  readonly public: string;
+  readonly internal: string;
+  readonly unknown: string;
+}
+interface EmptyState extends VisibilityState {
+  readonly all: never;
+  readonly public: never;
+  readonly internal: never;
+  readonly unknown: never;
+}
+interface DynamicState extends VisibilityState {
+  readonly all: string;
+  readonly public: never;
+  readonly internal: never;
+  readonly unknown: string;
+}
+/**
+ * One position. A key in exactly one may-set has a known declaration: explicit visibility
+ * replaces the prior state, an omitted one keeps it, and a key the position introduces
+ * without visibility takes the position default. Any other key becomes unknown.
+ */
+type Composed<State extends VisibilityState, Key extends string, MayPublic extends string, MayInternal extends string, MayOmit extends string, Default extends TokenVisibility, Public extends string = Exclude<MayPublic, MayInternal | MayOmit>, Internal extends string = Exclude<MayInternal, MayPublic | MayOmit>, Stated extends string = Exclude<Key, Exclude<MayOmit, MayPublic | MayInternal>>, Introduced extends string = Exclude<Key, Stated | State["all"]>> = {
+  readonly all: State["all"] | Key;
+  readonly public: Public | Exclude<State["public"], Stated> | ([Default] extends ["public"] ? Introduced : never);
+  readonly internal: Internal | Exclude<State["internal"], Stated> | ([Default] extends ["internal"] ? Introduced : never);
+  readonly unknown: Exclude<Stated, Public | Internal> | Exclude<State["unknown"], Public | Internal> | (TokenVisibility extends Default ? Introduced : never);
+};
+type IsUnion<Value, Whole = Value> = Value extends unknown ? [Whole] extends [Value] ? false : true : never;
+type ComposeLayer<State extends VisibilityState, Layer> = true extends IsUnion<Layer> ? DynamicState : Layer extends TokenLayer<infer Key, string, infer Visibility> ? Composed<State, Key, Extract<Key, Visibility["public"]>, Extract<Key, Visibility["internal"]>, Extract<Key, Visibility["omitted"]>, Visibility["default"]> : DynamicState;
+type ComposeLayers<State extends VisibilityState, Layers extends readonly unknown[]> = Layers extends readonly [infer Head, ...infer Tail] ? ComposeLayers<ComposeLayer<State, Head>, Tail> : Layers extends readonly [] ? State : DynamicState;
+type LayerKeyOf<Layer> = Layer extends TokenLayer<infer Key> ? Key : never;
+/** Layers in array order, then the graph's own tokens with the graph default. */
+type GraphState<Tokens, Layers extends readonly unknown[], Default extends TokenVisibility> = Composed<ComposeLayers<EmptyState, Layers>, Extract<keyof Tokens, string>, DeclaredStateKeys<Tokens, "public">, DeclaredStateKeys<Tokens, "internal">, DeclaredStateKeys<Tokens, "omitted">, Default>;
+type StateKey<State extends VisibilityState> = State["all"];
+/** A finite, fully known public union; anything uncertain is `string`. */
+type StatePublicKey<State extends VisibilityState> = [State["unknown"]] extends [never] ? IsFinite<State["all"]> extends true ? State["public"] : string : string;
 type JsonPrimitive = null | boolean | number | string;
 type JsonValue = JsonPrimitive | readonly JsonValue[] | {
   readonly [key: string]: JsonValue;
@@ -29,10 +185,13 @@ type TokenVisibility = "public" | "internal";
 interface TokenReference<Key extends string = string> {
   readonly ref: Key;
 }
-type TokenExpression<Key extends string = string> = string | TokenReference<Key> | {
-  readonly concat: readonly [string | TokenReference<Key>, ...(string | TokenReference<Key>)[]];
+type TokenConcatPart<Key extends string> = string | TokenReference<Key>;
+type TokenConcat<Key extends string> = {
+  readonly concat: readonly [TokenConcatPart<Key>, ...TokenConcatPart<Key>[]];
 };
-type TokenModeValues<Mode extends string, Key extends string> = Readonly<Record<Mode, TokenExpression<Key>>>;
+type TokenExpression<Key extends string = string> = string | TokenReference<Key> | TokenConcat<Key>;
+/** A total mode map; a layer without mode maps (`never`) has none. */
+type TokenModeValues<Mode extends string, Key extends string> = [Mode] extends [never] ? never : Readonly<Record<Mode, TokenExpression<Key>>>;
 interface TokenDefinitionMetadata {
   readonly visibility?: TokenVisibility;
   readonly description?: string;
@@ -42,71 +201,87 @@ interface TokenDefinitionMetadata {
 type TokenDefinition<Key extends string = string, Mode extends string = string> = TokenDefinitionMetadata & {
   readonly value: TokenExpression<Key> | TokenModeValues<Mode, Key>;
 };
-interface TokenLayer<Key extends string = string, Mode extends string = string> {
+/**
+ * Type-only visibility facts of a layer. `public` and `internal` name the keys whose
+ * declaration may state that visibility, and `omitted` the keys whose declaration may omit
+ * it. A key in exactly one set is known; a wider type only adds possibilities, so the
+ * default `LayerVisibility` describes a layer whose visibility is not statically known.
+ */
+interface LayerVisibility {
+  readonly default: TokenVisibility;
+  readonly public: string;
+  readonly internal: string;
+  readonly omitted: string;
+}
+declare const layerStatic: unique symbol;
+declare const graphStatic: unique symbol;
+/**
+ * A finite key union is an exact claim: no other finite union is assignable to it, so
+ * neither an annotation nor union subtype reduction can add or hide a key. Every claim is
+ * still assignable to the dynamic `string` form.
+ */
+type ExactClaim<Claim extends string> = string extends Claim ? unknown : (claim: Claim) => Claim;
+type GraphTokens<Key extends string, Mode extends string> = string extends Key ? Readonly<Record<string, TokenDefinition<string, Mode>>> : Readonly<Partial<Record<Key, TokenDefinition<string, Mode>>>>;
+/**
+ * `Mode` is the layer's derived mode set: `never` without mode maps, a literal union for a
+ * literal layer, and `string` when unknown.
+ */
+interface TokenLayer<Key extends string = string, Mode extends string = string, Visibility extends LayerVisibility = LayerVisibility> {
   readonly $schema?: string;
   readonly kind: typeof tokenLayerKind;
   readonly formatVersion: 2;
   readonly id: string;
-  readonly defaultVisibility: TokenVisibility;
+  readonly defaultVisibility: Visibility["default"];
   readonly tokens: Readonly<Record<Key, TokenDefinition<string, Mode>>>;
+  /** Static information only; never present at runtime or in serialized output. */
+  readonly [layerStatic]?: {
+    readonly mode: Mode;
+    readonly visibility: Visibility;
+    readonly exactKey: ExactClaim<Key>;
+  };
 }
-interface TokenGraph<Key extends string = string, Mode extends string = string, Layers extends readonly TokenLayer<string, string>[] = readonly TokenLayer<string, string>[]> {
+/**
+ * `Key` is every composed key, `PublicKey` the effective public keys after layer order and
+ * graph-last visibility. Either is `string` when it is not statically known.
+ */
+interface TokenGraph<Key extends string = string, Mode extends string = string, PublicKey extends string = string> {
   readonly $schema?: string;
   readonly kind: typeof tokenGraphKind;
   readonly formatVersion: 2;
   readonly modes: readonly [Mode, ...Mode[]];
   readonly defaultMode: Mode;
   readonly defaultVisibility: TokenVisibility;
-  readonly tokens: Readonly<Record<Key, TokenDefinition<string, Mode>>>;
-  readonly layers?: Layers;
+  readonly layers?: readonly TokenLayer<string, Mode>[];
+  /** The graph's own declarations; layer keys appear here only when the graph overrides them. */
+  readonly tokens: GraphTokens<Key, Mode>;
+  /** Static information only; never present at runtime or in serialized output. */
+  readonly [graphStatic]?: {
+    readonly key: Key;
+    readonly publicKey: PublicKey;
+    readonly exactKey: ExactClaim<Key>;
+    readonly exactPublicKey: ExactClaim<PublicKey>;
+  };
 }
-type TokenMetadataAuthoring = TokenDefinitionMetadata;
-type ExpandedSingleTokenAuthoring<Key extends string> = TokenMetadataAuthoring & {
-  readonly value: TokenExpression<Key>;
-};
-type ExpandedMultiTokenAuthoring<Mode extends string, Key extends string> = TokenMetadataAuthoring & {
-  readonly value: TokenExpression<Key> | TokenModeValues<Mode, Key>;
-};
-type SingleTokenAuthoring<Key extends string> = TokenExpression<Key> | ExpandedSingleTokenAuthoring<Key>;
-type MultiTokenAuthoring<Mode extends string, Key extends string> = TokenExpression<Key> | TokenModeValues<Mode, Key> | ExpandedMultiTokenAuthoring<Mode, Key>;
-type ModeTuple = readonly [string, ...string[]];
-type LayerTuple = readonly TokenLayer<string, string>[];
-type ReservedMode = "ref" | "value" | "visibility" | "description" | "deprecated" | "extensions";
-type ValidModes<Modes extends ModeTuple> = Extract<Modes[number], ReservedMode> extends never ? Modes : never;
-type LayerMemberKey<Layer> = Layer extends TokenLayer<infer Key, string> ? Key : never;
-type LayerKeyOf<Layers extends LayerTuple> = Layers extends readonly [] ? never : LayerMemberKey<Layers[number]>;
-type DefinedGraph<DirectKey extends string, Mode extends string, Layers extends LayerTuple> = TokenGraph<DirectKey, Mode, Layers>;
-interface SharedGraphOptions<Layers extends LayerTuple> {
-  readonly defaultVisibility?: TokenVisibility;
-  readonly layers?: Layers;
+/**
+ * A layer as data, without static facts. `layers` is constrained by this shape so that the
+ * expected type never supplies a mode set to an inline generic layer (ADR 0013 Appendix A).
+ */
+interface TokenLayerData {
+  readonly $schema?: string;
+  readonly kind: typeof tokenLayerKind;
+  readonly formatVersion: 2;
+  readonly id: string;
+  readonly defaultVisibility: TokenVisibility;
+  readonly tokens: Readonly<Record<string, TokenDefinitionMetadata & {
+    readonly value: unknown;
+  }>>;
 }
-type SingleGraphOptions<Layers extends LayerTuple> = SharedGraphOptions<Layers> & {
-  readonly modes?: never;
-  readonly defaultMode?: never;
-};
-type MultiGraphOptions<Modes extends ModeTuple, Layers extends LayerTuple> = SharedGraphOptions<Layers> & {
-  readonly modes: ValidModes<Modes>;
-  readonly defaultMode: NoInfer<Modes[number]>;
-};
-type SingleGraphAuthoring<DirectKey extends string, Layers extends LayerTuple> = SingleGraphOptions<Layers> & {
-  readonly tokens: Readonly<Record<DirectKey, SingleTokenAuthoring<NoInfer<DirectKey | LayerKeyOf<Layers>>>>>;
-};
-type MultiGraphAuthoring<Modes extends ModeTuple, DirectKey extends string, Layers extends LayerTuple> = MultiGraphOptions<Modes, Layers> & {
-  readonly tokens: Readonly<Record<DirectKey, MultiTokenAuthoring<NoInfer<Modes[number]>, NoInfer<DirectKey | LayerKeyOf<Layers>>>>>;
-};
 type TokenOrigin = {
   readonly kind: "graph";
 } | {
   readonly kind: "layer";
   readonly id: string;
 };
-type DirectTokenKeyOf<T> = T extends {
-  readonly tokens: Readonly<Record<infer Key, unknown>>;
-} ? Extract<Key, string> : never;
-type TokenKeyOf<T> = T extends TokenGraph<infer DirectKey, string, infer Layers> ? DirectKey | LayerKeyOf<Layers> : DirectTokenKeyOf<T>;
-type ModeOf<T> = T extends {
-  readonly modes: readonly [infer First, ...infer Rest];
-} ? Extract<First | Rest[number], string> : never;
 type TokenGraphIssue = Issue<"invalid-object" | "unknown-property" | "missing-property" | "invalid-artifact-kind" | "invalid-format-version" | "invalid-schema-uri" | "invalid-json-value" | "empty-modes" | "invalid-mode-key" | "duplicate-mode-key" | "default-mode-not-found" | "invalid-default-visibility" | "layer-mode-mismatch" | "resolved-value-too-long" | "invalid-layer-id" | "duplicate-layer-id" | "invalid-token-key" | "invalid-visibility" | "invalid-token-definition" | "missing-token-value" | "invalid-token-value" | "missing-mode-value" | "unknown-mode-value" | "invalid-reference" | "unknown-reference" | "reference-cycle" | "invalid-description" | "invalid-deprecated" | "invalid-extensions"> & {
   readonly key?: string;
   readonly mode?: string;
@@ -117,14 +292,33 @@ type TokenGraphIssue = Issue<"invalid-object" | "unknown-property" | "missing-pr
   readonly layerModes?: readonly string[];
 };
 declare function tokenRef<const Key extends string>(key: Key): TokenReference<Key>;
-declare function tokenConcat<const Key extends string>(strings: TemplateStringsArray, ...references: readonly TokenReference<Key>[]): TokenExpression<Key>;
-declare function defineTokenGraph<const DirectKey extends string, const Layers extends LayerTuple = readonly []>(input: SingleGraphAuthoring<DirectKey, Layers>): DefinedGraph<DirectKey, "base", Layers>;
-declare function defineTokenGraph<const Modes extends ModeTuple, const DirectKey extends string, const Layers extends LayerTuple = readonly []>(input: MultiGraphAuthoring<Modes, DirectKey, Layers>): DefinedGraph<DirectKey, Modes[number], Layers>;
-declare function defineTokenLayer<const Key extends string>(input: {
+/** Canonical results (D5): no reference is a string, one may collapse to that reference. */
+type TokenConcatResult<References extends readonly TokenReference[]> = number extends References["length"] ? TokenExpression<References[number]["ref"]> : References extends readonly [] ? string : References extends readonly [TokenReference] ? TokenReference<References[0]["ref"]> | TokenConcat<References[0]["ref"]> : TokenConcat<References[number]["ref"]>;
+declare function tokenConcat<const References extends readonly TokenReference[]>(strings: TemplateStringsArray, ...references: References): TokenConcatResult<References>;
+/**
+ * Define a graph. Literal input infers every composed key, the mode union, and the public
+ * keys after layers compose in order and graph tokens compose last.
+ */
+declare function defineTokenGraph<const Tokens extends TokensConstraint<Tokens, NoInfer<Extract<keyof Tokens, string> | LayerKeyOf<Layers[number]>>, NoInfer<GraphModes<Modes>>>, const Modes extends ModeTuple | undefined = undefined, const Layers extends readonly TokenLayerData[] = readonly [], const Default extends TokenVisibility = "public">(input: {
+  readonly modes?: Modes & CheckModeNames<Modes>;
+  readonly defaultVisibility?: Default;
+  readonly layers?: Layers & CheckLayers<Layers, NoInfer<GraphModes<Modes>>>;
+  readonly tokens: Tokens;
+} & DefaultModeInput<Modes>): TokenGraph<StateKey<GraphState<Tokens, Layers, Default>>, GraphModes<Modes>, StatePublicKey<GraphState<Tokens, Layers, Default>>>;
+/**
+ * Define a reusable layer. Its mode set is the union of its mode-map names, and every mode
+ * map must name all of them (D12).
+ */
+declare function defineTokenLayer<const Tokens extends TokensConstraint<Tokens, string, NoInfer<AcceptedModeNames<LayerModeEntries<Tokens>[keyof Tokens]>>>, const Default extends TokenVisibility = "public">(input: {
   readonly id: string;
-  readonly defaultVisibility?: TokenVisibility;
-  readonly tokens: Readonly<Record<Key, MultiTokenAuthoring<string, string>>>;
-}): TokenLayer<Key, string>;
+  readonly defaultVisibility?: Default;
+  readonly tokens: Tokens;
+}): TokenLayer<Extract<keyof Tokens, string>, LayerModeEntries<Tokens>[keyof Tokens], {
+  readonly default: Default;
+  readonly public: DeclaredStateKeys<Tokens, "public">;
+  readonly internal: DeclaredStateKeys<Tokens, "internal">;
+  readonly omitted: DeclaredStateKeys<Tokens, "omitted">;
+}>;
 declare function parseTokenGraph(input: unknown): Result<TokenGraph, TokenGraphIssue>;
 declare function parseTokenLayer(input: unknown): Result<TokenLayer, TokenGraphIssue>;
 type TokenSelection<Key extends string = string> = "public" | "all" | {
@@ -175,25 +369,25 @@ type ParseCompiledSchemeIssue = Issue<"invalid-object" | "unknown-property" | "m
   readonly mode?: string;
 };
 declare function parseCompiledScheme(input: unknown): Result<CompiledScheme<string, string, false>, ParseCompiledSchemeIssue>;
-type SelectedKey<Input, Options> = Options extends {
-  readonly selection: {
-    readonly keys: readonly (infer Key)[];
-  };
-} ? Extract<Key, string> : TokenKeyOf<Input>;
-type HasFiniteKeys<Key extends string> = string extends Key ? false : true;
-type CompleteSelection<Input, Options> = Options extends {
+type GraphKey<Input> = Input extends TokenGraph<infer Key extends string> ? Key : string;
+type GraphMode<Input> = Input extends TokenGraph<string, infer Mode extends string> ? Mode : string;
+type GraphPublicKey<Input> = Input extends TokenGraph<string, string, infer PublicKey extends string> ? PublicKey : string;
+type PublicCompiled<Input> = IsFinite<GraphPublicKey<Input>> extends true ? CompiledScheme<GraphPublicKey<Input>, GraphMode<Input>, true> : CompiledScheme<GraphKey<Input>, GraphMode<Input>, false>;
+type SelectedCompiled<Input, Options> = [Options] extends [{
   readonly selection: "all";
-} ? HasFiniteKeys<TokenKeyOf<Input>> : Options extends {
+}] ? CompiledScheme<GraphKey<Input>, GraphMode<Input>, IsFinite<GraphKey<Input>>> : [Options] extends [{
   readonly selection: {
     readonly keys: infer Keys extends readonly string[];
   };
-} ? number extends Keys["length"] ? false : true : false;
-type CompiledGraphResult<Input, Options> = Result<CompiledScheme<SelectedKey<Input, Options>, ModeOf<Input>, CompleteSelection<Input, Options>>, CompileTokenGraphIssue>;
+}] ? CompiledScheme<Keys[number], GraphMode<Input>, number extends Keys["length"] ? false : IsFinite<Keys[number]>> : [Options] extends [{
+  readonly selection?: "public" | undefined;
+}] ? PublicCompiled<Input> : CompiledScheme<GraphKey<Input>, GraphMode<Input>, false>;
 /**
- * Compile a token graph into deterministic token mode maps and metadata.
+ * Compile a token graph into deterministic token mode maps and metadata. A union of graphs
+ * yields one scheme type per graph, so the keys of different graphs never merge.
  */
-declare function compileTokenGraph<const Input extends TokenGraph>(input: Input): CompiledGraphResult<Input, undefined>;
-declare function compileTokenGraph<const Input extends TokenGraph, const Options extends CompileTokenGraphOptions<TokenKeyOf<Input>>>(input: Input, options: Options): CompiledGraphResult<Input, Options>;
+declare function compileTokenGraph<const Input extends TokenGraph>(input: Input): Result<Input extends unknown ? PublicCompiled<Input> : never, CompileTokenGraphIssue>;
+declare function compileTokenGraph<const Input extends TokenGraph, const Options extends CompileTokenGraphOptions<GraphKey<Input>>>(input: Input, options: Options): Result<Input extends unknown ? SelectedCompiled<Input, Options> : never, CompileTokenGraphIssue>;
 type CssScope = {
   readonly strategy: "root";
 } | {
@@ -268,4 +462,4 @@ declare function serializeTokenGraph(graph: TokenGraph): string;
 declare function serializeTokenLayer(layer: TokenLayer): string;
 type AnyCompiledScheme = CompiledScheme<string, string, boolean>;
 declare function serializeCompiledScheme(scheme: AnyCompiledScheme): string;
-export { type CompileTokenGraphIssue, type CompileTokenGraphOptions, type CompiledConcatPart, type CompiledExpression, type CompiledReference, type CompiledScheme, type CompiledToken, type CompiledTokenMetadata, type CssModeSelectors, type CssScope, type CssVarBlock, type CssVarDeclaration, type CssVarsExport, type ExportCssVarsIssue, type ExportCssVarsOptions, type Issue, type JsonValue, type ParseCompiledSchemeIssue, type Result, type TokenDeclarationRecord, type TokenDefinition, type TokenExpression, type TokenGraph, type TokenGraphIssue, type TokenLayer, type TokenOrigin, type TokenReference, type TokenSelection, type TokenVisibility, compileTokenGraph, defineTokenGraph, defineTokenLayer, exportCssVars, orThrow, parseCompiledScheme, parseTokenGraph, parseTokenLayer, serializeCompiledScheme, serializeTokenGraph, serializeTokenLayer, tokenConcat, tokenRef };
+export { type CompileTokenGraphIssue, type CompileTokenGraphOptions, type CompiledConcatPart, type CompiledExpression, type CompiledReference, type CompiledScheme, type CompiledToken, type CompiledTokenMetadata, type CssModeSelectors, type CssScope, type CssVarBlock, type CssVarDeclaration, type CssVarsExport, type ExportCssVarsIssue, type ExportCssVarsOptions, type Issue, type JsonValue, type LayerVisibility, type ParseCompiledSchemeIssue, type Result, type TokenDeclarationRecord, type TokenDefinition, type TokenExpression, type TokenGraph, type TokenGraphIssue, type TokenLayer, type TokenOrigin, type TokenReference, type TokenSelection, type TokenVisibility, compileTokenGraph, defineTokenGraph, defineTokenLayer, exportCssVars, orThrow, parseCompiledScheme, parseTokenGraph, parseTokenLayer, serializeCompiledScheme, serializeTokenGraph, serializeTokenLayer, tokenConcat, tokenRef };

@@ -84,7 +84,8 @@ export function material3(sourceColor: string, options?: unknown): Material3Grap
     tokens: {},
     layers: [layer],
   });
-  const validatedLayer = completed.layers?.[0];
+  // Graph layers are typed without their key sets; this entry is core's copy of `layer`.
+  const validatedLayer = completed.layers?.[0] as typeof layer | undefined;
   if (validatedLayer === undefined) {
     throw new Error("Core validation did not preserve the generated Material layer.");
   }

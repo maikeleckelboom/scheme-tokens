@@ -206,6 +206,7 @@ describe("pre-release API reset", () => {
         modes: ["light", "dark"],
         defaultMode: "light",
         tokens: {},
+        // @ts-expect-error the static contract rejects the smaller mode set; so does the runtime.
         layers: [incomplete],
       }),
     ).toThrow(/layer-mode-mismatch/i);
@@ -219,6 +220,7 @@ describe("pre-release API reset", () => {
         modes: ["light", "dark"],
         defaultMode: "light",
         tokens: {},
+        // @ts-expect-error the static contract rejects the larger mode set; so does the runtime.
         layers: [overcomplete],
       }),
     ).toThrow(/layer-mode-mismatch/i);

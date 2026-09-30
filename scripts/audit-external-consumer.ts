@@ -80,22 +80,20 @@ compileTokenGraph(graph, {
   },
 });
 
+type ChromavertPublicKey = "background" | "semantic.action" | "semantic.primary";
 const publicCompiled = expectOk(compileTokenGraph(graph), "compile public semantics");
-const publicContract: CompiledScheme<
-  ChromavertTokenKey,
-  ChromavertMode,
-  false
-> = publicCompiled;
+// A finite, fully known public union makes the default public record complete.
+const publicContract: CompiledScheme<ChromavertPublicKey, ChromavertMode, true> = publicCompiled;
 void publicContract;
 for (const internalKey of ["generated.brand.400", "generated.brand.600", "repair.primary.dark"]) {
   if (internalKey in publicCompiled.tokens) {
     throw new Error("public selection exposed internal source token: " + internalKey);
   }
 }
-if (publicCompiled.tokens["semantic.action"]?.light !== "oklch(62% 0.18 250)") {
+if (publicCompiled.tokens["semantic.action"].light !== "oklch(62% 0.18 250)") {
   throw new Error("public semantic light chain did not resolve to generated source output");
 }
-if (publicCompiled.tokens["semantic.action"]?.dark !== "oklch(72% 0.14 255)") {
+if (publicCompiled.tokens["semantic.action"].dark !== "oklch(72% 0.14 255)") {
   throw new Error("public semantic dark chain did not resolve to explicit repair output");
 }
 
@@ -189,7 +187,7 @@ const publicCss = expectOk(
   }),
   "export public Chromavert CSS",
 );
-const publicCssContract: CssVarsExport<ChromavertTokenKey, ChromavertMode, false> = publicCss;
+const publicCssContract: CssVarsExport<ChromavertPublicKey, ChromavertMode, true> = publicCss;
 void publicCssContract;
 const permutedPublic = expectOk(
   compileTokenGraph(permutedGraph),

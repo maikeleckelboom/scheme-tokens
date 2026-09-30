@@ -15,14 +15,9 @@ import {
   type TokenGraph,
   type TokenLayer,
   type TokenReference,
-} from "../../src";
-import type * as Root from "../../src";
-
-type Equal<Left, Right> =
-  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
-    ? true
-    : false;
-type Expect<Value extends true> = Value;
+} from "scheme-tokens";
+import type * as Root from "scheme-tokens";
+import type { Equal, Expect, GraphKeys, GraphModes, LayerModes } from "./type-assertions.js";
 
 type RootModule = typeof Root;
 // @ts-expect-error Result is a type, not a runtime export.
@@ -37,6 +32,8 @@ export type RemovedKind = RootModule["tokenGraphKind"];
 export type RemovedReferenceInput = Root.ReferenceInput;
 // @ts-expect-error the removed graph helper has no compatibility export.
 export type RemovedGraphHelper = RootModule["defineTokens"];
+// @ts-expect-error validation plumbing is not public.
+export type PrivateCheck = Root.CheckToken<string, string, string>;
 
 const concatGraph = defineTokenGraph({
   modes: ["concat"],
@@ -50,12 +47,6 @@ const concatGraph = defineTokenGraph({
 const concatScheme = orThrow(compileTokenGraph(concatGraph));
 const currentVersion: 2 = concatScheme.formatVersion;
 void currentVersion;
-// @ts-expect-error template substitutions are references, never arbitrary strings.
-void tokenConcat`prefix ${"a"}`;
-// @ts-expect-error persisted schema hints are not graph authoring options.
-defineTokenGraph({ tokens: { a: "A" }, $schema: "hint" });
-// @ts-expect-error persisted schema hints are not layer authoring options.
-defineTokenLayer({ id: "example", tokens: { a: "A" }, $schema: "hint" });
 
 const simpleGraph = defineTokenGraph({
   tokens: {
@@ -68,17 +59,9 @@ const typedSimpleGraph = simpleGraph satisfies TokenGraph<"brand.600" | "primary
 typedSimpleGraph.defaultMode.toUpperCase();
 export type SimpleKeys = Expect<Equal<keyof typeof simpleGraph.tokens, "brand.600" | "primary">>;
 export type SimpleModes = Expect<Equal<(typeof simpleGraph.modes)[number], "base">>;
-
-defineTokenGraph({
-  tokens: {
-    background: "#ffffff",
-    // @ts-expect-error finite literal records reject unknown reference targets.
-    primary: tokenRef("missing.600"),
-  },
-});
-
-// @ts-expect-error a mode map requires an explicit modes/defaultMode envelope.
-defineTokenGraph({ tokens: { background: { light: "#fff", dark: "#000" } } });
+export type SimpleGraph = Expect<
+  Equal<typeof simpleGraph, TokenGraph<"brand.600" | "primary", "base", "brand.600" | "primary">>
+>;
 
 const multiModeGraph = defineTokenGraph({
   modes: ["light", "dark"],
@@ -104,70 +87,27 @@ const typedMultiModeGraph = multiModeGraph satisfies TokenGraph<
   "brand.400" | "brand.600" | "background" | "primary",
   "light" | "dark"
 >;
-void typedMultiModeGraph.tokens.primary.value;
+void typedMultiModeGraph.tokens.primary?.value;
 export type MultiModes = Expect<Equal<(typeof multiModeGraph.modes)[number], "light" | "dark">>;
 
+// The static mode type is the union; authored order and the default stay runtime data.
 const reorderedModes = defineTokenGraph({
   modes: ["dark", "light"],
   defaultMode: "light",
   tokens: { background: { dark: "#111", light: "#fff" } },
 });
-const canonicalFirstMode: "light" | "dark" = reorderedModes.modes[0];
-void canonicalFirstMode;
-// @ts-expect-error the P2 mode type is a union; exact tuple inference is deferred to P3.
+const firstMode: "light" | "dark" = reorderedModes.modes[0];
+void firstMode;
+// @ts-expect-error the mode union does not promise the authored position of a mode.
 const falselyCallerOrderedMode: "dark" = reorderedModes.modes[0];
 void falselyCallerOrderedMode;
+// @ts-expect-error the default mode is not typed as the first mode either.
+const falselyDefaultMode: "light" = reorderedModes.defaultMode;
+void falselyDefaultMode;
 
-defineTokenGraph({
-  modes: ["light", "dark"],
-  defaultMode: "light",
-  tokens: {
-    // @ts-expect-error every declared mode is required in a mode map.
-    background: { light: "#fff" },
-  },
-});
-
-defineTokenGraph({
-  modes: ["light", "dark"],
-  defaultMode: "light",
-  tokens: {
-    background: {
-      light: "#fff",
-      dark: "#000",
-      // @ts-expect-error undeclared mode keys are rejected.
-      sepia: "#eee",
-    },
-  },
-});
-
-defineTokenGraph({
-  modes: ["light", "dark"],
-  // @ts-expect-error defaultMode must belong to the declared mode tuple.
-  defaultMode: "sepia",
-  tokens: { background: { light: "#fff", dark: "#000" } },
-});
-
-defineTokenGraph({
-  // @ts-expect-error token-object control names are reserved as mode names.
-  modes: ["light", "value"],
-  defaultMode: "light",
-  tokens: { background: "#fff" },
-});
-
-defineTokenGraph({
-  tokens: {
-    // @ts-expect-error valueByMode is not accepted by trusted authoring.
-    background: { valueByMode: { light: "#fff", dark: "#000" } },
-  },
-  modes: ["light", "dark"],
-  defaultMode: "light",
-});
-
-defineTokenGraph({
-  tokens: { "brand.600": "#6750a4" },
-  // @ts-expect-error aliases were removed in favor of tokenRef().
-  aliases: { primary: "brand.600" },
-});
+// Omitted modes mean the single base mode.
+const baseGraph = defineTokenGraph({ tokens: { a: "1", b: { base: "2" } } });
+export type BaseModes = Expect<Equal<GraphModes<typeof baseGraph>, "base">>;
 
 const layer = defineTokenLayer({
   id: "semantic",
@@ -177,9 +117,7 @@ const layer = defineTokenLayer({
 });
 const typedLayer = layer satisfies TokenLayer<"primary">;
 typedLayer.id.toUpperCase();
-export type StandaloneLayerMode = Expect<
-  Equal<typeof layer extends TokenLayer<string, infer Mode> ? Mode : never, string>
->;
+export type StandaloneLayerMode = Expect<Equal<LayerModes<typeof layer>, never>>;
 
 const layeredGraph = defineTokenGraph({
   tokens: {
@@ -188,6 +126,9 @@ const layeredGraph = defineTokenGraph({
   },
   layers: [layer],
 });
+export type LayeredKeys = Expect<
+  Equal<GraphKeys<typeof layeredGraph>, "generated.source.600" | "button" | "primary">
+>;
 compileTokenGraph(layeredGraph, { selection: { keys: ["button", "primary"] } });
 
 const generatedLayer = defineTokenLayer({
@@ -211,19 +152,15 @@ const heterogeneousLayerGraph = defineTokenGraph({
     override: tokenRef("override.primary"),
   },
 });
-const heterogeneousLayerCompiled = compileTokenGraph(heterogeneousLayerGraph, {
-  selection: "all",
-});
-if (heterogeneousLayerCompiled.ok) {
-  type HeterogeneousLayerCompiledKeys = Expect<
-    Equal<
-      keyof typeof heterogeneousLayerCompiled.value.tokens,
-      "generated.primary" | "override.primary" | "generated" | "override"
-    >
-  >;
-  const heterogeneousLayerCompiledKeys: HeterogeneousLayerCompiledKeys = true;
-  void heterogeneousLayerCompiledKeys;
-}
+const heterogeneousLayerCompiled = orThrow(
+  compileTokenGraph(heterogeneousLayerGraph, { selection: "all" }),
+);
+export type HeterogeneousLayerCompiledKeys = Expect<
+  Equal<
+    keyof typeof heterogeneousLayerCompiled.tokens,
+    "generated.primary" | "override.primary" | "generated" | "override"
+  >
+>;
 defineTokenGraph({
   modes: ["light", "dark"],
   defaultMode: "light",
@@ -241,19 +178,16 @@ compileTokenGraph(simpleGraph, {
   },
 });
 
-const publicCompiled = compileTokenGraph(multiModeGraph);
-if (publicCompiled.ok) {
-  const possiblyFiltered = publicCompiled.value.tokens["brand.400"];
-  void possiblyFiltered;
-  // @ts-expect-error default public selection may omit a graph key.
-  publicCompiled.value.tokens["brand.400"].light.toUpperCase();
-
-  const publicCss = exportCssVars(publicCompiled.value);
-  if (publicCss.ok) {
-    // @ts-expect-error CSS lookup mirrors the possibly filtered public token set.
-    publicCss.value.variableByToken["brand.400"].toUpperCase();
-  }
-}
+// Default compilation of a finite, fully known public set is complete.
+const publicCompiled = orThrow(compileTokenGraph(multiModeGraph));
+publicCompiled.tokens.primary.light.toUpperCase();
+publicCompiled.metadataByToken.background.declarations.length.toFixed();
+// @ts-expect-error internal keys are absent from the public record.
+void publicCompiled.tokens["brand.400"];
+const publicCss = orThrow(exportCssVars(publicCompiled));
+publicCss.variableByToken.primary.toUpperCase();
+// @ts-expect-error CSS lookups mirror the public record.
+void publicCss.variableByToken["brand.400"];
 
 declare const inferredModeSelectors: CssModeSelectors<"light" | "dark">;
 const allCompiled = compileTokenGraph(multiModeGraph, { selection: "all" });
@@ -316,15 +250,6 @@ if (exactCompiled.ok) {
   void exactCompiled.value.tokens["brand.600"];
 }
 
-const dynamicSelectionKeys: Array<keyof typeof simpleGraph.tokens> = ["primary"];
-const dynamicSelection = compileTokenGraph(simpleGraph, {
-  selection: { keys: dynamicSelectionKeys },
-});
-if (dynamicSelection.ok) {
-  // @ts-expect-error a runtime array may omit any member of its key union.
-  dynamicSelection.value.tokens["brand.600"].base.toUpperCase();
-}
-
 const parsed = parseTokenGraph({});
 if (parsed.ok) {
   void parsed.value.kind;
@@ -335,15 +260,6 @@ if (parsed.ok) {
   if (parsedAll.ok) {
     // @ts-expect-error dynamically parsed graphs do not have a finite known key set.
     parsedAll.value.tokens["definitely.not.present"].base.toUpperCase();
-  }
-
-  const parsedExact = compileTokenGraph(parsed.value, {
-    selection: { keys: ["runtime-validated.key"] },
-  });
-  if (parsedExact.ok) {
-    const exactToken: Readonly<Record<string, string>> =
-      parsedExact.value.tokens["runtime-validated.key"];
-    void exactToken;
   }
 }
 

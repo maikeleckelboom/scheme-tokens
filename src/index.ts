@@ -13,6 +13,7 @@ export {
 export type { JsonValue } from "./core/json";
 export type { Issue, Result } from "./core/result";
 export type {
+  LayerVisibility,
   TokenDefinition,
   TokenExpression,
   TokenGraph,

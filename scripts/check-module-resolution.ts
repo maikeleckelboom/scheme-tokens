@@ -39,21 +39,20 @@ import tokenLayerSchema from "scheme-tokens/schemas/token-layer.v2.schema.json" 
 import compiledSchemeSchema from "scheme-tokens/schemas/compiled-scheme.v2.schema.json" with { type: "json" };
 import manifest from "scheme-tokens/package.json" with { type: "json" };
 
-const graph: TokenGraph<"brand.600" | "primary", "base"> = defineTokenGraph({tokens: {
+const graph: TokenGraph<"brand.600" | "primary", "base", "primary"> = defineTokenGraph({tokens: {
   "brand.600": { value: "#6750a4", visibility: "internal" },
   primary: tokenRef("brand.600"),
 }});
 
-const compiled: Result<CompiledScheme<"brand.600" | "primary", "base", false>> =
-  compileTokenGraph(graph);
+const compiled: Result<CompiledScheme<"primary", "base", true>> = compileTokenGraph(graph);
 if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues));
 }
-if (compiled.value.tokens.primary?.base !== "#6750a4") {
+if (compiled.value.tokens.primary.base !== "#6750a4") {
   throw new Error("root export resolution produced the wrong compiled value");
 }
 
-const exported: Result<CssVarsExport<"brand.600" | "primary", "base", false>> = exportCssVars(
+const exported: Result<CssVarsExport<"primary", "base", true>> = exportCssVars(
   compiled.value,
 );
 if (!exported.ok || !exported.value.css.includes("--primary: #6750a4;")) {
@@ -64,7 +63,7 @@ const layer = defineTokenLayer({ id: "brand", tokens: { primary: "#ff3b30" } });
 const layered = compileTokenGraph(
   defineTokenGraph({ tokens: { primary: "#6750a4" }, layers: [layer] }),
 );
-if (!layered.ok || layered.value.tokens.primary?.base !== "#6750a4") {
+if (!layered.ok || layered.value.tokens.primary.base !== "#6750a4") {
   throw new Error("graph-last composition failed through the packed entry point");
 }
 

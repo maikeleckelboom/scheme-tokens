@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "moduleDetection": "force",
+    "strict": true,
+    "skipLibCheck": false,
+    "types": [],
+    "noEmit": true,
+    "paths": {
+      "scheme-tokens": ["./src/index.ts"]
+    }
+  },
+  "include": ["tests/types/**/*.ts"]
+}

@@ -126,20 +126,22 @@ if (!compiled.ok) {
   throw new Error(JSON.stringify(compiled.issues));
 }
 const resultContract: Result<typeof compiled.value> = compiled;
-const schemeContract: CompiledScheme<
+// The literal public union is finite and fully known, so the default record is complete.
+const schemeContract: CompiledScheme<"background" | "primary", "light" | "dark", true> =
+  compiled.value;
+const graphContract: TokenGraph<
   "brand.600" | "background" | "primary",
   "light" | "dark",
-  false
-> = compiled.value;
-const graphContract: TokenGraph<"brand.600" | "background" | "primary", "light" | "dark"> = graph;
+  "background" | "primary"
+> = graph;
 void resultContract;
 void schemeContract;
 void graphContract;
 
-if (compiled.value.tokens.background?.light !== "#ffffff") {
+if (compiled.value.tokens.background.light !== "#ffffff") {
   throw new Error("compiled Result.value token read failed");
 }
-if (compiled.value.tokens.primary?.dark !== "oklch(78% 0.12 250)") {
+if (compiled.value.tokens.primary.dark !== "oklch(78% 0.12 250)") {
   throw new Error("reference resolution failed");
 }
 if ("brand.600" in compiled.value.tokens) {
@@ -156,11 +158,8 @@ const exported = exportCssVars(compiled.value, {
 if (!exported.ok) {
   throw new Error(JSON.stringify(exported.issues));
 }
-const cssContract: CssVarsExport<
-  "brand.600" | "background" | "primary",
-  "light" | "dark",
-  false
-> = exported.value;
+const cssContract: CssVarsExport<"background" | "primary", "light" | "dark", true> =
+  exported.value;
 const firstBlock: CssVarBlock | undefined = exported.value.blocks[0];
 void cssContract;
 void firstBlock;

@@ -2,7 +2,10 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "types": [],
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "scheme-tokens": ["./src/index.ts"]
+    }
   },
   "include": ["tests/types/**/*.ts"]
 }

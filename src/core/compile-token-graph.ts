@@ -6,7 +6,8 @@ import type {
   CompiledTokenMetadata,
   TokenSelection,
 } from "./compiled-types";
-import type { ModeOf, TokenGraph, TokenKeyOf } from "./graph";
+import type { IsFinite } from "./authoring-types";
+import type { TokenGraph } from "./graph";
 import { compiledSchemeKind } from "./graph";
 import { isTokenKey } from "./identifiers";
 import {
@@ -32,41 +33,46 @@ export type {
   TokenSelection,
 } from "./compiled-types";
 
-type SelectedKey<Input, Options> = Options extends {
-  readonly selection: { readonly keys: readonly (infer Key)[] };
-}
-  ? Extract<Key, string>
-  : TokenKeyOf<Input>;
+type GraphKey<Input> = Input extends TokenGraph<infer Key extends string> ? Key : string;
+type GraphMode<Input> = Input extends TokenGraph<string, infer Mode extends string> ? Mode : string;
+type GraphPublicKey<Input> =
+  Input extends TokenGraph<string, string, infer PublicKey extends string> ? PublicKey : string;
 
-type HasFiniteKeys<Key extends string> = string extends Key ? false : true;
+// Branches name `CompiledScheme` directly so results print as the public interface.
+type PublicCompiled<Input> =
+  IsFinite<GraphPublicKey<Input>> extends true
+    ? CompiledScheme<GraphPublicKey<Input>, GraphMode<Input>, true>
+    : CompiledScheme<GraphKey<Input>, GraphMode<Input>, false>;
 
-type CompleteSelection<Input, Options> = Options extends {
-  readonly selection: "all";
-}
-  ? HasFiniteKeys<TokenKeyOf<Input>>
-  : Options extends {
-        readonly selection: { readonly keys: infer Keys extends readonly string[] };
-      }
-    ? number extends Keys["length"]
-      ? false
-      : true
-    : false;
-
-type CompiledGraphResult<Input, Options> = Result<
-  CompiledScheme<SelectedKey<Input, Options>, ModeOf<Input>, CompleteSelection<Input, Options>>,
-  CompileTokenGraphIssue
->;
+// Selection types that are not literal stay conservatively partial over every graph key.
+type SelectedCompiled<Input, Options> = [Options] extends [{ readonly selection: "all" }]
+  ? CompiledScheme<GraphKey<Input>, GraphMode<Input>, IsFinite<GraphKey<Input>>>
+  : [Options] extends [
+        { readonly selection: { readonly keys: infer Keys extends readonly string[] } },
+      ]
+    ? CompiledScheme<
+        Keys[number],
+        GraphMode<Input>,
+        number extends Keys["length"] ? false : IsFinite<Keys[number]>
+      >
+    : [Options] extends [{ readonly selection?: "public" | undefined }]
+      ? PublicCompiled<Input>
+      : CompiledScheme<GraphKey<Input>, GraphMode<Input>, false>;
 
 /**
- * Compile a token graph into deterministic token mode maps and metadata.
+ * Compile a token graph into deterministic token mode maps and metadata. A union of graphs
+ * yields one scheme type per graph, so the keys of different graphs never merge.
  */
 export function compileTokenGraph<const Input extends TokenGraph>(
   input: Input,
-): CompiledGraphResult<Input, undefined>;
+): Result<Input extends unknown ? PublicCompiled<Input> : never, CompileTokenGraphIssue>;
 export function compileTokenGraph<
   const Input extends TokenGraph,
-  const Options extends CompileTokenGraphOptions<TokenKeyOf<Input>>,
->(input: Input, options: Options): CompiledGraphResult<Input, Options>;
+  const Options extends CompileTokenGraphOptions<GraphKey<Input>>,
+>(
+  input: Input,
+  options: Options,
+): Result<Input extends unknown ? SelectedCompiled<Input, Options> : never, CompileTokenGraphIssue>;
 export function compileTokenGraph(
   input: TokenGraph,
   options?: CompileTokenGraphOptions,

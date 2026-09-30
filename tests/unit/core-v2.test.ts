@@ -73,7 +73,7 @@ describe("P2 public v2 contract", () => {
             },
           },
         }),
-      ];
+      ] as const;
       const scheme = orThrow(
         compileTokenGraph(
           defineTokenGraph({ layers, tokens: { a: { value: "graph", description: "winner" } } }),
@@ -381,6 +381,7 @@ describe("P2 public v2 contract", () => {
       modes: ["dark", "light"],
       layerModes: ["dark", "dim", "light"],
     };
+    // @ts-expect-error the static contract rejects maps that disagree; so does the runtime.
     expect(thrownIssues(() => defineTokenLayer({ id: "example", tokens: invalid }))).toMatchObject([
       issue,
     ]);
@@ -402,6 +403,7 @@ describe("P2 public v2 contract", () => {
         defineTokenGraph({
           modes: ["dim", "light", "dark"],
           defaultMode: "light",
+          // @ts-expect-error the static contract rejects the mismatch; so does the runtime.
           layers: [valid],
           tokens: {},
         }),

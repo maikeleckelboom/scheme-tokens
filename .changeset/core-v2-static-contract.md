@@ -1,0 +1,11 @@
+---
+"scheme-tokens": minor
+---
+
+Implement the static contract of the v2 model. `defineTokenGraph` now infers `TokenGraph<Key, Mode, PublicKey>`: every composed key, the mode union, and the public keys after layers compose in array order and graph tokens compose last, with explicit visibility replacing and omitted visibility preserving exactly as the runtime does. Default and explicit `public` compilation return complete token and metadata records when that public set is finite and fully known, and the CSS token-to-variable lookup follows. Uncertain visibility, dynamic key sets, non-tuple layer lists, parsed graphs, and runtime selection arrays stay partial. The graph type's third generic is now the public key union instead of the layer tuple, and `tokens` is typed as the graph's own, possibly partial, declarations.
+
+`defineTokenLayer` infers `TokenLayer<Key, Mode, Visibility>`, where `Mode` is the layer mode set (`never` without mode maps, a finite union for literal layers, `string` when unknown) and the new `LayerVisibility` type records the default and which keys may declare or omit visibility. Literal layers whose mode maps disagree, and finite layer sets that differ from the graph's, fail type checking with a `LayerModeMismatch` diagnostic that names both sets. Finite key unions are exact claims, and compiling a union of graphs yields one scheme type per graph.
+
+Literal authoring is validated by a strict constraint that rejects reference typos with TypeScript's suggestion, incomplete or foreign mode maps, invalid visibility, unknown or mixed metadata, and mode names outside the runtime lower-kebab grammar, including `valueByMode` and the reserved names; `concat` stays a valid mode and concat expressions are recognized by their exact array shape. `tokenConcat` now types its canonical result: a string without references, a reference or concat with one, and a concat with several.
+
+TypeScript `>= 7.0 < 8.0` is the supported compiler range. The source type matrix and the same matrix against the packed declarations run on the latest 7.0 patch and the repository's stable 7.x, with `typescript@next` as a non-blocking signal. Runtime behavior, wire formats, and schemas are unchanged.
