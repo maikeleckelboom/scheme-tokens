@@ -349,7 +349,7 @@ function assertDeclarationContracts(normalized: string): void {
     "readonly value: TokenExpression<Key> | TokenModeValues<Mode, Key>;",
     "type TokenGraph<Key extends string = string, Mode extends string = string, PublicKey extends string = string> = TokenGraphFields<Key, Mode, PublicKey> &",
     "type TokenLayer<Key extends string = string, Mode extends string = string, Visibility extends LayerVisibility = LayerVisibility> = TokenLayerFields<Key, Mode, Visibility> &",
-    "declare class StaticProof { #private; }",
+    "declare class StaticProof { private [staticProof]; }",
     "declare function parseTokenGraph(input: unknown): Result<TokenGraph, TokenGraphIssue>;",
     "declare function parseTokenLayer(input: unknown): Result<TokenLayer, TokenGraphIssue>;",
     "declare function parseCompiledScheme(input: unknown): Result<CompiledScheme<string, string, false>, ParseCompiledSchemeIssue>;",

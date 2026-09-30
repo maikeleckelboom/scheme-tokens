@@ -1,6 +1,8 @@
 // A precise static claim is nominal: only the helpers' signatures, and the values that flow
-// from them, carry one. Raw data, spread copies, and mapped types can claim only the dynamic
-// forms, which accept any structurally valid artifact.
+// unchanged from them, carry one. Raw data, spread copies, and mapped types can claim only the
+// dynamic forms, which accept any structurally valid artifact. Assertions and rewrites that
+// TypeScript types as an intersection with the original, such as `Object.assign` with field
+// overrides, keep the original facts; they are outside the guarantee and have no cases here.
 import {
   compileTokenGraph,
   defineTokenGraph,
@@ -180,11 +182,42 @@ export type WiderGraphPublic = Expect<Equal<PublicKeys<typeof widerGraph>, strin
 export const respread: typeof graph = { ...graph, defaultVisibility: "internal" };
 // @ts-expect-error a spread copy of a layer proves nothing either.
 export const respreadLayer: typeof layer = { ...layer, defaultVisibility: "public" };
+// @ts-expect-error even a plain spread copy proves nothing.
+export const plainSpread: typeof graph = { ...graph };
 const frozen = Object.freeze(graph);
 // @ts-expect-error a mapped type does not carry the proof.
 export const frozenExact: TokenGraph<"real" | "hidden", "base", "real"> = frozen;
+declare const picked: Pick<typeof graph, keyof typeof graph>;
+// @ts-expect-error nor does a homomorphic selection of every key.
+export const pickedExact: typeof graph = picked;
 const spreadAll = orThrow(compileTokenGraph({ ...graph, defaultVisibility: "internal" }));
 export type SpreadAll = Expect<Equal<IsComplete<typeof spreadAll>, false>>;
+
+// The proof is a private member with an unexported symbol key. A same-shaped declaration
+// elsewhere is another origin, whether it uses `#private` or a classic private name.
+declare class HashProof {
+  // oxlint-disable-next-line no-unused-private-class-members -- an ambient marker is never used.
+  #proof: unknown;
+}
+declare class NamedProof {
+  private proof: unknown;
+}
+declare const hashProven: typeof realOnly & HashProof;
+declare const namedProven: typeof realOnly & NamedProof;
+// @ts-expect-error a foreign `#private` proof is not the helpers' proof.
+export const foreignHash: TokenGraph<"real", "base", "real"> = hashProven;
+// @ts-expect-error nor is a foreign classic private one.
+export const foreignNamed: TokenGraph<"real", "base", "real"> = namedProven;
+// No string names the proof, so `in` cannot narrow on a property no graph has at runtime,
+// and a consumer property of the same name does not collapse the type to `never`.
+declare const unrelated: { readonly other: true };
+declare const chooseGraph: boolean;
+const graphOrOther = chooseGraph ? graph : unrelated;
+const withoutProof = "proof" in graphOrOther ? undefined : graphOrOther;
+export type NoNameNarrowing = Expect<Equal<typeof withoutProof, typeof graphOrOther | undefined>>;
+export type NoNameConflict = Expect<
+  Equal<[typeof graph & { readonly proof?: string }] extends [never] ? true : false, false>
+>;
 
 // A raw layer inside a helper graph is dynamic: it may declare any key.
 const rawLayerGraph = defineTokenGraph({

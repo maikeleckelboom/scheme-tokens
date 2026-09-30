@@ -73,15 +73,17 @@ export interface LayerVisibility {
 
 declare const layerStatic: unique symbol;
 declare const graphStatic: unique symbol;
+declare const staticProof: unique symbol;
 
 /**
- * Nominal evidence of a precise static claim. `#proof` has no runtime counterpart, and an
- * object literal, a spread copy, or a mapped type never has it, so only the helpers'
- * signatures and the values that flow from them make a precise claim.
+ * Nominal evidence of a precise static claim. The private member has no runtime counterpart,
+ * and an object literal, a spread copy, or a mapped type never has it, so only the helpers'
+ * signatures and the values that flow unchanged from them make a precise claim. A classic
+ * private member keeps the declarations free of target-gated `#private` syntax; its key is an
+ * unexported symbol, so no other code can name it, declare it, or narrow on it with `in`.
  */
 declare class StaticProof {
-  // oxlint-disable-next-line no-unused-private-class-members -- an ambient marker is never used.
-  #proof: unknown;
+  private [staticProof]: unknown;
 }
 
 /**
