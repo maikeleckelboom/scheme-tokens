@@ -54,7 +54,7 @@ const normalizedDeclaration = canonicalDeclaration.replace(/\s+/gu, " ");
 for (const required of [
   'type Material3ColorMode = "light" | "dark";',
   'type Material3SpecVersion = "2021" | "2025";',
-  "interface Material3Options<Mode extends string = Material3ColorMode, Visibility extends TokenVisibility = TokenVisibility>",
+  "type Material3Options<Mode extends string = Material3ColorMode, Visibility extends TokenVisibility = TokenVisibility>",
   'declare function material3<const Mode extends string = Material3ColorMode, const Visibility extends TokenVisibility = "public">',
   "TokenLayer<Material3TokenKey, NoInfer<Mode>,",
   "readonly default: NoInfer<Visibility>;",

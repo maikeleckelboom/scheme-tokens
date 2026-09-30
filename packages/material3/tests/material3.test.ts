@@ -3,7 +3,12 @@ import * as core from "scheme-tokens";
 import type { TokenLayer } from "scheme-tokens";
 import * as engine from "../src/engine";
 import { material3RoleDefinitions } from "../src/role-catalog";
-import { material3, type Material3TokenKey, type Material3Variant } from "../src";
+import {
+  material3,
+  type Material3Options,
+  type Material3TokenKey,
+  type Material3Variant,
+} from "../src";
 
 const allVariants = [
   "monochrome",
@@ -26,6 +31,53 @@ const rejected2025Variants = [
 ] as const;
 
 describe("material3", () => {
+  test("omitted settings remain public light/dark through annotations and wrappers", () => {
+    const options: Material3Options = {};
+    function forward(input: Material3Options = {}) {
+      return material3("#6750a4", input);
+    }
+    for (const layer of [
+      material3("#6750a4"),
+      material3("#6750a4", undefined),
+      material3("#6750a4", options),
+      material3("#6750a4", { variant: "expressive" }),
+      forward(),
+    ]) {
+      expect(layer.defaultVisibility).toBe("public");
+      expect(Object.keys(layer.tokens["md.sys.color.primary"].value)).toEqual(["dark", "light"]);
+      const graph = core.defineTokenGraph({
+        modes: ["light", "dark"],
+        defaultMode: "light",
+        layers: [layer],
+        tokens: { alias: core.tokenRef("md.sys.color.primary") },
+      });
+      const compiled = core.orThrow(core.compileTokenGraph(graph));
+      expect(Object.keys(compiled.tokens)).toHaveLength(49);
+      expect(compiled.tokens.alias).toEqual(compiled.tokens["md.sys.color.primary"]);
+    }
+  });
+
+  test("a wrapper's supplied custom/internal settings determine runtime facts", () => {
+    function forward(
+      options: Material3Options<"custom", "internal"> = {
+        modes: { custom: { colorMode: "light" } },
+        visibility: "internal",
+      },
+    ) {
+      return material3("#6750a4", options);
+    }
+    const layer = forward();
+    expect(layer.defaultVisibility).toBe("internal");
+    expect(Object.keys(layer.tokens["md.sys.color.primary"].value)).toEqual(["custom"]);
+    const graph = core.defineTokenGraph({
+      modes: ["custom"],
+      defaultMode: "custom",
+      layers: [layer],
+      tokens: { alias: core.tokenRef("md.sys.color.primary") },
+    });
+    expect(Object.keys(core.orThrow(core.compileTokenGraph(graph)).tokens)).toEqual(["alias"]);
+  });
+
   test("generates one fixed public default layer", () => {
     const layer = material3("#6750a4");
 

@@ -167,14 +167,25 @@ interface Material3ModesMustNotBeEmpty {
 }
 /** One settings entry per graph mode; the graph owns its envelope and order. */
 type Material3Modes<Mode extends string> = { readonly [M in Mode]: Material3ModeSettings<M>; } & ([Mode] extends [never] ? Material3ModesMustNotBeEmpty : unknown);
-interface Material3Options<Mode extends string = Material3ColorMode, Visibility extends TokenVisibility = TokenVisibility> {
+/** Non-default facts require the settings that establish them at runtime. */
+type Material3Options<Mode extends string = Material3ColorMode, Visibility extends TokenVisibility = TokenVisibility> = {
   readonly specVersion?: Material3SpecVersion;
   readonly variant?: Material3Variant;
   readonly contrastLevel?: number;
   readonly visibility?: Visibility;
   readonly modes?: Material3Modes<Mode>;
-}
-declare function material3<const Mode extends string = Material3ColorMode, const Visibility extends TokenVisibility = "public">(sourceColor: string, options?: Material3Options<Mode, Visibility>): TokenLayer<Material3TokenKey, NoInfer<Mode>, {
+} & ([NoInfer<Mode>, Material3ColorMode] extends [Material3ColorMode, NoInfer<Mode>] ? unknown : {
+  readonly modes: Material3Modes<NoInfer<Mode>>;
+}) & ("public" extends NoInfer<Visibility> ? unknown : {
+  readonly visibility: NoInfer<Visibility>;
+});
+declare function material3(sourceColor: string, options?: undefined): TokenLayer<Material3TokenKey, Material3ColorMode, {
+  readonly default: "public";
+  readonly public: never;
+  readonly internal: never;
+  readonly omitted: Material3TokenKey;
+}>;
+declare function material3<const Mode extends string = Material3ColorMode, const Visibility extends TokenVisibility = "public">(sourceColor: string, options: Material3Options<Mode, Visibility>): TokenLayer<Material3TokenKey, NoInfer<Mode>, {
   readonly default: NoInfer<Visibility>;
   readonly public: never;
   readonly internal: never;

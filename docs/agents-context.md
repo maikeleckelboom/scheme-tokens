@@ -61,6 +61,14 @@ never ships as an alias next to the old shape.
   core's nominal proof. NoInfer prevents modes and default visibility being supplied by return
   context. Unknown visibility keeps public output partial over all keys, including possibly public
   roles. Bare Material3Options is deliberately wider than the default call.
+- P5.1 implements [ADR 0016](./adr/0016-material-option-presence.md): NoInfer alone did not
+  prove optional-input presence. Material3Options now requires modes unless the set is exactly
+  light/dark, and visibility when its type excludes public. A non-generic omitted/undefined
+  overload preserves the runtime defaults; explicit generics require supplied options. Optional
+  options must be narrowed or defaulted before forwarding. Required generic wrappers preserve
+  precision. Do not union alternative mode sets into one exact set or weaken P3 to accept them.
+  Both declaration signatures name core TokenLayer directly so consumer declaration emission
+  can name the nominal proof; the runtime implementation returns the validated layer without a cast.
 - Material's intentional snapshot and minor changeset describe the breaking API. Its peer is
   `^0.4.0` alone; the shared temporary candidate helper proves `0.4.0`/`0.2.0` with strict peers,
   raw Node ESM and NodeNext runtime. The authoritative type cases are copied into that consumer and

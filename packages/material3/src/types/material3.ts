@@ -35,13 +35,17 @@ export type Material3Modes<Mode extends string> = {
   readonly [M in Mode]: Material3ModeSettings<M>;
 } & ([Mode] extends [never] ? Material3ModesMustNotBeEmpty : unknown);
 
-export interface Material3Options<
+/** Non-default facts require the settings that establish them at runtime. */
+export type Material3Options<
   Mode extends string = Material3ColorMode,
   Visibility extends TokenVisibility = TokenVisibility,
-> {
+> = {
   readonly specVersion?: Material3SpecVersion;
   readonly variant?: Material3Variant;
   readonly contrastLevel?: number;
   readonly visibility?: Visibility;
   readonly modes?: Material3Modes<Mode>;
-}
+} & ([NoInfer<Mode>, Material3ColorMode] extends [Material3ColorMode, NoInfer<Mode>]
+  ? unknown
+  : { readonly modes: Material3Modes<NoInfer<Mode>> }) &
+  ("public" extends NoInfer<Visibility> ? unknown : { readonly visibility: NoInfer<Visibility> });

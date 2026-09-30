@@ -44,12 +44,25 @@ interface RecordEntry {
   readonly value: unknown;
 }
 
+export function material3(
+  sourceColor: string,
+  options?: undefined,
+): TokenLayer<
+  Material3TokenKey,
+  Material3ColorMode,
+  {
+    readonly default: "public";
+    readonly public: never;
+    readonly internal: never;
+    readonly omitted: Material3TokenKey;
+  }
+>;
 export function material3<
   const Mode extends string = Material3ColorMode,
   const Visibility extends TokenVisibility = "public",
 >(
   sourceColor: string,
-  options?: Material3Options<Mode, Visibility>,
+  options: Material3Options<Mode, Visibility>,
 ): TokenLayer<
   Material3TokenKey,
   NoInfer<Mode>,
@@ -59,7 +72,8 @@ export function material3<
     readonly internal: never;
     readonly omitted: Material3TokenKey;
   }
-> {
+>;
+export function material3(sourceColor: string, options?: unknown): TokenLayer {
   const canonicalSource = normalizeSourceColor(sourceColor, "sourceColor");
   const parsed = parseOptions(canonicalSource, options);
   const layer = defineTokenLayer({
@@ -67,19 +81,10 @@ export function material3<
     defaultVisibility: parsed.visibility,
     tokens: generateTokenDefinitions(parsed.coordinatesByMode),
   });
-  // Core validated the layer. The catalog supplies exactly all 48 keys, each map
-  // covers the preflighted modes, and every declaration omits visibility. TS cannot
-  // derive these static facts from dynamically constructed records for generic input.
-  return layer as TokenLayer<
-    Material3TokenKey,
-    NoInfer<Mode>,
-    {
-      readonly default: NoInfer<Visibility>;
-      readonly public: never;
-      readonly internal: never;
-      readonly omitted: Material3TokenKey;
-    }
-  >;
+  // The overloads require the settings behind every precise mode/default claim.
+  // The catalog supplies exactly 48 keys, with preflighted mode maps and omitted
+  // declaration visibility. Return the real core-validated layer without a cast.
+  return layer;
 }
 
 function parseOptions(sourceColor: string, input: unknown): ParsedOptions {

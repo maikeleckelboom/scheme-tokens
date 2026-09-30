@@ -142,6 +142,10 @@ all 48 roles. Compose through `layers: [material]` with explicit graph modes/def
 Its `modes` settings map is exact and non-empty; omitted means light/dark. Built-in names imply
 their colorMode, and custom names require it. Spec and visibility stay global; source/variant/
 contrast override per field. Core owns mode-name errors and graph/layer mode agreement.
+P5.1 ties precise claims to field presence: non-default mode sets require `modes`, and visibility
+excluding public requires `visibility`. Omitted/undefined options use the non-generic default
+signature; explicit generics require options. Narrow or default possibly undefined options before
+forwarding. Required wrappers retain precise supplied facts; bare options remain conservative.
 The return carries NoInfer modes/default visibility and `omitted: Material3TokenKey`, since every
 generated declaration omits explicit visibility. Unknown visibility keeps public output partial
 over all composed keys, including possibly public roles. The candidate requires peer `^0.4.0`;

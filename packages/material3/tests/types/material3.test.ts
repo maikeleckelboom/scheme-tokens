@@ -51,6 +51,163 @@ type MaterialLayer<Mode extends string, Visibility extends TokenVisibility> = To
 >;
 
 const defaults = material3("#6750a4");
+// P5.1: annotations cannot establish settings that may be absent at runtime.
+// @ts-expect-error custom modes require the modes field.
+const absentModes: Material3Options<"custom"> = {};
+// @ts-expect-error internal visibility requires the visibility field.
+const absentVisibility: Material3Options<Material3ColorMode, "internal"> = {};
+// @ts-expect-error both non-default settings are required.
+const absentBoth: Material3Options<"custom", "internal"> = {};
+// @ts-expect-error an unrelated option does not establish custom modes.
+const unrelatedModes: Material3Options<"custom"> = { variant: "expressive" };
+// @ts-expect-error an unrelated option does not establish internal visibility.
+const unrelatedVisibility: Material3Options<Material3ColorMode, "internal"> = {
+  variant: "expressive",
+};
+// @ts-expect-error an unrelated option does not establish either fact.
+const unrelatedBoth: Material3Options<"custom", "internal"> = { variant: "expressive" };
+// @ts-expect-error a single built-in mode still requires an explicit map.
+const absentLight: Material3Options<"light"> = {};
+// @ts-expect-error the default pair plus a custom name is not the default complete set.
+const absentLargerSet: Material3Options<Material3ColorMode | "custom"> = {};
+// @ts-expect-error never cannot use omission to bypass the empty-map guard.
+const absentNever: Material3Options<never> = {};
+void [
+  absentModes,
+  absentVisibility,
+  absentBoth,
+  unrelatedModes,
+  unrelatedVisibility,
+  unrelatedBoth,
+  absentLight,
+  absentLargerSet,
+  absentNever,
+];
+
+// Explicit arguments select the supplied-options overload, never runtime defaults.
+// @ts-expect-error custom generic requires options.
+material3<"custom">("#6750a4");
+// @ts-expect-error custom generic requires a modes map, not undefined.
+material3<"custom">("#6750a4", undefined);
+// @ts-expect-error internal generic requires supplied visibility.
+material3<Material3ColorMode, "internal">("#6750a4");
+// @ts-expect-error undefined does not establish internal visibility.
+material3<Material3ColorMode, "internal">("#6750a4", undefined);
+// @ts-expect-error neither narrowed fact can come from omitted options.
+material3<"custom", "internal">("#6750a4");
+// @ts-expect-error neither narrowed fact can come from undefined options.
+material3<"custom", "internal">("#6750a4", undefined);
+// @ts-expect-error omission generates both built-in modes.
+material3<"light">("#6750a4");
+// @ts-expect-error never cannot claim an invariant default layer.
+material3<never>("#6750a4");
+// @ts-expect-error undefined cannot claim an invariant default layer.
+material3<never>("#6750a4", undefined);
+// @ts-expect-error an empty options object does not establish a non-empty map.
+material3<never>("#6750a4", {});
+// @ts-expect-error an explicitly empty modes map is still invalid.
+material3<never>("#6750a4", { modes: {} });
+// @ts-expect-error an unrelated option does not establish either generic claim.
+material3<"custom", "internal">("#6750a4", { variant: "expressive" });
+// @ts-expect-error supplying visibility alone cannot establish custom modes.
+material3<"custom", "internal">("#6750a4", { visibility: "internal" });
+// @ts-expect-error supplying modes alone cannot establish internal visibility.
+material3<"custom", "internal">("#6750a4", { modes: { custom: { colorMode: "light" } } });
+
+const undefinedDefaults = material3("#6750a4", undefined);
+const annotatedDefaults: Material3Options<Material3ColorMode, "public"> = {};
+const annotatedDefaultLayer = material3("#6750a4", annotatedDefaults);
+const explicitDefaults = material3<Material3ColorMode, "public">("#6750a4", {});
+const explicitCustom = material3<"custom", "internal">("#6750a4", {
+  modes: { custom: { colorMode: "light" } },
+  visibility: "internal",
+});
+export type OmittedSettingsProof = Expect<Equal<typeof undefinedDefaults, typeof defaults>>;
+export type AnnotatedDefaultsProof = Expect<Equal<typeof annotatedDefaultLayer, typeof defaults>>;
+export type ExplicitDefaultsProof = Expect<Equal<typeof explicitDefaults, typeof defaults>>;
+export type ExplicitCustomProof = Expect<
+  Equal<typeof explicitCustom, MaterialLayer<"custom", "internal">>
+>;
+
+// Optional options must be narrowed or defaulted before forwarding.
+function optionalBare(options?: Material3Options) {
+  // @ts-expect-error possibly undefined input does not select a supplied-settings contract.
+  material3("#6750a4", options);
+  return material3("#6750a4", options ?? {});
+}
+function optionalCustom(options?: Material3Options<"custom", "internal">) {
+  // @ts-expect-error the absent branch generates light/dark and public.
+  material3("#6750a4", options);
+  if (options === undefined) {
+    return material3("#6750a4");
+  }
+  return material3("#6750a4", options);
+}
+function defaultedBare(options: Material3Options = {}) {
+  return material3("#6750a4", options);
+}
+// @ts-expect-error a narrowed wrapper cannot default its required settings to {}.
+function invalidModeWrapper(options: Material3Options<"custom"> = {}) {
+  return material3("#6750a4", options);
+}
+// @ts-expect-error a narrowed wrapper cannot default internal visibility to {}.
+function invalidVisibilityWrapper(options: Material3Options<Material3ColorMode, "internal"> = {}) {
+  return material3("#6750a4", options);
+}
+// @ts-expect-error both required settings are absent in the wrapper default.
+function invalidBothWrapper(options: Material3Options<"custom", "internal"> = {}) {
+  return material3("#6750a4", options);
+}
+function defaultedCustom(
+  options: Material3Options<"custom", "internal"> = {
+    modes: { custom: { colorMode: "dark" } },
+    visibility: "internal",
+  },
+) {
+  return material3("#6750a4", options);
+}
+export type OptionalBareProof = Expect<
+  Equal<ReturnType<typeof optionalBare>, MaterialLayer<Material3ColorMode, TokenVisibility>>
+>;
+export type DefaultedBareProof = Expect<
+  Equal<ReturnType<typeof defaultedBare>, MaterialLayer<Material3ColorMode, TokenVisibility>>
+>;
+export type OptionalCustomProof = Expect<
+  Equal<
+    ReturnType<typeof optionalCustom>,
+    MaterialLayer<Material3ColorMode, "public"> | MaterialLayer<"custom", "internal">
+  >
+>;
+export type DefaultedCustomProof = Expect<
+  Equal<ReturnType<typeof defaultedCustom>, MaterialLayer<"custom", "internal">>
+>;
+void [invalidModeWrapper, invalidVisibilityWrapper, invalidBothWrapper];
+
+declare const optionalSettings: {
+  readonly modes?: Material3Modes<"custom">;
+  readonly visibility?: "internal";
+};
+// @ts-expect-error optional fields cannot promise custom generation or internal visibility.
+material3("#6750a4", optionalSettings);
+declare const optionalCustomModes: { readonly modes?: Material3Modes<"custom"> };
+// @ts-expect-error an optional custom map can fall back to a different complete mode set.
+material3("#6750a4", optionalCustomModes);
+declare const optionalInternalVisibility: { readonly visibility?: "internal" };
+// @ts-expect-error an optional internal field does not establish internal visibility.
+material3("#6750a4", optionalInternalVisibility);
+const maybeInternal = material3("#6750a4", {
+  visibility: optionalInternalVisibility.visibility ?? "public",
+});
+export type OptionalVisibilityProof = Expect<
+  Equal<typeof maybeInternal, MaterialLayer<Material3ColorMode, TokenVisibility>>
+>;
+defineTokenGraph({
+  modes: ["custom"],
+  defaultMode: "custom",
+  // @ts-expect-error annotated default settings still generate the default complete mode set.
+  layers: [annotatedDefaultLayer],
+  tokens: {},
+});
 export type DefaultsProof = Expect<
   Equal<typeof defaults, MaterialLayer<Material3ColorMode, "public">>
 >;
@@ -193,6 +350,29 @@ const fabricatedList: readonly TokenLayer<string, CompilerMode>[] = [material3("
 const fabricatedVisibility: MaterialLayer<Material3ColorMode, "internal"> = material3("#6750a4");
 void [fabricated, fabricatedReturn, fabricatedList, fabricatedVisibility];
 
+// The supplied-options overload needs the same contextual inference protection.
+// @ts-expect-error an empty options object supplies no custom modes.
+const fabricatedOptions: TokenLayer<Material3TokenKey, CompilerMode> = material3("#6750a4", {});
+function fabricatedOptionsReturn(): TokenLayer<Material3TokenKey, CompilerMode> {
+  // @ts-expect-error return context cannot supply modes through the generic overload.
+  return material3("#6750a4", {});
+}
+const fabricatedOptionsList: readonly TokenLayer<string, CompilerMode>[] = [
+  // @ts-expect-error typed-list context cannot supply modes through the generic overload.
+  material3("#6750a4", {}),
+];
+// @ts-expect-error context cannot turn absent visibility in an options object into internal.
+const fabricatedOptionsVisibility: MaterialLayer<Material3ColorMode, "internal"> = material3(
+  "#6750a4",
+  {},
+);
+void [
+  fabricatedOptions,
+  fabricatedOptionsReturn,
+  fabricatedOptionsList,
+  fabricatedOptionsVisibility,
+];
+
 defineTokenGraph({ modes: compilerModes, defaultMode: "mono-light", layers: [six], tokens: {} });
 defineTokenGraph({ modes: ["dark", "light"], defaultMode: "dark", layers: [defaults], tokens: {} });
 defineTokenGraph({ modes: ["standard"], defaultMode: "standard", layers: [one], tokens: {} });
@@ -252,6 +432,19 @@ const publicGraph = defineTokenGraph({
   tokens: { alias: tokenRef("md.sys.color.primary") },
 });
 const publicOutput = orThrow(compileTokenGraph(publicGraph));
+const annotatedPublicOutput = orThrow(
+  compileTokenGraph(
+    defineTokenGraph({
+      modes: ["light", "dark"],
+      defaultMode: "light",
+      layers: [annotatedDefaultLayer],
+      tokens: { alias: tokenRef("md.sys.color.primary") },
+    }),
+  ),
+);
+export type AnnotatedPublicProof = Expect<
+  Equal<typeof annotatedPublicOutput.tokens, typeof publicOutput.tokens>
+>;
 const explicitPublic = orThrow(compileTokenGraph(publicGraph, { selection: "public" }));
 export type PublicCompleteProof = Expect<
   Equal<
@@ -287,6 +480,10 @@ const uncertainGraph = defineTokenGraph({
   tokens: { alias: tokenRef("md.sys.color.primary") },
 });
 const uncertainOutput = orThrow(compileTokenGraph(uncertainGraph));
+const uncertainAll = orThrow(compileTokenGraph(uncertainGraph, { selection: "all" }));
+export type UncertainAllProof = Expect<
+  Equal<typeof uncertainAll.tokens, typeof publicOutput.tokens>
+>;
 export type UncertainPublicProof = Expect<
   Equal<
     typeof uncertainOutput.tokens,

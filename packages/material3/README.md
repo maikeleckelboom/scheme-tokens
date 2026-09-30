@@ -3,7 +3,7 @@
 Generate the accepted Material 3 system color roles as one ordinary `scheme-tokens` layer. The
 adapter is optional: core remains a string-token compiler and does not install a color engine.
 
-This README describes the P5 candidate for Material `0.2.0` and core `0.4.0`. The committed versions
+This README describes the P5 candidate, including P5.1 option-presence typing, for Material `0.2.0` and core `0.4.0`. The committed versions
 remain `0.1.1` and `0.3.0`; the new API has not been published. External consumer migration and final
 release preparation remain P6 and P7.
 
@@ -141,6 +141,42 @@ checked with `satisfies Material3Options` keeps its literal settings. A variable
 Default/public compilation of its graph is partial over every composed key: possibly public
 Material roles remain possible, not definitely absent. Finite, fully known public selections and
 exact key tuples remain complete; generic wrappers preserve supplied modes and visibility.
+
+Precise facts require actual settings. `Material3Options<"custom", "internal">` requires both
+`modes` and `visibility`; `{}` is rejected. A single built-in mode also requires its map, because
+omission generates both light and dark. Visibility may be omitted when its type includes public.
+The default-call signature accepts omitted or `undefined` options without generics. Explicit
+generic calls require an options object satisfying these same field-presence rules.
+
+```ts
+import { material3, type Material3Options } from "@scheme-tokens/material3";
+import type { TokenVisibility } from "scheme-tokens";
+
+const defaults = material3("#6750a4"); // light/dark, public
+const settings = {
+  modes: { custom: { colorMode: "light" } },
+  visibility: "internal",
+} satisfies Material3Options<"custom", "internal">;
+
+function generate<Mode extends string, Visibility extends TokenVisibility>(
+  source: string,
+  options: Material3Options<Mode, Visibility>,
+) {
+  return material3(source, options);
+}
+const custom = generate("#6750a4", settings); // custom, internal
+
+function generateDefaults(options: Material3Options = {}) {
+  return material3("#6750a4", options); // light/dark, conservative visibility
+}
+```
+
+A narrowed custom/internal wrapper can have a default only if it supplies the required settings.
+For possibly undefined options, narrow before calling or provide a valid fallback. For example,
+bare `Material3Options | undefined` can use `material3(seed, options ?? {})`; custom settings need
+a custom map fallback or a branch calling `material3(seed)` for the default case. Alternative
+complete mode sets are never combined into one purported exact set. See
+[ADR 0016](../../docs/adr/0016-material-option-presence.md) for the correction to ADR 0014.
 
 ## Overrides, CSS, and artifacts
 
