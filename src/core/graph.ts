@@ -75,24 +75,36 @@ declare const layerStatic: unique symbol;
 declare const graphStatic: unique symbol;
 
 /**
+ * Nominal evidence of a precise static claim. `#proof` has no runtime counterpart, and an
+ * object literal, a spread copy, or a mapped type never has it, so only the helpers'
+ * signatures and the values that flow from them make a precise claim.
+ */
+declare class StaticProof {
+  // oxlint-disable-next-line no-unused-private-class-members -- an ambient marker is never used.
+  #proof: unknown;
+}
+
+/**
  * A finite key union is an exact claim: no other finite union is assignable to it, so
  * neither an annotation nor union subtype reduction can add or hide a key. Every claim is
  * still assignable to the dynamic `string` form.
  */
 type ExactClaim<Claim extends string> = string extends Claim ? unknown : (claim: Claim) => Claim;
 
-type GraphTokens<Key extends string, Mode extends string> = string extends Key
-  ? Readonly<Record<string, TokenDefinition<string, Mode>>>
-  : Readonly<Partial<Record<Key, TokenDefinition<string, Mode>>>>;
+type IsDynamic<Claim extends string> = string extends Claim ? true : false;
 
-/**
- * `Mode` is the layer's derived mode set: `never` without mode maps, a literal union for a
- * literal layer, and `string` when unknown.
- */
-export interface TokenLayer<
-  Key extends string = string,
-  Mode extends string = string,
-  Visibility extends LayerVisibility = LayerVisibility,
+// With a bare `string extends Key` check, TypeScript 7 inferred `string` for `Key` from this
+// property whenever a graph type was matched structurally, as an intersection is.
+type GraphTokens<Key extends string, Mode extends string> =
+  IsDynamic<Key> extends true
+    ? Readonly<Record<string, TokenDefinition<string, Mode>>>
+    : Readonly<Partial<Record<Key, TokenDefinition<string, Mode>>>>;
+
+/** A layer's runtime fields and its static facts. */
+interface TokenLayerFields<
+  Key extends string,
+  Mode extends string,
+  Visibility extends LayerVisibility,
 > {
   readonly $schema?: string;
   readonly kind: typeof tokenLayerKind;
@@ -109,14 +121,22 @@ export interface TokenLayer<
 }
 
 /**
- * `Key` is every composed key, `PublicKey` the effective public keys after layer order and
- * graph-last visibility. Either is `string` when it is not statically known.
+ * `Mode` is the layer's derived mode set: `never` without mode maps, a literal union for a
+ * literal layer, and `string` when unknown. A claim narrower than the default requires the
+ * proof, so only `defineTokenLayer` and the values that flow from it make one. The default
+ * claims nothing and needs no proof; its optional member only keeps the name in printed types.
  */
-export interface TokenGraph<
+export type TokenLayer<
   Key extends string = string,
   Mode extends string = string,
-  PublicKey extends string = string,
-> {
+  Visibility extends LayerVisibility = LayerVisibility,
+> = TokenLayerFields<Key, Mode, Visibility> &
+  ([string, string, LayerVisibility] extends [Key, Mode, Visibility]
+    ? { readonly [layerStatic]?: unknown }
+    : StaticProof);
+
+/** A graph's runtime fields and its static facts. */
+interface TokenGraphFields<Key extends string, Mode extends string, PublicKey extends string> {
   readonly $schema?: string;
   readonly kind: typeof tokenGraphKind;
   readonly formatVersion: 2;
@@ -131,9 +151,40 @@ export interface TokenGraph<
     readonly key: Key;
     readonly publicKey: PublicKey;
     readonly exactKey: ExactClaim<Key>;
+    readonly exactMode: ExactClaim<Mode>;
     readonly exactPublicKey: ExactClaim<PublicKey>;
   };
 }
+
+/**
+ * `Key` is every composed key, `PublicKey` the effective public keys after layer order and
+ * graph-last visibility. Either is `string` when it is not statically known. A claim
+ * narrower than the default requires the proof, so only `defineTokenGraph` and the values
+ * that flow from it make one. The default claims nothing and needs no proof; its optional
+ * member only keeps the name in printed types.
+ */
+export type TokenGraph<
+  Key extends string = string,
+  Mode extends string = string,
+  PublicKey extends string = string,
+> = TokenGraphFields<Key, Mode, PublicKey> &
+  ([string, string, string] extends [Key, Mode, PublicKey]
+    ? { readonly [graphStatic]?: unknown }
+    : StaticProof);
+
+/**
+ * What `defineTokenGraph` returns: a `TokenGraph<Key, Mode, PublicKey>` whose own authored
+ * keys, `OwnKey`, are definite in `tokens`. A key that only a layer declares is not promised
+ * there. The name keeps the result nameable in a consumer's emitted declarations.
+ */
+export type DefinedTokenGraph<
+  Key extends string,
+  Mode extends string,
+  PublicKey extends string,
+  OwnKey extends string,
+> = TokenGraph<Key, Mode, PublicKey> & {
+  readonly tokens: Readonly<Record<OwnKey, TokenDefinition<string, Mode>>>;
+};
 
 /**
  * A layer as data, without static facts. `layers` is constrained by this shape so that the
@@ -284,7 +335,8 @@ export function tokenConcat(
 
 /**
  * Define a graph. Literal input infers every composed key, the mode union, and the public
- * keys after layers compose in order and graph tokens compose last.
+ * keys after layers compose in order and graph tokens compose last. The graph's own keys
+ * are definite in `tokens`; a key only a layer declares is not promised there.
  */
 export function defineTokenGraph<
   const Tokens extends TokensConstraint<
@@ -302,10 +354,11 @@ export function defineTokenGraph<
     readonly layers?: Layers & CheckLayers<Layers, NoInfer<GraphModes<Modes>>>;
     readonly tokens: Tokens;
   } & DefaultModeInput<Modes>,
-): TokenGraph<
+): DefinedTokenGraph<
   StateKey<GraphState<Tokens, Layers, Default>>,
   GraphModes<Modes>,
-  StatePublicKey<GraphState<Tokens, Layers, Default>>
+  StatePublicKey<GraphState<Tokens, Layers, Default>>,
+  Extract<keyof Tokens, string>
 >;
 export function defineTokenGraph(input: unknown): TokenGraph {
   const normalized = orThrow(normalizeAuthoring(input, "graph"));

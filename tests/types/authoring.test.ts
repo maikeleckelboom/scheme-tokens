@@ -11,6 +11,7 @@ import {
   type CompiledScheme,
   type CssModeSelectors,
   type CssVarsExport,
+  type DefinedTokenGraph,
   type Result,
   type TokenGraph,
   type TokenLayer,
@@ -60,7 +61,15 @@ typedSimpleGraph.defaultMode.toUpperCase();
 export type SimpleKeys = Expect<Equal<keyof typeof simpleGraph.tokens, "brand.600" | "primary">>;
 export type SimpleModes = Expect<Equal<(typeof simpleGraph.modes)[number], "base">>;
 export type SimpleGraph = Expect<
-  Equal<typeof simpleGraph, TokenGraph<"brand.600" | "primary", "base", "brand.600" | "primary">>
+  Equal<
+    typeof simpleGraph,
+    DefinedTokenGraph<
+      "brand.600" | "primary",
+      "base",
+      "brand.600" | "primary",
+      "brand.600" | "primary"
+    >
+  >
 >;
 
 const multiModeGraph = defineTokenGraph({

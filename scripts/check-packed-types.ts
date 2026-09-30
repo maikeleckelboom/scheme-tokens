@@ -59,11 +59,13 @@ const strictOptions = {
   types: [],
   noEmit: true,
 };
+// `declaration` also proves that helper results stay nameable in a consumer's declarations.
 const stricterOptions = {
   ...strictOptions,
   exactOptionalPropertyTypes: true,
   noUncheckedIndexedAccess: true,
   verbatimModuleSyntax: true,
+  declaration: true,
 };
 writeJson(join(consumerDirectory, "tsconfig.strict.json"), {
   compilerOptions: strictOptions,
@@ -150,12 +152,39 @@ defineTokenGraph({ layers: [brand], tokens: { primary: tokenRef("brand.60") } })
 defineTokenGraph({ modes: ["light", "dark", "dim"], defaultMode: "light", layers: [layer], tokens: {} });`,
     expect: (output) => mismatch(output, ["dark", "light"], ["dark", "dim", "light"]),
   },
+  {
+    name: "raw finite graph claim names the missing proof",
+    source: `export const graph: TokenGraph<"real" | "ghost", "base", "real" | "ghost"> = {
+  kind: "scheme-tokens/token-graph",
+  formatVersion: 2,
+  modes: ["base"],
+  defaultMode: "base",
+  defaultVisibility: "public",
+  tokens: { real: { value: "hello" } },
+};`,
+    expect: (output) => contains(output, "StaticProof"),
+  },
+  {
+    name: "raw layer visibility claim names the missing proof",
+    source: `export const layer: TokenLayer<
+  "x",
+  never,
+  { default: "internal"; public: "x"; internal: never; omitted: never }
+> = {
+  kind: "scheme-tokens/token-layer",
+  formatVersion: 2,
+  id: "forged",
+  defaultVisibility: "internal",
+  tokens: { x: { value: "1" } },
+};`,
+    expect: (output) => contains(output, "StaticProof"),
+  },
 ];
 
 for (const diagnostic of diagnosticCases) {
   writeFileSync(
     join(diagnosticsDirectory, `${slug(diagnostic.name)}.ts`),
-    `import { defineTokenGraph, defineTokenLayer, tokenConcat, tokenRef } from "scheme-tokens";\n${diagnostic.source}\nvoid tokenConcat;\nvoid defineTokenLayer;\nvoid tokenRef;\n`,
+    `import { defineTokenGraph, defineTokenLayer, tokenConcat, tokenRef, type TokenGraph, type TokenLayer } from "scheme-tokens";\n${diagnostic.source}\nvoid defineTokenGraph;\nvoid tokenConcat;\nvoid defineTokenLayer;\nvoid tokenRef;\nexport type Imported = TokenGraph | TokenLayer;\n`,
   );
 }
 

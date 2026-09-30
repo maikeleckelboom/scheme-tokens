@@ -88,7 +88,8 @@ type ComposeLayers<
     ? State
     : DynamicState;
 
-export type LayerKeyOf<Layer> = Layer extends TokenLayer<infer Key> ? Key : never;
+/** A layer without a proven static claim may declare any key. */
+export type LayerKeyOf<Layer> = Layer extends TokenLayer<infer Key> ? Key : string;
 
 /** Layers in array order, then the graph's own tokens with the graph default. */
 export type GraphState<

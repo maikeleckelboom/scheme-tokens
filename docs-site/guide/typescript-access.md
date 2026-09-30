@@ -26,9 +26,11 @@ const exact = orThrow(compileTokenGraph(graph, { selection: { keys: ["primary"] 
 exact.tokens.primary.light.toUpperCase();
 ```
 
-`defineTokenGraph` infers `TokenGraph<Key, Mode, PublicKey>`: every composed key, the mode union, and the public keys after layers compose in array order and graph tokens compose last. Visibility follows the runtime rule: explicit visibility replaces, an omitted override keeps what it replaces, and a new key takes the default of the position that introduced it. Here `PublicKey` is `"background" | "primary"`, so the default public result is a complete record of exactly those keys.
+`defineTokenGraph` returns a `DefinedTokenGraph`, a `TokenGraph<Key, Mode, PublicKey>`: every composed key, the mode union, and the public keys after layers compose in array order and graph tokens compose last. Visibility follows the runtime rule: explicit visibility replaces, an omitted override keeps what it replaces, and a new key takes the default of the position that introduced it. Here `PublicKey` is `"background" | "primary"`, so the default public result is a complete record of exactly those keys. `graph.tokens` holds the graph's own declarations: keys the graph authors are definite there, and a key that only a layer declares is not.
 
-The public record stays partial whenever TypeScript cannot know the public set: a visibility typed `TokenVisibility` rather than a literal, a graph built from `Record<string, …>` or `Object.fromEntries`, a parsed graph or layer, a layer list that is not a tuple, or a layer typed only as `TokenLayer<Key>`. `all` is complete whenever the key set is finite, because visibility never removes a key from it. An exact literal tuple is complete after runtime validation; a runtime key array is partial.
+Precise claims are nominal. Only `defineTokenGraph`, `defineTokenLayer`, and the values that flow from them make one, so an annotation cannot add, hide, or publish a key the value does not prove. An object literal, a spread copy, a frozen copy, or a layer written inline in `layers` fits only the plain `TokenGraph` and `TokenLayer` forms and is treated like parsed data.
+
+The public record stays partial whenever TypeScript cannot know the public set: a visibility typed `TokenVisibility` rather than a literal, a graph built from `Record<string, …>` or `Object.fromEntries`, a parsed graph or layer, data that did not come from the helpers, a layer list that is not a tuple, or a layer typed only as `TokenLayer<Key>`. `all` is complete whenever the key set is finite, because visibility never removes a key from it. An exact literal tuple is complete after runtime validation; a runtime key array is partial.
 
 The third `Complete` generic on `CompiledScheme<Key, Mode, Complete>` represents this distinction. `parseCompiledScheme()` always returns the incomplete form. `CssVarsExport<Key, Mode, Complete>` carries the input completeness into `variableByToken`. Let inference provide these generics unless an integration boundary needs an explicit annotation.
 
@@ -49,4 +51,4 @@ For literal input the helpers reject, at the offending property:
 
 The marker names appear in compiler messages to explain a rejection. They are not exported, and their wording is not a compatibility contract.
 
-Public types center on `Result`, `Issue`, `TokenReference`, `TokenGraph`, `TokenLayer`, `LayerVisibility`, `CompiledScheme`, `CssVarsExport`, and their essential option and issue types.
+Public types center on `Result`, `Issue`, `TokenReference`, `TokenGraph`, `DefinedTokenGraph`, `TokenLayer`, `LayerVisibility`, `CompiledScheme`, `CssVarsExport`, and their essential option and issue types.

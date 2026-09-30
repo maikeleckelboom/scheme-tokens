@@ -168,7 +168,8 @@ type Composed<State extends VisibilityState, Key extends string, MayPublic exten
 type IsUnion<Value, Whole = Value> = Value extends unknown ? [Whole] extends [Value] ? false : true : never;
 type ComposeLayer<State extends VisibilityState, Layer> = true extends IsUnion<Layer> ? DynamicState : Layer extends TokenLayer<infer Key, string, infer Visibility> ? Composed<State, Key, Extract<Key, Visibility["public"]>, Extract<Key, Visibility["internal"]>, Extract<Key, Visibility["omitted"]>, Visibility["default"]> : DynamicState;
 type ComposeLayers<State extends VisibilityState, Layers extends readonly unknown[]> = Layers extends readonly [infer Head, ...infer Tail] ? ComposeLayers<ComposeLayer<State, Head>, Tail> : Layers extends readonly [] ? State : DynamicState;
-type LayerKeyOf<Layer> = Layer extends TokenLayer<infer Key> ? Key : never;
+/** A layer without a proven static claim may declare any key. */
+type LayerKeyOf<Layer> = Layer extends TokenLayer<infer Key> ? Key : string;
 /** Layers in array order, then the graph's own tokens with the graph default. */
 type GraphState<Tokens, Layers extends readonly unknown[], Default extends TokenVisibility> = Composed<ComposeLayers<EmptyState, Layers>, Extract<keyof Tokens, string>, DeclaredStateKeys<Tokens, "public">, DeclaredStateKeys<Tokens, "internal">, DeclaredStateKeys<Tokens, "omitted">, Default>;
 type StateKey<State extends VisibilityState> = State["all"];
@@ -216,17 +217,23 @@ interface LayerVisibility {
 declare const layerStatic: unique symbol;
 declare const graphStatic: unique symbol;
 /**
+ * Nominal evidence of a precise static claim. `#proof` has no runtime counterpart, and an
+ * object literal, a spread copy, or a mapped type never has it, so only the helpers'
+ * signatures and the values that flow from them make a precise claim.
+ */
+declare class StaticProof {
+  #private;
+}
+/**
  * A finite key union is an exact claim: no other finite union is assignable to it, so
  * neither an annotation nor union subtype reduction can add or hide a key. Every claim is
  * still assignable to the dynamic `string` form.
  */
 type ExactClaim<Claim extends string> = string extends Claim ? unknown : (claim: Claim) => Claim;
-type GraphTokens<Key extends string, Mode extends string> = string extends Key ? Readonly<Record<string, TokenDefinition<string, Mode>>> : Readonly<Partial<Record<Key, TokenDefinition<string, Mode>>>>;
-/**
- * `Mode` is the layer's derived mode set: `never` without mode maps, a literal union for a
- * literal layer, and `string` when unknown.
- */
-interface TokenLayer<Key extends string = string, Mode extends string = string, Visibility extends LayerVisibility = LayerVisibility> {
+type IsDynamic<Claim extends string> = string extends Claim ? true : false;
+type GraphTokens<Key extends string, Mode extends string> = IsDynamic<Key> extends true ? Readonly<Record<string, TokenDefinition<string, Mode>>> : Readonly<Partial<Record<Key, TokenDefinition<string, Mode>>>>;
+/** A layer's runtime fields and its static facts. */
+interface TokenLayerFields<Key extends string, Mode extends string, Visibility extends LayerVisibility> {
   readonly $schema?: string;
   readonly kind: typeof tokenLayerKind;
   readonly formatVersion: 2;
@@ -241,10 +248,16 @@ interface TokenLayer<Key extends string = string, Mode extends string = string, 
   };
 }
 /**
- * `Key` is every composed key, `PublicKey` the effective public keys after layer order and
- * graph-last visibility. Either is `string` when it is not statically known.
+ * `Mode` is the layer's derived mode set: `never` without mode maps, a literal union for a
+ * literal layer, and `string` when unknown. A claim narrower than the default requires the
+ * proof, so only `defineTokenLayer` and the values that flow from it make one. The default
+ * claims nothing and needs no proof; its optional member only keeps the name in printed types.
  */
-interface TokenGraph<Key extends string = string, Mode extends string = string, PublicKey extends string = string> {
+type TokenLayer<Key extends string = string, Mode extends string = string, Visibility extends LayerVisibility = LayerVisibility> = TokenLayerFields<Key, Mode, Visibility> & ([string, string, LayerVisibility] extends [Key, Mode, Visibility] ? {
+  readonly [layerStatic]?: unknown;
+} : StaticProof);
+/** A graph's runtime fields and its static facts. */
+interface TokenGraphFields<Key extends string, Mode extends string, PublicKey extends string> {
   readonly $schema?: string;
   readonly kind: typeof tokenGraphKind;
   readonly formatVersion: 2;
@@ -259,9 +272,28 @@ interface TokenGraph<Key extends string = string, Mode extends string = string, 
     readonly key: Key;
     readonly publicKey: PublicKey;
     readonly exactKey: ExactClaim<Key>;
+    readonly exactMode: ExactClaim<Mode>;
     readonly exactPublicKey: ExactClaim<PublicKey>;
   };
 }
+/**
+ * `Key` is every composed key, `PublicKey` the effective public keys after layer order and
+ * graph-last visibility. Either is `string` when it is not statically known. A claim
+ * narrower than the default requires the proof, so only `defineTokenGraph` and the values
+ * that flow from it make one. The default claims nothing and needs no proof; its optional
+ * member only keeps the name in printed types.
+ */
+type TokenGraph<Key extends string = string, Mode extends string = string, PublicKey extends string = string> = TokenGraphFields<Key, Mode, PublicKey> & ([string, string, string] extends [Key, Mode, PublicKey] ? {
+  readonly [graphStatic]?: unknown;
+} : StaticProof);
+/**
+ * What `defineTokenGraph` returns: a `TokenGraph<Key, Mode, PublicKey>` whose own authored
+ * keys, `OwnKey`, are definite in `tokens`. A key that only a layer declares is not promised
+ * there. The name keeps the result nameable in a consumer's emitted declarations.
+ */
+type DefinedTokenGraph<Key extends string, Mode extends string, PublicKey extends string, OwnKey extends string> = TokenGraph<Key, Mode, PublicKey> & {
+  readonly tokens: Readonly<Record<OwnKey, TokenDefinition<string, Mode>>>;
+};
 /**
  * A layer as data, without static facts. `layers` is constrained by this shape so that the
  * expected type never supplies a mode set to an inline generic layer (ADR 0013 Appendix A).
@@ -297,14 +329,15 @@ type TokenConcatResult<References extends readonly TokenReference[]> = number ex
 declare function tokenConcat<const References extends readonly TokenReference[]>(strings: TemplateStringsArray, ...references: References): TokenConcatResult<References>;
 /**
  * Define a graph. Literal input infers every composed key, the mode union, and the public
- * keys after layers compose in order and graph tokens compose last.
+ * keys after layers compose in order and graph tokens compose last. The graph's own keys
+ * are definite in `tokens`; a key only a layer declares is not promised there.
  */
 declare function defineTokenGraph<const Tokens extends TokensConstraint<Tokens, NoInfer<Extract<keyof Tokens, string> | LayerKeyOf<Layers[number]>>, NoInfer<GraphModes<Modes>>>, const Modes extends ModeTuple | undefined = undefined, const Layers extends readonly TokenLayerData[] = readonly [], const Default extends TokenVisibility = "public">(input: {
   readonly modes?: Modes & CheckModeNames<Modes>;
   readonly defaultVisibility?: Default;
   readonly layers?: Layers & CheckLayers<Layers, NoInfer<GraphModes<Modes>>>;
   readonly tokens: Tokens;
-} & DefaultModeInput<Modes>): TokenGraph<StateKey<GraphState<Tokens, Layers, Default>>, GraphModes<Modes>, StatePublicKey<GraphState<Tokens, Layers, Default>>>;
+} & DefaultModeInput<Modes>): DefinedTokenGraph<StateKey<GraphState<Tokens, Layers, Default>>, GraphModes<Modes>, StatePublicKey<GraphState<Tokens, Layers, Default>>, Extract<keyof Tokens, string>>;
 /**
  * Define a reusable layer. Its mode set is the union of its mode-map names, and every mode
  * map must name all of them (D12).
@@ -462,4 +495,4 @@ declare function serializeTokenGraph(graph: TokenGraph): string;
 declare function serializeTokenLayer(layer: TokenLayer): string;
 type AnyCompiledScheme = CompiledScheme<string, string, boolean>;
 declare function serializeCompiledScheme(scheme: AnyCompiledScheme): string;
-export { type CompileTokenGraphIssue, type CompileTokenGraphOptions, type CompiledConcatPart, type CompiledExpression, type CompiledReference, type CompiledScheme, type CompiledToken, type CompiledTokenMetadata, type CssModeSelectors, type CssScope, type CssVarBlock, type CssVarDeclaration, type CssVarsExport, type ExportCssVarsIssue, type ExportCssVarsOptions, type Issue, type JsonValue, type LayerVisibility, type ParseCompiledSchemeIssue, type Result, type TokenDeclarationRecord, type TokenDefinition, type TokenExpression, type TokenGraph, type TokenGraphIssue, type TokenLayer, type TokenOrigin, type TokenReference, type TokenSelection, type TokenVisibility, compileTokenGraph, defineTokenGraph, defineTokenLayer, exportCssVars, orThrow, parseCompiledScheme, parseTokenGraph, parseTokenLayer, serializeCompiledScheme, serializeTokenGraph, serializeTokenLayer, tokenConcat, tokenRef };
+export { type CompileTokenGraphIssue, type CompileTokenGraphOptions, type CompiledConcatPart, type CompiledExpression, type CompiledReference, type CompiledScheme, type CompiledToken, type CompiledTokenMetadata, type CssModeSelectors, type CssScope, type CssVarBlock, type CssVarDeclaration, type CssVarsExport, type DefinedTokenGraph, type ExportCssVarsIssue, type ExportCssVarsOptions, type Issue, type JsonValue, type LayerVisibility, type ParseCompiledSchemeIssue, type Result, type TokenDeclarationRecord, type TokenDefinition, type TokenExpression, type TokenGraph, type TokenGraphIssue, type TokenLayer, type TokenOrigin, type TokenReference, type TokenSelection, type TokenVisibility, compileTokenGraph, defineTokenGraph, defineTokenLayer, exportCssVars, orThrow, parseCompiledScheme, parseTokenGraph, parseTokenLayer, serializeCompiledScheme, serializeTokenGraph, serializeTokenLayer, tokenConcat, tokenRef };
