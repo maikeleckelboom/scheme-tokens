@@ -22,6 +22,22 @@ Node ESM plus strict NodeNext release-candidate consumers. The release-candidate
 pending Changesets transformation only inside a temporary workspace; it never versions the real
 branch.
 
+## CSS browser contract
+
+The CSS activation order promises computed-style behaviour, which unit tests cannot observe.
+`pnpm test:browsers` builds the package and runs `tests/browser` with Playwright in Chromium,
+Firefox, and WebKit: tier order, system preferences, explicit and nested markers, custom
+conditions, application cascade and cascade-layer precedence, shadow roots with `:where(:host)`,
+and `color-scheme` binding. The suite loads the built `dist/` exporter, not workspace source.
+It is separate from `pnpm release:check` because it needs browser binaries; CI runs it as the
+blocking `CSS browser contract` job. Install the engines once per Playwright version:
+
+```sh
+pnpm exec playwright install chromium firefox webkit
+```
+
+Run it for any change to CSS output, options, or selector and media validation.
+
 During P2 that isolated projection is core `0.4.0` plus a peer-only Material `0.1.2` patch, with
 the existing Material API. The repository manifests remain `0.3.0`/`0.1.1`. This proves packed
 runtime/type compatibility; it does not implement the P5 Material API or certify an intermediate
@@ -68,6 +84,12 @@ candidate transformation before changing the exact tool pin.
 `@types/node` is pinned to the Node 24 line so repository-owned Node scripts are checked against the minimum supported runtime rather than the forward-compatibility line.
 
 `tsdown` is pinned to `0.23.0`. The prior `0.22.3` pin could not generate declarations with TypeScript 7. The new pin passed a local Windows build; the earlier Windows application-control issue with later 0.22 releases remains a reason to test toolchain bumps on the maintainer's machine.
+
+`@playwright/test` is pinned to `1.61.0` (Chromium 149, Firefox 151, WebKit 26.5). The then-current
+`1.63.0` was evaluated first: the maintainer machine's Windows application-control policy refused to
+launch its Firefox 155 and WebKit 26.6 builds, while the `1.61.0` engines run there. CI installs the
+same pinned engines, so the local and CI browser evidence match. Bump it deliberately, after checking
+that all three engines launch locally.
 
 The docs site pins `vitepress` and `typescript` to exact versions, and `scripts/check-docs-site.ts` asserts the resolved versions. Its examples use syntax-highlighted TypeScript fences; the repository's packed `pnpm test:docs` gate typechecks them with TypeScript 7. The prior Twoslash hover integration depended on the TypeScript 6 compiler API and was removed for the TypeScript 7 baseline.
 

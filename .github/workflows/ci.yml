@@ -125,6 +125,43 @@ jobs:
       - name: API surface drift has a changeset
         run: pnpm check:changeset
 
+  # ADR 0013 D7 promises computed-style behavior, so it is proved in real engines. One Node line
+  # is enough here: the engines, not Node, are what this job varies.
+  css-browsers:
+    name: CSS browser contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.23.0
+          run_install: false
+          cache: false
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Report toolchain
+        run: |
+          node --version
+          pnpm --version
+          pnpm exec playwright --version
+
+      - name: Install Chromium, Firefox, and WebKit
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
+
+      - name: Build and run the CSS activation suite in all three engines
+        run: pnpm test:browsers
+
   type-compatibility:
     name: TypeScript 7 supported compilers
     runs-on: ubuntu-latest

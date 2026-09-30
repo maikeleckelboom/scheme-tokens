@@ -23,6 +23,7 @@ git diff --check
 
 - `pnpm validate` — typecheck, lint, unit, property, schema and type tests, filename check, build, API check, formatting.
 - `pnpm release:check` — everything in `validate`, plus packaging, packed-consumer, module-resolution, tarball, docs-site, doc-example, and external-consumer audit gates.
+- `pnpm test:browsers` — build, then the CSS activation contract in Chromium, Firefox, and WebKit; required for any CSS output, option, or grammar change. Install the pinned engines once with `pnpm exec playwright install chromium firefox webkit`. CI runs it as its own blocking job.
 - `pnpm api:snapshot` — regenerate `api/scheme-tokens.api.d.ts` after an intended contract change.
 - `pnpm changeset` — required whenever published behaviour or the API snapshot moves.
 - `pnpm format:fix` — apply Oxfmt.
