@@ -42,23 +42,30 @@ never ships as an alias next to the old shape.
 - [ADR 0013](./adr/0013-coherent-token-model.md) (accepted) designs the next breaking release as one contract:
   authoring, composition, visibility, static typing, layer mode sets, compiled provenance, CSS activation, wire-format
   evolution, schema identity, and TypeScript support. ADRs 0010–0012 are its accepted slices. Read it before proposing
-  a change to any of these. The branch now implements the P2 runtime/wire cutover, the P3 static contract, P4 CSS activation, and P4a `var()` output; durable docs describe that candidate. P5 Material, P6 consumer migration, and P7 release evidence remain deferred, with released package versions unchanged.
+  a change to any of these. The branch implements P2 runtime/wire, P3 static typing, P4 CSS activation, P4a `var()` output, and P5 Material layer/mode mapping. Durable docs describe this candidate. P6 external consumer migration and P7 final release preparation remain deferred, with committed/released package versions unchanged.
 - P4a links only direct targets in the compiled scheme's actual emitted key set, regardless of visibility or naming success, and reuses actual names built once. Resolved output stays the default. Complete alias declarations enable local propagation; unmarked descendants inherit already-computed aliases. Concat projection is CSS token substitution, not arbitrary character assembly. Safety checks the complete projected value, not isolated fragments or unused resolved/fallback strings. The compiled parser proves structure without metadata consistency or acyclicity; P4a does not recompile edited metadata. See the [CSS guide](../docs-site/guide/export-css-variables.md#reference-output) and [diagnostics](./diagnostics.md#css-export) for the boundaries.
 - [ADR 0015](./adr/0015-concat-mode-disambiguation.md) supersedes only the reserved-mode rule for `concat`. Exact singleton array shape distinguishes concat expressions from mode maps. This preserves valid published v1 source with mode `concat` and D10 retention. Never classify by property presence alone, including in the static model.
 
 ## Material 3 adapter package
 
-- [ADR 0005](./adr/0005-material3-adapter-package-boundary.md) owns the optional adapter package
-  boundary; [ADR 0006](./adr/0006-material3-authoring-and-mode-contract.md) owns authoring, modes,
-  and composition; [ADR 0007](./adr/0007-material3-engine-and-role-contract.md) owns the pinned
-  engine, accepted roles, and capabilities. [ADR 0008](./adr/0008-material3-fragment-layer-type.md)
-  narrowly supersedes ADR 0006's fragment layer generic. ADR 0004 is historical and superseded by
-  these decision slices. [ADR 0014](./adr/0014-material3-layer-and-mode-mapping.md) (accepted) is
-  the contract for the next adapter release. The adapter helper returns one layer whose `modes` map
-  graph modes to Material settings. `colorMode` names the Material light/dark dimension, and the
-  positional source color argument is the only global source color. It supersedes parts of
-  ADR 0006, all of ADR 0008, and ADR 0005's list of named type exports. The released 0.1 adapter
-  stays documented as shipped until that release lands.
+- [ADR 0005](./adr/0005-material3-adapter-package-boundary.md) owns the optional package
+  boundary and licensing; [ADR 0007](./adr/0007-material3-engine-and-role-contract.md) owns the pinned
+  engine, accepted roles and capabilities. P5 implements [ADR 0014](./adr/0014-material3-layer-and-mode-mapping.md),
+  superseding the listed parts of ADR 0006, all of ADR 0008, and ADR 0005's old named type list.
+  Material returns one fixed-id layer, with an exact non-empty modes map and custom `colorMode`.
+  The positional source is the only global source; spec and visibility remain global. Effective
+  source/variant/contrast coordinates are validated before engine generation. Core validates names
+  through a narrow empty-envelope preflight and the generated layer directly; its errors propagate unchanged.
+- Current P3 visibility facts refine ADR 0014's prototype: generated declarations omit visibility,
+  so all 48 roles appear in `omitted`, with `public`/`internal` both `never`. Preserve that fact and
+  core's nominal proof. NoInfer prevents modes and default visibility being supplied by return
+  context. Unknown visibility keeps public output partial over all keys, including possibly public
+  roles. Bare Material3Options is deliberately wider than the default call.
+- Material's intentional snapshot and minor changeset describe the breaking API. Its peer is
+  `^0.4.0` alone; the shared temporary candidate helper proves `0.4.0`/`0.2.0` with strict peers,
+  raw Node ESM and NodeNext runtime. The authoritative type cases are copied into that consumer and
+  run under strict-only and stricter settings with SCHEME_TOKENS_TSC_PATH from both blocking
+  compiler roles (deduplicated when equal). Next stays a non-blocking signal.
 - `packages/material3` is the active production package and sole current adapter authority. Its
   package-local runtime, type, engine, golden, API, tarball, licensing, and packed-consumer gates
   reproduce the accepted phase-1 evidence against the real package.

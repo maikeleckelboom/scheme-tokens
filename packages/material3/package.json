@@ -46,7 +46,7 @@
     "lint": "oxlint . --import-plugin --vitest-plugin --deny-warnings",
     "test": "vitest run --config vitest.config.ts --exclude tests/engine-contract.test.ts",
     "test:engine": "vitest run --config vitest.config.ts tests/engine-contract.test.ts",
-    "test:types": "tsc -p tsconfig.type-tests.json",
+    "test:types": "tsc -p tsconfig.type-tests.json && tsc -p tsconfig.type-tests.strict.json",
     "fixtures:generate": "node --experimental-strip-types scripts/generate-fixtures.ts",
     "api:snapshot": "pnpm build && node --experimental-strip-types scripts/write-api-snapshot.ts",
     "api:check": "node --experimental-strip-types scripts/check-api.ts",
@@ -69,7 +69,7 @@
     "vitest": "^4.1.10"
   },
   "peerDependencies": {
-    "scheme-tokens": "^0.2.0 || ^0.3.0"
+    "scheme-tokens": "^0.4.0"
   },
   "engines": {
     "node": ">=24"

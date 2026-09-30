@@ -130,3 +130,19 @@ Strict token definitions have one required `value`, which contains either a stri
 Current writers emit `formatVersion: 2`. Source parsers also accept historical v1 graphs/layers, upgrade once, and validate under the same current rules. Shadowed graph declarations move to a deterministic leading synthetic layer; only necessary visibility restatements are added, and historical default-first mode order is preserved. V1 schema hints are validated historically and dropped on upgrade. Standalone inconsistent layer maps return `layer-mode-mismatch`. Compiled v1 is rejected with `invalid-format-version`: recompile its source graph.
 
 In v2, `$schema` may be any string. It is preserved verbatim, never fetched or used for version selection, and never synthesized. Trusted helpers do not accept `$schema`. Only `kind` and `formatVersion` select the runtime format. A documented editor hint for the planned 0.4 release is `https://cdn.jsdelivr.net/npm/scheme-tokens@0.4.0/schemas/token-graph.v2.schema.json`; that release is not published yet. Each packaged schema has a stable identity such as `tag:maikel.site,2026-09-29:scheme-tokens/schema/token-graph/v2`. All three are self-contained Draft 2020-12 with fragment-only internal references.
+
+## Optional Material 3 adapter
+
+The sibling `@scheme-tokens/material3` package exports `material3` and exactly six named types:
+`Material3TokenKey`, `Material3ColorMode`, `Material3SpecVersion`, `Material3Variant`,
+`Material3Modes` and `Material3Options`. These belong to the adapter, not the core root exports.
+The P5 candidate returns one ordinary `TokenLayer` with fixed id `material3` and total maps for
+all 48 roles. Compose through `layers: [material]` with explicit graph modes/defaultMode.
+
+Its `modes` settings map is exact and non-empty; omitted means light/dark. Built-in names imply
+their colorMode, and custom names require it. Spec and visibility stay global; source/variant/
+contrast override per field. Core owns mode-name errors and graph/layer mode agreement.
+The return carries NoInfer modes/default visibility and `omitted: Material3TokenKey`, since every
+generated declaration omits explicit visibility. Unknown visibility keeps public output partial
+over all composed keys, including possibly public roles. The candidate requires peer `^0.4.0`;
+committed versions are unchanged and P6/P7 remain deferred. See the [adapter reference](https://github.com/maikeleckelboom/scheme-tokens/blob/dev/packages/material3/README.md).

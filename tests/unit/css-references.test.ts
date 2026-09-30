@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import {
   compileTokenGraph,
@@ -9,6 +10,11 @@ import {
   tokenRef,
   type CssVarsExport,
 } from "../../src";
+
+// Captured by building and executing the P4 parent, never the current exporter.
+const p4Output = JSON.parse(
+  readFileSync(new URL("../fixtures/css-reference-p4-output.json", import.meta.url), "utf8"),
+) as { readonly sourceSha: string; readonly pretty: string; readonly compact: string };
 
 describe("CSS reference projection", () => {
   const graph = defineTokenGraph({
@@ -289,6 +295,16 @@ describe("reference names and declaration fidelity", () => {
         selectors: { dark: [{ selector: ".dark", media: "print" }, { selector: ".night" }] },
       } as const;
       const resolved = orThrow(exportCssVars(scheme, options));
+      expect(p4Output.sourceSha).toBe("05ebcdf4cdf655b5545e81ef42d77a90ddc11116");
+      const expectedCss = p4Output[format];
+      expect(resolved.css).toBe(expectedCss);
+      // @ts-expect-error strict optional properties exclude undefined; verify the runtime default.
+      expect(orThrow(exportCssVars(scheme, { ...options, references: undefined })).css).toBe(
+        expectedCss,
+      );
+      expect(orThrow(exportCssVars(scheme, { ...options, references: "resolved" })).css).toBe(
+        expectedCss,
+      );
       const exported = orThrow(exportCssVars(scheme, { ...options, references: "var" }));
       expect(
         exported.blocks.map(({ declarations: _declarations, ...activation }) => activation),
@@ -303,9 +319,9 @@ describe("reference names and declaration fidelity", () => {
         ]);
         expect(block.declarations[0]?.value).toBe("var(--z-target)");
       }
-      // The P4 text is the compatibility oracle; projection changes only the alias's value.
+      // Projection changes only the alias value in the independently captured P4 text.
       expect(exported.css).toBe(
-        resolved.css.replaceAll(/(--a-alias:\s*)(10px|20px);/gu, "$1var(--z-target);"),
+        expectedCss.replaceAll(/(--a-alias:\s*)(10px|20px);/gu, "$1var(--z-target);"),
       );
       for (const block of exported.blocks) {
         for (const { property, value } of block.declarations) {

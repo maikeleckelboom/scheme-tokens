@@ -16,7 +16,7 @@ import {
 } from "@material/material-color-utilities";
 import { material3RoleDefinitions, type Material3EngineMethod } from "./role-catalog";
 import type {
-  Material3Appearance,
+  Material3ColorMode,
   Material3SpecVersion,
   Material3TokenKey,
   Material3Variant,
@@ -24,7 +24,7 @@ import type {
 
 export interface Material3EngineCoordinate {
   readonly sourceColor: string;
-  readonly appearance: Material3Appearance;
+  readonly appearance: Material3ColorMode;
   readonly variant: Material3Variant;
   readonly specVersion: Material3SpecVersion;
   readonly contrastLevel: number;

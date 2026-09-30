@@ -3,17 +3,21 @@ import {
   defineTokenGraph,
   defineTokenLayer,
   exportCssVars,
+  orThrow,
+  parseTokenGraph,
   serializeTokenLayer,
   tokenRef,
 } from "scheme-tokens";
 import { describe, expect, test } from "vitest";
-import { material3 } from "../src";
+import { material3, type Material3Modes } from "../src";
 
 describe("core integration", () => {
   test("composes semantic references and preserves direct dependency metadata", () => {
     const generated = material3("#6750a4", { visibility: "internal" });
     const graph = defineTokenGraph({
-      ...generated,
+      modes: ["light", "dark"],
+      defaultMode: "light",
+      layers: [generated],
       tokens: {
         "action.primary.background": tokenRef("md.sys.color.primary"),
       },
@@ -45,8 +49,9 @@ describe("core integration", () => {
       tokens: { "md.sys.color.primary": "#ff0055" },
     });
     const graph = defineTokenGraph({
-      ...generated,
-      layers: [...generated.layers, overrides],
+      modes: ["light", "dark"],
+      defaultMode: "light",
+      layers: [generated, overrides],
       tokens: {
         "action.primary.background": tokenRef("md.sys.color.primary"),
         "brand.seed": "#6750a4",
@@ -71,9 +76,17 @@ describe("core integration", () => {
 
   test("core default CSS names match Material Web names", () => {
     const generated = material3("#6750a4");
-    const compiled = compileTokenGraph(defineTokenGraph({ ...generated, tokens: {} }), {
-      selection: "all",
-    });
+    const compiled = compileTokenGraph(
+      defineTokenGraph({
+        modes: ["light", "dark"],
+        defaultMode: "light",
+        layers: [generated],
+        tokens: {},
+      }),
+      {
+        selection: "all",
+      },
+    );
     expect(compiled.ok).toBe(true);
     if (!compiled.ok) {
       return;
@@ -99,22 +112,139 @@ describe("core integration", () => {
   });
 
   test("serializes a generated layer deterministically", () => {
-    const layer = material3("#6750a4").layers[0];
+    const layer = material3("#6750a4");
     const first = serializeTokenLayer(layer);
-    const second = serializeTokenLayer(material3("#6750A4").layers[0]);
+    const second = serializeTokenLayer(material3("#6750A4"));
     expect(first).toBe(second);
     expect(first).toContain('"id": "material3"');
   });
 
-  test("rejects duplicate Material fragments through ordinary core validation", () => {
+  test("rejects duplicate Material layers through ordinary core validation", () => {
     const first = material3("#6750a4");
     const second = material3("#009489");
     expect(() =>
       defineTokenGraph({
-        ...first,
-        layers: [...first.layers, ...second.layers],
+        modes: ["light", "dark"],
+        defaultMode: "light",
+        layers: [first, second],
         tokens: {},
       }),
     ).toThrow(/duplicate-layer-id/u);
+  });
+  test("graph-owned overrides preserve visibility and ordered declarations", () => {
+    const material = material3("#6750a4", { visibility: "internal" });
+    const brand = defineTokenLayer({
+      id: "brand",
+      tokens: { "md.sys.color.primary": "#ff0055", "brand.radius": "4px" },
+    });
+    const graph = defineTokenGraph({
+      modes: ["dark", "light"],
+      defaultMode: "dark",
+      layers: [material, brand],
+      tokens: {
+        "md.sys.color.primary": { light: "#b3261e", dark: "#f2b8b5" },
+        "action.primary": tokenRef("md.sys.color.primary"),
+        "md.sys.color.secondary": { value: "#000000", visibility: "public" },
+      },
+    });
+    const all = orThrow(compileTokenGraph(graph, { selection: "all" }));
+    expect(all.modes).toEqual(["dark", "light"]);
+    expect(all.defaultMode).toBe("dark");
+    expect(all.tokens["action.primary"]).toEqual({ dark: "#f2b8b5", light: "#b3261e" });
+    expect(all.metadataByToken["md.sys.color.primary"]).toMatchObject({
+      visibility: "internal",
+      declarations: [
+        { origin: { kind: "layer", id: "material3" } },
+        { origin: { kind: "layer", id: "brand" } },
+        { origin: { kind: "graph" } },
+      ],
+    });
+    expect(
+      all.metadataByToken["md.sys.color.primary"].declarations.every(
+        (declaration) => declaration.visibility === undefined,
+      ),
+    ).toBe(true);
+    expect(Object.keys(orThrow(compileTokenGraph(graph)).tokens)).toEqual([
+      "action.primary",
+      "brand.radius",
+      "md.sys.color.secondary",
+    ]);
+    const reversed = orThrow(
+      compileTokenGraph(
+        defineTokenGraph({
+          modes: ["light", "dark"],
+          defaultMode: "light",
+          layers: [brand, material],
+          tokens: {},
+        }),
+        { selection: "all" },
+      ),
+    );
+    expect(reversed.tokens["md.sys.color.primary"].light).toBe("#65558f");
+    expect(reversed.metadataByToken["md.sys.color.primary"].visibility).toBe("public");
+  });
+
+  test("dynamic visibility can include roles in public selection", () => {
+    for (const visibility of ["public", "internal"] as const) {
+      const layer = material3("#6750a4", { visibility });
+      const graph = defineTokenGraph({
+        modes: ["light", "dark"],
+        defaultMode: "light",
+        layers: [layer],
+        tokens: { alias: tokenRef("md.sys.color.primary") },
+      });
+      const compiled = orThrow(compileTokenGraph(graph));
+      expect(Object.keys(compiled.tokens)).toHaveLength(visibility === "public" ? 49 : 1);
+      expect(compiled.tokens.alias?.light).toBe("#65558f");
+    }
+  });
+
+  test("core rejects mismatched dynamic mode sets with one layer issue", () => {
+    const layer = material3("#6750a4", { modes: { standard: { colorMode: "light" } } });
+    const modes: readonly [string, ...string[]] = ["light", "dark"];
+    const input = { modes, defaultMode: "light", layers: [layer], tokens: {} };
+    const expected = {
+      code: "layer-mode-mismatch",
+      path: "/layers/0",
+      layerId: "material3",
+      modes: ["light", "dark"],
+      layerModes: ["standard"],
+    };
+    expect(() => defineTokenGraph(input)).toThrowError(
+      expect.objectContaining({ cause: [expect.objectContaining(expected)] }),
+    );
+    expect(
+      parseTokenGraph({
+        kind: "scheme-tokens/token-graph",
+        formatVersion: 2,
+        defaultVisibility: "public",
+        ...input,
+      }),
+    ).toEqual({ ok: false, issues: [expect.objectContaining(expected)] });
+  });
+
+  test("a dynamic settings map retains runtime validation in a literal graph", () => {
+    const modes: Material3Modes<string> = { standard: { colorMode: "light" } };
+    const layer = material3("#6750a4", { modes });
+    expect(() =>
+      defineTokenGraph({
+        modes: ["light", "dark"],
+        defaultMode: "light",
+        layers: [layer],
+        tokens: {},
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        cause: [
+          expect.objectContaining({
+            code: "layer-mode-mismatch",
+            path: "/layers/0",
+            layerId: "material3",
+            modes: ["light", "dark"],
+            layerModes: ["standard"],
+          }),
+        ],
+      }),
+    );
   });
 });

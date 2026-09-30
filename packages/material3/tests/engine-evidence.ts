@@ -12,7 +12,7 @@ import {
   material3RoleDefinitions,
 } from "../src/role-catalog";
 import type {
-  Material3Appearance,
+  Material3ColorMode,
   Material3SpecVersion,
   Material3Variant,
 } from "../src/types/material3";
@@ -247,7 +247,7 @@ function certifyDerivedPaletteHue(input: {
   readonly predicate: string;
   readonly test: (hue: number) => boolean;
 }) {
-  const derivedHues: Record<Material3Appearance, number> = { light: 0, dark: 0 };
+  const derivedHues: Record<Material3ColorMode, number> = { light: 0, dark: 0 };
   for (const appearance of appearances) {
     const scheme = createMaterial3Scheme({
       sourceColor: input.seed,
@@ -369,7 +369,7 @@ function compareVariantSpecs(variant: Material3Variant) {
 }
 
 function createGoldenFixture(coordinate: GoldenCoordinate) {
-  const tokens: Record<string, Record<Material3Appearance, string>> = {};
+  const tokens: Record<string, Record<Material3ColorMode, string>> = {};
   for (const appearance of appearances) {
     const scheme = createMaterial3Scheme({
       sourceColor: coordinate.seed,

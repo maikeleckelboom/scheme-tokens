@@ -148,7 +148,7 @@ declare const material3RoleDefinitions: readonly [{
   readonly engineMethod: "onTertiaryFixedVariant";
   readonly tokenKey: "md.sys.color.on-tertiary-fixed-variant";
 }];
-type Material3Appearance = "light" | "dark";
+type Material3ColorMode = "light" | "dark";
 type Material3SpecVersion = "2021" | "2025";
 type Material3Variant = "monochrome" | "neutral" | "tonal-spot" | "vibrant" | "expressive" | "fidelity" | "content" | "rainbow" | "fruit-salad";
 type Material3TokenKey = (typeof material3RoleDefinitions)[number]["tokenKey"];
@@ -157,35 +157,27 @@ interface Material3ModeOverrides {
   readonly variant?: Material3Variant;
   readonly contrastLevel?: number;
 }
-type Material3ModeConfig<Key extends string> = Key extends "light" | "dark" ? Material3ModeOverrides & {
-  readonly appearance?: never;
+type Material3ModeSettings<Mode extends string> = Mode extends Material3ColorMode ? Material3ModeOverrides & {
+  readonly colorMode?: never;
 } : Material3ModeOverrides & {
-  readonly appearance: Material3Appearance;
+  readonly colorMode: Material3ColorMode;
 };
-type Material3BuiltInMode = "light" | "dark";
-type Material3AdditiveModeMap<Extra extends string> = { readonly [Key in Material3BuiltInMode | Extra]?: Material3ModeConfig<Key> };
-type Material3ExactModeMap<Mode extends string> = { readonly [Key in Mode]: Material3ModeConfig<Key> };
-interface Material3BaseOptions {
+interface Material3ModesMustNotBeEmpty {
+  readonly material3ModesMustNotBeEmpty: never;
+}
+/** One settings entry per graph mode; the graph owns its envelope and order. */
+type Material3Modes<Mode extends string> = { readonly [M in Mode]: Material3ModeSettings<M>; } & ([Mode] extends [never] ? Material3ModesMustNotBeEmpty : unknown);
+interface Material3Options<Mode extends string = Material3ColorMode, Visibility extends TokenVisibility = TokenVisibility> {
   readonly specVersion?: Material3SpecVersion;
   readonly variant?: Material3Variant;
   readonly contrastLevel?: number;
-  readonly visibility?: TokenVisibility;
+  readonly visibility?: Visibility;
+  readonly modes?: Material3Modes<Mode>;
 }
-type Material3AdditiveModeOptions<Extra extends string> = Material3BaseOptions & {
-  readonly modes?: Material3AdditiveModeMap<Extra>;
-  readonly exactModes?: never;
-  readonly defaultMode?: NoInfer<Material3BuiltInMode | Extra>;
-};
-type Material3ExactModeOptions<Mode extends string> = Material3BaseOptions & {
-  readonly modes?: never;
-  readonly exactModes: Material3ExactModeMap<Mode>;
-  readonly defaultMode: NoInfer<Mode>;
-};
-interface Material3GraphFragment<Mode extends string> {
-  readonly modes: readonly [Mode, ...Mode[]];
-  readonly defaultMode: Mode;
-  readonly layers: readonly [TokenLayer<Material3TokenKey>];
-}
-declare function material3<const Mode extends string>(sourceColor: string, options: Material3ExactModeOptions<Mode>): Material3GraphFragment<Mode>;
-declare function material3<const Extra extends string = never>(sourceColor: string, options?: Material3AdditiveModeOptions<Extra>): Material3GraphFragment<"light" | "dark" | Extra>;
-export { type Material3Appearance, type Material3GraphFragment, type Material3SpecVersion, type Material3TokenKey, type Material3Variant, material3 };
+declare function material3<const Mode extends string = Material3ColorMode, const Visibility extends TokenVisibility = "public">(sourceColor: string, options?: Material3Options<Mode, Visibility>): TokenLayer<Material3TokenKey, NoInfer<Mode>, {
+  readonly default: NoInfer<Visibility>;
+  readonly public: never;
+  readonly internal: never;
+  readonly omitted: Material3TokenKey;
+}>;
+export { type Material3ColorMode, type Material3Modes, type Material3Options, type Material3SpecVersion, type Material3TokenKey, type Material3Variant, material3 };

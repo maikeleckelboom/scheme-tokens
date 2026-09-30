@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   isContributorDocument,
@@ -10,6 +10,8 @@ import {
   isPointInTimeReport,
   listFiles,
 } from "./public-docs.ts";
+
+import { packReleaseCandidate } from "../packages/material3/scripts/release-candidate.ts";
 
 interface PackageManifest {
   readonly name: string;
@@ -38,6 +40,10 @@ const authoredDocsSiteFiles = listFiles(join(repoRoot, "docs-site")).filter(
 const docsSiteFiles = authoredDocsSiteFiles.filter((file) => file.endsWith(".md"));
 const publicMarkdownFiles = [
   { label: "README.md", text: readme },
+  {
+    label: "packages/material3/README.md",
+    text: readFileSync(join(material3Root, "README.md"), "utf8"),
+  },
   ...durableDocsFiles
     .filter((file) => file.endsWith(".md"))
     .map((file) => ({ label: file, text: readFileSync(file, "utf8") })),
@@ -54,12 +60,9 @@ if (blocks.length === 0) {
 }
 
 const workspace = mkdtempSync(join(tmpdir(), "scheme-tokens-docs-"));
-const packDirectory = join(workspace, "pack");
 const consumerDirectory = join(workspace, "consumer");
-mkdirSync(packDirectory, { recursive: true });
 mkdirSync(consumerDirectory, { recursive: true });
-const coreTarball = pack(repoRoot, packDirectory);
-const material3Tarball = pack(material3Root, packDirectory);
+const { coreTarball, adapterTarball: material3Tarball } = packReleaseCandidate(workspace);
 
 writeJson(join(consumerDirectory, "package.json"), {
   private: true,
@@ -89,23 +92,12 @@ blocks.forEach((block, index) => {
   );
 });
 
-runPnpm(["install", "--ignore-scripts"], consumerDirectory);
+runPnpm(["install", "--ignore-scripts", "--strict-peer-dependencies"], consumerDirectory);
 run(
   "node",
   [join(repoRoot, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.json"],
   consumerDirectory,
 );
-
-function pack(cwd: string, destination: string): string {
-  const output = runPnpm(["pack", "--pack-destination", destination], cwd)
-    .trim()
-    .split(/\r?\n/)
-    .at(-1);
-  if (output === undefined) {
-    throw new Error("Unable to determine packed tarball name");
-  }
-  return join(destination, basename(output));
-}
 
 function runPnpm(args: readonly string[], cwd: string): string {
   const npmExecPath = process.env.npm_execpath;

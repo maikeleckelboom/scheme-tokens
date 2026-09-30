@@ -1,143 +1,202 @@
 # @scheme-tokens/material3
 
-Generate the accepted Material 3 system color roles as an ordinary `scheme-tokens` layer. The
+Generate the accepted Material 3 system color roles as one ordinary `scheme-tokens` layer. The
 adapter is optional: core remains a string-token compiler and does not install a color engine.
 
-```sh
-pnpm add scheme-tokens @scheme-tokens/material3
-```
+This README describes the P5 candidate for Material `0.2.0` and core `0.4.0`. The committed versions
+remain `0.1.1` and `0.3.0`; the new API has not been published. External consumer migration and final
+release preparation remain P6 and P7.
 
 ## Generate and compose
 
 ```ts
 import { material3 } from "@scheme-tokens/material3";
-import { defineTokenGraph, tokenRef } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, orThrow, tokenRef } from "scheme-tokens";
 
-const material = material3("#6750a4");
-
+const material = material3("#6750a4", { visibility: "internal" });
 const graph = defineTokenGraph({
-  ...material,
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  layers: [material],
   tokens: {
     "surface.canvas": tokenRef("md.sys.color.surface"),
     "action.primary.background": tokenRef("md.sys.color.primary"),
   },
 });
+const compiled = orThrow(compileTokenGraph(graph));
+// Complete public records: surface.canvas and action.primary.background.
 ```
 
-The default call generates complete `light` and `dark` mode maps for 48 `md.sys.color.*` roles,
-uses `light` as the default mode, and creates the fixed `material3` layer with public visibility.
-Use internal visibility when Material roles are implementation sources for public semantic tokens:
+The default call generates complete `light` and `dark` maps for the existing exact 48
+`md.sys.color.*` roles. The layer has fixed id `material3`, public default visibility unless
+configured, and no `modes`, `defaultMode`, or `layers` envelope. Only the graph chooses its mode
+order and default. Core rejects a second Material layer with `duplicate-layer-id`.
+
+## Exact graph-mode mapping
+
+`modes` is an exact, non-empty map. Omitted means `{ light: {}, dark: {} }`; an explicit map replaces
+that default completely. A one-mode map is valid. The exact keys `light` and `dark` imply their
+Material color mode and reject redundant `colorMode`. Every other name, including `concat`, requires
+`colorMode: "light" | "dark"`. Core owns the mode-name grammar and reserved names.
 
 ```ts
-const material = material3("#6750a4", { visibility: "internal" });
-```
+import { material3, type Material3Modes } from "@scheme-tokens/material3";
+import { defineTokenGraph } from "scheme-tokens";
 
-## Modes and generation coordinates
-
-`modes` keeps the built-in `light` and `dark` modes, patches either one, and can add custom modes.
-Every custom mode requires an explicit appearance.
-
-```ts
-const material = material3("#6750a4", {
-  variant: "neutral",
-  contrastLevel: 0,
-  modes: {
-    dark: { variant: "expressive" },
-    "light-high": {
-      appearance: "light",
-      contrastLevel: 1,
-    },
-    "brand-dark": {
-      appearance: "dark",
-      sourceColor: "#009489",
-    },
-  },
-  defaultMode: "light-high",
+const compilerModes = [
+  "mono-light",
+  "mono-dark",
+  "vivid-light",
+  "vivid-dark",
+  "material3-light",
+  "material3-dark",
+] as const;
+type CompilerMode = (typeof compilerModes)[number];
+const modes = {
+  "mono-light": { colorMode: "light", variant: "monochrome" },
+  "mono-dark": { colorMode: "dark", variant: "monochrome" },
+  "vivid-light": { colorMode: "light" },
+  "vivid-dark": { colorMode: "dark" },
+  "material3-light": { colorMode: "light" },
+  "material3-dark": { colorMode: "dark", sourceColor: "#009489" },
+} as const satisfies Material3Modes<CompilerMode>;
+const material = material3("#6750a4", { visibility: "internal", modes });
+const graph = defineTokenGraph({
+  modes: compilerModes,
+  defaultMode: "mono-light",
+  layers: [material],
+  tokens: {},
 });
 ```
 
-`exactModes` replaces the complete mode set and requires an explicit default:
+All 48 roles cover all six graph modes. `satisfies` catches missing/extra modes and invalid settings.
+Literal layer/graph mode sets must be equal; a dynamic map retains core's runtime
+`layer-mode-mismatch` validation. Material cannot add modes or infer the graph envelope.
+
+## Generation settings
+
+The positional `sourceColor` is the only global source. The global defaults are:
+
+| Setting         | Default                                  | Per-mode override       |
+| --------------- | ---------------------------------------- | ----------------------- |
+| `sourceColor`   | required positional argument             | yes                     |
+| `variant`       | `tonal-spot`                             | yes                     |
+| `contrastLevel` | `0`                                      | yes                     |
+| `specVersion`   | `2021`                                   | no                      |
+| `visibility`    | `public`                                 | no                      |
+| `colorMode`     | exact light/dark key, otherwise required | custom names require it |
+
+Each field falls back independently to the global value. A mode can change just its contrast while
+inheriting source and variant. Source colors must match `#[0-9a-fA-F]{6}` exactly; uppercase digits
+normalize to lowercase. Contrast must be finite and within inclusive `[-1, 1]`. Output remains
+canonical lowercase six-digit hex, and generation remains phone-only.
+
+Requested 2021 supports all nine variants: `monochrome`, `neutral`, `tonal-spot`, `vibrant`,
+`expressive`, `fidelity`, `content`, `rainbow`, and `fruit-salad`. Requested 2025 supports only
+`neutral`, `tonal-spot`, `vibrant`, and `expressive`; the others silently fall back in the pinned
+engine and are rejected. Every effective coordinate is checked before any engine generation, with
+the offending graph-mode name in the error. A global variant overridden in every mode is not an
+effective coordinate and does not cause an unsupported-coordinate rejection.
+
+Unsupported options throw `RangeError`; malformed plain-data inputs throw `TypeError`.
+`appearance`, additive mode merging, string shorthand, `exactModes`, and Material-owned
+`defaultMode` are removed. Top-level `sourceColor`, per-mode spec version/visibility, and unknown
+options are rejected. Core mode-name errors propagate unchanged with their issue-tuple `cause`;
+Material does not wrap them or introduce a Result/issue framework. Inputs are validated and copied.
+
+## TypeScript contract
+
+The only runtime export is `material3`. Exactly six named types are exported:
+`Material3TokenKey`, `Material3ColorMode`, `Material3SpecVersion`, `Material3Variant`,
+`Material3Modes`, and `Material3Options`. Per-mode settings, overrides, and the empty-map diagnostic
+marker remain internal. `Material3Modes<Mode>[M]` names one mode's settings if needed.
+
+`Material3Options` defaults Mode to `Material3ColorMode` and Visibility to `TokenVisibility`.
+The function defaults Mode to `Material3ColorMode` and Visibility to `"public"`. Its return is:
 
 ```ts
-const material = material3("#6750a4", {
-  exactModes: {
-    standard: { appearance: "light" },
-    inverse: { appearance: "dark", contrastLevel: 0.5 },
-  },
-  defaultMode: "standard",
-});
+import type { Material3TokenKey } from "@scheme-tokens/material3";
+import type { TokenLayer, TokenVisibility } from "scheme-tokens";
+
+type MaterialLayer<Mode extends string, Visibility extends TokenVisibility> = TokenLayer<
+  Material3TokenKey,
+  NoInfer<Mode>,
+  {
+    readonly default: NoInfer<Visibility>;
+    readonly public: never;
+    readonly internal: never;
+    readonly omitted: Material3TokenKey;
+  }
+>;
 ```
 
-Source colors must match `#[0-9a-fA-F]{6}` exactly. Contrast is finite and inclusive from `-1` to
-`1`. The default variant is `tonal-spot`, the default spec is `2021`, and generation is phone-only.
-Requested 2021 supports all nine variants. Requested 2025 supports only `neutral`, `tonal-spot`,
-`vibrant`, and `expressive`; the adapter rejects `monochrome`, `fidelity`, `content`, `rainbow`, and
-`fruit-salad` because the pinned engine would silently fall back to effective 2021 behavior.
+The `omitted` fact adapts ADR 0014's earlier example to current core: all 48 generated declarations
+omit explicit visibility and use the layer default. Core's nominal proof, visibility composition,
+and completeness rules remain intact. `NoInfer` prevents an annotated variable, declared return,
+or typed layer list from fabricating modes or visibility.
+
+A default call is exactly public; inline `visibility: "internal"` is exactly internal. An object
+checked with `satisfies Material3Options` keeps its literal settings. A variable annotated only as
+`Material3Options` may hold internal visibility but conservatively yields `TokenVisibility`.
+Default/public compilation of its graph is partial over every composed key: possibly public
+Material roles remain possible, not definitely absent. Finite, fully known public selections and
+exact key tuples remain complete; generic wrappers preserve supplied modes and visibility.
 
 ## Overrides, CSS, and artifacts
 
-Use a later core layer for ordinary overrides. An override that omits token `visibility` preserves
-the key's existing effective visibility. A layer's `defaultVisibility` applies when it introduces
-a new key without explicit visibility. Set explicit token visibility when an override intentionally
-changes visibility.
-
-Here, `md.sys.color.primary` stays internal even though the override layer defaults to public.
-The public `action.primary.background` token resolves that internal role:
+Ordinary layers compose in array order, followed by graph tokens. Omitted override visibility
+preserves the existing effective visibility; explicit visibility changes it. Here the generated
+primary remains internal through the ordinary layer and graph override, while the alias is public:
 
 ```ts
-import { defineTokenGraph, defineTokenLayer, tokenRef } from "scheme-tokens";
+import { material3 } from "@scheme-tokens/material3";
+import {
+  compileTokenGraph,
+  defineTokenGraph,
+  defineTokenLayer,
+  exportCssVars,
+  orThrow,
+  tokenRef,
+} from "scheme-tokens";
 
 const material = material3("#6750a4", { visibility: "internal" });
-const overrides = defineTokenLayer({
-  id: "brand-overrides",
-  tokens: {
-    "md.sys.color.primary": "#ff0055",
-  },
-});
-
+const brand = defineTokenLayer({ id: "brand", tokens: { "md.sys.color.primary": "#ff0055" } });
 const graph = defineTokenGraph({
-  ...material,
-  layers: [...material.layers, overrides],
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  layers: [material, brand],
   tokens: {
+    "md.sys.color.primary": { light: "#b3261e", dark: "#f2b8b5" },
     "action.primary.background": tokenRef("md.sys.color.primary"),
   },
 });
+const compiled = orThrow(compileTokenGraph(graph, { selection: "all" }));
+const css = orThrow(exportCssVars(compiled, { system: { dark: "(prefers-color-scheme: dark)" } }));
+// css.variableByToken["md.sys.color.primary"] === "--md-sys-color-primary"
+// primary's declaration origins are material3, brand, then graph.
 ```
 
-CSS export is a core projection. Its default names join token-key segments with single hyphens, so
-the Material roles already get the `--md-sys-color-*` names that Material Web reads:
+Core's default names already match `--md-sys-color-*`. Light applies at `:root`, dark under the
+system condition, and `data-theme="light"`/`data-theme="dark"` markers override either in their
+subtrees. Class activation uses custom `selectors: { dark: ".dark" }` conditions.
+`serializeTokenLayer()` produces deterministic ordinary core data. Compiled metadata exposes
+ordered `declarations` and sparse `expressionByMode`; the adapter adds no separate CSS,
+serialization, or provenance API.
 
-```ts
-import { compileTokenGraph, exportCssVars } from "scheme-tokens";
+## Distribution and migration
 
-const compiled = compileTokenGraph(graph, { selection: "all" });
-if (compiled.ok) {
-  const css = exportCssVars(compiled.value, {
-    system: { dark: "(prefers-color-scheme: dark)" },
-  });
+The ESM-only package requires Node 24 or newer and TypeScript `>= 7.0 < 8.0`. The new core contract
+requires peer `scheme-tokens: ^0.4.0`; earlier core minors are unsupported. Local packed gates apply
+Changesets only in a temporary workspace to prove core `0.4.0` with Material `0.2.0`. Both tarballs
+are installed together with strict peer checking, run in raw Node ESM and NodeNext, and checked
+under strict-only and stricter TypeScript configurations. Core-only installation remains Material-free.
 
-  if (css.ok) {
-    css.value.variableByToken["md.sys.color.primary"];
-    // --md-sys-color-primary
-  }
-}
-```
+To migrate, replace fragment spreading with an explicit graph envelope and `layers: [material]`.
+Replace `exactModes`/additive `modes` with one exact `modes` map, rename `appearance` to `colorMode`,
+and remove the Material `defaultMode`. The old `Material3GraphFragment` and `Material3Appearance`
+exports have no aliases. Engine algorithms, the 48-role catalog, capability fixtures and golden
+outputs remain unchanged.
 
-The light values apply at `:root`, the dark values under a dark system preference, and a
-`data-theme="light"` or `data-theme="dark"` marker on any element overrides both for its subtree.
-Use `selectors: { dark: ".dark" }` for class-based dark mode.
-
-The generated layer is normal core data. `serializeTokenLayer()` provides deterministic reviewable
-JSON. After compilation, `metadataByToken[key].declarations` records the ordered declaration chain; its last origin identifies the winner. Sparse `expressionByMode` retains references and concat expressions. The adapter adds no serializer, CSS exporter,
-or provenance API of its own.
-
-## Distribution
-
-The ESM-only package requires Node 24 or newer. Material Color Utilities 0.4.0 is pinned and bundled
-into the adapter; `scheme-tokens` remains the shared peer dependency. Its range is
-`^0.2.0 || ^0.3.0`: the unchanged implementation retains its historical 0.2 certification, and the
-released peer contract includes core 0.3. The P2 branch also tests this API against core v2 in an
-isolated Changesets projection; repository versions and this call shape remain unchanged pending
-the later Material API and versioning phases. The package is licensed under MIT and
-Apache-2.0 terms because of the bundled engine. See `LICENSE`,
-`LICENSE-MATERIAL-COLOR-UTILITIES`, and `THIRD_PARTY_NOTICES.md`.
+Material Color Utilities `0.4.0` stays pinned and bundled; no separate engine is installed at runtime.
+The adapter is licensed under MIT and Apache-2.0. See `LICENSE`, `LICENSE-MATERIAL-COLOR-UTILITIES`,
+and `THIRD_PARTY_NOTICES.md`.

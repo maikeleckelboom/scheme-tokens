@@ -48,7 +48,7 @@ V1 source upgrades preserve published 0.3 semantics: shadowed graph declarations
 
 All three current schemas are self-contained Draft 2020-12 files with `tag:` identities and fragment-only references. Runtime validation additionally enforces semantic relationships such as layer mode-set equality and canonical compiled concat adjacency.
 
-Compilation and serialization preserve arbitrary strings. Material 3 still returns its existing graph fragment; its adapter owns default-first mode ordering until P5.
+Compilation and serialization preserve arbitrary strings. Material 3 now returns one ordinary core-validated layer. Its exact settings map covers the graph-mode set, while only the graph owns mode order and default. A narrow empty-envelope preflight delegates mode-name validation to core before generation; generated values are validated directly by defineTokenLayer, without a second graph roundtrip. Every effective coordinate is validated before the first engine call. The fixed 48-role catalog, pinned engine and generation algorithms are unchanged. All generated declarations omit visibility, so the return type records every Material key in current core's `omitted` set, with precise NoInfer modes/default visibility.
 
 ## CSS activation
 

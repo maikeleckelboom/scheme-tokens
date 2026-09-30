@@ -1,26 +1,21 @@
-import { defineTokenGraph, defineTokenLayer, type TokenVisibility } from "scheme-tokens";
-import { generateMaterial3Mode } from "./engine";
+import {
+  defineTokenGraph,
+  defineTokenLayer,
+  type TokenLayer,
+  type TokenVisibility,
+} from "scheme-tokens";
+import { generateMaterial3Mode, type Material3EngineCoordinate } from "./engine";
 import { material3RoleDefinitions } from "./role-catalog";
 import type {
-  Material3AdditiveModeOptions,
-  Material3Appearance,
-  Material3ExactModeOptions,
-  Material3GraphFragment,
+  Material3ColorMode,
+  Material3Options,
   Material3SpecVersion,
   Material3TokenKey,
   Material3Variant,
 } from "./types/material3";
 
-const optionKeys = new Set([
-  "specVersion",
-  "variant",
-  "contrastLevel",
-  "visibility",
-  "modes",
-  "exactModes",
-  "defaultMode",
-]);
-const modeOptionKeys = new Set(["appearance", "sourceColor", "variant", "contrastLevel"]);
+const optionKeys = new Set(["specVersion", "variant", "contrastLevel", "visibility", "modes"]);
+const modeOptionKeys = new Set(["colorMode", "sourceColor", "variant", "contrastLevel"]);
 const variants = new Set<string>([
   "monochrome",
   "neutral",
@@ -39,21 +34,9 @@ const supported2025Variants = new Set<Material3Variant>([
   "expressive",
 ]);
 
-interface ModeOverrides {
-  readonly appearance?: Material3Appearance;
-  readonly sourceColor?: string;
-  readonly variant?: Material3Variant;
-  readonly contrastLevel?: number;
-}
-
 interface ParsedOptions {
-  readonly specVersion: Material3SpecVersion;
-  readonly variant: Material3Variant;
-  readonly contrastLevel: number;
   readonly visibility: TokenVisibility;
-  readonly modes: readonly [string, ...string[]];
-  readonly defaultMode: string;
-  readonly overridesByMode: ReadonlyMap<string, ModeOverrides>;
+  readonly coordinatesByMode: ReadonlyMap<string, Material3EngineCoordinate>;
 }
 
 interface RecordEntry {
@@ -61,184 +44,113 @@ interface RecordEntry {
   readonly value: unknown;
 }
 
-export function material3<const Mode extends string>(
+export function material3<
+  const Mode extends string = Material3ColorMode,
+  const Visibility extends TokenVisibility = "public",
+>(
   sourceColor: string,
-  options: Material3ExactModeOptions<Mode>,
-): Material3GraphFragment<Mode>;
-export function material3<const Extra extends string = never>(
-  sourceColor: string,
-  options?: Material3AdditiveModeOptions<Extra>,
-): Material3GraphFragment<"light" | "dark" | Extra>;
-export function material3(sourceColor: string, options?: unknown): Material3GraphFragment<string> {
+  options?: Material3Options<Mode, Visibility>,
+): TokenLayer<
+  Material3TokenKey,
+  NoInfer<Mode>,
+  {
+    readonly default: NoInfer<Visibility>;
+    readonly public: never;
+    readonly internal: never;
+    readonly omitted: Material3TokenKey;
+  }
+> {
   const canonicalSource = normalizeSourceColor(sourceColor, "sourceColor");
-  const parsed = parseOptions(options);
-  const tokens = generateTokenDefinitions(canonicalSource, parsed);
+  const parsed = parseOptions(canonicalSource, options);
   const layer = defineTokenLayer({
     id: "material3",
     defaultVisibility: parsed.visibility,
-    tokens,
+    tokens: generateTokenDefinitions(parsed.coordinatesByMode),
   });
-  const completed = defineTokenGraph({
-    modes: parsed.modes,
-    defaultMode: parsed.defaultMode,
-    tokens: {},
-    layers: [layer],
-  });
-  // Graph layers are typed without their key sets; this entry is core's copy of `layer`.
-  const validatedLayer = completed.layers?.[0] as typeof layer | undefined;
-  if (validatedLayer === undefined) {
-    throw new Error("Core validation did not preserve the generated Material layer.");
-  }
-
-  return {
-    modes: completed.modes,
-    defaultMode: completed.defaultMode,
-    layers: [validatedLayer],
-  };
+  // Core validated the layer. The catalog supplies exactly all 48 keys, each map
+  // covers the preflighted modes, and every declaration omits visibility. TS cannot
+  // derive these static facts from dynamically constructed records for generic input.
+  return layer as TokenLayer<
+    Material3TokenKey,
+    NoInfer<Mode>,
+    {
+      readonly default: NoInfer<Visibility>;
+      readonly public: never;
+      readonly internal: never;
+      readonly omitted: Material3TokenKey;
+    }
+  >;
 }
 
-function parseOptions(input: unknown): ParsedOptions {
+function parseOptions(sourceColor: string, input: unknown): ParsedOptions {
   const entries = input === undefined ? [] : readDataRecord(input, "material3 options");
   rejectUnknownKeys(entries, optionKeys, "material3 options");
   const record = new Map(entries.map((entry) => [entry.key, entry.value]));
-  const hasModes = record.has("modes");
-  const hasExactModes = record.has("exactModes");
-  if (hasModes && hasExactModes) {
-    throw new RangeError("material3 options cannot combine modes and exactModes.");
-  }
-
-  const modeEntries = hasExactModes
-    ? readDataRecord(record.get("exactModes"), "material3 exactModes")
-    : hasModes
-      ? readDataRecord(record.get("modes"), "material3 modes")
-      : [];
-  if (hasExactModes && modeEntries.length === 0) {
-    throw new TypeError("material3 exactModes must contain at least one mode.");
-  }
-
-  const candidateModes = hasExactModes
-    ? modeEntries.map((entry) => entry.key)
+  const modeEntries = record.has("modes")
+    ? readDataRecord(record.get("modes"), "material3 modes")
     : [
-        "light",
-        "dark",
-        ...modeEntries
-          .map((entry) => entry.key)
-          .filter((mode) => mode !== "light" && mode !== "dark"),
+        { key: "light", value: {} },
+        { key: "dark", value: {} },
       ];
+  const candidateModes = modeEntries.map((entry) => entry.key);
   if (!isNonEmpty(candidateModes)) {
-    throw new TypeError("material3 requires at least one mode.");
+    throw new TypeError("material3 modes must contain at least one mode.");
   }
 
-  const hasDefaultMode = record.has("defaultMode");
-  if (hasExactModes && !hasDefaultMode) {
-    throw new TypeError("material3 exactModes require an explicit defaultMode.");
-  }
-  const defaultModeInput = hasDefaultMode ? record.get("defaultMode") : "light";
-  if (typeof defaultModeInput !== "string") {
-    throw new TypeError("material3 defaultMode must be a string.");
-  }
+  // Only core owns mode-name grammar. This empty envelope validates names before
+  // generation, never generated tokens; its order/default are not adapter output.
+  // Structural errors propagate unchanged, including the complete issue-tuple cause.
+  defineTokenGraph({ modes: candidateModes, defaultMode: candidateModes[0], tokens: {} });
 
-  // Core validates the envelope; the current Material API retains its default-first ordering.
-  const envelope = (() => {
-    try {
-      return defineTokenGraph({ modes: candidateModes, defaultMode: defaultModeInput, tokens: {} });
-    } catch (error) {
-      // Preserve the current Material option-error category across core's structured errors.
-      if (error instanceof Error) {
-        throw new RangeError(error.message, { cause: error.cause });
-      }
-      throw error;
+  const specVersion = readSpecVersion(record);
+  const variant = readVariant(record, "variant", "tonal-spot");
+  const contrastLevel = readContrast(record, "contrastLevel", 0);
+  const visibility = readVisibility(record);
+  const coordinatesByMode = new Map<string, Material3EngineCoordinate>();
+  for (const { key: mode, value } of modeEntries) {
+    const overrides = readDataRecord(value, `material3 mode "${mode}"`);
+    rejectUnknownKeys(overrides, modeOptionKeys, `material3 mode "${mode}"`);
+    const settings = new Map(overrides.map((entry) => [entry.key, entry.value]));
+    const builtIn = mode === "light" || mode === "dark";
+    if (builtIn && settings.has("colorMode")) {
+      throw new RangeError(`material3 mode "${mode}" must not declare redundant colorMode.`);
     }
-  })();
-  const overridesByMode = new Map<string, ModeOverrides>();
-  for (const entry of modeEntries) {
-    overridesByMode.set(entry.key, parseModeOverrides(entry.key, entry.value));
+    if (!builtIn && !settings.has("colorMode")) {
+      throw new TypeError(`material3 mode "${mode}" requires colorMode.`);
+    }
+    const coordinate: Material3EngineCoordinate = {
+      appearance: builtIn ? mode : normalizeColorMode(settings.get("colorMode"), mode),
+      sourceColor: settings.has("sourceColor")
+        ? normalizeSourceColor(settings.get("sourceColor"), `mode "${mode}" sourceColor`)
+        : sourceColor,
+      specVersion,
+      variant: readVariant(settings, "variant", variant),
+      contrastLevel: readContrast(settings, "contrastLevel", contrastLevel),
+    };
+    if (specVersion === "2025" && !supported2025Variants.has(coordinate.variant)) {
+      throw new RangeError(
+        `material3 mode "${mode}" requests unsupported 2025 variant "${coordinate.variant}".`,
+      );
+    }
+    coordinatesByMode.set(mode, coordinate);
   }
-
-  return {
-    specVersion: readSpecVersion(record),
-    variant: readVariant(record, "variant", "tonal-spot"),
-    contrastLevel: readContrast(record, "contrastLevel", 0),
-    visibility: readVisibility(record),
-    modes: [
-      envelope.defaultMode,
-      ...envelope.modes.filter((mode) => mode !== envelope.defaultMode).sort(),
-    ],
-    defaultMode: envelope.defaultMode,
-    overridesByMode,
-  };
-}
-
-function parseModeOverrides(mode: string, input: unknown): ModeOverrides {
-  const entries = readDataRecord(input, `material3 mode "${mode}"`);
-  rejectUnknownKeys(entries, modeOptionKeys, `material3 mode "${mode}"`);
-  const record = new Map(entries.map((entry) => [entry.key, entry.value]));
-  const builtInAppearance = mode === "light" || mode === "dark";
-  if (builtInAppearance && record.has("appearance")) {
-    throw new RangeError(`material3 mode "${mode}" must not declare redundant appearance.`);
-  }
-  if (!builtInAppearance && !record.has("appearance")) {
-    throw new TypeError(`material3 mode "${mode}" requires appearance.`);
-  }
-
-  return {
-    ...(builtInAppearance
-      ? {}
-      : { appearance: normalizeAppearance(record.get("appearance"), mode) }),
-    ...(record.has("sourceColor")
-      ? {
-          sourceColor: normalizeSourceColor(
-            record.get("sourceColor"),
-            `mode "${mode}" sourceColor`,
-          ),
-        }
-      : {}),
-    ...(record.has("variant")
-      ? { variant: normalizeVariant(record.get("variant"), `mode "${mode}" variant`) }
-      : {}),
-    ...(record.has("contrastLevel")
-      ? {
-          contrastLevel: normalizeContrast(
-            record.get("contrastLevel"),
-            `mode "${mode}" contrastLevel`,
-          ),
-        }
-      : {}),
-  };
+  // Every effective coordinate is checked before the first engine call. A global
+  // variant overridden in every mode need not itself be a supported coordinate.
+  return { visibility, coordinatesByMode };
 }
 
 function generateTokenDefinitions(
-  sourceColor: string,
-  options: ParsedOptions,
-): Readonly<Record<Material3TokenKey, Readonly<Record<string, string>>>> {
-  // Every catalog entry is initialized before generation and Stage 2 sends the
-  // completed maps through core, which rejects missing or unknown mode values.
-  const output = {} as Record<Material3TokenKey, Record<string, string>>;
-  for (const definition of material3RoleDefinitions) {
-    output[definition.tokenKey] = {};
-  }
-
-  for (const mode of options.modes) {
-    const overrides = options.overridesByMode.get(mode);
-    const variant = overrides?.variant ?? options.variant;
-    if (options.specVersion === "2025" && !supported2025Variants.has(variant)) {
-      throw new RangeError(
-        `material3 mode "${mode}" requests unsupported 2025 variant "${variant}".`,
-      );
-    }
-    const values = generateMaterial3Mode({
-      sourceColor: overrides?.sourceColor ?? sourceColor,
-      appearance:
-        mode === "light" || mode === "dark" ? mode : requireAppearance(overrides?.appearance, mode),
-      variant,
-      specVersion: options.specVersion,
-      contrastLevel: overrides?.contrastLevel ?? options.contrastLevel,
-    });
-    for (const definition of material3RoleDefinitions) {
-      output[definition.tokenKey][mode] = values[definition.tokenKey];
-    }
-  }
-  return output;
+  coordinatesByMode: ReadonlyMap<string, Material3EngineCoordinate>,
+): Readonly<Record<string, Readonly<Record<string, string>>>> {
+  const valuesByMode = [...coordinatesByMode].map(
+    ([mode, coordinate]) => [mode, generateMaterial3Mode(coordinate)] as const,
+  );
+  return Object.fromEntries(
+    material3RoleDefinitions.map(({ tokenKey }) => [
+      tokenKey,
+      Object.fromEntries(valuesByMode.map(([mode, values]) => [mode, values[tokenKey]])),
+    ]),
+  );
 }
 
 function readSpecVersion(record: ReadonlyMap<string, unknown>): Material3SpecVersion {
@@ -296,21 +208,11 @@ function readVisibility(record: ReadonlyMap<string, unknown>): TokenVisibility {
   return value;
 }
 
-function normalizeAppearance(input: unknown, mode: string): Material3Appearance {
+function normalizeColorMode(input: unknown, mode: string): Material3ColorMode {
   if (input !== "light" && input !== "dark") {
-    throw new RangeError(`material3 mode "${mode}" appearance must be light or dark.`);
+    throw new RangeError(`material3 mode "${mode}" colorMode must be light or dark.`);
   }
   return input;
-}
-
-function requireAppearance(
-  appearance: Material3Appearance | undefined,
-  mode: string,
-): Material3Appearance {
-  if (appearance === undefined) {
-    throw new Error(`Validated custom mode "${mode}" lost its appearance.`);
-  }
-  return appearance;
 }
 
 function normalizeSourceColor(input: unknown, label: string): string {

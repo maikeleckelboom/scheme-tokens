@@ -344,3 +344,19 @@ Explicit assertions, and runtime rewrites that TypeScript still types as the ori
 The root type surface centers on `Result`, `Issue`, `TokenReference`, `TokenGraph`, `DefinedTokenGraph`, `TokenLayer`, `LayerVisibility`, `CompiledScheme`, `CssVarsExport`, `CssVarBlock`, `CssCondition`, and the authoring, option, and issue types needed to use those operations. Public declarations do not expose dependency-internal types or validation machinery.
 
 See [Diagnostics](./diagnostics.md) for issue contracts and [Migration to 0.1](./migration.md) for the reset from the earlier, never-published surface.
+
+## Optional Material 3 adapter
+
+The sibling `@scheme-tokens/material3` package exports `material3` and exactly six named types:
+`Material3TokenKey`, `Material3ColorMode`, `Material3SpecVersion`, `Material3Variant`,
+`Material3Modes` and `Material3Options`. These belong to the adapter, not the core root exports.
+The P5 candidate returns one ordinary `TokenLayer` with fixed id `material3` and total maps for
+all 48 roles. Compose through `layers: [material]` with explicit graph modes/defaultMode.
+
+Its `modes` settings map is exact and non-empty; omitted means light/dark. Built-in names imply
+their colorMode, and custom names require it. Spec and visibility stay global; source/variant/
+contrast override per field. Core owns mode-name errors and graph/layer mode agreement.
+The return carries NoInfer modes/default visibility and `omitted: Material3TokenKey`, since every
+generated declaration omits explicit visibility. Unknown visibility keeps public output partial
+over all composed keys, including possibly public roles. The candidate requires peer `^0.4.0`;
+committed versions are unchanged and P6/P7 remain deferred. See the [adapter reference](../packages/material3/README.md).

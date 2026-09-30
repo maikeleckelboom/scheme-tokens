@@ -1,0 +1,5 @@
+{
+  "sourceSha": "05ebcdf4cdf655b5545e81ef42d77a90ddc11116",
+  "pretty": "@layer tokens {\n  :where(:host) {\n    --a-alias: 10px;\n    --z-target: 10px;\n  }\n\n  @media screen {\n    :where(:host) {\n      --a-alias: 20px;\n      --z-target: 20px;\n    }\n  }\n\n  :where(:host([data-theme=\"dark\"]), [data-theme=\"dark\"]) {\n    --a-alias: 20px;\n    --z-target: 20px;\n  }\n\n  :where(:host([data-theme=\"light\"]), [data-theme=\"light\"]) {\n    --a-alias: 10px;\n    --z-target: 10px;\n  }\n\n  @media print {\n    :where(.dark) {\n      --a-alias: 20px;\n      --z-target: 20px;\n    }\n  }\n\n  :where(.night) {\n    --a-alias: 20px;\n    --z-target: 20px;\n  }\n}\n",
+  "compact": "@layer tokens{:where(:host){--a-alias:10px;--z-target:10px;}@media screen{:where(:host){--a-alias:20px;--z-target:20px;}}:where(:host([data-theme=\"dark\"]),[data-theme=\"dark\"]){--a-alias:20px;--z-target:20px;}:where(:host([data-theme=\"light\"]),[data-theme=\"light\"]){--a-alias:10px;--z-target:10px;}@media print{:where(.dark){--a-alias:20px;--z-target:20px;}}:where(.night){--a-alias:20px;--z-target:20px;}}"
+}

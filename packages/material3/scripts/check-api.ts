@@ -6,8 +6,9 @@ import { canonicalizeDeclaration } from "../../../scripts/api-snapshot.ts";
 
 const expectedRuntimeExports = ["material3"] as const;
 const expectedTypeExports = [
-  "Material3Appearance",
-  "Material3GraphFragment",
+  "Material3ColorMode",
+  "Material3Modes",
+  "Material3Options",
   "Material3SpecVersion",
   "Material3TokenKey",
   "Material3Variant",
@@ -18,7 +19,8 @@ const forbiddenDeclarationNames = [
   "Hct",
   "Material3Config",
   "Material3ModeOptions",
-  "Material3Options",
+  "Material3Appearance",
+  "Material3GraphFragment",
   "MaterialDynamicColors",
   "TonalPalette",
 ] as const;
@@ -50,18 +52,18 @@ for (const forbidden of forbiddenDeclarationNames) {
 }
 const normalizedDeclaration = canonicalDeclaration.replace(/\s+/gu, " ");
 for (const required of [
-  'type Material3Appearance = "light" | "dark";',
+  'type Material3ColorMode = "light" | "dark";',
   'type Material3SpecVersion = "2021" | "2025";',
-  "readonly layers: readonly [TokenLayer<Material3TokenKey>];",
-  "declare function material3<const Mode extends string>",
-  "declare function material3<const Extra extends string = never>",
+  "interface Material3Options<Mode extends string = Material3ColorMode, Visibility extends TokenVisibility = TokenVisibility>",
+  'declare function material3<const Mode extends string = Material3ColorMode, const Visibility extends TokenVisibility = "public">',
+  "TokenLayer<Material3TokenKey, NoInfer<Mode>,",
+  "readonly default: NoInfer<Visibility>;",
+  "readonly public: never; readonly internal: never; readonly omitted: Material3TokenKey;",
+  "Material3ModesMustNotBeEmpty",
 ]) {
   if (!normalizedDeclaration.includes(required)) {
     throw new Error(`Adapter declaration is missing contract fragment: ${required}`);
   }
-}
-if (normalizedDeclaration.includes("TokenLayer<Material3TokenKey, Mode>")) {
-  throw new Error("Adapter declaration incorrectly attaches the graph mode to TokenLayer");
 }
 
 if (!existsSync(snapshotPath)) {

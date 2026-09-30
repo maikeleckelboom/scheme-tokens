@@ -21,7 +21,7 @@ set of evidence gates, not a feature backlog.
 - Compiler behavior, deterministic serialization and CSS output, schemas, declaration snapshots,
   tarball contents, and package resolution already have repository-owned validation.
 
-The current branch implements the core v2 candidate: unified validation/composition/resolution, graph-last precedence, visibility inheritance, concat, D6 metadata, lossless v1 source upgrades, the static contract with complete public records for literal graphs and layer mode sets on TypeScript 7, and the CSS activation exporter with single-hyphen names and optional `var()` output, proved in Chromium, Firefox, and WebKit. P4a links actual emitted direct targets, inlines omitted targets per expression part, and keeps resolved output as the default. [ADR 0015](./adr/0015-concat-mode-disambiguation.md) keeps `concat` available as a structurally disambiguated mode. P5 Material, P6 consumer migration, and P7 release evidence remain later phases. Released package versions are unchanged; no 0.4 release is claimed here.
+The current branch implements the core v2 candidate: unified validation/composition/resolution, graph-last precedence, visibility inheritance, concat, D6 metadata, lossless v1 source upgrades, the static contract with complete public records for literal graphs and layer mode sets on TypeScript 7, and the CSS activation exporter with single-hyphen names and optional `var()` output, proved in Chromium, Firefox, and WebKit. P4a links actual emitted direct targets, inlines omitted targets per expression part, and keeps resolved output as the default. [ADR 0015](./adr/0015-concat-mode-disambiguation.md) keeps `concat` available as a structurally disambiguated mode. P5 Material layer/mode mapping is implemented as a candidate: an exact non-empty graph-mode settings map, direct core-validated layer output, precise current-core visibility facts and paired packed proof. P6 external consumer migration and P7 final release preparation remain deferred. Released package versions are unchanged; no 0.4 release is claimed here.
 
 ## Positioning
 
@@ -97,5 +97,4 @@ that range does not include core `0.3.0`. The `0.1.1` patch expanded it to the e
 `^0.2.0 || ^0.3.0` range after exercising the changeset-versioned packages together in strict
 packed consumers. Compatibility must continue to be demonstrated release by release. Do not widen
 the peer range across additional pre-1.0 minors without evidence for each included core contract.
-The planned 0.4 core changes the layer contract the adapter builds on, so the adapter needs its own
-breaking release with a peer range for that core release (ADR 0014).
+The P5 candidate changes that layer contract and peers only on `^0.4.0`. Its pending minor changeset projects Material `0.2.0` alongside core `0.4.0` in temporary strict-peer consumers. The committed package versions stay unchanged until authorized versioning; earlier core minors are not claimed compatible with the new adapter.

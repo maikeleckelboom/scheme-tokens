@@ -1,35 +1,15 @@
 import { execFileSync } from "node:child_process";
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join, parse, relative, resolve } from "node:path";
-import { packageRoot, repoRoot } from "./api-snapshot.ts";
+import { dirname, join, parse, relative, resolve } from "node:path";
+import { repoRoot } from "./api-snapshot.ts";
+import { packReleaseCandidate } from "./release-candidate.ts";
 
 const workspace = mkdtempSync(join(tmpdir(), "scheme-tokens-material3-consumers-"));
 assertSafeTemporaryRoot(workspace);
 
 try {
-  runPnpm(["build"], repoRoot);
-  runPnpm(["build"], packageRoot);
-
-  const candidateRoot = join(workspace, "release-candidate");
-  prepareReleaseCandidate(candidateRoot);
-  applyChangesetsIfPending(candidateRoot);
-  const versions = assertReleaseCandidateVersions(candidateRoot);
-  runPnpm(["install", "--ignore-scripts", "--strict-peer-dependencies"], candidateRoot);
-
-  const packDirectory = join(workspace, "pack");
-  mkdirSync(packDirectory, { recursive: true });
-  const coreTarball = pack(candidateRoot, packDirectory);
-  const adapterTarball = pack(join(candidateRoot, "packages", "material3"), packDirectory);
+  const { coreTarball, adapterTarball, versions } = packReleaseCandidate(workspace);
 
   checkCombinedConsumer(coreTarball, adapterTarball);
   checkCoreOnlyConsumer(coreTarball);
@@ -38,85 +18,6 @@ try {
   );
 } finally {
   rmSync(workspace, { recursive: true, force: true });
-}
-
-function prepareReleaseCandidate(candidateRoot: string): void {
-  mkdirSync(candidateRoot, { recursive: true });
-  copyEntries(repoRoot, candidateRoot, [
-    "package.json",
-    "pnpm-workspace.yaml",
-    "README.md",
-    "CHANGELOG.md",
-    "LICENSE",
-    "dist",
-    "schemas",
-  ]);
-  copyEntries(join(repoRoot, ".changeset"), join(candidateRoot, ".changeset"), [
-    "config.json",
-    ...readdirSync(join(repoRoot, ".changeset")).filter(
-      (entry) => entry.endsWith(".md") && entry !== "README.md",
-    ),
-  ]);
-  copyEntries(packageRoot, join(candidateRoot, "packages", "material3"), [
-    "package.json",
-    "README.md",
-    "LICENSE",
-    "LICENSE-MATERIAL-COLOR-UTILITIES",
-    "THIRD_PARTY_NOTICES.md",
-    "dist",
-  ]);
-  writeFileSync(
-    join(candidateRoot, "pnpm-workspace.yaml"),
-    'packages:\n  - "."\n  - "packages/material3"\n',
-  );
-}
-
-function applyChangesetsIfPending(candidateRoot: string): void {
-  const changesetDirectory = join(candidateRoot, ".changeset");
-  const hasPendingChangesets = readdirSync(changesetDirectory).some(
-    (entry) => entry.endsWith(".md") && entry !== "README.md",
-  );
-  if (!hasPendingChangesets) {
-    process.stdout.write(
-      "No pending Changesets; testing the already-versioned release candidate.\n",
-    );
-    return;
-  }
-
-  execFileSync(
-    process.execPath,
-    [join(repoRoot, "node_modules", "@changesets", "cli", "bin.js"), "version"],
-    {
-      cwd: candidateRoot,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "inherit"],
-    },
-  );
-}
-
-function assertReleaseCandidateVersions(candidateRoot: string): {
-  readonly core: string;
-  readonly adapter: string;
-} {
-  // P2 tests the current adapter API against core v2. Changesets projects a peer-only
-  // patch here; this temporary pair is not the P5 Material API or publication approval.
-  const core = readManifest(join(candidateRoot, "package.json"));
-  const adapter = readManifest(join(candidateRoot, "packages", "material3", "package.json"));
-  if (core.version !== "0.4.0") {
-    throw new Error(`Core release candidate must be 0.4.0, received ${core.version}.`);
-  }
-  if (adapter.version !== "0.1.2") {
-    throw new Error(
-      `Changesets-projected adapter version must be 0.1.2, received ${adapter.version}.`,
-    );
-  }
-  const corePeer = adapter.peerDependencies?.["scheme-tokens"];
-  if (corePeer !== "^0.4.0") {
-    throw new Error(
-      `Changesets-projected adapter must advertise ^0.4.0, received ${corePeer ?? "<missing>"}.`,
-    );
-  }
-  return { core: core.version, adapter: adapter.version };
 }
 
 function checkCombinedConsumer(coreTarball: string, adapterTarball: string): void {
@@ -163,6 +64,8 @@ function checkCombinedConsumer(coreTarball: string, adapterTarball: string): voi
     consumer,
   );
   run(process.execPath, [join("dist", "consumer.js")], consumer);
+  checkMaterialTypeMatrix(consumer);
+  process.stdout.write("Paired raw Node ESM and strict NodeNext runtime passed.\n");
 
   if (existsSync(join(consumer, "node_modules", "@material", "material-color-utilities"))) {
     throw new Error("Packed adapter consumer installed Material Color Utilities separately.");
@@ -205,11 +108,15 @@ import { material3 } from "@scheme-tokens/material3";
 
 const material = material3("#6750a4");
 const graph = defineTokenGraph({
-  ...material,
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  layers: [material],
   tokens: { "action.primary.background": tokenRef("md.sys.color.primary") },
 });
 const compiled = compileTokenGraph(graph, { selection: "all" });
-if (!compiled.ok) throw new Error(JSON.stringify(compiled.issues));
+if (!compiled.ok) {
+  throw new Error(JSON.stringify(compiled.issues));
+}
 if (compiled.value.tokens["md.sys.color.primary"].light !== "#65558f") {
   throw new Error("raw Node ESM Material generation failed");
 }
@@ -225,109 +132,84 @@ if (!css.ok || css.value.variableByToken["md.sys.color.primary"] !== "--md-sys-c
 
 function combinedConsumerSource(): string {
   return `
-import { material3, type Material3GraphFragment, type Material3TokenKey } from "@scheme-tokens/material3";
-import {
-  compileTokenGraph,
-  defineTokenGraph,
-  defineTokenLayer,
-  exportCssVars,
-  tokenRef,
-  type TokenLayer,
-} from "scheme-tokens";
+import { material3 } from "@scheme-tokens/material3";
+import { compileTokenGraph, defineTokenGraph, defineTokenLayer, exportCssVars, orThrow, tokenRef } from "scheme-tokens";
 
-type Equal<Left, Right> =
-  (<Value>() => Value extends Left ? 1 : 2) extends
-  (<Value>() => Value extends Right ? 1 : 2) ? true : false;
-type Expect<Value extends true> = Value;
-type ModeOf<Value> = Value extends Material3GraphFragment<infer Mode> ? Mode : never;
-
-const material = material3("#6750a4", {
-  modes: { "light-high": { appearance: "light", contrastLevel: 1 } },
-  defaultMode: "light-high",
-});
-type ModeProof = Expect<Equal<ModeOf<typeof material>, "light" | "dark" | "light-high">>;
-type LayerProof = Expect<Equal<(typeof material.layers)[0], TokenLayer<Material3TokenKey, string>>>;
-const modeProof: ModeProof = true;
-const layerProof: LayerProof = true;
-void modeProof;
-void layerProof;
-
-// @ts-expect-error packed declarations retain the exact Material token-key union.
-const invalidKey: Material3TokenKey = "md.sys.color.primari";
-void invalidKey;
-if (false) {
-  // @ts-expect-error packed declarations require appearance for custom modes.
-  material3("#6750a4", { modes: { "light-high": { contrastLevel: 1 } } });
-}
-
-const overrides = defineTokenLayer({
-  id: "brand-overrides",
-  tokens: { "md.sys.color.primary": "#ff0055" },
-});
+const material = material3("#6750a4", { visibility: "internal", modes: {
+  standard: { colorMode: "light" }, inverse: { colorMode: "dark" },
+} });
+const overrides = defineTokenLayer({ id: "brand-overrides", tokens: { "md.sys.color.primary": "#ff0055" } });
 const graph = defineTokenGraph({
-  ...material,
-  layers: [...material.layers, overrides],
-  tokens: {
-    "action.primary.background": tokenRef("md.sys.color.primary"),
-    "brand.seed": "#6750a4",
-  },
+  modes: ["inverse", "standard"], defaultMode: "standard", layers: [material, overrides],
+  tokens: { "action.primary.background": tokenRef("md.sys.color.primary"), "brand.seed": "#6750a4" },
 });
-const compiled = compileTokenGraph(graph, { selection: "all" });
-if (!compiled.ok) throw new Error(JSON.stringify(compiled.issues));
-type KeyProof = Expect<Equal<
-  keyof typeof compiled.value.tokens,
-  Material3TokenKey | "action.primary.background" | "brand.seed"
->>;
-const keyProof: KeyProof = true;
-void keyProof;
-if (compiled.value.tokens["md.sys.color.primary"].light !== "#ff0055") {
+const all = orThrow(compileTokenGraph(graph, { selection: "all" }));
+if (all.tokens["md.sys.color.primary"].standard !== "#ff0055") {
   throw new Error("packed override failed");
 }
-if (compiled.value.metadataByToken["md.sys.color.primary"].declarations.at(-1)?.origin.kind !== "layer") {
+const declarations = all.metadataByToken["md.sys.color.primary"].declarations;
+if (JSON.stringify(declarations) !== JSON.stringify([
+  { origin: { kind: "layer", id: "material3" } }, { origin: { kind: "layer", id: "brand-overrides" } },
+])) {
   throw new Error("packed provenance failed");
 }
-const css = exportCssVars(compiled.value, { selectors: { dark: ".dark" } });
-if (!css.ok || css.value.variableByToken["md.sys.color.primary"] !== "--md-sys-color-primary") {
+const publicScheme = orThrow(compileTokenGraph(graph));
+if (Object.keys(publicScheme.tokens).length !== 2) {
+  throw new Error("packed visibility failed");
+}
+const css = orThrow(exportCssVars(all, { selectors: { inverse: ".dark" } }));
+if (css.variableByToken["md.sys.color.primary"] !== "--md-sys-color-primary") {
   throw new Error("packed Material CSS naming failed");
 }
-if (!css.value.css.includes(":where(.dark) {\\n  --action-primary-background: ")) {
+if (!css.css.includes(":where(.dark) {\\n  --action-primary-background: ")) {
   throw new Error("packed Material custom condition failed");
 }
 `;
 }
 
-interface PackageManifest {
-  readonly version: string;
-  readonly peerDependencies?: Readonly<Record<string, string>>;
-}
-
-function readManifest(path: string): PackageManifest {
-  return JSON.parse(readFileSync(path, "utf8")) as PackageManifest;
-}
-
-function copyEntries(fromRoot: string, toRoot: string, entries: readonly string[]): void {
-  mkdirSync(toRoot, { recursive: true });
-  for (const entry of entries) {
-    const source = join(fromRoot, entry);
-    const destination = join(toRoot, entry);
-    mkdirSync(dirname(destination), { recursive: true });
-    cpSync(source, destination, { recursive: true });
+function checkMaterialTypeMatrix(consumer: string): void {
+  const cases = readFileSync(
+    join(repoRoot, "packages", "material3", "tests", "types", "material3.test.ts"),
+    "utf8",
+  );
+  writeFileSync(join(consumer, "material3.test.ts"), cases);
+  const compiler =
+    process.env.SCHEME_TOKENS_TSC_PATH ??
+    join(repoRoot, "node_modules", "typescript", "bin", "tsc");
+  const strictOptions = {
+    strict: true,
+    module: "NodeNext",
+    moduleResolution: "NodeNext",
+    target: "ES2022",
+    lib: ["ES2022"],
+    types: [],
+    skipLibCheck: false,
+  };
+  for (const [label, flags] of [
+    ["strict-only", { noEmit: true }],
+    [
+      "stricter",
+      {
+        exactOptionalPropertyTypes: true,
+        noUncheckedIndexedAccess: true,
+        verbatimModuleSyntax: true,
+        isolatedModules: true,
+        declaration: true,
+        emitDeclarationOnly: true,
+        outDir: "type-declarations",
+      },
+    ],
+  ] as const) {
+    const config = `tsconfig.material-${label}.json`;
+    writeJson(join(consumer, config), {
+      compilerOptions: { ...strictOptions, ...flags },
+      include: ["material3.test.ts"],
+    });
+    run(process.execPath, [compiler, "-p", config], consumer);
+    process.stdout.write(
+      `Packed Material declarations passed: ${label} NodeNext, skipLibCheck=false.\n`,
+    );
   }
-}
-
-function pack(cwd: string, destination: string): string {
-  const output = runPnpm(
-    ["pack", "--config.ignore-scripts=true", "--pack-destination", destination],
-    cwd,
-    { ...process.env, npm_config_ignore_scripts: "true" },
-  )
-    .trim()
-    .split(/\r?\n/u)
-    .at(-1);
-  if (output === undefined) {
-    throw new Error(`Unable to determine packed tarball from ${cwd}`);
-  }
-  return join(destination, basename(output));
 }
 
 function fileDependencySpec(fromDirectory: string, tarballPath: string): string {

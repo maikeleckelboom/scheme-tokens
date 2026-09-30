@@ -20,14 +20,14 @@ describe("Material 3 golden vectors", () => {
     }
     expect(serialized).toBe(readFileSync(fixturePath, "utf8").replaceAll("\r\n", "\n"));
 
-    const fragment = material3(coordinate.seed, {
+    const layer = material3(coordinate.seed, {
       specVersion: coordinate.specVersion,
       variant: coordinate.variant,
       contrastLevel: coordinate.contrastLevel,
     });
     const generatedTokens = (generated as GoldenFixture).tokens;
     for (const [key, values] of Object.entries(generatedTokens)) {
-      const tokenValue = fragment.layers[0].tokens[key as Material3TokenKey]?.value;
+      const tokenValue = layer.tokens[key as Material3TokenKey]?.value;
       expect(tokenValue).toEqual(values);
     }
   });

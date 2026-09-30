@@ -9,7 +9,7 @@ Core does not know what a color is. Values are opaque strings.
 Generators such as [`@scheme-tokens/material3`](./packages/material3/README.md) plug in as normal
 token layers.
 
-This branch implements the core v2 candidate for the planned 0.4 release, its static TypeScript contract, and its CSS activation exporter with optional variable references. The manifests still carry released versions until the later versioning phase. The next Material API remains deferred.
+This branch implements the core v2 candidate for the planned 0.4 release, its static TypeScript contract, and its CSS activation exporter with optional variable references. The manifests still carry released versions until the later versioning phase. The P5 Material layer API is implemented as a candidate; P6 external migrations and P7 release preparation remain deferred. Nothing has been published from this candidate.
 
 ## Install
 
@@ -74,8 +74,7 @@ key segments join with single hyphens, so `action.primary` becomes `--action-pri
 
 ## Material 3
 
-The sibling package's `material3` helper returns `modes`, `defaultMode`, and one normal `TokenLayer`
-in `layers`.
+The sibling package's `material3` helper returns one validated `TokenLayer`. The graph declares its modes and default mode, and composes the result with `layers: [material]`.
 
 ```ts
 import { material3 } from "@scheme-tokens/material3";
@@ -117,7 +116,9 @@ const material = material3("#6750a4", {
 });
 
 const graph = defineTokenGraph({
-  ...material,
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  layers: [material],
 
   tokens: {
     "surface.canvas": tokenRef("md.sys.color.surface"),
@@ -136,55 +137,41 @@ tokens.
 
 ### Variants, contrast, and custom modes
 
-Use `modes` to patch the built-in `light` and `dark` modes or add custom ones.
+`modes` is an exact, non-empty map from graph modes to generation settings. Omitting it means
+`{ light: {}, dark: {} }`; supplying it replaces that set completely. The exact keys `light` and
+`dark` imply their Material color mode. Every other key requires `colorMode: "light" | "dark"`.
 
 ```ts
-import { material3 } from "@scheme-tokens/material3";
+import { material3, type Material3Modes } from "@scheme-tokens/material3";
+import { defineTokenGraph } from "scheme-tokens";
 
+const modes = {
+  "light-high": { colorMode: "light", contrastLevel: 1 },
+  "brand-dark": { colorMode: "dark", sourceColor: "#009489" },
+} satisfies Material3Modes<"light-high" | "brand-dark">;
 const material = material3("#6750a4", {
   specVersion: "2025",
   variant: "expressive",
   contrastLevel: 0.5,
-
-  modes: {
-    "light-high": {
-      appearance: "light",
-      contrastLevel: 1,
-    },
-
-    "brand-dark": {
-      appearance: "dark",
-      sourceColor: "#009489",
-    },
-  },
-
+  modes,
+});
+const graph = defineTokenGraph({
+  modes: ["light-high", "brand-dark"],
   defaultMode: "light-high",
+  layers: [material],
+  tokens: {},
 });
 ```
 
-Use `exactModes` to replace the built-in `light` and `dark` set.
+The positional source is the only global source color. Per-mode source, variant, and contrast
+resolve independently over global settings. Spec version and visibility stay global. All effective
+coordinates are checked before generation, and core validates mode names. One-mode maps are valid;
+empty maps are rejected. The graph owns mode order and default, and its set must equal the layer's.
 
-```ts
-import { material3 } from "@scheme-tokens/material3";
-
-const material = material3("#6750a4", {
-  exactModes: {
-    standard: {
-      appearance: "light",
-    },
-
-    inverse: {
-      appearance: "dark",
-      contrastLevel: 0.5,
-    },
-  },
-
-  defaultMode: "standard",
-});
-```
-
-TypeScript keeps custom mode names as a literal union in `Material3GraphFragment`, the composed
-graph, and the compiled scheme.
+TypeScript preserves the exact role keys, mode set, and visibility. `Material3Modes` checks a map
+against an application's graph modes; `Material3Options` lets wrappers forward them. A default call
+is precisely public, an inline internal option stays internal, and bare `Material3Options` keeps
+visibility conservative. See the [adapter reference](./packages/material3/README.md#typescript-contract).
 
 ## Material 3 with shadcn/ui
 
@@ -200,7 +187,9 @@ const material = material3("#6750a4", {
 });
 
 const theme = defineTokenGraph({
-  ...material,
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  layers: [material],
 
   tokens: {
     background: tokenRef("md.sys.color.background"),
@@ -276,17 +265,15 @@ const material = material3("#6750a4", {
 
 const overrides = defineTokenLayer({
   id: "brand-overrides",
-  defaultVisibility: "internal",
-
   tokens: {
     "md.sys.color.primary": "#ff0055",
   },
 });
 
 const graph = defineTokenGraph({
-  ...material,
-
-  layers: [...material.layers, overrides],
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  layers: [material, overrides],
 
   tokens: {
     "action.primary.background": tokenRef("md.sys.color.primary"),

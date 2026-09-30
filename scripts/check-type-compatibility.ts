@@ -85,7 +85,10 @@ function runSuite(compiler: string, label: string): void {
       repoRoot,
       ["tsconfig.lib.json", "tsconfig.type-tests.json", "tsconfig.type-tests.strict.json"],
     ],
-    [materialRoot, ["tsconfig.lib.json", "tsconfig.type-tests.json"]],
+    [
+      materialRoot,
+      ["tsconfig.lib.json", "tsconfig.type-tests.json", "tsconfig.type-tests.strict.json"],
+    ],
   ] as const) {
     for (const config of configurations) {
       run(process.execPath, [compiler, "-p", config], root);

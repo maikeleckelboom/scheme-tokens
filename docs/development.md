@@ -36,18 +36,17 @@ blocking `CSS browser contract` job. Install the engines once per Playwright ver
 pnpm exec playwright install chromium firefox webkit
 ```
 
-Run it for any change to CSS output, options, or selector and media validation.
+Run it for any change to CSS output, options, or selector and media validation. The representative resolved-versus-var unit test uses `tests/fixtures/css-reference-p4-output.json`, captured by building and executing P4 commit `05ebcdf4cdf655b5545e81ef42d77a90ddc11116`. The fixed pretty/compact expectations cover omitted, undefined and resolved reference options; never regenerate them from the current exporter or alter the published-0.3.0 oracle.
 
-During P2 that isolated projection is core `0.4.0` plus a peer-only Material `0.1.2` patch, with
-the existing Material API. The repository manifests remain `0.3.0`/`0.1.1`. This proves packed
-runtime/type compatibility; it does not implement the P5 Material API or certify an intermediate
-phase for publication. P5/P7 must update the projected pair when their changesets land.
+The P5 isolated projection is core `0.4.0` plus Material `0.2.0`, with peer `^0.4.0` and the new layer API. `packages/material3/scripts/release-candidate.ts` applies pending Changesets only in a temporary workspace and shares paired tarballs between Material packed consumers and executable documentation. Combined installations use strict peer checking. The repository manifests remain `0.3.0`/`0.1.1`; this is candidate evidence, with P6 external migration and P7 release preparation deferred. No publication is implied.
 
 ## TypeScript compatibility
 
 The supported compiler range is `>= 7.0 < 8.0`. `pnpm test:types` runs the source type matrix in `tests/types` under the repository's strict configuration and again under `strict` alone, both with `skipLibCheck: false`. The matrix covers the authoring error cases, visibility composition, selection completeness, layer mode sets, dynamic and parsed inputs, ADR 0015's structural `concat` classification, the graph's definite own tokens, and the nominal static claims: raw, spread, frozen, and picked data that must not forge keys, public keys, modes, or layer visibility, and a proof marker that foreign declarations cannot supply and `in` cannot narrow on.
 
 `pnpm check:packed-types` packs the real tarball, installs it into an isolated NodeNext consumer, and runs the same `tests/types` files against the emitted declarations under both configurations; the stricter one also enables `declaration`, so helper results must stay nameable. It then checks diagnostic quality by fragments rather than whole messages: reference suggestions for graph, layer, expanded mode-map, and concat typos, the diagnostic marker names, including both mode sets of a layer mismatch, and the missing `StaticProof` of a forged graph or layer claim.
+
+The Material packed gate copies the authoritative `packages/material3/tests/types/material3.test.ts` into the paired consumer. It runs strict-only and stricter NodeNext configurations with `skipLibCheck: false`; the stricter configuration additionally enables exact optional properties, unchecked indexed access, verbatim module syntax, isolated modules and declaration emission. It proves exact modes/visibility, the three contextual NoInfer rejections, empty-map/removed-field failures and current-core public completeness/partiality. Both configurations also run through the package-local type script.
 
 `pnpm type:compat:stable` runs the source matrices, both packages' type cases, the packed smoke consumer, the packed declaration matrix, and the Material packed consumers with the latest 7.0 patch and the repository's stable 7.x. When both resolve to one version, the runner executes it once. `pnpm type:compat:next` runs the same suite with `typescript@next` as a non-blocking signal.
 
