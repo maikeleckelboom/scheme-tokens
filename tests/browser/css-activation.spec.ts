@@ -282,6 +282,68 @@ test("zero-specificity application rules compete by source order", async ({ page
   expect(await read(page, ["target"])).toEqual(["app"]);
 });
 
+test("shadcn stock fallback layers permit generated variables and restore after removal", async ({
+  page,
+}) => {
+  const graph = api.defineTokenGraph({
+    modes: ["light", "dark"],
+    defaultMode: "light",
+    tokens: { background: { light: "rgb(240, 240, 240)", dark: "rgb(20, 20, 20)" } },
+  });
+  const scheme = api.orThrow(api.compileTokenGraph(graph));
+  const stock = ":root { --background: white; } .dark { --background: black; }";
+  const selectors = { light: ".light", dark: ".dark" } as const;
+  const tokens = api.orThrow(api.exportCssVars(scheme, { attribute: false, selectors })).css;
+  const body = '<section id="dark" class="dark"><div id="light" class="light"></div></section>';
+  const paint = "#dark, #light { background-color: var(--background); }";
+  for (const placement of ["before", "after"] as const) {
+    await render(page, { tokens, [placement]: stock, body });
+    expect(await read(page, ["root", "dark"], "--background")).toEqual(["white", "black"]);
+    for (const generated of [
+      tokens,
+      api.orThrow(
+        api.exportCssVars(scheme, { attribute: false, selectors, cascadeLayer: "tokens" }),
+      ).css,
+    ]) {
+      await render(page, {
+        tokens: generated,
+        before: `@layer base, tokens; ${placement === "before" ? `@layer base { ${stock} }` : ""}`,
+        ...(placement === "after" ? { after: `@layer base { ${stock} }` } : {}),
+        body: `${body}<style>${paint}</style>`,
+      });
+      expect(await read(page, ["root", "dark", "light"], "--background")).toEqual([
+        "rgb(240, 240, 240)",
+        "rgb(20, 20, 20)",
+        "rgb(240, 240, 240)",
+      ]);
+      expect(
+        await page
+          .locator("#dark")
+          .evaluate((element) => getComputedStyle(element).backgroundColor),
+      ).toBe("rgb(20, 20, 20)");
+      expect(
+        await page
+          .locator("#light")
+          .evaluate((element) => getComputedStyle(element).backgroundColor),
+      ).toBe("rgb(240, 240, 240)");
+      await page.evaluate(() => {
+        const generatedStyle = [...document.head.querySelectorAll("style")].find((style) =>
+          style.textContent?.includes(":where(:root)"),
+        );
+        if (generatedStyle === undefined) {
+          throw new Error("Generated stylesheet is missing");
+        }
+        generatedStyle.remove();
+      });
+      expect(await read(page, ["root", "dark", "light"], "--background")).toEqual([
+        "white",
+        "black",
+        "black",
+      ]);
+    }
+  }
+});
+
 test("cascadeLayer follows cascade-layer order", async ({ page }) => {
   const tokens = tokensCss({ cascadeLayer: "tokens" });
   expect(tokens.startsWith("@layer tokens {\n")).toBe(true);

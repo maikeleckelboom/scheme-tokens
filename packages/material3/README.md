@@ -4,7 +4,7 @@ Generate the accepted Material 3 system color roles as one ordinary `scheme-toke
 adapter is optional: core remains a string-token compiler and does not install a color engine.
 
 This README describes the P5 candidate, including P5.1 option-presence typing, for Material `0.2.0` and core `0.4.0`. The committed versions
-remain `0.1.1` and `0.3.0`; the new API has not been published. P6 consumer migration is partially implemented and blocked by real framework gates and a missing application identity. P7 release preparation remains separate. See the [P6 evidence](../../docs/p6-consumer-evidence.md).
+remain `0.1.1` and `0.3.0`; the new API has not been published. [P6.1](../../docs/p6.1-package-evidence.md) verifies the package pair, compiler support and repository-owned consumers. External application migrations, framework checks and application identities are not release prerequisites. P7 release preparation remains separate. The [historical P6 report](../../docs/p6-consumer-evidence.md) retains the external observations.
 
 ## Generate and compose
 
@@ -220,7 +220,7 @@ serialization, or provenance API.
 
 ## Distribution and migration
 
-The ESM-only package requires Node 24 or newer and TypeScript `>= 7.0 < 8.0`. The new core contract
+The ESM-only package requires Node 24 or newer and TypeScript `>=5.9.3 <6.0.0 || >=6.0.2 <7.0.0 || >=7.0.2 <8.0.0`. The new core contract
 requires peer `scheme-tokens: ^0.4.0`; earlier core minors are unsupported. Local packed gates apply
 Changesets only in a temporary workspace to prove core `0.4.0` with Material `0.2.0`. Both tarballs
 are installed together with strict peer checking, run in raw Node ESM and NodeNext, and checked

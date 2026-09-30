@@ -331,7 +331,7 @@ The three serializers produce the supported deterministic JSON wire representati
 
 ## TypeScript contract
 
-The supported compiler is TypeScript `>= 7.0 < 8.0`. `defineTokenGraph` returns `DefinedTokenGraph<Key, Mode, PublicKey, OwnKey>`, a `TokenGraph<Key, Mode, PublicKey>`: every composed key, the mode union, and the effective public keys after layers compose in array order and graph tokens compose last. `graph.tokens` holds only the graph's own declarations, so its authored keys (`OwnKey`) are definite there and a key that only a layer declares is not. The mode type is a union; it says nothing about authored order or which mode is the default. `defineTokenLayer` infers `TokenLayer<Key, Mode, Visibility>`, where `Mode` is the layer mode set and `Visibility` is a `LayerVisibility`: the layer default, and the keys that may declare `public`, declare `internal`, or omit visibility. A wider type only adds possibilities, so plain `TokenGraph` and `TokenLayer` describe unknown data.
+The supported compiler is TypeScript `>=5.9.3 <6.0.0 || >=6.0.2 <7.0.0 || >=7.0.2 <8.0.0`. `defineTokenGraph` returns `DefinedTokenGraph<Key, Mode, PublicKey, OwnKey>`, a `TokenGraph<Key, Mode, PublicKey>`: every composed key, the mode union, and the effective public keys after layers compose in array order and graph tokens compose last. `graph.tokens` holds only the graph's own declarations, so its authored keys (`OwnKey`) are definite there and a key that only a layer declares is not. The mode type is a union; it says nothing about authored order or which mode is the default. `defineTokenLayer` infers `TokenLayer<Key, Mode, Visibility>`, where `Mode` is the layer mode set and `Visibility` is a `LayerVisibility`: the layer default, and the keys that may declare `public`, declare `internal`, or omit visibility. A wider type only adds possibilities, so plain `TokenGraph` and `TokenLayer` describe unknown data.
 
 Literal input is checked by a strict constraint, and each failure lands on the offending property. Reference typos keep TypeScript's "Did you mean" suggestion. Other failures name a diagnostic marker in the compiler message: `UnknownTokenProperty<Name>`, `UnknownMode<Name>`, `InvalidModeName<Name>` for a mode outside the lower-kebab grammar or a reserved name, and `LayerModeMismatch<LayerModes, GraphModes>`. Markers explain a rejection; their wording and shape are not a compatibility contract, and they are not exported.
 
@@ -363,6 +363,6 @@ forwarding. Required wrappers retain precise supplied facts; bare options remain
 The return carries NoInfer modes/default visibility and `omitted: Material3TokenKey`, since every
 generated declaration omits explicit visibility. Unknown visibility keeps public output partial
 over all composed keys, including possibly public roles. The candidate requires peer `^0.4.0`;
-committed versions are unchanged and P6 remains incomplete and P7 remains deferred. See the [adapter reference](../packages/material3/README.md).
+committed versions are unchanged. P6.1 owns package-only verification and P7 remains separate. See the [adapter reference](../packages/material3/README.md).
 
-See [P6 consumer evidence](./p6-consumer-evidence.md) for real-application results and remaining exit criteria.
+See [P6.1 package evidence](./p6.1-package-evidence.md) for current criteria. External application migrations are not release requirements; the [historical P6 report](./p6-consumer-evidence.md) retains its observations.

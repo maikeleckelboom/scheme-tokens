@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.type-tests.strict.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "paths": {
+      "@scheme-tokens/material3": ["./src/index.ts"],
+      "scheme-tokens": ["../../src/index.ts"]
+    }
+  }
+}

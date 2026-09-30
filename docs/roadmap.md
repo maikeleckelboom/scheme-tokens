@@ -21,7 +21,7 @@ set of evidence gates, not a feature backlog.
 - Compiler behavior, deterministic serialization and CSS output, schemas, declaration snapshots,
   tarball contents, and package resolution already have repository-owned validation.
 
-The current branch implements the core v2 candidate: unified validation/composition/resolution, graph-last precedence, visibility inheritance, concat, D6 metadata, lossless v1 source upgrades, the static contract with complete public records for literal graphs and layer mode sets on TypeScript 7, and the CSS activation exporter with single-hyphen names and optional `var()` output, proved in Chromium, Firefox, and WebKit. P4a links actual emitted direct targets, inlines omitted targets per expression part, and keeps resolved output as the default. [ADR 0015](./adr/0015-concat-mode-disambiguation.md) keeps `concat` available as a structurally disambiguated mode. P5 Material layer/mode mapping is implemented as a candidate: an exact non-empty graph-mode settings map, direct core-validated layer output, current-core visibility facts and paired packed proof. P5.1 (ADR 0016) corrects optional-input soundness by requiring the settings behind non-default static claims, with explicit default-call and supplied-options signatures. P6 consumer migration is partially implemented and blocked; see the P6 evidence report. P7 final release preparation remains deferred. Released package versions are unchanged; no 0.4 release is claimed here.
+The current branch implements the core v2 candidate: unified validation/composition/resolution, graph-last precedence, visibility inheritance, concat, D6 metadata, lossless v1 source upgrades, the static contract with complete public records for literal graphs and layer mode sets on TypeScript 7, and the CSS activation exporter with single-hyphen names and optional `var()` output, proved in Chromium, Firefox, and WebKit. P4a links actual emitted direct targets, inlines omitted targets per expression part, and keeps resolved output as the default. [ADR 0015](./adr/0015-concat-mode-disambiguation.md) keeps `concat` available as a structurally disambiguated mode. P5 Material layer/mode mapping is implemented as a candidate: an exact non-empty graph-mode settings map, direct core-validated layer output, current-core visibility facts and paired packed proof. P5.1 (ADR 0016) corrects optional-input soundness by requiring the settings behind non-default static claims, with explicit default-call and supplied-options signatures. P6.1 repairs candidate verification, establishes consumer compiler support and supplies package-only integration proof; see the P6.1 package evidence. External application migrations, framework checks, a second demo, recovered scaffolds and application visual baselines are not release prerequisites. P7 final release preparation remains deferred. Released package versions are unchanged; no 0.4 release is claimed here.
 
 ## Positioning
 
@@ -64,16 +64,17 @@ proposed as `0.4.0`: graph-last composition and visibility-preserving overrides 
 0011), a single graph helper, complete public records for literal graphs, layers whose mode maps
 must match the graph's modes, an explicit string-joining expression, reshaped compiled provenance,
 one CSS activation model with single-hyphen names (ADR 0012), format version 2 with source-format
-upgrades, and a supported TypeScript 7.x baseline. The companion Material 3 adapter release is
+upgrades, and evidence-backed consumer compiler support independent of TS7 development tooling
+([ADR 0017](./adr/0017-consumer-compiler-support.md)). The companion Material 3 adapter release is
 designed in [ADR 0014](./adr/0014-material3-layer-and-mode-mapping.md) (accepted).
 
-`1.0.0` follows once the production consumer and the Material applications run on that release and
-the gates below hold.
+`1.0.0` follows when the package evidence gates below hold and its public contract is ready for
+that commitment. External application migrations are not package release requirements.
 
 ## 1.0 evidence gates
 
-- Exercise the current core release in the production consumer and distinguish package
-  compatibility from unrelated consumer-repository failures.
+- Exercise core-only and paired Material packages through repository-owned executable examples
+  and fresh frozen packed consumers, independently of external application/framework checks.
 - Publish the v2 schemas under their `tag:` identifiers, self-contained, and document the versioned
   `$schema` convention (ADR 0013, D10).
 - Keep one readable, executable reference example as the authority used by the packed
@@ -99,4 +100,4 @@ packed consumers. Compatibility must continue to be demonstrated release by rele
 the peer range across additional pre-1.0 minors without evidence for each included core contract.
 The P5 candidate changes that layer contract and peers only on `^0.4.0`. Its pending minor changeset projects Material `0.2.0` alongside core `0.4.0` in temporary strict-peer consumers. The committed package versions stay unchanged until authorized versioning; earlier core minors are not claimed compatible with the new adapter.
 
-See [P6 consumer evidence](./p6-consumer-evidence.md) for real-application results and remaining exit criteria.
+See [P6.1 package evidence](./p6.1-package-evidence.md) for current criteria. The [historical P6 report](./p6-consumer-evidence.md) retains external observations; none are package release gates.

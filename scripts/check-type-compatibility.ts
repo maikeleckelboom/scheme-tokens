@@ -1,9 +1,11 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateNextVersion } from "./type-compatibility-version.ts";
+import { supportedCompilers } from "./supported-compilers.ts";
+import { packReleaseCandidate } from "../packages/material3/scripts/release-candidate.ts";
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const materialRoot = join(repoRoot, "packages", "material3");
@@ -11,37 +13,31 @@ const manifest = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")
   readonly devDependencies: { readonly typescript: string };
 };
 const repositoryVersion = manifest.devDependencies.typescript;
-const floorVersion = "7.0.2";
 const role = process.argv[2];
-
-if (!/^7\.\d+\.\d+$/u.test(repositoryVersion) || !/^7\.0\.\d+$/u.test(floorVersion)) {
-  throw new Error("The blocking TypeScript versions must be exact stable 7.x releases");
-}
+const compilers = supportedCompilers(repositoryVersion, process.argv[3]);
 if (role !== "stable" && role !== "next") {
   throw new Error("Use stable or next");
 }
 
 const temporaryRoots: string[] = [];
 try {
-  // Each package's type cases resolve the other's declaration entry on a fresh checkout.
-  runPnpm(["build"], repoRoot);
-  runPnpm(["--filter", "@scheme-tokens/material3", "build"], repoRoot);
+  const candidateRoot = mkdtempSync(join(tmpdir(), "scheme-tokens-type-pair-"));
+  temporaryRoots.push(candidateRoot);
+  // Build once with the development compiler; every consumer compiler reads this actual pair.
+  const { coreTarball, adapterTarball } = packReleaseCandidate(candidateRoot);
+  const artifacts = {
+    SCHEME_TOKENS_CORE_TARBALL: coreTarball,
+    SCHEME_TOKENS_MATERIAL_TARBALL: adapterTarball,
+  };
   if (role === "stable") {
-    const versions = new Map<string, string[]>();
-    for (const [label, version] of [
-      ["7.0 floor", floorVersion],
-      ["repository stable", repositoryVersion],
-    ] as const) {
-      versions.set(version, [...(versions.get(version) ?? []), label]);
-    }
-    for (const [version, labels] of versions) {
+    for (const { version, roles } of compilers) {
       const compiler =
         version === repositoryVersion ? localCompiler(repoRoot) : installCompiler(version);
-      runSuite(compiler, `${labels.join(" + ")}: ${version}`);
+      runSuite(compiler, `${roles.join(" + ")}: ${version}`, artifacts);
     }
   } else {
     const compiler = installCompiler(resolveNextVersion());
-    runSuite(compiler, `non-blocking next signal: ${compilerVersion(compiler)}`);
+    runSuite(compiler, `non-blocking next signal: ${compilerVersion(compiler)}`, artifacts);
   }
 } finally {
   for (const root of temporaryRoots) {
@@ -78,7 +74,11 @@ function compilerVersion(compiler: string): string {
   }).trim();
 }
 
-function runSuite(compiler: string, label: string): void {
+function runSuite(
+  compiler: string,
+  label: string,
+  artifacts: Readonly<Record<string, string>>,
+): void {
   process.stdout.write(`Type compatibility: ${label}\n`);
   for (const [root, configurations] of [
     [
@@ -87,16 +87,51 @@ function runSuite(compiler: string, label: string): void {
     ],
     [
       materialRoot,
-      ["tsconfig.lib.json", "tsconfig.type-tests.json", "tsconfig.type-tests.strict.json"],
+      [
+        "tsconfig.lib.json",
+        "tsconfig.type-tests.json",
+        "tsconfig.type-tests.strict.json",
+        "tsconfig.type-tests.source.json",
+        "tsconfig.type-tests.source.strict.json",
+      ],
     ],
   ] as const) {
     for (const config of configurations) {
       run(process.execPath, [compiler, "-p", config], root);
+      if (config === "tsconfig.type-tests.json" || config === "tsconfig.type-tests.source.json") {
+        const emitted = mkdtempSync(join(tmpdir(), "scheme-tokens-source-types-"));
+        temporaryRoots.push(emitted);
+        run(
+          process.execPath,
+          [
+            compiler,
+            "-p",
+            config,
+            "--noEmit",
+            "false",
+            "--emitDeclarationOnly",
+            "--rootDir",
+            repoRoot,
+            "--outDir",
+            emitted,
+          ],
+          root,
+        );
+        const matrix = root === repoRoot ? "tests/types" : "packages/material3/tests/types";
+        for (const file of readdirSync(join(repoRoot, matrix)).filter((path) =>
+          path.endsWith(".ts"),
+        )) {
+          readFileSync(join(emitted, matrix, file.replace(/\.ts$/u, ".d.ts")));
+        }
+        process.stdout.write(`Source type matrix and declaration emission passed: ${root}\n`);
+      }
     }
   }
-  const environment = { ...process.env, SCHEME_TOKENS_TSC_PATH: compiler };
+  const environment = { ...process.env, ...artifacts, SCHEME_TOKENS_TSC_PATH: compiler };
   runPnpm(["smoke:consumer"], repoRoot, environment);
   runPnpm(["check:packed-types"], repoRoot, environment);
+  runPnpm(["check:module-resolution"], repoRoot, environment);
+  runPnpm(["check:theme-coordinate-consumer"], repoRoot, environment);
   runPnpm(
     ["--filter", "@scheme-tokens/material3", "check:packed-consumers"],
     repoRoot,

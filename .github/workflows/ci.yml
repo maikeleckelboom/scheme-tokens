@@ -70,10 +70,13 @@ jobs:
       - name: Tarball contents
         run: pnpm check:tarball
 
+      - name: Candidate provenance and fresh frozen paired installation
+        run: pnpm check:candidate
+
       - name: Documentation
         run: pnpm docs:check
 
-      - name: External packed consumer audit
+      - name: Synthetic packed consumer audit
         run: pnpm audit:external-consumer
 
   api-contract:
@@ -163,8 +166,12 @@ jobs:
         run: pnpm test:browsers
 
   type-compatibility:
-    name: TypeScript 7 supported compilers
+    name: TypeScript ${{ matrix.compiler }} supported consumers
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: ["5.9", "6.0", "7.x"]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -177,7 +184,7 @@ jobs:
           run_install: false
           cache: false
       - run: pnpm install --frozen-lockfile
-      - run: pnpm type:compat:stable
+      - run: pnpm type:compat:stable ${{ matrix.compiler }}
 
   type-compatibility-next:
     name: TypeScript next signal

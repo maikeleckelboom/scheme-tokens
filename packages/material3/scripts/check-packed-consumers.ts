@@ -17,7 +17,19 @@ const workspace = mkdtempSync(join(tmpdir(), "scheme-tokens-material3-consumers-
 assertSafeTemporaryRoot(workspace);
 
 try {
-  const { coreTarball, adapterTarball, versions } = packReleaseCandidate(workspace);
+  const coreArtifact = process.env.SCHEME_TOKENS_CORE_TARBALL;
+  const materialArtifact = process.env.SCHEME_TOKENS_MATERIAL_TARBALL;
+  if ((coreArtifact === undefined) !== (materialArtifact === undefined)) {
+    throw new Error("Supply both candidate artifacts together.");
+  }
+  const { coreTarball, adapterTarball, versions } =
+    coreArtifact !== undefined && materialArtifact !== undefined
+      ? {
+          coreTarball: coreArtifact,
+          adapterTarball: materialArtifact,
+          versions: { core: "0.4.0", adapter: "0.2.0" },
+        }
+      : packReleaseCandidate(workspace);
 
   checkCombinedConsumer(coreTarball, adapterTarball);
   checkCoreOnlyConsumer(coreTarball);
@@ -63,7 +75,7 @@ function checkCombinedConsumer(coreTarball: string, adapterTarball: string): voi
   );
   writeFileSync(join(consumer, "consumer.mjs"), rawNodeConsumerSource());
 
-  runPnpm(["install", "--ignore-scripts", "--strict-peer-dependencies"], consumer);
+  freshInstall(consumer);
   run(process.execPath, ["consumer.mjs"], consumer);
   run(
     process.execPath,
@@ -99,7 +111,7 @@ function checkCoreOnlyConsumer(coreTarball: string): void {
       `const compiled = compileTokenGraph(defineTokenGraph({tokens: { primary: "#6750a4" }}), { selection: "all" });\n` +
       `if (!compiled.ok || compiled.value.tokens.primary.base !== "#6750a4") throw new Error("core-only consumer failed");\n`,
   );
-  runPnpm(["install", "--ignore-scripts", "--strict-peer-dependencies"], consumer);
+  freshInstall(consumer);
   run(process.execPath, ["consumer.mjs"], consumer);
   if (
     existsSync(join(consumer, "node_modules", "@scheme-tokens", "material3")) ||
@@ -210,6 +222,7 @@ function checkMaterialTypeMatrix(consumer: string): void {
         declaration: true,
         emitDeclarationOnly: true,
         outDir: "type-declarations",
+        rootDir: ".",
       },
     ],
   ] as const) {
@@ -219,10 +232,24 @@ function checkMaterialTypeMatrix(consumer: string): void {
       include: ["material3.test.ts"],
     });
     run(process.execPath, [compiler, "-p", config], consumer);
+    if (label === "stricter") {
+      readFileSync(join(consumer, "type-declarations", "material3.test.d.ts"));
+    }
     process.stdout.write(
       `Packed Material declarations passed: ${label} NodeNext, skipLibCheck=false.\n`,
     );
   }
+}
+
+function freshInstall(consumer: string): void {
+  runPnpm(
+    ["install", "--lockfile-only", "--ignore-scripts", "--strict-peer-dependencies"],
+    consumer,
+  );
+  runPnpm(
+    ["install", "--frozen-lockfile", "--ignore-scripts", "--strict-peer-dependencies"],
+    consumer,
+  );
 }
 
 function fileDependencySpec(fromDirectory: string, tarballPath: string): string {

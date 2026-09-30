@@ -11,6 +11,9 @@ sliced further; a later change to one of them is a new record that supersedes th
 [ADR 0014](./0014-material3-layer-and-mode-mapping.md) applies D12 to the Material 3 adapter and
 was accepted after the correction pass below.
 
+D13's consumer compiler policy is superseded by [ADR 0017](./0017-consumer-compiler-support.md).
+The original decision and measurements below remain historical evidence.
+
 A closing pass settled the five contracts that were still open (layer mode compatibility and the
 Material mode mapping, custom-condition precedence, conflicting class markers, the TypeScript
 floor, and source-format retention). A product decision then replaced the measured TypeScript 5.4

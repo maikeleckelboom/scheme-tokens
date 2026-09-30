@@ -113,7 +113,7 @@ const consumerDirectory = join(workspace, "consumer");
 mkdirSync(packDirectory, { recursive: true });
 mkdirSync(consumerDirectory, { recursive: true });
 
-const tarball = pack(packDirectory);
+const tarball = process.env.SCHEME_TOKENS_CORE_TARBALL ?? pack(packDirectory);
 writeJson(join(consumerDirectory, "package.json"), {
   private: true,
   type: "module",
@@ -147,7 +147,8 @@ for (const mode of modes) {
   run(
     process.execPath,
     [
-      join(repoRoot, "node_modules", "typescript", "bin", "tsc"),
+      process.env.SCHEME_TOKENS_TSC_PATH ??
+        join(repoRoot, "node_modules", "typescript", "bin", "tsc"),
       "-p",
       `tsconfig.${mode.name}.json`,
     ],

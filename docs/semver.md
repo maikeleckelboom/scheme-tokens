@@ -11,7 +11,7 @@ These are versioned contracts:
 - root runtime exports;
 - root TypeScript exports and literal inference behavior;
 - supported Node.js runtime range;
-- supported TypeScript major, currently `>= 7.0 < 8.0`;
+- supported consumer TypeScript range, currently `>=5.9.3 <6.0.0 || >=6.0.2 <7.0.0 || >=7.0.2 <8.0.0`;
 - package schema subpaths;
 - graph, layer, and compiled JSON formats;
 - `Result` success and failure shapes;
@@ -24,6 +24,6 @@ These are versioned contracts:
 
 Human-readable issue messages, internal file layout, and implementation strategy are not compatibility contracts unless explicitly documented otherwise. The same holds for TypeScript diagnostic wording and the unexported diagnostic marker types; rejection of invalid literal input is the contract.
 
-The supported TypeScript contract names one major. Blocking CI runs the latest 7.0 patch and the repository's latest stable 7.x; `typescript@next` runs the same suites as a non-blocking signal. Moving the supported baseline to another major, or raising the floor inside 7.x, is a breaking compatibility change: before `1.0.0` it needs a changeset in a breaking minor release.
+The supported consumer range is independent of the repository's TS7 development compiler, as decided in [ADR 0017](./adr/0017-consumer-compiler-support.md). Blocking CI tests exact floors 5.9.3, 6.0.2 and 7.0.2 plus the repository's stable 7.x, deduplicating equal versions. Earlier patches and TypeScript 8 are not supported. TypeScript next runs the same suites as a non-blocking signal. Narrowing a supported line or raising its floor is a breaking compatibility change: before `1.0.0` it needs a changeset in a breaking minor release. Expansions also need an evidence-backed decision and changeset.
 
 The migration guide records the reset that preceded the first publication. It is a historical handoff and does not create compatibility aliases or continued support for removed shapes.

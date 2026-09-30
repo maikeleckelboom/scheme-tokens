@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, relative } from "node:path";
 
-// Synthetic packed-package proof. Real application evidence is recorded separately in docs/p6-consumer-evidence.md.
+// Synthetic repository-owned packed-package proof. No external application is inspected.
 const repoRoot = process.cwd();
 const workspace = mkdtempSync(join(tmpdir(), "scheme-tokens-external-audit-"));
 const packDirectory = join(workspace, "pack");

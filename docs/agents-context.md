@@ -42,7 +42,7 @@ never ships as an alias next to the old shape.
 - [ADR 0013](./adr/0013-coherent-token-model.md) (accepted) designs the next breaking release as one contract:
   authoring, composition, visibility, static typing, layer mode sets, compiled provenance, CSS activation, wire-format
   evolution, schema identity, and TypeScript support. ADRs 0010–0012 are its accepted slices. Read it before proposing
-  a change to any of these. The branch implements P2 runtime/wire, P3 static typing, P4 CSS activation, P4a `var()` output, and P5 Material layer/mode mapping. Durable docs describe this candidate. P6 consumer migration is partially implemented and blocked; see the P6 evidence report. P7 final release preparation remains deferred, with committed/released package versions unchanged.
+  a change to any of these. The branch implements P2 runtime/wire, P3 static typing, P4 CSS activation, P4a `var()` output, and P5/P5.1 Material layer/mode mapping. Durable docs describe this candidate. [ADR 0017](./adr/0017-consumer-compiler-support.md) supersedes only D13's compiler policy: consumer floors 5.9.3, 6.0.2 and 7.0.2 are independent of TS7 development tooling. P6.1 owns package-only verification; external migrations, framework checks, a second demo, scaffold recovery and external visual baselines are not release prerequisites. Preserve historical external evidence without continuing that work. P7 remains separate, with committed/released versions unchanged.
 - P4a links only direct targets in the compiled scheme's actual emitted key set, regardless of visibility or naming success, and reuses actual names built once. Resolved output stays the default. Complete alias declarations enable local propagation; unmarked descendants inherit already-computed aliases. Concat projection is CSS token substitution, not arbitrary character assembly. Safety checks the complete projected value, not isolated fragments or unused resolved/fallback strings. The compiled parser proves structure without metadata consistency or acyclicity; P4a does not recompile edited metadata. See the [CSS guide](../docs-site/guide/export-css-variables.md#reference-output) and [diagnostics](./diagnostics.md#css-export) for the boundaries.
 - [ADR 0015](./adr/0015-concat-mode-disambiguation.md) supersedes only the reserved-mode rule for `concat`. Exact singleton array shape distinguishes concat expressions from mode maps. This preserves valid published v1 source with mode `concat` and D10 retention. Never classify by property presence alone, including in the static model.
 
@@ -72,7 +72,7 @@ never ships as an alias next to the old shape.
 - Material's intentional snapshot and minor changeset describe the breaking API. Its peer is
   `^0.4.0` alone; the shared temporary candidate helper proves `0.4.0`/`0.2.0` with strict peers,
   raw Node ESM and NodeNext runtime. The authoritative type cases are copied into that consumer and
-  run under strict-only and stricter settings with SCHEME_TOKENS_TSC_PATH from both blocking
+  run under strict-only and stricter settings with SCHEME_TOKENS_TSC_PATH from all blocking
   compiler roles (deduplicated when equal). Next stays a non-blocking signal.
 - `packages/material3` is the active production package and sole current adapter authority. Its
   package-local runtime, type, engine, golden, API, tarball, licensing, and packed-consumer gates
@@ -89,4 +89,4 @@ TokenOrigin / provenance. After generation + authored overrides, answering
 "which of my public roles are still generated defaults?" is unanswerable in every competing tool. Surface it
 deliberately.
 
-See [P6 consumer evidence](./p6-consumer-evidence.md) for real-application results and remaining exit criteria.
+See [P6.1 package evidence](./p6.1-package-evidence.md) for current package criteria and [historical P6 evidence](./p6-consumer-evidence.md) for retained observations. This workflow owns only scheme-tokens, Material and repository-created examples, fixtures and disposable consumers. No external application Git or filesystem operations are part of P6.1 or P7.

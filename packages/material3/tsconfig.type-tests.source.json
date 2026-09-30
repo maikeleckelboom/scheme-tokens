@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.type-tests.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "paths": {
+      "@scheme-tokens/material3": ["./src/index.ts"],
+      "scheme-tokens": ["../../src/index.ts"]
+    }
+  }
+}

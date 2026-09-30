@@ -103,3 +103,44 @@ Served unlayered, the token declarations would therefore win over a utility that
 property, such as `[--app-surface-canvas:white]`, although their selectors have zero specificity. Pass
 `cascadeLayer: "theme"` to emit them inside Tailwind's `theme` layer, which Tailwind orders before
 `utilities`, so utilities override them.
+
+## shadcn stock variables
+
+Stock unlayered `:root` and `.dark` declarations have higher specificity than generated
+`:where(...)` declarations. Loading the generated stylesheet later cannot override those stock
+values in the same cascade layer. Keep the stock declarations as fallbacks in `@layer base` and
+serve generated declarations unlayered, or place generated output in a layer ordered after `base`:
+
+```css
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: white;
+    --foreground: black;
+  }
+
+  .dark {
+    --background: black;
+    --foreground: white;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+```
+
+Export the matching token keys with `selectors: { light: ".light", dark: ".dark" }` for class
+activation. These custom conditions emit complete zero-specificity blocks, including nested
+light regions inside dark ones. Removing the generated stylesheet restores the stock fallback.
+If using `cascadeLayer`, declare its order explicitly after `base` before either layer appears;
+for example, put `@layer base, tokens;` before both stylesheets. Tailwind's `theme` layer
+normally comes before `base`, so the earlier `cascadeLayer: "theme"` recommendation does not
+override stock variables kept in `base`. Token-backed utilities need no `dark:` variant;
+ancestor-based dark variants have their own matching behavior inside nested light regions.
+
+The repository's three-engine browser fixture checks the stock conflict in both stylesheet
+orders, the corrected layer recipe, nested activation, actual background colors, and fallback
+restoration. No selector specificity or exporter behavior is changed.

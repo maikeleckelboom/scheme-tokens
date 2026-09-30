@@ -25,7 +25,7 @@ const consumerSource = join(consumerDirectory, "theme.ts");
 mkdirSync(packDirectory, { recursive: true });
 mkdirSync(consumerDirectory, { recursive: true });
 
-const tarball = pack(packDirectory);
+const tarball = process.env.SCHEME_TOKENS_CORE_TARBALL ?? pack(packDirectory);
 writeJson(join(consumerDirectory, "package.json"), {
   private: true,
   type: "module",
@@ -60,7 +60,12 @@ assertEqual(
 runPnpm(["install", "--ignore-scripts"], consumerDirectory);
 run(
   process.execPath,
-  [join(repoRoot, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.json"],
+  [
+    process.env.SCHEME_TOKENS_TSC_PATH ??
+      join(repoRoot, "node_modules", "typescript", "bin", "tsc"),
+    "-p",
+    "tsconfig.json",
+  ],
   consumerDirectory,
 );
 run(process.execPath, [join("dist", "theme.js")], consumerDirectory);
@@ -71,7 +76,11 @@ const installedManifest = JSON.parse(
 assertEqual(installedManifest.name, "scheme-tokens", "installed package name");
 // The consumer installs this repository's tarball, so the version it resolves
 // has to track the manifest rather than a value that goes stale on release.
-assertEqual(installedManifest.version, manifest.version, "installed package version");
+assertEqual(
+  installedManifest.version,
+  process.env.SCHEME_TOKENS_CORE_TARBALL === undefined ? manifest.version : "0.4.0",
+  "installed package version",
+);
 assertDeepEqual(
   Object.keys(installedManifest.exports).sort(),
   [

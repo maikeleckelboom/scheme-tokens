@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -43,7 +44,7 @@ for (const directory of [packDirectory, matrixDirectory, diagnosticsDirectory]) 
   mkdirSync(directory, { recursive: true });
 }
 
-const tarball = pack(packDirectory);
+const tarball = process.env.SCHEME_TOKENS_CORE_TARBALL ?? pack(packDirectory);
 writeJson(join(consumerDirectory, "package.json"), {
   private: true,
   type: "module",
@@ -66,6 +67,11 @@ const stricterOptions = {
   noUncheckedIndexedAccess: true,
   verbatimModuleSyntax: true,
   declaration: true,
+  isolatedModules: true,
+  noEmit: false,
+  emitDeclarationOnly: true,
+  outDir: "type-declarations",
+  rootDir: ".",
 };
 writeJson(join(consumerDirectory, "tsconfig.strict.json"), {
   compilerOptions: strictOptions,
@@ -188,12 +194,27 @@ for (const diagnostic of diagnosticCases) {
   );
 }
 
-runPnpm(["install", "--ignore-scripts"], consumerDirectory);
+runPnpm(
+  ["install", "--lockfile-only", "--ignore-scripts", "--strict-peer-dependencies"],
+  consumerDirectory,
+);
+runPnpm(
+  ["install", "--frozen-lockfile", "--ignore-scripts", "--strict-peer-dependencies"],
+  consumerDirectory,
+);
 process.stdout.write(`Packed type matrix with ${compilerVersion()}\n`);
 for (const config of ["tsconfig.strict.json", "tsconfig.stricter.json"]) {
   run(process.execPath, [compiler, "-p", config], consumerDirectory);
   process.stdout.write(`  source matrix (${matrixFiles.length} files) passed: ${config}\n`);
 }
+for (const file of matrixFiles) {
+  readFileSync(
+    join(consumerDirectory, "type-declarations", "matrix", file.replace(/\.ts$/u, ".d.ts")),
+  );
+}
+process.stdout.write(
+  `  emitted ${matrixFiles.length} consumer declarations with skipLibCheck=false\n`,
+);
 
 const diagnostics = typecheckFailure("tsconfig.diagnostics.json");
 const failures: string[] = [];
@@ -220,6 +241,7 @@ for (const diagnostic of diagnosticCases) {
 if (failures.length > 0) {
   throw new Error(`Packed diagnostic-quality matrix failed:\n${failures.join("\n\n")}`);
 }
+rmSync(workspace, { recursive: true, force: true });
 
 function suggestion(output: string, key: string): readonly string[] {
   return /Did you mean '"(?<key>[^"]+)"'\?/u.exec(output)?.groups?.key === key

@@ -18,7 +18,7 @@ const consumerDirectory = join(workspace, "consumer");
 mkdirSync(packDirectory, { recursive: true });
 mkdirSync(consumerDirectory, { recursive: true });
 
-const tarball = pack(packDirectory);
+const tarball = process.env.SCHEME_TOKENS_CORE_TARBALL ?? pack(packDirectory);
 writeJson(join(consumerDirectory, "package.json"), {
   private: true,
   type: "module",

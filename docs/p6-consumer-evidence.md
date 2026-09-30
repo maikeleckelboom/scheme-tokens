@@ -1,5 +1,18 @@
 # P6 real-consumer candidate evidence
 
+**Superseded scope and status, 2026-09-30:** this is a historical report. P6.1 replaces its external
+release prerequisites with [package-only criteria](./p6.1-package-evidence.md). No external
+migration, second Material demo, recovered scaffold, framework certification or application
+visual baseline is required for package completion or P7. Existing external branches and
+worktrees are left untouched; no failed check below is reclassified as a success or completion.
+The historical P7 handoff below is withdrawn from the active plan.
+
+P6.1 also reproduced two defects in the historical candidate tooling: saved patches lost their
+terminating newline, and globally searched lockfile integrity strings could be swapped without
+failure. The historical checker passes below do not prove patch reconstruction or the corrected
+artifact-to-resolution relationships. Artifact observations and application results remain
+recorded as originally observed. Corrected source, lockfile and fresh-install proof belongs to P6.1.
+
 Status: **incomplete**. Two identified applications have candidate migrations and runtime proof.
 Vue/TypeScript 7 framework checks, the independent scaffold recipe and identification of the
 second Material demo remain open. P7 is not started. No package was published or application deployed.
@@ -200,7 +213,7 @@ The toolchain retains its existing tsdown warning about the experimental TS7 API
 annotation warnings and temporary Changesets peer-version transition notices. They did not fail
 the package gates and are not presented as real application certification.
 
-## P7 handoff
+## Historical P7 handoff (superseded)
 
 1. Identify and migrate the distinct second Material demo, without counting Oddments twice.
 2. Obtain supported Vue/Nuxt TypeScript 7 tooling and resolve the real consumer peer contract.

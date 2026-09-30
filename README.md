@@ -9,7 +9,7 @@ Core does not know what a color is. Values are opaque strings.
 Generators such as [`@scheme-tokens/material3`](./packages/material3/README.md) plug in as normal
 token layers.
 
-This branch implements the core v2 candidate for the planned 0.4 release, its static TypeScript contract, and its CSS activation exporter with optional variable references. The manifests still carry released versions until the later versioning phase. The P5 Material layer API is implemented as a candidate; P6 real-consumer migrations are partially implemented and blocked; [the evidence report](docs/p6-consumer-evidence.md) records the remaining requirements. P7 release preparation remains separate. Nothing has been published from this candidate.
+This branch implements the core v2 candidate for the planned 0.4 release, its static TypeScript contract, and its CSS activation exporter with optional variable references. The manifests still carry released versions until the later versioning phase. P5 and P5.1 Material contracts are accepted; [P6.1](docs/p6.1-package-evidence.md) owns package-only candidate verification and consumer compiler support. External application migrations are not release prerequisites. The [historical P6 report](docs/p6-consumer-evidence.md) retains its observations. P7 release preparation remains separate. Nothing has been published from this candidate.
 
 ## Install
 
@@ -362,7 +362,7 @@ const exactScheme = compileTokenGraph(graph, {
 Default compilation selects public tokens. `selection: "all"` includes internal tokens. A literal
 `keys` selection stays exact in TypeScript. For a literal graph TypeScript also knows the public keys
 after layers and graph tokens compose, so `publicScheme` is a complete record of `primary`; dynamic or
-parsed graphs stay partial. The supported compiler is TypeScript `>= 7.0 < 8.0`.
+parsed graphs stay partial. The supported compiler is TypeScript `>=5.9.3 <6.0.0 || >=6.0.2 <7.0.0 || >=7.0.2 <8.0.0`.
 
 ## Persisted artifacts
 

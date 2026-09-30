@@ -1,6 +1,6 @@
 # TypeScript Access
 
-Literal token keys, explicit modes, and visibility flow through trusted authoring, compilation, CSS export, and serialization. The supported compiler is TypeScript `>= 7.0 < 8.0`.
+Literal token keys, explicit modes, and visibility flow through trusted authoring, compilation, CSS export, and serialization. The supported compiler is TypeScript `>=5.9.3 <6.0.0 || >=6.0.2 <7.0.0 || >=7.0.2 <8.0.0`.
 
 ```ts
 import { compileTokenGraph, defineTokenGraph, orThrow, tokenRef } from "scheme-tokens";

@@ -115,7 +115,7 @@ See [Application Theme Coordinates](../guide/application-theme-coordinates.md) f
 
 ## TypeScript
 
-The supported compiler is TypeScript `>= 7.0 < 8.0`. `defineTokenGraph` returns a `DefinedTokenGraph`: a `TokenGraph<Key, Mode, PublicKey>` whose own authored keys are definite in `graph.tokens`, while a key that only a layer declares is not. `defineTokenLayer` infers `TokenLayer<Key, Mode, Visibility>`, where a layer `Mode` is `never` without mode maps, a finite union for a literal layer, and `string` when unknown, and `Visibility` is a `LayerVisibility`. Literal input is validated strictly; failures name the offending property, keep reference suggestions, and use the diagnostic markers described in [TypeScript Access](../guide/typescript-access.md). Precise claims are nominal: only the helpers and the values that flow unchanged from them make one. A finite key union is an exact claim, and an object literal, a spread copy, or a plain `TokenGraph` or `TokenLayer` describes unknown data.
+The supported compiler is TypeScript `>=5.9.3 <6.0.0 || >=6.0.2 <7.0.0 || >=7.0.2 <8.0.0`. `defineTokenGraph` returns a `DefinedTokenGraph`: a `TokenGraph<Key, Mode, PublicKey>` whose own authored keys are definite in `graph.tokens`, while a key that only a layer declares is not. `defineTokenLayer` infers `TokenLayer<Key, Mode, Visibility>`, where a layer `Mode` is `never` without mode maps, a finite union for a literal layer, and `string` when unknown, and `Visibility` is a `LayerVisibility`. Literal input is validated strictly; failures name the offending property, keep reference suggestions, and use the diagnostic markers described in [TypeScript Access](../guide/typescript-access.md). Precise claims are nominal: only the helpers and the values that flow unchanged from them make one. A finite key union is an exact claim, and an object literal, a spread copy, or a plain `TokenGraph` or `TokenLayer` describes unknown data.
 
 ## Serializers and schemas
 
@@ -149,4 +149,4 @@ forwarding. Required wrappers retain precise supplied facts; bare options remain
 The return carries NoInfer modes/default visibility and `omitted: Material3TokenKey`, since every
 generated declaration omits explicit visibility. Unknown visibility keeps public output partial
 over all composed keys, including possibly public roles. The candidate requires peer `^0.4.0`;
-committed versions are unchanged and P6 is incomplete and P7 remains deferred. See the [adapter reference](https://github.com/maikeleckelboom/scheme-tokens/blob/dev/packages/material3/README.md).
+committed versions are unchanged. P6.1 owns package-only verification and P7 remains separate. External application migrations are not release requirements. See the [adapter reference](https://github.com/maikeleckelboom/scheme-tokens/blob/dev/packages/material3/README.md).
