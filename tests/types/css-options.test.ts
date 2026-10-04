@@ -31,7 +31,7 @@ const scheme = orThrow(
   ),
 );
 
-// System and custom maps are partial over the finite mode union.
+// Media and selector maps are partial over the finite mode union.
 orThrow(
   exportCssVars(scheme, {
     activation: {
@@ -68,7 +68,7 @@ exportCssVars(scheme, annotated);
 exportCssVars(scheme, {
   activation: {
     media: {
-      // @ts-expect-error system conditions reject modes the compiled scheme does not have.
+      // @ts-expect-error media conditions reject modes the compiled scheme does not have.
       sepia: "(prefers-color-scheme: dark)",
     },
   },
@@ -76,7 +76,7 @@ exportCssVars(scheme, {
 exportCssVars(scheme, {
   activation: {
     selectors: {
-      // @ts-expect-error custom conditions reject modes the compiled scheme does not have.
+      // @ts-expect-error selector conditions reject modes the compiled scheme does not have.
       sepia: ".sepia",
     },
   },

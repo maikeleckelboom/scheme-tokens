@@ -41,7 +41,10 @@ const scheme = orThrow(
 );
 const runtime = orThrow(
   exportCssVars(scheme, {
-    activation: { media: { dark: "(prefers-color-scheme: dark)" } },
+    activation: {
+      attribute: "data-theme",
+      media: { dark: "(prefers-color-scheme: dark)" },
+    },
     prefix: "app",
   }),
 );
@@ -132,8 +135,8 @@ serve generated declarations unlayered, or place generated output in a layer ord
 }
 ```
 
-Export the matching token keys with `selectors: { light: ".light", dark: ".dark" }` for class
-activation. These custom conditions emit complete zero-specificity blocks, including nested
+Export the matching token keys with `activation: { selectors: { light: ".light", dark: ".dark" } }` for class
+activation. These selector conditions emit complete zero-specificity blocks, including nested
 light regions inside dark ones. Removing the generated stylesheet restores the stock fallback.
 If using `cascadeLayer`, declare its order explicitly after `base` before either layer appears;
 for example, put `@layer base, tokens;` before both stylesheets. Tailwind's `theme` layer

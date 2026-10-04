@@ -98,12 +98,14 @@ function island(outer: Mode, inner: Mode): string {
   );
 }
 
-test("base applies the default mode at the root", async ({ page }) => {
+test("the default tier applies the default mode at the root", async ({ page }) => {
   await render(page, { tokens: tokensCss({}), body: '<p id="child"></p>' });
   expect(await read(page, ["root", "child"])).toEqual(["light", "light"]);
 });
 
-test("a matching system condition beats base; a non-matching one leaves base", async ({ page }) => {
+test("a matching media condition beats the default tier; a non-matching one leaves it", async ({
+  page,
+}) => {
   await render(page, { tokens: tokensCss({ activation: { media: { dark: ALWAYS } } }) });
   expect(await read(page, ["root"])).toEqual(["dark"]);
   await render(page, { tokens: tokensCss({ activation: { media: { dark: NEVER } } }) });
@@ -111,7 +113,7 @@ test("a matching system condition beats base; a non-matching one leaves base", a
 });
 
 for (const colorScheme of ["light", "dark"] as const) {
-  test(`the system tier follows an emulated ${colorScheme} preference`, async ({ page }) => {
+  test(`the media tier follows an emulated ${colorScheme} preference`, async ({ page }) => {
     await page.emulateMedia({ colorScheme });
     await render(page, {
       tokens: tokensCss({ activation: { media: { dark: PREFERS_DARK } } }),
@@ -121,7 +123,7 @@ for (const colorScheme of ["light", "dark"] as const) {
   });
 }
 
-test("explicit markers beat an active system condition in both directions", async ({ page }) => {
+test("attribute markers beat an active media condition in both directions", async ({ page }) => {
   await render(page, {
     tokens: tokensCss({ activation: { media: { dark: ALWAYS } } }),
     root: { "data-theme": "light" },
@@ -183,7 +185,7 @@ test("every activation point redeclares every token", async ({ page }) => {
   ]);
 });
 
-test("custom conditions beat explicit markers and system conditions", async ({ page }) => {
+test("selector conditions beat attribute markers and media conditions", async ({ page }) => {
   await render(page, {
     tokens: tokensCss({
       activation: {
@@ -203,7 +205,7 @@ test("custom conditions beat explicit markers and system conditions", async ({ p
   ]);
 });
 
-test("overlapping custom conditions resolve by authored mode order", async ({ page }) => {
+test("overlapping selector conditions resolve by authored mode order", async ({ page }) => {
   const options = { activation: { selectors: { light: ".light", dark: ".dark" } } } as const;
   const body = '<p id="both" class="light dark"></p>';
 
@@ -214,7 +216,7 @@ test("overlapping custom conditions resolve by authored mode order", async ({ pa
   expect(await read(page, ["both"])).toEqual(["light"]);
 });
 
-test("a two-axis palette and scheme resolves through ordered custom conditions", async ({
+test("a two-axis palette and scheme resolves through ordered selector conditions", async ({
   page,
 }) => {
   // The shape of the theme-coordinate example: modes authored from general to specific.

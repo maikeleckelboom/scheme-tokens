@@ -172,7 +172,7 @@ The exporter emits custom properties only. A mode-level value such as `color-sch
 }
 ```
 
-A universal `:where(*) { color-scheme: var(--color-scheme); }` binding also covers custom conditions.
+A universal `:where(*) { color-scheme: var(--color-scheme); }` binding also covers selector conditions.
 
 ## Structured blocks
 

@@ -89,7 +89,7 @@ if (parsed.ok) {
 
 ## Compilation
 
-`compileTokenGraph()` supports `selection: "public"`, `selection: "all"`, and exact `{ keys }` selection. It validates the complete graph before selection, so public tokens can safely reference internal tokens.
+`compileTokenGraph()` supports `selection: "public"` (the default), `selection: "all"` (all graph tokens), and explicit selection arrays. Empty arrays are rejected at runtime. It validates the complete graph before selection, so public tokens can safely reference internal tokens.
 
 Compiled values remain `tokens[key][mode]`. Metadata contains effective `visibility` and non-empty `declarations` in composition order. Each declaration contains `origin: { kind: "graph" }` or `{ kind: "layer", id }`, plus `declaredVisibility` only when explicitly authored. The last declaration wins. Sparse `expressionByMode` omits literal modes, retains pure `{ ref }` records without duplicated values, and retains canonical concat parts with `{ ref, value }` for referenced parts. Descriptions, deprecation, and extensions come only from the winner.
 

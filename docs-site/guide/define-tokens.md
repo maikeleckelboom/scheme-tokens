@@ -64,7 +64,7 @@ There is no mode discovery from token keys and no first-key default. Authored mo
 
 ## Layers
 
-Layers have stable IDs and local default visibility, but no mode envelope. Direct expressions fit every graph. All mode maps within one layer must name the same set; a non-empty set must exactly match the graph modes, ignoring order. Mismatches return one deterministic `layer-mode-mismatch` per invalid layer. The graph owns mode order and default. Layers compose in array order, then graph tokens compose last. The winner supplies value and descriptive metadata. Omitted visibility preserves prior effective visibility; explicit visibility restates it. With no explicit visibility, the default of the position that introduced the key applies.
+Layers have stable IDs and local default visibility, but no mode envelope. Direct expressions fit every graph. All mode maps within one layer must name the same set; a non-empty set must exactly match the graph modes, ignoring order. Disagreeing maps inside a layer return `inconsistent-layer-modes`; a consistent layer that differs from its graph returns `layer-mode-mismatch`. Each reports one deterministic failure per invalid layer. The graph owns mode order and default. Layers compose in array order, then graph tokens compose last. The winner supplies value and descriptive metadata. Omitted visibility preserves prior effective visibility; explicit visibility restates it. With no explicit visibility, the default of the position that introduced the key applies.
 
 ```ts
 import { defineTokenGraph, defineTokenLayer, tokenRef } from "scheme-tokens";

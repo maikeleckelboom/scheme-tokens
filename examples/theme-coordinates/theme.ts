@@ -57,7 +57,7 @@ type PublicRoleKey = (typeof publicRoleKeys)[number];
 
 // The application owns two attributes on the themed element: `data-palette` (absent means mono)
 // and `data-scheme` (absent means follow the system preference). The exporter only needs the
-// system fallback and ordered custom conditions; `:not()` keeps the vivid system fallback from
+// media fallback and ordered selector conditions; `:not()` keeps the vivid system fallback from
 // overriding an explicit light choice.
 const activation = {
   activation: {

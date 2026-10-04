@@ -29,7 +29,7 @@ describe("bounded selector grammar", () => {
     ":root, .light",
     '[data-palette="vivid"]:not([data-scheme="light"])',
     `${":is(".repeat(8)}.a${")".repeat(8)}`,
-  ])("accepts %s as a custom condition and as root", (selector) => {
+  ])("accepts %s as a selector condition and as activation.root", (selector) => {
     const exported = orThrow(
       exportCssVars(scheme(), { activation: { root: selector, selectors: { base: selector } } }),
     );
@@ -123,7 +123,7 @@ describe("bounded media grammar", () => {
     "(min-resolution: 1.5dppx)",
     `${"(".repeat(8)}color${")".repeat(8)}`,
     `${"(not ".repeat(7)}(color)${")".repeat(7)}`,
-  ])("accepts %s for system and custom conditions", (media) => {
+  ])("accepts %s for media activation and selector conditions", (media) => {
     const exported = orThrow(
       exportCssVars(scheme(), {
         activation: { media: { base: media }, selectors: { base: [{ selector: ".a", media }] } },
@@ -290,7 +290,7 @@ describe("declaration value safety", () => {
       ),
     );
 
-    // The light value is declared by the base and the custom block but reported once.
+    // The light value is declared by the default and the selector block but reported once.
     expect(
       exportCssVars(compiled, { activation: { selectors: { light: ".light", dark: ".dark" } } }),
     ).toEqual({

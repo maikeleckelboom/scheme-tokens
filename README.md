@@ -358,7 +358,8 @@ const exactScheme = compileTokenGraph(graph, {
 ```
 
 Default compilation selects public tokens. `selection: "all"` includes internal tokens. A literal
-`keys` selection stays exact in TypeScript. For a literal graph TypeScript also knows the public keys
+selection array stays exact in TypeScript; ordinary runtime arrays remain partial, and empty arrays
+are rejected at runtime. For a literal graph TypeScript also knows the public keys
 after layers and graph tokens compose, so `publicScheme` is a complete record of `primary`; dynamic or
 parsed graphs stay partial. The supported compiler is TypeScript `>=5.9.3 <6.0.0 || >=6.0.2 <7.0.0 || >=7.0.2 <8.0.0`.
 
@@ -410,6 +411,7 @@ if (!compiled.ok) {
 
 const exported = exportCssVars(compiled.value, {
   activation: {
+    attribute: "data-theme",
     media: {
       dark: "(prefers-color-scheme: dark)",
     },

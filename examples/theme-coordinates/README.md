@@ -6,8 +6,8 @@ complete compiler modes: mono-light, mono-dark, vivid-light, and vivid-dark.
 Flattening happens only at the compiler boundary. Application state can keep the axes independent
 while scheme-tokens receives one explicit mode envelope. The example then selects an exact public
 role contract, resolves references through internal source tokens, and activates the modes from the
-application's own `data-palette` and `data-scheme` attributes: no generated markers, a system
-fallback, and custom conditions ordered from general to specific.
+application's own `data-palette` and `data-scheme` attributes: no generated markers, a media
+fallback, and selector conditions ordered from general to specific.
 
 From the repository root, run:
 

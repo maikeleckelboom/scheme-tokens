@@ -37,7 +37,7 @@ describe("CSS activation blocks", () => {
     },
   );
 
-  test("a one-mode scheme emits only the base block by default", () => {
+  test("a one-mode scheme emits only the default block by default", () => {
     const exported = orThrow(exportCssVars(singleModeScheme()));
 
     expect(exported.css).toBe(":where(:root) {\n  --background: #ffffff;\n}\n");
@@ -78,7 +78,7 @@ describe("CSS activation blocks", () => {
     );
   });
 
-  test("tiers are base, system, explicit, then custom; within a tier, authored mode order", () => {
+  test("tiers are default, media, attribute, then selector; within a tier, authored mode order", () => {
     const scheme = threeModeScheme();
     const exported = orThrow(
       exportCssVars(scheme, {
@@ -175,7 +175,7 @@ describe("CSS activation blocks", () => {
     }
   });
 
-  test("attribute false disables explicit markers and leaves custom conditions", () => {
+  test("omitting activation.attribute emits no markers and keeps selector conditions", () => {
     const exported = orThrow(
       exportCssVars(lightDarkScheme(), { activation: { selectors: { dark: ".dark" } } }),
     );
@@ -186,7 +186,7 @@ describe("CSS activation blocks", () => {
     ]);
   });
 
-  test("an explicit attribute applies to any mode count, and omission defaults only with several", () => {
+  test("explicit attribute activation applies to both one-mode and multi-mode schemes", () => {
     expect(
       summarize(
         orThrow(exportCssVars(singleModeScheme(), { activation: { attribute: "data-mode" } }))
@@ -203,7 +203,7 @@ describe("CSS activation blocks", () => {
     ).toEqual([":root", '[data-color-scheme="light"]', '[data-color-scheme="dark"]']);
   });
 
-  test("explicit markers stay unanchored for any root", () => {
+  test("attribute markers stay unanchored for any activation.root", () => {
     const exported = orThrow(
       exportCssVars(lightDarkScheme(), { activation: { root: "#app", attribute: "data-theme" } }),
     );
@@ -215,7 +215,7 @@ describe("CSS activation blocks", () => {
     ]);
   });
 
-  test("a :host root targets the host for base and system blocks and the host and shadow tree for markers", () => {
+  test("a :host root targets default and media blocks; includeHost adds host attribute matching", () => {
     const exported = orThrow(
       exportCssVars(lightDarkScheme(), {
         activation: {
@@ -364,7 +364,7 @@ describe("CSS activation blocks", () => {
     }
   });
 
-  test("overlapping and identical custom conditions are deterministic data, not errors", () => {
+  test("overlapping and identical selector conditions are deterministic data, not errors", () => {
     const exported = orThrow(
       exportCssVars(lightDarkScheme(), {
         activation: { selectors: { light: ".theme", dark: ".theme" } },
@@ -517,7 +517,7 @@ describe("CSS activation options", () => {
     },
   );
 
-  test("custom condition shapes are validated per mode and per condition index", () => {
+  test("selector condition shapes are validated per mode and per condition index", () => {
     const result = exportCssVars(threeModeScheme(), {
       activation: {
         selectors: {
@@ -561,7 +561,7 @@ describe("CSS activation options", () => {
     });
   });
 
-  test("a missing custom selector does not skip invalid sibling media", () => {
+  test("a missing selector condition does not skip invalid sibling media", () => {
     // Deliberately bypass authoring types to exercise untrusted JavaScript input.
     const media = "not valid media !!!";
     const result = exportCssVars(lightDarkScheme(), {
@@ -590,7 +590,7 @@ describe("CSS activation options", () => {
     });
   });
 
-  test("unknown custom properties, missing selector, and invalid media collect in stable order", () => {
+  test("unknown condition properties, missing selector, and invalid media collect in stable order", () => {
     const media = "not valid media !!!";
     const options = { activation: { selectors: { dark: [{ media, extra: true }] } } };
     const result = exportCssVars(lightDarkScheme(), options as never);
@@ -630,7 +630,7 @@ describe("CSS activation options", () => {
     ).toEqual(result);
   });
 
-  test("an invalid custom selector does not skip invalid sibling media", () => {
+  test("an invalid selector condition does not skip invalid sibling media", () => {
     expect(
       exportCssVars(lightDarkScheme(), {
         activation: { selectors: { dark: [{ selector: ".a{", media: "tv" }] } },
