@@ -13,7 +13,7 @@ authorization. No deployment or merge to main is part of this run.
 | Item               | Verified value                                                 |
 | ------------------ | -------------------------------------------------------------- |
 | Source commit      | `20a9fdc8ac7f941eafa736bfa519e84a36f36b08`                     |
-| Subject            | `docs(changeset): remove stale deferred release note`          |
+| Subject            | docs(changeset): remove stale deferred release note            |
 | Branch and remote  | `dev`, equal to freshly fetched `origin/dev`                   |
 | Primary worktree   | Clean before qualification and after P7.5                      |
 | Primary versions   | `scheme-tokens@0.3.0`, `@scheme-tokens/material3@0.1.1`        |
@@ -188,6 +188,11 @@ The closeout is limited to this evidence record and factual status updates in
 `planning/0.4-implementation-plan.md` and `docs/roadmap.md`. It does not change package/source,
 API, schema, test, configuration, lockfile, export-map or Changeset inputs. Accepted ADRs and
 historical P6/P6.1 evidence remain unchanged.
+
+The first closeout attempt failed the public-document API check because the baseline commit
+subject was formatted as inline code and parsed as a function call. Rendering that subject as
+plain text corrects the evidence markup without changing the gate or any package input. Its
+failed aggregate remains recorded; the corrected closeout receives full final verification.
 
 The closeout delivery report owns the final commit identity, final full `pnpm release:check`,
 documentation/Changesets/diff checks, clean-tree and remote parity, and all exact-SHA CI job
