@@ -34,20 +34,22 @@ const scheme = orThrow(
 // System and custom maps are partial over the finite mode union.
 orThrow(
   exportCssVars(scheme, {
-    prefix: "app",
-    root: ":root",
-    attribute: "data-theme",
-    system: { dark: "(prefers-color-scheme: dark)" },
-    selectors: {
-      dark: ".dark",
-      dim: [{ selector: ".dim" }, { selector: "[data-contrast] .dim", media: "print" }],
+    activation: {
+      root: ":root",
+      attribute: "data-theme",
+      media: { dark: "(prefers-color-scheme: dark)" },
+      selectors: {
+        dark: ".dark",
+        dim: [{ selector: ".dim" }, { selector: "[data-contrast] .dim", media: "print" }],
+      },
     },
+    prefix: "app",
     cascadeLayer: "tokens",
     format: "compact",
     references: "var",
   }),
 );
-exportCssVars(scheme, { attribute: false, root: ":host" });
+exportCssVars(scheme, { activation: { root: ":host" } });
 exportCssVars(scheme, { references: "resolved" });
 // @ts-expect-error reference projection accepts only the two documented output semantics.
 exportCssVars(scheme, { references: "linked" });
@@ -56,37 +58,47 @@ const conditions = [
   { selector: ".dark" },
   { selector: ".night", media: "print" },
 ] as const satisfies readonly CssCondition[];
-exportCssVars(scheme, { selectors: { dark: conditions } });
+exportCssVars(scheme, { activation: { selectors: { dark: conditions } } });
 
-const annotated: ExportCssVarsOptions<"background", Mode> = { system: { dim: "print" } };
+const annotated: ExportCssVarsOptions<"background", Mode> = {
+  activation: { media: { dim: "print" } },
+};
 exportCssVars(scheme, annotated);
 
 exportCssVars(scheme, {
-  system: {
-    // @ts-expect-error system conditions reject modes the compiled scheme does not have.
-    sepia: "(prefers-color-scheme: dark)",
+  activation: {
+    media: {
+      // @ts-expect-error system conditions reject modes the compiled scheme does not have.
+      sepia: "(prefers-color-scheme: dark)",
+    },
   },
 });
 exportCssVars(scheme, {
-  selectors: {
-    // @ts-expect-error custom conditions reject modes the compiled scheme does not have.
-    sepia: ".sepia",
+  activation: {
+    selectors: {
+      // @ts-expect-error custom conditions reject modes the compiled scheme does not have.
+      sepia: ".sepia",
+    },
   },
 });
 exportCssVars(scheme, {
-  selectors: {
-    // @ts-expect-error a condition list is non-empty.
-    dark: [],
+  activation: {
+    selectors: {
+      // @ts-expect-error a condition list is non-empty.
+      dark: [],
+    },
   },
 });
 exportCssVars(scheme, {
-  selectors: {
-    // @ts-expect-error a condition names its selector.
-    dark: [{ media: "print" }],
+  activation: {
+    selectors: {
+      // @ts-expect-error a condition names its selector.
+      dark: [{ media: "print" }],
+    },
   },
 });
 // @ts-expect-error attribute is a data-* name or false, never true.
-exportCssVars(scheme, { attribute: true });
+exportCssVars(scheme, { activation: { attribute: true } });
 // @ts-expect-error the removed scope option is not accepted.
 exportCssVars(scheme, { scope: { strategy: "root" } });
 // @ts-expect-error the removed mode-selector strategies are not accepted.
@@ -97,9 +109,8 @@ const parsed = parseCompiledScheme({});
 if (parsed.ok) {
   const partial = orThrow(
     exportCssVars(parsed.value, {
+      activation: { media: { anything: "print" }, selectors: { other: ".x" } },
       references: "var",
-      system: { anything: "print" },
-      selectors: { other: ".x" },
     }),
   );
   const variable: string | undefined = partial.variableByToken.anything;
@@ -126,7 +137,7 @@ export type ResolvedKeepsInference = Expect<Equal<typeof resolved, typeof export
 linked.variableByToken.background.toUpperCase();
 const exact = orThrow(
   compileTokenGraph(defineTokenGraph({ tokens: { a: "1px", b: "2px" } }), {
-    selection: { keys: ["a"] },
+    selection: ["a"],
   }),
 );
 const exactExport = orThrow(exportCssVars(exact, { references: "var" }));
@@ -139,7 +150,7 @@ void exactExport.variableByToken.b;
 const runtimeKeys: readonly ("a" | "b")[] = ["a"];
 const runtimeSelection = orThrow(
   compileTokenGraph(defineTokenGraph({ tokens: { a: "1px", b: "2px" } }), {
-    selection: { keys: runtimeKeys },
+    selection: runtimeKeys,
   }),
 );
 const runtimeExport = orThrow(exportCssVars(runtimeSelection, { references: "var" }));
@@ -153,7 +164,9 @@ export type ExportKeepsCompleteness = Expect<
   Equal<typeof exported, CssVarsExport<"background", Mode, true>>
 >;
 export type BlockIsTyped = Expect<Equal<Block, CssVarBlock<"background", Mode>>>;
-export type BlockTier = Expect<Equal<Block["tier"], "base" | "system" | "explicit" | "custom">>;
+export type BlockTier = Expect<
+  Equal<Block["tier"], "default" | "media" | "attribute" | "selector">
+>;
 export type BlockSelectors = Expect<Equal<Block["selectors"], readonly [string, ...string[]]>>;
 export type BlockMedia = Expect<Equal<Block["media"], string | undefined>>;
 for (const block of exported.blocks) {
@@ -180,3 +193,21 @@ export type NoRemovedIssueCodes = Expect<
     never
   >
 >;
+
+exportCssVars(scheme, {
+  activation: {
+    root: ":host(.app)",
+    attribute: { name: "data-mode", includeHost: true },
+    selectors: { dark: { selector: ".dark", media: "print" } },
+  },
+});
+// @ts-expect-error old top-level activation options are removed.
+exportCssVars(scheme, { system: { dark: "print" } });
+// @ts-expect-error omitting attribute activation replaces false.
+exportCssVars(scheme, { activation: { attribute: false } });
+// @ts-expect-error host inclusion belongs to attribute activation only.
+exportCssVars(scheme, { activation: { root: ":host", includeHost: true } });
+// @ts-expect-error includeHost is a boolean.
+exportCssVars(scheme, { activation: { attribute: { name: "data-mode", includeHost: "true" } } });
+// @ts-expect-error naming stays outside activation.
+exportCssVars(scheme, { activation: { prefix: "app" } });

@@ -32,7 +32,7 @@ type ExportedCssVars<Scheme extends AnyCompiledScheme> = Result<
 
 /**
  * Export a compiled scheme as deterministic CSS custom properties. Blocks follow the tier order
- * base, system, explicit, custom; within a tier, the scheme's authored mode order; within one
+ * default, media, attribute, selector; within a tier, the scheme's authored mode order; within one
  * mode, the order of its conditions. Every activation selector is wrapped in `:where()`, so the
  * later matching block wins and application CSS competes through the ordinary cascade.
  * Resolved values are the default; `references: "var"` links retained direct references only
@@ -107,12 +107,14 @@ interface Activation {
 
 function planActivations(scheme: AnyCompiledScheme, options: ParsedCssOptions): Activation[] {
   const root: readonly [string] = [options.root];
-  const activations: Activation[] = [{ tier: "base", mode: scheme.defaultMode, selectors: root }];
+  const activations: Activation[] = [
+    { tier: "default", mode: scheme.defaultMode, selectors: root },
+  ];
 
   for (const mode of scheme.modes) {
-    const media = options.system.get(mode);
+    const media = options.media.get(mode);
     if (media !== undefined) {
-      activations.push({ tier: "system", mode, selectors: root, media });
+      activations.push({ tier: "media", mode, selectors: root, media });
     }
   }
 
@@ -120,9 +122,9 @@ function planActivations(scheme: AnyCompiledScheme, options: ParsedCssOptions): 
   if (attribute !== undefined) {
     for (const mode of scheme.modes) {
       activations.push({
-        tier: "explicit",
+        tier: "attribute",
         mode,
-        selectors: explicitSelectors(options.root, attribute, mode),
+        selectors: attributeSelectors(attribute.name, attribute.includeHost === true, mode),
       });
     }
   }
@@ -130,7 +132,7 @@ function planActivations(scheme: AnyCompiledScheme, options: ParsedCssOptions): 
   for (const mode of scheme.modes) {
     for (const condition of options.selectors.get(mode) ?? []) {
       activations.push({
-        tier: "custom",
+        tier: "selector",
         mode,
         selectors: [condition.selector],
         ...(condition.media === undefined ? {} : { media: condition.media }),
@@ -142,14 +144,14 @@ function planActivations(scheme: AnyCompiledScheme, options: ParsedCssOptions): 
 }
 
 // A marker is unanchored so any element can switch modes. Inside a shadow tree the host is not
-// matched by an ordinary selector, so a `:host` root also gets the host form of the marker.
-function explicitSelectors(
-  root: string,
+// matched by an ordinary selector. Only attribute.includeHost opts it into this mechanism.
+function attributeSelectors(
   attribute: string,
+  includeHost: boolean,
   mode: string,
 ): readonly [string, ...string[]] {
   const marker = `[${attribute}="${mode}"]`;
-  return root === ":host" ? [`:host(${marker})`, marker] : [marker];
+  return includeHost ? [`:host(${marker})`, marker] : [marker];
 }
 
 function buildVariableNames(

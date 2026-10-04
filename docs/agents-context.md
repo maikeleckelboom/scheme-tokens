@@ -46,23 +46,25 @@ never ships as an alias next to the old shape.
 - P4a links only direct targets in the compiled scheme's actual emitted key set, regardless of visibility or naming success, and reuses actual names built once. Resolved output stays the default. Complete alias declarations enable local propagation; unmarked descendants inherit already-computed aliases. Concat projection is CSS token substitution, not arbitrary character assembly. Safety checks the complete projected value, not isolated fragments or unused resolved/fallback strings. The compiled parser proves structure without metadata consistency or acyclicity; P4a does not recompile edited metadata. See the [CSS guide](../docs-site/guide/export-css-variables.md#reference-output) and [diagnostics](./diagnostics.md#css-export) for the boundaries.
 - [ADR 0015](./adr/0015-concat-mode-disambiguation.md) supersedes only the reserved-mode rule for `concat`. Exact singleton array shape distinguishes concat expressions from mode maps. This preserves valid published v1 source with mode `concat` and D10 retention. Never classify by property presence alone, including in the static model.
 
+- [ADR 0018](./adr/0018-public-api-refinement.md) refines candidate API vocabulary: Material modeSettings, array selection, helper-only omitted tokens, LayerVisibilityFacts, compiled declaredVisibility, discriminated issues, and grouped CSS activation. Attribute markers are explicit opt-in; includeHost is additive and independent of root. The composed-layer static-reference prototype was rejected for error locality and declaration nameability. Do not reintroduce it without solving those specific problems.
+
 ## Material 3 adapter package
 
 - [ADR 0005](./adr/0005-material3-adapter-package-boundary.md) owns the optional package
   boundary and licensing; [ADR 0007](./adr/0007-material3-engine-and-role-contract.md) owns the pinned
   engine, accepted roles and capabilities. P5 implements [ADR 0014](./adr/0014-material3-layer-and-mode-mapping.md),
   superseding the listed parts of ADR 0006, all of ADR 0008, and ADR 0005's old named type list.
-  Material returns one fixed-id layer, with an exact non-empty modes map and custom `colorMode`.
+  Material returns one fixed-id layer, with an exact non-empty modeSettings map and custom `colorMode`.
   The positional source is the only global source; spec and visibility remain global. Effective
   source/variant/contrast coordinates are validated before engine generation. Core validates names
   through a narrow empty-envelope preflight and the generated layer directly; its errors propagate unchanged.
 - Current P3 visibility facts refine ADR 0014's prototype: generated declarations omit visibility,
-  so all 48 roles appear in `omitted`, with `public`/`internal` both `never`. Preserve that fact and
+  so all 48 roles appear in `mayOmitVisibilityKeys`, with `mayStatePublicKeys`/`mayStateInternalKeys` both `never`. Preserve that fact and
   core's nominal proof. NoInfer prevents modes and default visibility being supplied by return
   context. Unknown visibility keeps public output partial over all keys, including possibly public
   roles. Bare Material3Options is deliberately wider than the default call.
 - P5.1 implements [ADR 0016](./adr/0016-material-option-presence.md): NoInfer alone did not
-  prove optional-input presence. Material3Options now requires modes unless the set is exactly
+  prove optional-input presence. Material3Options now requires modeSettings unless the set is exactly
   light/dark, and visibility when its type excludes public. A non-generic omitted/undefined
   overload preserves the runtime defaults; explicit generics require supplied options. Optional
   options must be narrowed or defaulted before forwarding. Required generic wrappers preserve

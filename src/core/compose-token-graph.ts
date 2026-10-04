@@ -36,7 +36,10 @@ export function composeTokenGraph(source: ValidatedSource<TokenGraph>): Composed
     for (const [key, definition] of Object.entries(definitions)) {
       const previous = tokens.get(key);
       const { value, visibility, ...metadata } = definition;
-      const declaration = { origin, ...(visibility === undefined ? {} : { visibility }) };
+      const declaration = {
+        origin,
+        ...(visibility === undefined ? {} : { declaredVisibility: visibility }),
+      };
       const expressions = sortedRecord(
         graph.modes.map((mode) => {
           const expressionPath =

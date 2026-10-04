@@ -25,7 +25,7 @@ export function createStylesheet(): string {
 
   const scheme = orThrow(
     compileTokenGraph(graph, {
-      selection: { keys: publicKeys },
+      selection: publicKeys,
     }),
   );
   const cssVars = orThrow(exportCssVars(scheme));

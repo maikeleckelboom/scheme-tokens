@@ -60,7 +60,7 @@ describe("material3", () => {
   test("a wrapper's supplied custom/internal settings determine runtime facts", () => {
     function forward(
       options: Material3Options<"custom", "internal"> = {
-        modes: { custom: { colorMode: "light" } },
+        modeSettings: { custom: { colorMode: "light" } },
         visibility: "internal",
       },
     ) {
@@ -94,12 +94,12 @@ describe("material3", () => {
   });
 
   test("explicit modes replaces the default completely", () => {
-    const layer = material3("#6750a4", { modes: { standard: { colorMode: "light" } } });
+    const layer = material3("#6750a4", { modeSettings: { standard: { colorMode: "light" } } });
     expect(layer.tokens["md.sys.color.primary"]?.value).toEqual({ standard: "#65558f" });
   });
 
   test("rejects an empty exact modes map", () => {
-    expect(() => material3("#6750a4", { modes: {} } as never)).toThrow(TypeError);
+    expect(() => material3("#6750a4", { modeSettings: {} } as never)).toThrow(TypeError);
   });
 
   test("accepts exact six-digit sources and canonicalizes uppercase", () => {
@@ -153,7 +153,7 @@ describe("material3", () => {
   test("generates complete exact six-mode maps", () => {
     const layer = material3("#6750a4", {
       visibility: "internal",
-      modes: {
+      modeSettings: {
         "mono-light": { colorMode: "light", variant: "monochrome" },
         "mono-dark": { colorMode: "dark", variant: "monochrome" },
         "vivid-light": { colorMode: "light" },
@@ -189,22 +189,24 @@ describe("material3", () => {
   });
 
   test("allows one built-in mode and valid custom concat", () => {
-    const light = material3("#6750a4", { modes: { light: {} } });
-    const concat = material3("#6750a4", { modes: { concat: { colorMode: "light" } } });
+    const light = material3("#6750a4", { modeSettings: { light: {} } });
+    const concat = material3("#6750a4", { modeSettings: { concat: { colorMode: "light" } } });
     for (const definition of Object.values(light.tokens)) {
       expect(Object.keys(definition.value)).toEqual(["light"]);
     }
     expect(modeValue(concat, "md.sys.color.primary", "concat")).toBe(
       modeValue(light, "md.sys.color.primary", "light"),
     );
-    expect(() => material3("#6750a4", { modes: { concat: {} } } as never)).toThrow(TypeError);
+    expect(() => material3("#6750a4", { modeSettings: { concat: {} } } as never)).toThrow(
+      TypeError,
+    );
   });
 
   test("resolves source, variant and contrast independently per field", () => {
     const layer = material3("#6750a4", {
       variant: "neutral",
       contrastLevel: -0.25,
-      modes: {
+      modeSettings: {
         inherited: { colorMode: "light" },
         source: { colorMode: "dark", sourceColor: "#009489" },
         variant: { colorMode: "light", variant: "expressive" },
@@ -249,7 +251,7 @@ describe("material3", () => {
       material3("#6750a4", {
         specVersion: "2025",
         variant: "monochrome",
-        modes: { light: { variant: "neutral" }, dark: { variant: "expressive" } },
+        modeSettings: { light: { variant: "neutral" }, dark: { variant: "expressive" } },
       }),
     ).not.toThrow();
   });
@@ -260,7 +262,7 @@ describe("material3", () => {
       expect(() =>
         material3("#6750a4", {
           specVersion: "2025",
-          modes: {
+          modeSettings: {
             "a-supported": { colorMode: "light", variant: "neutral" },
             "z-unsupported": { colorMode: "dark", variant: "fidelity" },
           },
@@ -292,7 +294,7 @@ describe("material3", () => {
     const generation = vi.spyOn(engine, "generateMaterial3Mode");
     try {
       const adapterError = captureError(() =>
-        material3("#6750a4", { modes: { [mode]: { colorMode: "light" } } }),
+        material3("#6750a4", { modeSettings: { [mode]: { colorMode: "light" } } }),
       );
       expect(adapterError.constructor).toBe(Error);
       expect(adapterError.message).toBe(coreError.message);
@@ -323,15 +325,15 @@ describe("material3", () => {
   test("copies trusted plain data and normalizes per-mode sources", () => {
     const options = {
       visibility: "internal",
-      modes: { light: { sourceColor: "#009489" } },
+      modeSettings: { light: { sourceColor: "#009489" } },
     } as const;
     const before = structuredClone(options);
     const layer = material3("#6750a4", options);
     expect(options).toEqual(before);
-    expect(material3("#6750a4", { modes: { light: { sourceColor: "#009489" } } })).toEqual(
-      material3("#6750a4", { modes: { light: { sourceColor: "#009489".toUpperCase() } } }),
+    expect(material3("#6750a4", { modeSettings: { light: { sourceColor: "#009489" } } })).toEqual(
+      material3("#6750a4", { modeSettings: { light: { sourceColor: "#009489".toUpperCase() } } }),
     );
-    Object.assign(options.modes.light, { sourceColor: "#ff0000" });
+    Object.assign(options.modeSettings.light, { sourceColor: "#ff0000" });
     expect(layer).toEqual(material3("#6750a4", before));
     const nullPrototype: object = Object.assign(Object.create(null), before);
     expect(material3("#6750a4", nullPrototype)).toEqual(layer);
@@ -342,7 +344,7 @@ describe("material3", () => {
     const modes = {
       custom: Object.defineProperty({}, "colorMode", { enumerable: true, get: getter }),
     };
-    expect(() => material3("#6750a4", { modes } as never)).toThrow(TypeError);
+    expect(() => material3("#6750a4", { modeSettings: modes } as never)).toThrow(TypeError);
     expect(getter).not.toHaveBeenCalled();
   });
 
@@ -355,22 +357,22 @@ describe("material3", () => {
     [{ appearance: "light" }, RangeError],
     [{ exactModes: { light: {} } }, RangeError],
     [{ defaultMode: "light" }, RangeError],
-    [{ modes: undefined }, TypeError],
-    [{ modes: {} }, TypeError],
-    [{ modes: [] }, TypeError],
-    [{ modes: { "light-high": "light" } }, TypeError],
-    [{ modes: { "light-high": {} } }, TypeError],
-    [{ modes: { "dark-brand": { colorMode: "dim" } } }, RangeError],
-    [{ modes: { light: { colorMode: "light" } } }, RangeError],
-    [{ modes: { dark: { colorMode: "dark" } } }, RangeError],
-    [{ modes: { dark: { colorMode: undefined } } }, RangeError],
-    [{ modes: { custom: { colorMode: "light", appearance: "light" } } }, RangeError],
-    [{ modes: { custom: { colorMode: "light", specVersion: "2025" } } }, RangeError],
-    [{ modes: { custom: { colorMode: "light", visibility: "internal" } } }, RangeError],
-    [{ modes: { custom: { colorMode: "light", platform: "phone" } } }, RangeError],
-    [{ modes: { custom: { colorMode: "light", sourceColor: "#abc" } } }, RangeError],
-    [{ modes: { custom: { colorMode: "light", contrastLevel: 2 } } }, RangeError],
-    [{ modes: { custom: { colorMode: "light", variant: "dynamic" } } }, RangeError],
+    [{ modeSettings: undefined }, TypeError],
+    [{ modeSettings: {} }, TypeError],
+    [{ modeSettings: [] }, TypeError],
+    [{ modeSettings: { "light-high": "light" } }, TypeError],
+    [{ modeSettings: { "light-high": {} } }, TypeError],
+    [{ modeSettings: { "dark-brand": { colorMode: "dim" } } }, RangeError],
+    [{ modeSettings: { light: { colorMode: "dark" } } }, RangeError],
+    [{ modeSettings: { dark: { colorMode: "light" } } }, RangeError],
+    [{ modeSettings: { dark: { colorMode: undefined } } }, RangeError],
+    [{ modeSettings: { custom: { colorMode: "light", appearance: "light" } } }, RangeError],
+    [{ modeSettings: { custom: { colorMode: "light", specVersion: "2025" } } }, RangeError],
+    [{ modeSettings: { custom: { colorMode: "light", visibility: "internal" } } }, RangeError],
+    [{ modeSettings: { custom: { colorMode: "light", platform: "phone" } } }, RangeError],
+    [{ modeSettings: { custom: { colorMode: "light", sourceColor: "#abc" } } }, RangeError],
+    [{ modeSettings: { custom: { colorMode: "light", contrastLevel: 2 } } }, RangeError],
+    [{ modeSettings: { custom: { colorMode: "light", variant: "dynamic" } } }, RangeError],
     [{ visibility: "private" }, RangeError],
     [{ variant: "dynamic" }, RangeError],
     [{ specVersion: "2026" }, RangeError],
@@ -412,3 +414,12 @@ function captureError(action: () => unknown): Error {
   }
   throw new Error("Expected an error.");
 }
+
+test("congruent explicit built-in color modes generate the same layer", () => {
+  expect(
+    material3("#6750a4", {
+      modeSettings: { light: { colorMode: "light" }, dark: { colorMode: "dark" } },
+    }),
+  ).toEqual(material3("#6750a4"));
+  expect(() => material3("#6750a4", { modes: { light: {} } } as never)).toThrow(RangeError);
+});

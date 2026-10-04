@@ -73,12 +73,10 @@ defineTokenGraph({tokens: {
 }});
 
 compileTokenGraph(graph, {
-  selection: {
-    keys: [
+  selection: [
       // @ts-expect-error explicit selection keys remain tied to the authored graph
       "semantic.missing",
     ],
-  },
 });
 
 type ChromavertPublicKey = "background" | "semantic.action" | "semantic.primary";
@@ -135,7 +133,7 @@ const permutedCompiled = expectOk(
   "compile insertion-order permutation",
 );
 const exactCompiled = expectOk(
-  compileTokenGraph(graph, { selection: { keys: ["semantic.action"] } }),
+  compileTokenGraph(graph, { selection: ["semantic.action"] }),
   "compile exact semantic selection",
 );
 const completeExactContract: CompiledScheme<"semantic.action", ChromavertMode, true> =
@@ -179,12 +177,7 @@ if (serializeCompiledScheme(parsedCompiled) !== serializedCompiled) {
 }
 
 const publicCss = expectOk(
-  exportCssVars(publicCompiled, {
-    prefix: "color",
-    attribute: false,
-    system: { dark: "(prefers-color-scheme: dark)" },
-    selectors: { light: ".light", dark: ".dark" },
-  }),
+  exportCssVars(publicCompiled, { activation: { media: { dark: "(prefers-color-scheme: dark)" }, selectors: { light: ".light", dark: ".dark" } }, prefix: "color" }),
   "export public Chromavert CSS",
 );
 const publicCssContract: CssVarsExport<ChromavertPublicKey, ChromavertMode, true> = publicCss;
@@ -194,12 +187,7 @@ const permutedPublic = expectOk(
   "compile permuted public semantics",
 );
 const permutedCss = expectOk(
-  exportCssVars(permutedPublic, {
-    selectors: { dark: ".dark", light: ".light" },
-    system: { dark: "(prefers-color-scheme: dark)" },
-    attribute: false,
-    prefix: "color",
-  }),
+  exportCssVars(permutedPublic, { activation: { selectors: { dark: ".dark", light: ".light" }, media: { dark: "(prefers-color-scheme: dark)" } }, prefix: "color" }),
   "export permuted public CSS",
 );
 if (publicCss.css !== permutedCss.css || publicCss.blocks.length !== 4) {

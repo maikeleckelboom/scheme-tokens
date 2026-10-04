@@ -21,14 +21,14 @@
           "origin": {
             "kind": "graph"
           },
-          "visibility": "public"
+          "declaredVisibility": "public"
         }
       ],
       "expressionByMode": {
-        "light": {
+        "dark": {
           "ref": "brand.primary"
         },
-        "dark": {
+        "light": {
           "ref": "brand.primary"
         }
       }
@@ -40,14 +40,14 @@
           "origin": {
             "kind": "graph"
           },
-          "visibility": "public"
+          "declaredVisibility": "public"
         }
       ],
       "expressionByMode": {
-        "light": {
+        "dark": {
           "ref": "brand.on-primary"
         },
-        "dark": {
+        "light": {
           "ref": "brand.on-primary"
         }
       }

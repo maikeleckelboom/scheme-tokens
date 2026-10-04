@@ -116,9 +116,10 @@ describe("v2 standalone schema contract", () => {
 
   test.each([
     { declarations: [] },
+    { declarations: [{ origin: { kind: "graph" }, visibility: "public" }] },
     { declarations: [{ origin: { kind: "graph", id: "extra" } }] },
     { declarations: [{ origin: { kind: "layer" } }] },
-    { declarations: [{ origin: { kind: "graph" }, visibility: "private" }] },
+    { declarations: [{ origin: { kind: "graph" }, declaredVisibility: "private" }] },
     { origin: { kind: "graph" } },
     { dependenciesByMode: { concat: [] } },
     { expressionByMode: {} },

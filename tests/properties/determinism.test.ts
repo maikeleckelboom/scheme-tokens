@@ -85,20 +85,16 @@ describe("determinism and parser safety properties", () => {
         // conditions keep their authored order.
         const tier = (name: string) =>
           left.value.blocks.filter((block) => block.tier === name).map((block) => block.mode);
-        expect(tier("base")).toEqual([defaultMode]);
-        expect(tier("system")).toEqual(modes.filter((mode) => options.system?.[mode]));
-        expect(tier("explicit")).toEqual(
-          options.attribute === false || (options.attribute === undefined && modes.length === 1)
-            ? []
-            : modes,
-        );
+        expect(tier("default")).toEqual([defaultMode]);
+        expect(tier("media")).toEqual(modes.filter((mode) => options.activation?.media?.[mode]));
+        expect(tier("attribute")).toEqual(options.activation?.attribute === undefined ? [] : modes);
         expect(
           left.value.blocks
-            .filter((block) => block.tier === "custom")
+            .filter((block) => block.tier === "selector")
             .map((block) => `${block.mode} ${block.selectors[0]} ${block.media ?? ""}`),
         ).toEqual(
           modes.flatMap((mode) =>
-            conditionList(options.selectors?.[mode]).map(
+            conditionList(options.activation?.selectors?.[mode]).map(
               (condition) => `${mode} ${condition.selector} ${condition.media ?? ""}`,
             ),
           ),
@@ -120,7 +116,7 @@ describe("determinism and parser safety properties", () => {
         { z: "z", a: "a", "m.n": "m" },
         false,
       );
-      const exported = exportCssVars(compiled, { selectors: { dark: ".dark" } });
+      const exported = exportCssVars(compiled, { activation: { selectors: { dark: ".dark" } } });
       expect(exported.ok).toBe(true);
     } finally {
       String.prototype.localeCompare = original;
@@ -203,6 +199,7 @@ function cssCase() {
       );
       const conditions = fc.oneof(
         fc.constantFrom(...SELECTOR_POOL),
+        condition,
         fc
           .array(condition, { minLength: 1, maxLength: 3 })
           .map((list) => list as [CssCondition, ...CssCondition[]]),
@@ -219,13 +216,21 @@ function cssCase() {
         ) as fc.Arbitrary<TokenValues>,
         options: fc.record(
           {
+            activation: fc.record(
+              {
+                root: fc.constantFrom(":root", ":host", "#app"),
+                attribute: fc.oneof(
+                  fc.constantFrom("data-theme", "data-mode"),
+                  fc.record({ name: fc.constant("data-mode"), includeHost: fc.boolean() }),
+                ),
+                media: fc.dictionary(mode, fc.constantFrom(...MEDIA_POOL)),
+                selectors: fc.dictionary(mode, conditions),
+              },
+              { requiredKeys: [] },
+            ),
             prefix: fc.constantFrom("app", "color"),
-            root: fc.constantFrom(":root", ":host", "#app"),
-            attribute: fc.constantFrom<string | false>(false, "data-theme", "data-mode"),
             format: fc.constantFrom<"pretty" | "compact">("pretty", "compact"),
             cascadeLayer: fc.constantFrom("tokens", "app.tokens"),
-            system: fc.dictionary(mode, fc.constantFrom(...MEDIA_POOL)),
-            selectors: fc.dictionary(mode, conditions),
           },
           { requiredKeys: [] },
         ) as fc.Arbitrary<ExportCssVarsOptions>,
@@ -261,25 +266,24 @@ function compileAll(
 }
 
 function reverseInsertion(options: ExportCssVarsOptions): ExportCssVarsOptions {
-  return Object.fromEntries(
-    Object.entries(options)
-      .reverse()
-      .map(([key, value]) => [
-        key,
-        key === "system" || key === "selectors"
-          ? Object.fromEntries(Object.entries(value as object).reverse())
-          : value,
-      ]),
-  ) as ExportCssVarsOptions;
+  const reverse = (value: unknown): unknown =>
+    value !== null && typeof value === "object" && !Array.isArray(value)
+      ? Object.fromEntries(
+          Object.entries(value)
+            .reverse()
+            .map(([key, field]) => [key, reverse(field)]),
+        )
+      : value;
+  return reverse(options) as ExportCssVarsOptions;
 }
 
 function conditionList(
-  value: string | readonly CssCondition[] | undefined,
+  value: string | CssCondition | readonly CssCondition[] | undefined,
 ): readonly CssCondition[] {
   if (value === undefined) {
     return [];
   }
-  return typeof value === "string" ? [{ selector: value }] : value;
+  return typeof value === "string" ? [{ selector: value }] : "selector" in value ? [value] : value;
 }
 
 function compareCodeUnits(left: string, right: string): number {

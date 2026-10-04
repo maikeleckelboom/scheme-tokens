@@ -11,28 +11,31 @@ import {
   sortedRecord,
   type JsonValue,
 } from "./json";
+import type { TokenGraphIssue } from "../types/diagnostics";
 import type { Issue } from "./result";
 
-export type FieldIssue = Issue<
-  | "invalid-description"
-  | "invalid-deprecated"
-  | "invalid-extensions"
-  | "invalid-json-value"
-  | "missing-property"
-  | "invalid-mode-key"
-  | "empty-modes"
-  | "duplicate-mode-key"
-  | "default-mode-not-found"
-  | "invalid-visibility"
-  | "invalid-default-visibility"
-  | "invalid-layer-id"
-  | "unknown-property"
-> & { readonly mode?: string; readonly layerId?: string };
+type FieldIssue = Extract<
+  TokenGraphIssue,
+  {
+    readonly code:
+      | "invalid-description"
+      | "invalid-deprecated"
+      | "invalid-extensions"
+      | "invalid-json-value"
+      | "missing-property"
+      | "invalid-mode-key"
+      | "empty-modes"
+      | "duplicate-mode-key"
+      | "default-mode-not-found"
+      | "invalid-visibility"
+      | "invalid-default-visibility"
+      | "invalid-layer-id"
+      | "unknown-property";
+  }
+>;
 type Collector<Code extends FieldIssue["code"]> = {
-  add(issue: Issue<Code> & { readonly mode?: string; readonly layerId?: string }): void;
-  addMany(
-    issues: readonly (Issue<Code> & { readonly mode?: string; readonly layerId?: string })[],
-  ): void;
+  add(issue: Extract<FieldIssue, { readonly code: Code }>): void;
+  addMany(issues: readonly Extract<FieldIssue, { readonly code: Code }>[]): void;
 };
 
 export function parseDefinitionMetadata(
@@ -200,7 +203,7 @@ export function parseVisibility<Code extends "invalid-default-visibility" | "inv
   input: unknown,
   path: string,
   code: Code,
-  collector: Collector<NoInfer<Code>>,
+  collector: { add(issue: Issue<NoInfer<Code>> & { readonly path: string }): void },
 ): TokenVisibility | undefined {
   if (input === "public" || input === "internal") {
     return input;

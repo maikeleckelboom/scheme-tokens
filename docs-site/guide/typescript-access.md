@@ -22,7 +22,7 @@ scheme.metadataByToken.background.declarations.length.toFixed();
 const everything = orThrow(compileTokenGraph(graph, { selection: "all" }));
 everything.tokens["brand.600"].light.toUpperCase();
 
-const exact = orThrow(compileTokenGraph(graph, { selection: { keys: ["primary"] } }));
+const exact = orThrow(compileTokenGraph(graph, { selection: ["primary"] }));
 exact.tokens.primary.light.toUpperCase();
 ```
 
@@ -51,4 +51,4 @@ For literal input the helpers reject, at the offending property:
 
 The marker names appear in compiler messages to explain a rejection. They are not exported, and their wording is not a compatibility contract.
 
-Public types center on `Result`, `Issue`, `TokenReference`, `TokenGraph`, `DefinedTokenGraph`, `TokenLayer`, `LayerVisibility`, `CompiledScheme`, `CssVarsExport`, and their essential option and issue types.
+Public types center on `Result`, `Issue`, `TokenReference`, `TokenGraph`, `DefinedTokenGraph`, `TokenLayer`, `LayerVisibilityFacts`, `CompiledScheme`, `CssVarsExport`, and their essential option and issue types.

@@ -60,21 +60,22 @@ type PublicRoleKey = (typeof publicRoleKeys)[number];
 // system fallback and ordered custom conditions; `:not()` keeps the vivid system fallback from
 // overriding an explicit light choice.
 const activation = {
-  prefix: "app",
-  attribute: false,
-  system: { "mono-dark": "(prefers-color-scheme: dark)" },
-  selectors: {
-    "mono-light": '[data-scheme="light"]',
-    "mono-dark": '[data-scheme="dark"]',
-    "vivid-light": '[data-palette="vivid"]',
-    "vivid-dark": [
-      {
-        selector: '[data-palette="vivid"]:not([data-scheme="light"])',
-        media: "(prefers-color-scheme: dark)",
-      },
-      { selector: '[data-palette="vivid"][data-scheme="dark"]' },
-    ],
+  activation: {
+    media: { "mono-dark": "(prefers-color-scheme: dark)" },
+    selectors: {
+      "mono-light": '[data-scheme="light"]',
+      "mono-dark": '[data-scheme="dark"]',
+      "vivid-light": '[data-palette="vivid"]',
+      "vivid-dark": [
+        {
+          selector: '[data-palette="vivid"]:not([data-scheme="light"])',
+          media: "(prefers-color-scheme: dark)",
+        },
+        { selector: '[data-palette="vivid"][data-scheme="dark"]' },
+      ],
+    },
   },
+  prefix: "app",
   format: "pretty",
 } as const satisfies ExportCssVarsOptions<PublicRoleKey, CompilerMode>;
 
@@ -139,9 +140,11 @@ void first.compiled.tokens["source.paper"];
 // @ts-expect-error compiled mode keys remain the exact private mode union
 void first.compiled.tokens["surface.canvas"]["mono-sepia"];
 const unknownModeCondition: ExportCssVarsOptions<PublicRoleKey, CompilerMode> = {
-  system: {
-    // @ts-expect-error activation conditions are keyed by the exact private mode union
-    "mono-sepia": "print",
+  activation: {
+    media: {
+      // @ts-expect-error activation conditions are keyed by the exact private mode union
+      "mono-sepia": "print",
+    },
   },
 };
 void unknownModeCondition;
@@ -193,18 +196,18 @@ assertDeepEqual(
     block.media ?? null,
   ]),
   [
-    ["base", "mono-light", [":root"], null],
-    ["system", "mono-dark", [":root"], "(prefers-color-scheme: dark)"],
-    ["custom", "mono-light", ['[data-scheme="light"]'], null],
-    ["custom", "mono-dark", ['[data-scheme="dark"]'], null],
-    ["custom", "vivid-light", ['[data-palette="vivid"]'], null],
+    ["default", "mono-light", [":root"], null],
+    ["media", "mono-dark", [":root"], "(prefers-color-scheme: dark)"],
+    ["selector", "mono-light", ['[data-scheme="light"]'], null],
+    ["selector", "mono-dark", ['[data-scheme="dark"]'], null],
+    ["selector", "vivid-light", ['[data-palette="vivid"]'], null],
     [
-      "custom",
+      "selector",
       "vivid-dark",
       ['[data-palette="vivid"]:not([data-scheme="light"])'],
       "(prefers-color-scheme: dark)",
     ],
-    ["custom", "vivid-dark", ['[data-palette="vivid"][data-scheme="dark"]'], null],
+    ["selector", "vivid-dark", ['[data-palette="vivid"][data-scheme="dark"]'], null],
   ],
   "activation block ordering",
 );
@@ -329,9 +332,7 @@ function projectTheme() {
 
   const compiled = expectOk(
     compileTokenGraph(graph, {
-      selection: {
-        keys: publicRoleKeys,
-      },
+      selection: publicRoleKeys,
     }),
     "compile exact public theme roles",
   );

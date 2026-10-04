@@ -7,7 +7,7 @@ import {
 import { readArray, readPlainRecord } from "../core/json";
 import { IssueCollector, type Result } from "../core/result";
 import { describeUnknown } from "../core/unknown-description";
-import type { CssVariableNameInput, ExportCssVarsIssue } from "./css-types";
+import type { CssAttributeActivation, CssVariableNameInput, ExportCssVarsIssue } from "./css-types";
 import { isValidMediaCondition } from "./media-validation";
 import { isValidCssSelector } from "./selector-validation";
 
@@ -22,17 +22,16 @@ export interface ParsedCssOptions {
   readonly compact: boolean;
   readonly references: "resolved" | "var";
   readonly root: string;
-  /** The explicit-tier attribute, or `undefined` when no explicit markers are generated. */
-  readonly attribute?: string;
-  /** System media condition by mode. */
-  readonly system: ReadonlyMap<string, string>;
-  /** Custom conditions by mode, in authored condition order. */
+  /** The attribute-tier marker, or `undefined` when no explicit markers are generated. */
+  readonly attribute?: CssAttributeActivation;
+  /** Media condition by mode. */
+  readonly media: ReadonlyMap<string, string>;
+  /** Selector conditions by mode, in authored condition order. */
   readonly selectors: ReadonlyMap<string, readonly ParsedCssCondition[]>;
   readonly cascadeLayer?: string;
 }
 
 const DEFAULT_ROOT = ":root";
-const DEFAULT_ATTRIBUTE = "data-theme";
 
 type Collector = IssueCollector<ExportCssVarsIssue>;
 
@@ -62,10 +61,7 @@ export function parseCssOptions(
   let variableName: ((input: CssVariableNameInput) => unknown) | undefined;
   let compact = false;
   let references: "resolved" | "var" = "resolved";
-  let root = DEFAULT_ROOT;
-  let attribute: string | false | undefined;
-  let system: ReadonlyMap<string, string> = new Map();
-  let selectors: ReadonlyMap<string, readonly ParsedCssCondition[]> = new Map();
+  let activation = parseActivation(undefined, modes, collector);
   let cascadeLayer: string | undefined;
 
   for (const { key, value } of entries.value) {
@@ -81,8 +77,8 @@ export function parseCssOptions(
       continue;
     }
     switch (key) {
-      case "attribute":
-        attribute = parseAttribute(value, collector);
+      case "activation":
+        activation = parseActivation(value, modes, collector);
         break;
       case "cascadeLayer":
         cascadeLayer = parseCascadeLayer(value, collector);
@@ -96,15 +92,6 @@ export function parseCssOptions(
       case "references":
         references = parseReferences(value, collector);
         break;
-      case "root":
-        root = parseRoot(value, collector);
-        break;
-      case "selectors":
-        selectors = parseCustomConditions(value, modes, collector);
-        break;
-      case "system":
-        system = parseSystemConditions(value, modes, collector);
-        break;
       case "variableName":
         variableName = parseVariableName(value, collector);
         break;
@@ -116,23 +103,17 @@ export function parseCssOptions(
     ...(variableName === undefined ? {} : { variableName }),
     compact,
     references,
-    root,
-    ...resolveAttribute(attribute, scheme.modes.length),
-    system,
-    selectors,
+    ...activation,
     ...(cascadeLayer === undefined ? {} : { cascadeLayer }),
   });
 }
 
 const OPTION_NAMES = new Set([
-  "attribute",
+  "activation",
   "cascadeLayer",
   "format",
   "prefix",
   "references",
-  "root",
-  "selectors",
-  "system",
   "variableName",
 ] as const);
 type OptionName = typeof OPTION_NAMES extends Set<infer Name> ? Name : never;
@@ -141,18 +122,55 @@ function isKnownOption(key: string): key is OptionName {
   return (OPTION_NAMES as ReadonlySet<string>).has(key);
 }
 
-// Omitting `attribute` selects the conventional marker, but only a multi-mode scheme needs one.
-function resolveAttribute(
-  attribute: string | false | undefined,
-  modeCount: number,
-): { readonly attribute?: string } {
-  if (attribute === false) {
-    return {};
+function parseActivation(
+  input: unknown,
+  modes: ReadonlySet<string>,
+  collector: Collector,
+): Pick<ParsedCssOptions, "root" | "attribute" | "media" | "selectors"> {
+  let root = DEFAULT_ROOT;
+  let attribute: CssAttributeActivation | undefined;
+  let media: ReadonlyMap<string, string> = new Map();
+  let selectors: ReadonlyMap<string, readonly ParsedCssCondition[]> = new Map();
+  const entries =
+    input === undefined
+      ? ({ ok: true, value: [] } as const)
+      : readPlainRecord(input, {
+          code: "invalid-css-options",
+          message: "activation must be a plain object.",
+          option: "activation",
+        });
+  if (!entries.ok) {
+    collector.addMany(entries.issues);
+  } else {
+    for (const { key, value } of entries.value) {
+      if (!["root", "attribute", "media", "selectors"].includes(key)) {
+        collector.add({
+          code: "invalid-css-options",
+          message: "Unknown activation option: " + key,
+          option: "activation." + key,
+        });
+        continue;
+      }
+      if (value === undefined) {
+        continue;
+      }
+      switch (key) {
+        case "root":
+          root = parseRoot(value, collector);
+          break;
+        case "attribute":
+          attribute = parseAttribute(value, collector);
+          break;
+        case "media":
+          media = parseMediaConditions(value, modes, collector);
+          break;
+        case "selectors":
+          selectors = parseSelectorConditions(value, modes, collector);
+          break;
+      }
+    }
   }
-  if (attribute === undefined) {
-    return modeCount > 1 ? { attribute: DEFAULT_ATTRIBUTE } : {};
-  }
-  return { attribute };
+  return { root, ...(attribute === undefined ? {} : { attribute }), media, selectors };
 }
 
 function parsePrefix(value: unknown, collector: Collector): string | undefined {
@@ -217,13 +235,27 @@ function parseRoot(value: unknown, collector: Collector): string {
   return DEFAULT_ROOT;
 }
 
-function parseAttribute(value: unknown, collector: Collector): string | false | undefined {
-  if (value === false || (typeof value === "string" && isDataAttributeName(value))) {
-    return value;
+function parseAttribute(value: unknown, collector: Collector): CssAttributeActivation | undefined {
+  if (typeof value === "string" && isDataAttributeName(value)) {
+    return { name: value };
+  }
+  const entries = readPlainRecord(value, { code: "invalid-attribute" });
+  if (entries.ok) {
+    const fields = new Map(entries.value.map(({ key, value }) => [key, value]));
+    const name = fields.get("name");
+    const includeHost = fields.get("includeHost");
+    if (
+      entries.value.every(({ key }) => key === "name" || key === "includeHost") &&
+      typeof name === "string" &&
+      isDataAttributeName(name) &&
+      (includeHost === undefined || typeof includeHost === "boolean")
+    ) {
+      return { name, ...(includeHost === undefined ? {} : { includeHost }) };
+    }
   }
   collector.add({
     code: "invalid-attribute",
-    message: `attribute must be false or a lower-kebab data-* attribute name, received ${describeUnknown(value)}.`,
+    message: "attribute must be a data-* name or { name, includeHost? }.",
   });
   return undefined;
 }
@@ -239,27 +271,27 @@ function parseCascadeLayer(value: unknown, collector: Collector): string | undef
   return undefined;
 }
 
-function parseSystemConditions(
+function parseMediaConditions(
   value: unknown,
   modes: ReadonlySet<string>,
   collector: Collector,
 ): ReadonlyMap<string, string> {
-  const entries = readConditionRecord(value, "system", collector);
-  const system = new Map<string, string>();
+  const entries = readConditionRecord(value, "media", collector);
+  const byMode = new Map<string, string>();
   for (const { key: mode, value: media } of entries) {
     if (media === undefined) {
       continue;
     }
-    const known = reportUnknownMode(mode, "system", modes, collector);
-    const parsed = parseMedia(media, { tier: "system", mode }, collector);
+    const known = reportUnknownMode(mode, "media", modes, collector);
+    const parsed = parseMedia(media, { tier: "media", mode }, collector);
     if (known && parsed !== undefined) {
-      system.set(mode, parsed);
+      byMode.set(mode, parsed);
     }
   }
-  return system;
+  return byMode;
 }
 
-function parseCustomConditions(
+function parseSelectorConditions(
   value: unknown,
   modes: ReadonlySet<string>,
   collector: Collector,
@@ -270,7 +302,7 @@ function parseCustomConditions(
     if (conditions === undefined) {
       continue;
     }
-    const known = reportUnknownMode(mode, "custom", modes, collector);
+    const known = reportUnknownMode(mode, "selector", modes, collector);
     const parsed = parseModeConditions(mode, conditions, collector);
     if (known && parsed !== undefined) {
       selectors.set(mode, parsed);
@@ -281,7 +313,7 @@ function parseCustomConditions(
 
 function readConditionRecord(
   value: unknown,
-  option: "selectors" | "system",
+  option: "selectors" | "media",
   collector: Collector,
 ): readonly { readonly key: string; readonly value: unknown }[] {
   const entries = readPlainRecord(value, {
@@ -289,7 +321,7 @@ function readConditionRecord(
     message: `${option} must be a plain object keyed by mode.`,
   });
   if (!entries.ok) {
-    collector.add({ ...entries.issues[0], option });
+    collector.add({ ...entries.issues[0], option: "activation." + option });
     return [];
   }
   return entries.value;
@@ -297,7 +329,7 @@ function readConditionRecord(
 
 function reportUnknownMode(
   mode: string,
-  tier: "system" | "custom",
+  tier: "media" | "selector",
   modes: ReadonlySet<string>,
   collector: Collector,
 ): boolean {
@@ -306,7 +338,7 @@ function reportUnknownMode(
   }
   collector.add({
     code: "unknown-condition-mode",
-    message: `${tier === "system" ? "system" : "selectors"} names a mode the scheme does not have: ${JSON.stringify(mode)}.`,
+    message: `${tier === "media" ? "media" : "selectors"} names a mode the scheme does not have: ${JSON.stringify(mode)}.`,
     tier,
     mode,
   });
@@ -323,19 +355,25 @@ function parseModeConditions(
     return selector === undefined ? undefined : [{ selector }];
   }
 
+  if (!Array.isArray(value)) {
+    const condition = parseCondition(value, mode, undefined, collector);
+    return condition === undefined ? undefined : [condition];
+  }
+
   const entries = readArray(value, {
-    code: "invalid-custom-condition",
-    message: "A custom condition must be a selector string or a non-empty list of conditions.",
+    code: "invalid-selector-condition",
+    message:
+      "A selector condition must be a selector string, condition object, or non-empty list of conditions.",
   });
   if (!entries.ok) {
-    collector.add({ ...entries.issues[0], tier: "custom", mode });
+    collector.add({ ...entries.issues[0], tier: "selector", mode });
     return undefined;
   }
   if (entries.value.length === 0) {
     collector.add({
-      code: "invalid-custom-condition",
-      message: "A custom condition list must not be empty.",
-      tier: "custom",
+      code: "invalid-selector-condition",
+      message: "A selector condition list must not be empty.",
+      tier: "selector",
       mode,
     });
     return undefined;
@@ -357,16 +395,16 @@ function parseModeConditions(
 function parseCondition(
   value: unknown,
   mode: string,
-  index: number,
+  index: number | undefined,
   collector: Collector,
 ): ParsedCssCondition | undefined {
-  const context = { mode, index };
+  const context = { mode, ...(index === undefined ? {} : { index }) };
   const entries = readPlainRecord(value, {
-    code: "invalid-custom-condition",
-    message: "A custom condition must be a plain object with selector and optional media.",
+    code: "invalid-selector-condition",
+    message: "A selector condition must be a plain object with selector and optional media.",
   });
   if (!entries.ok) {
-    collector.add({ ...entries.issues[0], tier: "custom", ...context });
+    collector.add({ ...entries.issues[0], tier: "selector", ...context });
     return undefined;
   }
 
@@ -381,9 +419,9 @@ function parseCondition(
     } else {
       valid = false;
       collector.add({
-        code: "invalid-custom-condition",
-        message: `Unknown custom condition property: ${JSON.stringify(entry.key)}.`,
-        tier: "custom",
+        code: "invalid-selector-condition",
+        message: `Unknown selector condition property: ${JSON.stringify(entry.key)}.`,
+        tier: "selector",
         ...context,
       });
     }
@@ -392,9 +430,9 @@ function parseCondition(
   let selector: string | undefined;
   if (selectorInput === undefined) {
     collector.add({
-      code: "invalid-custom-condition",
-      message: "A custom condition requires a selector.",
-      tier: "custom",
+      code: "invalid-selector-condition",
+      message: "A selector condition requires a selector.",
+      tier: "selector",
       ...context,
     });
   } else {
@@ -403,7 +441,7 @@ function parseCondition(
   const media =
     mediaInput === undefined
       ? undefined
-      : parseMedia(mediaInput, { tier: "custom", ...context }, collector);
+      : parseMedia(mediaInput, { tier: "selector", ...context }, collector);
   if (!valid || selector === undefined || (mediaInput !== undefined && media === undefined)) {
     return undefined;
   }
@@ -420,8 +458,8 @@ function parseSelector(
   }
   collector.add({
     code: "invalid-selector",
-    message: `Custom condition selectors must be in the bounded selector grammar, received ${describeUnknown(value)}.`,
-    tier: "custom",
+    message: `Selector condition selectors must be in the bounded selector grammar, received ${describeUnknown(value)}.`,
+    tier: "selector",
     ...context,
     ...(typeof value === "string" ? { selector: value } : {}),
   });
@@ -430,7 +468,7 @@ function parseSelector(
 
 function parseMedia(
   value: unknown,
-  context: { readonly tier: "system" | "custom"; readonly mode: string; readonly index?: number },
+  context: { readonly tier: "media" | "selector"; readonly mode: string; readonly index?: number },
   collector: Collector,
 ): string | undefined {
   if (typeof value === "string" && isValidMediaCondition(value)) {

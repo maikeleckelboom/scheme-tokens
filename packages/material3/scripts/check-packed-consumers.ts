@@ -160,7 +160,7 @@ function combinedConsumerSource(): string {
 import { material3 } from "@scheme-tokens/material3";
 import { compileTokenGraph, defineTokenGraph, defineTokenLayer, exportCssVars, orThrow, tokenRef } from "scheme-tokens";
 
-const material = material3("#6750a4", { visibility: "internal", modes: {
+const material = material3("#6750a4", { visibility: "internal", modeSettings: {
   standard: { colorMode: "light" }, inverse: { colorMode: "dark" },
 } });
 const overrides = defineTokenLayer({ id: "brand-overrides", tokens: { "md.sys.color.primary": "#ff0055" } });
@@ -182,7 +182,7 @@ const publicScheme = orThrow(compileTokenGraph(graph));
 if (Object.keys(publicScheme.tokens).length !== 2) {
   throw new Error("packed visibility failed");
 }
-const css = orThrow(exportCssVars(all, { selectors: { inverse: ".dark" } }));
+const css = orThrow(exportCssVars(all, { activation: { selectors: { inverse: ".dark" } } }));
 if (css.variableByToken["md.sys.color.primary"] !== "--md-sys-color-primary") {
   throw new Error("packed Material CSS naming failed");
 }

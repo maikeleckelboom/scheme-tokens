@@ -166,7 +166,7 @@ type Composed<State extends VisibilityState, Key extends string, MayPublic exten
   readonly unknown: Exclude<Stated, Public | Internal> | Exclude<State["unknown"], Public | Internal> | (TokenVisibility extends Default ? Introduced : never);
 };
 type IsUnion<Value, Whole = Value> = Value extends unknown ? [Whole] extends [Value] ? false : true : never;
-type ComposeLayer<State extends VisibilityState, Layer> = true extends IsUnion<Layer> ? DynamicState : Layer extends TokenLayer<infer Key, string, infer Visibility> ? Composed<State, Key, Extract<Key, Visibility["public"]>, Extract<Key, Visibility["internal"]>, Extract<Key, Visibility["omitted"]>, Visibility["default"]> : DynamicState;
+type ComposeLayer<State extends VisibilityState, Layer> = true extends IsUnion<Layer> ? DynamicState : Layer extends TokenLayer<infer Key, string, infer Visibility> ? Composed<State, Key, Extract<Key, Visibility["mayStatePublicKeys"]>, Extract<Key, Visibility["mayStateInternalKeys"]>, Extract<Key, Visibility["mayOmitVisibilityKeys"]>, Visibility["defaultVisibility"]> : DynamicState;
 type ComposeLayers<State extends VisibilityState, Layers extends readonly unknown[]> = Layers extends readonly [infer Head, ...infer Tail] ? ComposeLayers<ComposeLayer<State, Head>, Tail> : Layers extends readonly [] ? State : DynamicState;
 /** A layer without a proven static claim may declare any key. */
 type LayerKeyOf<Layer> = Layer extends TokenLayer<infer Key> ? Key : string;
@@ -179,6 +179,139 @@ type JsonPrimitive = null | boolean | number | string;
 type JsonValue = JsonPrimitive | readonly JsonValue[] | {
   readonly [key: string]: JsonValue;
 };
+/** Each code is a separate variant, including codes with identical payloads. */
+type IssueVariants<Details> = { [Code in keyof Details & string]: Issue<Code> & Details[Code]; }[keyof Details & string];
+interface LocatedIssue {
+  readonly path: string;
+}
+interface ModeIssue extends LocatedIssue {
+  readonly mode: string;
+}
+interface KeyIssue extends LocatedIssue {
+  readonly key: string;
+}
+interface ResolutionDetails extends KeyIssue {
+  readonly mode: string;
+}
+/** Shared validators emit these same payloads at source and compiled boundaries. */
+interface ValidationIssueDetails {
+  "invalid-object": {};
+  "unknown-property": LocatedIssue & {
+    readonly key?: string;
+  };
+  "missing-property": LocatedIssue & {
+    readonly key?: string;
+  };
+  "invalid-artifact-kind": LocatedIssue;
+  "invalid-format-version": LocatedIssue;
+  "invalid-schema-uri": LocatedIssue;
+  "invalid-json-value": LocatedIssue;
+  "empty-modes": LocatedIssue;
+  "invalid-mode-key": LocatedIssue & {
+    readonly mode?: string;
+  };
+  "duplicate-mode-key": ModeIssue;
+  "default-mode-not-found": ModeIssue;
+  "invalid-token-key": KeyIssue;
+  "invalid-visibility": LocatedIssue;
+  "invalid-token-definition": LocatedIssue;
+  "missing-mode-value": ModeIssue;
+  "unknown-mode-value": ModeIssue;
+  "invalid-description": LocatedIssue;
+  "invalid-deprecated": LocatedIssue;
+  "invalid-extensions": LocatedIssue;
+}
+type ValidationIssue = IssueVariants<ValidationIssueDetails>;
+type TokenGraphIssue = ValidationIssue | IssueVariants<{
+  "invalid-default-visibility": LocatedIssue;
+  "invalid-layer-id": LocatedIssue & {
+    readonly layerId?: string;
+  };
+  "duplicate-layer-id": LocatedIssue & {
+    readonly layerId: string;
+    readonly firstPath: string;
+  };
+  "inconsistent-layer-modes": KeyIssue & {
+    readonly layerId: string;
+    readonly firstPath: string;
+    readonly modes: readonly string[];
+    readonly layerModes: readonly string[];
+  };
+  "layer-mode-mismatch": LocatedIssue & {
+    readonly layerId: string;
+    readonly modes: readonly string[];
+    readonly layerModes: readonly string[];
+  };
+  "missing-token-value": LocatedIssue;
+  "invalid-token-value": {};
+  "invalid-reference": {
+    readonly mode?: string;
+  };
+  "unknown-reference": ResolutionDetails;
+  "resolved-value-too-long": ResolutionDetails;
+  "reference-cycle": ResolutionDetails & {
+    readonly cycle: readonly string[];
+  };
+}>;
+type CompileTokenGraphIssue = TokenGraphIssue | IssueVariants<{
+  "invalid-compile-options": {};
+  "invalid-selection": LocatedIssue;
+  "empty-selection": LocatedIssue;
+  "invalid-selection-key": LocatedIssue & {
+    readonly key?: string;
+  };
+  "duplicate-selection-key": KeyIssue;
+  "unknown-selection-key": KeyIssue;
+  "no-selected-tokens": {};
+}>;
+type ParseCompiledSchemeIssue = ValidationIssue | IssueVariants<{
+  "invalid-token-value": ModeIssue;
+  "invalid-origin": LocatedIssue;
+  "invalid-declarations": LocatedIssue;
+  "invalid-expression": LocatedIssue;
+}>;
+type ExportCssVarsIssue = ParseCompiledSchemeIssue | IssueVariants<{
+  "invalid-css-options": {
+    readonly option?: string;
+  };
+  "invalid-css-prefix": {};
+  "invalid-css-variable": {
+    readonly key: string;
+    readonly property?: string;
+  };
+  "invalid-css-value": ResolutionDetails;
+  "duplicate-css-variable": {
+    readonly key: string;
+    readonly firstKey: string;
+    readonly property: string;
+  };
+  "invalid-root": {
+    readonly selector?: string;
+  };
+  "invalid-attribute": {};
+  "invalid-selector": {
+    readonly tier: "selector";
+    readonly mode: string;
+    readonly index?: number;
+    readonly selector?: string;
+  };
+  "invalid-media": {
+    readonly tier: "media" | "selector";
+    readonly mode: string;
+    readonly index?: number;
+    readonly media?: string;
+  };
+  "invalid-selector-condition": {
+    readonly tier: "selector";
+    readonly mode: string;
+    readonly index?: number;
+  };
+  "unknown-condition-mode": {
+    readonly tier: "media" | "selector";
+    readonly mode: string;
+  };
+  "invalid-cascade-layer": {};
+}>;
 declare const tokenGraphKind = "scheme-tokens/token-graph";
 declare const tokenLayerKind = "scheme-tokens/token-layer";
 declare const compiledSchemeKind = "scheme-tokens/compiled-scheme";
@@ -203,16 +336,16 @@ type TokenDefinition<Key extends string = string, Mode extends string = string> 
   readonly value: TokenExpression<Key> | TokenModeValues<Mode, Key>;
 };
 /**
- * Type-only visibility facts of a layer. `public` and `internal` name the keys whose
- * declaration may state that visibility, and `omitted` the keys whose declaration may omit
- * it. A key in exactly one set is known; a wider type only adds possibilities, so the
- * default `LayerVisibility` describes a layer whose visibility is not statically known.
+ * Type-only visibility facts of a layer. The mayStatePublicKeys and mayStateInternalKeys
+ * sets name declarations that may state visibility; mayOmitVisibilityKeys may omit
+ * it. These may-sets can overlap; a wider type only adds possibilities, so the
+ * default `LayerVisibilityFacts` describes a layer whose visibility is not statically known.
  */
-interface LayerVisibility {
-  readonly default: TokenVisibility;
-  readonly public: string;
-  readonly internal: string;
-  readonly omitted: string;
+interface LayerVisibilityFacts {
+  readonly defaultVisibility: TokenVisibility;
+  readonly mayStatePublicKeys: string;
+  readonly mayStateInternalKeys: string;
+  readonly mayOmitVisibilityKeys: string;
 }
 declare const layerStatic: unique symbol;
 declare const graphStatic: unique symbol;
@@ -236,12 +369,12 @@ type ExactClaim<Claim extends string> = string extends Claim ? unknown : (claim:
 type IsDynamic<Claim extends string> = string extends Claim ? true : false;
 type GraphTokens<Key extends string, Mode extends string> = IsDynamic<Key> extends true ? Readonly<Record<string, TokenDefinition<string, Mode>>> : Readonly<Partial<Record<Key, TokenDefinition<string, Mode>>>>;
 /** A layer's runtime fields and its static facts. */
-interface TokenLayerFields<Key extends string, Mode extends string, Visibility extends LayerVisibility> {
+interface TokenLayerFields<Key extends string, Mode extends string, Visibility extends LayerVisibilityFacts> {
   readonly $schema?: string;
   readonly kind: typeof tokenLayerKind;
   readonly formatVersion: 2;
   readonly id: string;
-  readonly defaultVisibility: Visibility["default"];
+  readonly defaultVisibility: Visibility["defaultVisibility"];
   readonly tokens: Readonly<Record<Key, TokenDefinition<string, Mode>>>;
   /** Static information only; never present at runtime or in serialized output. */
   readonly [layerStatic]?: {
@@ -256,7 +389,7 @@ interface TokenLayerFields<Key extends string, Mode extends string, Visibility e
  * proof, so only `defineTokenLayer` and the values that flow from it make one. The default
  * claims nothing and needs no proof; its optional member only keeps the name in printed types.
  */
-type TokenLayer<Key extends string = string, Mode extends string = string, Visibility extends LayerVisibility = LayerVisibility> = TokenLayerFields<Key, Mode, Visibility> & ([string, string, LayerVisibility] extends [Key, Mode, Visibility] ? {
+type TokenLayer<Key extends string = string, Mode extends string = string, Visibility extends LayerVisibilityFacts = LayerVisibilityFacts> = TokenLayerFields<Key, Mode, Visibility> & ([string, string, LayerVisibilityFacts] extends [Key, Mode, Visibility] ? {
   readonly [layerStatic]?: unknown;
 } : StaticProof);
 /** A graph's runtime fields and its static facts. */
@@ -317,15 +450,6 @@ type TokenOrigin = {
   readonly kind: "layer";
   readonly id: string;
 };
-type TokenGraphIssue = Issue<"invalid-object" | "unknown-property" | "missing-property" | "invalid-artifact-kind" | "invalid-format-version" | "invalid-schema-uri" | "invalid-json-value" | "empty-modes" | "invalid-mode-key" | "duplicate-mode-key" | "default-mode-not-found" | "invalid-default-visibility" | "layer-mode-mismatch" | "resolved-value-too-long" | "invalid-layer-id" | "duplicate-layer-id" | "invalid-token-key" | "invalid-visibility" | "invalid-token-definition" | "missing-token-value" | "invalid-token-value" | "missing-mode-value" | "unknown-mode-value" | "invalid-reference" | "unknown-reference" | "reference-cycle" | "invalid-description" | "invalid-deprecated" | "invalid-extensions"> & {
-  readonly key?: string;
-  readonly mode?: string;
-  readonly layerId?: string;
-  readonly firstPath?: string;
-  readonly cycle?: readonly string[];
-  readonly modes?: readonly string[];
-  readonly layerModes?: readonly string[];
-};
 declare function tokenRef<const Key extends string>(key: Key): TokenReference<Key>;
 /** Canonical results (D5): no reference is a string, one may collapse to that reference. */
 type TokenConcatResult<References extends readonly TokenReference[]> = number extends References["length"] ? TokenExpression<References[number]["ref"]> : References extends readonly [] ? string : References extends readonly [TokenReference] ? TokenReference<References[0]["ref"]> | TokenConcat<References[0]["ref"]> : TokenConcat<References[number]["ref"]>;
@@ -335,12 +459,14 @@ declare function tokenConcat<const References extends readonly TokenReference[]>
  * keys after layers compose in order and graph tokens compose last. The graph's own keys
  * are definite in `tokens`; a key only a layer declares is not promised there.
  */
-declare function defineTokenGraph<const Tokens extends TokensConstraint<Tokens, NoInfer<Extract<keyof Tokens, string> | LayerKeyOf<Layers[number]>>, NoInfer<GraphModes<Modes>>>, const Modes extends ModeTuple | undefined = undefined, const Layers extends readonly TokenLayerData[] = readonly [], const Default extends TokenVisibility = "public">(input: {
+declare function defineTokenGraph<const Tokens extends TokensConstraint<Tokens, NoInfer<Extract<keyof Tokens, string> | LayerKeyOf<Layers[number]>>, NoInfer<GraphModes<Modes>>> = {}, const Modes extends ModeTuple | undefined = undefined, const Layers extends readonly TokenLayerData[] = readonly [], const Default extends TokenVisibility = "public">(input: {
   readonly modes?: Modes & CheckModeNames<Modes>;
   readonly defaultVisibility?: Default;
   readonly layers?: Layers & CheckLayers<Layers, NoInfer<GraphModes<Modes>>>;
+  readonly tokens?: Tokens;
+} & DefaultModeInput<Modes> & ([keyof NoInfer<Tokens>] extends [never] ? unknown : {
   readonly tokens: Tokens;
-} & DefaultModeInput<Modes>): DefinedTokenGraph<StateKey<GraphState<Tokens, Layers, Default>>, GraphModes<Modes>, StatePublicKey<GraphState<Tokens, Layers, Default>>, Extract<keyof Tokens, string>>;
+})): DefinedTokenGraph<StateKey<GraphState<Tokens, Layers, Default>>, GraphModes<Modes>, StatePublicKey<GraphState<Tokens, Layers, Default>>, Extract<keyof Tokens, string>>;
 /**
  * Define a reusable layer. Its mode set is the union of its mode-map names, and every mode
  * map must name all of them (D12).
@@ -350,28 +476,22 @@ declare function defineTokenLayer<const Tokens extends TokensConstraint<Tokens, 
   readonly defaultVisibility?: Default;
   readonly tokens: Tokens;
 }): TokenLayer<Extract<keyof Tokens, string>, LayerModeEntries<Tokens>[keyof Tokens], {
-  readonly default: Default;
-  readonly public: DeclaredStateKeys<Tokens, "public">;
-  readonly internal: DeclaredStateKeys<Tokens, "internal">;
-  readonly omitted: DeclaredStateKeys<Tokens, "omitted">;
+  readonly defaultVisibility: Default;
+  readonly mayStatePublicKeys: DeclaredStateKeys<Tokens, "public">;
+  readonly mayStateInternalKeys: DeclaredStateKeys<Tokens, "internal">;
+  readonly mayOmitVisibilityKeys: DeclaredStateKeys<Tokens, "omitted">;
 }>;
 declare function parseTokenGraph(input: unknown): Result<TokenGraph, TokenGraphIssue>;
 declare function parseTokenLayer(input: unknown): Result<TokenLayer, TokenGraphIssue>;
-type TokenSelection<Key extends string = string> = "public" | "all" | {
-  readonly keys: readonly Key[];
-};
+type TokenSelection<Key extends string = string> = "public" | "all" | readonly Key[];
 interface CompileTokenGraphOptions<Key extends string = string> {
   readonly selection?: TokenSelection<Key>;
 }
-type CompileSelectionIssue = Issue<"invalid-compile-options" | "invalid-selection" | "empty-selection" | "invalid-selection-key" | "duplicate-selection-key" | "unknown-selection-key" | "no-selected-tokens"> & {
-  readonly key?: string;
-};
-type CompileTokenGraphIssue = TokenGraphIssue | CompileSelectionIssue;
 type CompiledToken<Mode extends string = string> = Readonly<Record<Mode, string>>;
 type CompiledRecord<Key extends string, Value, Complete extends boolean> = Complete extends true ? Readonly<Record<Key, Value>> : Readonly<Partial<Record<Key, Value>>>;
 interface TokenDeclarationRecord {
   readonly origin: TokenOrigin;
-  readonly visibility?: TokenVisibility;
+  readonly declaredVisibility?: TokenVisibility;
 }
 type CompiledReference = {
   readonly ref: string;
@@ -400,10 +520,6 @@ interface CompiledScheme<Key extends string = string, Mode extends string = stri
   readonly tokens: CompiledRecord<Key, CompiledToken<Mode>, Complete>;
   readonly metadataByToken: CompiledRecord<Key, CompiledTokenMetadata<Mode>, Complete>;
 }
-type ParseCompiledSchemeIssue = Issue<"invalid-object" | "unknown-property" | "missing-property" | "invalid-artifact-kind" | "invalid-format-version" | "invalid-schema-uri" | "invalid-mode-key" | "duplicate-mode-key" | "default-mode-not-found" | "invalid-token-key" | "invalid-visibility" | "invalid-token-definition" | "invalid-token-value" | "missing-mode-value" | "unknown-mode-value" | "invalid-origin" | "invalid-declarations" | "invalid-expression" | "empty-modes" | "invalid-description" | "invalid-deprecated" | "invalid-extensions" | "invalid-json-value"> & {
-  readonly key?: string;
-  readonly mode?: string;
-};
 declare function parseCompiledScheme(input: unknown): Result<CompiledScheme<string, string, false>, ParseCompiledSchemeIssue>;
 type GraphKey<Input> = Input extends TokenGraph<infer Key extends string> ? Key : string;
 type GraphMode<Input> = Input extends TokenGraph<string, infer Mode extends string> ? Mode : string;
@@ -412,9 +528,7 @@ type PublicCompiled<Input> = IsFinite<GraphPublicKey<Input>> extends true ? Comp
 type SelectedCompiled<Input, Options> = [Options] extends [{
   readonly selection: "all";
 }] ? CompiledScheme<GraphKey<Input>, GraphMode<Input>, IsFinite<GraphKey<Input>>> : [Options] extends [{
-  readonly selection: {
-    readonly keys: infer Keys extends readonly string[];
-  };
+  readonly selection: infer Keys extends readonly string[];
 }] ? CompiledScheme<Keys[number], GraphMode<Input>, number extends Keys["length"] ? false : IsFinite<Keys[number]>> : [Options] extends [{
   readonly selection?: "public" | undefined;
 }] ? PublicCompiled<Input> : CompiledScheme<GraphKey<Input>, GraphMode<Input>, false>;
@@ -435,6 +549,21 @@ interface CssVariableNameInput<Key extends string = string> {
   readonly defaultName: string;
   readonly prefix?: string;
 }
+/** Attribute markers always target ordinary elements; includeHost adds shadow-host matching. */
+interface CssAttributeActivation {
+  readonly name: string;
+  readonly includeHost?: boolean;
+}
+interface CssActivationOptions<Mode extends string = string> {
+  /** Selector receiving the default and media rules. Defaults to `:root`; no targeting side effects. */
+  readonly root?: string;
+  /** Explicit opt-in to data-* markers for every mode, including the default. */
+  readonly attribute?: string | CssAttributeActivation;
+  /** Media condition activating a mode at root. No mode or application meaning is inferred. */
+  readonly media?: Readonly<Partial<Record<Mode, string>>>;
+  /** One selector, one condition object, or a non-empty list in authored condition order. */
+  readonly selectors?: Readonly<Partial<Record<Mode, string | CssCondition | readonly [CssCondition, ...CssCondition[]]>>>;
+}
 interface ExportCssVarsOptions<Key extends string = string, Mode extends string = string> {
   /** Lower-kebab segment placed after `--` in every default variable name. */
   readonly prefix?: string;
@@ -447,21 +576,11 @@ interface ExportCssVarsOptions<Key extends string = string, Mode extends string 
    * CSS token-stream substitution need not match core string concatenation.
    */
   readonly references?: "resolved" | "var";
-  /** Element that receives the default mode and system conditions. Defaults to `:root`. */
-  readonly root?: string;
-  /**
-   * `data-*` attribute whose value selects a mode on any element. Omitted, it is `data-theme`
-   * when the scheme has more than one mode; `false` disables generated markers.
-   */
-  readonly attribute?: string | false;
-  /** Media condition that activates a mode at `root`. No mode is inferred. */
-  readonly system?: Readonly<Partial<Record<Mode, string>>>;
-  /** Custom conditions per mode: one selector, or a list of selectors with optional media. */
-  readonly selectors?: Readonly<Partial<Record<Mode, string | readonly [CssCondition, ...CssCondition[]]>>>;
+  readonly activation?: CssActivationOptions<Mode>;
   /** Wrap the output in `@layer <name>`. */
   readonly cascadeLayer?: string;
 }
-type CssActivationTier = "base" | "system" | "explicit" | "custom";
+type CssActivationTier = "default" | "media" | "attribute" | "selector";
 interface CssVarDeclaration<Key extends string = string> {
   readonly tokenKey: Key;
   readonly property: string;
@@ -485,17 +604,6 @@ interface CssVarsExport<Key extends string = string, Mode extends string = strin
   readonly blocks: readonly CssVarBlock<Key, Mode>[];
   readonly variableByToken: CssVariableMap<Key, Complete>;
 }
-type ExportCssVarsIssue = ParseCompiledSchemeIssue | (Issue<"invalid-css-options" | "invalid-css-prefix" | "invalid-css-variable" | "invalid-css-value" | "duplicate-css-variable" | "invalid-root" | "invalid-attribute" | "invalid-selector" | "invalid-media" | "invalid-custom-condition" | "unknown-condition-mode" | "invalid-cascade-layer"> & {
-  readonly option?: string;
-  readonly key?: string;
-  readonly firstKey?: string;
-  readonly mode?: string;
-  readonly tier?: "system" | "custom";
-  readonly index?: number;
-  readonly property?: string;
-  readonly selector?: string;
-  readonly media?: string;
-});
 type AnyCompiledScheme$1 = CompiledScheme<string, string, boolean>;
 type SchemeKey<Scheme extends AnyCompiledScheme$1> = Extract<keyof Scheme["tokens"], string>;
 type SchemeMode<Scheme extends AnyCompiledScheme$1> = Extract<Scheme["modes"][number], string>;
@@ -504,7 +612,7 @@ type ExportCssVarsOptionsFor<Scheme extends AnyCompiledScheme$1> = ExportCssVars
 type ExportedCssVars<Scheme extends AnyCompiledScheme$1> = Result<CssVarsExport<SchemeKey<Scheme>, SchemeMode<Scheme>, SchemeCompleteness<Scheme>>, ExportCssVarsIssue>;
 /**
  * Export a compiled scheme as deterministic CSS custom properties. Blocks follow the tier order
- * base, system, explicit, custom; within a tier, the scheme's authored mode order; within one
+ * default, media, attribute, selector; within a tier, the scheme's authored mode order; within one
  * mode, the order of its conditions. Every activation selector is wrapped in `:where()`, so the
  * later matching block wins and application CSS competes through the ordinary cascade.
  * Resolved values are the default; `references: "var"` links retained direct references only
@@ -516,4 +624,4 @@ declare function serializeTokenGraph(graph: TokenGraph): string;
 declare function serializeTokenLayer(layer: TokenLayer): string;
 type AnyCompiledScheme = CompiledScheme<string, string, boolean>;
 declare function serializeCompiledScheme(scheme: AnyCompiledScheme): string;
-export { type CompileTokenGraphIssue, type CompileTokenGraphOptions, type CompiledConcatPart, type CompiledExpression, type CompiledReference, type CompiledScheme, type CompiledToken, type CompiledTokenMetadata, type CssCondition, type CssVarBlock, type CssVarDeclaration, type CssVarsExport, type DefinedTokenGraph, type ExportCssVarsIssue, type ExportCssVarsOptions, type Issue, type JsonValue, type LayerVisibility, type ParseCompiledSchemeIssue, type Result, type TokenDeclarationRecord, type TokenDefinition, type TokenExpression, type TokenGraph, type TokenGraphIssue, type TokenLayer, type TokenOrigin, type TokenReference, type TokenSelection, type TokenVisibility, compileTokenGraph, defineTokenGraph, defineTokenLayer, exportCssVars, orThrow, parseCompiledScheme, parseTokenGraph, parseTokenLayer, serializeCompiledScheme, serializeTokenGraph, serializeTokenLayer, tokenConcat, tokenRef };
+export { type CompileTokenGraphIssue, type CompileTokenGraphOptions, type CompiledConcatPart, type CompiledExpression, type CompiledReference, type CompiledScheme, type CompiledToken, type CompiledTokenMetadata, type CssActivationOptions, type CssAttributeActivation, type CssCondition, type CssVarBlock, type CssVarDeclaration, type CssVarsExport, type DefinedTokenGraph, type ExportCssVarsIssue, type ExportCssVarsOptions, type Issue, type JsonValue, type LayerVisibilityFacts, type ParseCompiledSchemeIssue, type Result, type TokenDeclarationRecord, type TokenDefinition, type TokenExpression, type TokenGraph, type TokenGraphIssue, type TokenLayer, type TokenOrigin, type TokenReference, type TokenSelection, type TokenVisibility, compileTokenGraph, defineTokenGraph, defineTokenLayer, exportCssVars, orThrow, parseCompiledScheme, parseTokenGraph, parseTokenLayer, serializeCompiledScheme, serializeTokenGraph, serializeTokenLayer, tokenConcat, tokenRef };

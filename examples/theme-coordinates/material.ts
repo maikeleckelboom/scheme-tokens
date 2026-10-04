@@ -1,4 +1,4 @@
-import { material3, type Material3Modes } from "@scheme-tokens/material3";
+import { material3, type Material3ModeSettings } from "@scheme-tokens/material3";
 import {
   compileTokenGraph,
   defineTokenGraph,
@@ -23,9 +23,9 @@ const settings = {
   "vivid-dark": { colorMode: "dark", variant: "vibrant" },
   "material3-light": { colorMode: "light" },
   "material3-dark": { colorMode: "dark" },
-} as const satisfies Material3Modes<Mode>;
+} as const satisfies Material3ModeSettings<Mode>;
 const material = material3("#6750a4", {
-  modes: settings,
+  modeSettings: settings,
   visibility: "internal",
   specVersion: "2021",
 });
@@ -35,12 +35,14 @@ const graph = defineTokenGraph({
   layers: [material],
   tokens: { "action.primary": tokenRef("md.sys.color.primary") },
 });
-const selected = orThrow(compileTokenGraph(graph, { selection: { keys: ["action.primary"] } }));
+const selected = orThrow(compileTokenGraph(graph, { selection: ["action.primary"] }));
 const css = orThrow(
   exportCssVars(selected, {
+    activation: {
+      attribute: "data-coordinate",
+      media: { "mono-dark": "(prefers-color-scheme: dark)" },
+    },
     prefix: "color",
-    attribute: "data-coordinate",
-    system: { "mono-dark": "(prefers-color-scheme: dark)" },
   }),
 );
 const precise: Record<Mode, string> = selected.tokens["action.primary"];

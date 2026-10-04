@@ -33,13 +33,13 @@ order and default. Core rejects a second Material layer with `duplicate-layer-id
 
 ## Exact graph-mode mapping
 
-`modes` is an exact, non-empty map. Omitted means `{ light: {}, dark: {} }`; an explicit map replaces
+`modeSettings` is an exact, non-empty map. Omitted means `{ light: {}, dark: {} }`; an explicit map replaces
 that default completely. A one-mode map is valid. The exact keys `light` and `dark` imply their
-Material color mode and reject redundant `colorMode`. Every other name, including `concat`, requires
+Material color mode and accept a congruent explicit `colorMode`. Every other name, including `concat`, requires
 `colorMode: "light" | "dark"`. Core owns the mode-name grammar and reserved names.
 
 ```ts
-import { material3, type Material3Modes } from "@scheme-tokens/material3";
+import { material3, type Material3ModeSettings } from "@scheme-tokens/material3";
 import { defineTokenGraph } from "scheme-tokens";
 
 const compilerModes = [
@@ -51,20 +51,19 @@ const compilerModes = [
   "material3-dark",
 ] as const;
 type CompilerMode = (typeof compilerModes)[number];
-const modes = {
+const modeSettings = {
   "mono-light": { colorMode: "light", variant: "monochrome" },
   "mono-dark": { colorMode: "dark", variant: "monochrome" },
   "vivid-light": { colorMode: "light" },
   "vivid-dark": { colorMode: "dark" },
   "material3-light": { colorMode: "light" },
   "material3-dark": { colorMode: "dark", sourceColor: "#009489" },
-} as const satisfies Material3Modes<CompilerMode>;
-const material = material3("#6750a4", { visibility: "internal", modes });
+} as const satisfies Material3ModeSettings<CompilerMode>;
+const material = material3("#6750a4", { visibility: "internal", modeSettings });
 const graph = defineTokenGraph({
   modes: compilerModes,
   defaultMode: "mono-light",
   layers: [material],
-  tokens: {},
 });
 ```
 
@@ -107,8 +106,8 @@ Material does not wrap them or introduce a Result/issue framework. Inputs are va
 
 The only runtime export is `material3`. Exactly six named types are exported:
 `Material3TokenKey`, `Material3ColorMode`, `Material3SpecVersion`, `Material3Variant`,
-`Material3Modes`, and `Material3Options`. Per-mode settings, overrides, and the empty-map diagnostic
-marker remain internal. `Material3Modes<Mode>[M]` names one mode's settings if needed.
+`Material3ModeSettings`, and `Material3Options`. Per-mode settings, overrides, and the empty-map diagnostic
+marker remain internal. `Material3ModeSettings<Mode>[M]` names one mode's settings if needed.
 
 `Material3Options` defaults Mode to `Material3ColorMode` and Visibility to `TokenVisibility`.
 The function defaults Mode to `Material3ColorMode` and Visibility to `"public"`. Its return is:
@@ -121,15 +120,15 @@ type MaterialLayer<Mode extends string, Visibility extends TokenVisibility> = To
   Material3TokenKey,
   NoInfer<Mode>,
   {
-    readonly default: NoInfer<Visibility>;
-    readonly public: never;
-    readonly internal: never;
-    readonly omitted: Material3TokenKey;
+    readonly defaultVisibility: NoInfer<Visibility>;
+    readonly mayStatePublicKeys: never;
+    readonly mayStateInternalKeys: never;
+    readonly mayOmitVisibilityKeys: Material3TokenKey;
   }
 >;
 ```
 
-The `omitted` fact adapts ADR 0014's earlier example to current core: all 48 generated declarations
+The `mayOmitVisibilityKeys` fact adapts ADR 0014's earlier example to current core: all 48 generated declarations
 omit explicit visibility and use the layer default. Core's nominal proof, visibility composition,
 and completeness rules remain intact. `NoInfer` prevents an annotated variable, declared return,
 or typed layer list from fabricating modes or visibility.
@@ -142,7 +141,7 @@ Material roles remain possible, not definitely absent. Finite, fully known publi
 exact key tuples remain complete; generic wrappers preserve supplied modes and visibility.
 
 Precise facts require actual settings. `Material3Options<"custom", "internal">` requires both
-`modes` and `visibility`; `{}` is rejected. A single built-in mode also requires its map, because
+`modeSettings` and `visibility`; `{}` is rejected. A single built-in mode also requires its map, because
 omission generates both light and dark. Visibility may be omitted when its type includes public.
 The default-call signature accepts omitted or `undefined` options without generics. Explicit
 generic calls require an options object satisfying these same field-presence rules.
@@ -153,7 +152,7 @@ import type { TokenVisibility } from "scheme-tokens";
 
 const defaults = material3("#6750a4"); // light/dark, public
 const settings = {
-  modes: { custom: { colorMode: "light" } },
+  modeSettings: { custom: { colorMode: "light" } },
   visibility: "internal",
 } satisfies Material3Options<"custom", "internal">;
 
@@ -206,14 +205,18 @@ const graph = defineTokenGraph({
   },
 });
 const compiled = orThrow(compileTokenGraph(graph, { selection: "all" }));
-const css = orThrow(exportCssVars(compiled, { system: { dark: "(prefers-color-scheme: dark)" } }));
+const css = orThrow(
+  exportCssVars(compiled, {
+    activation: { attribute: "data-theme", media: { dark: "(prefers-color-scheme: dark)" } },
+  }),
+);
 // css.variableByToken["md.sys.color.primary"] === "--md-sys-color-primary"
 // primary's declaration origins are material3, brand, then graph.
 ```
 
 Core's default names already match `--md-sys-color-*`. Light applies at `:root`, dark under the
-system condition, and `data-theme="light"`/`data-theme="dark"` markers override either in their
-subtrees. Class activation uses custom `selectors: { dark: ".dark" }` conditions.
+media condition, and `data-theme="light"`/`data-theme="dark"` markers override either in their
+subtrees. Class activation uses `activation.selectors: { dark: ".dark" }` conditions.
 `serializeTokenLayer()` produces deterministic ordinary core data. Compiled metadata exposes
 ordered `declarations` and sparse `expressionByMode`; the adapter adds no separate CSS,
 serialization, or provenance API.
@@ -227,7 +230,7 @@ are installed together with strict peer checking, run in raw Node ESM and NodeNe
 under strict-only and stricter TypeScript configurations. Core-only installation remains Material-free.
 
 To migrate, replace fragment spreading with an explicit graph envelope and `layers: [material]`.
-Replace `exactModes`/additive `modes` with one exact `modes` map, rename `appearance` to `colorMode`,
+Replace `exactModes`/additive `modes` with one exact `modeSettings` map, rename `appearance` to `colorMode`,
 and remove the Material `defaultMode`. The old `Material3GraphFragment` and `Material3Appearance`
 exports have no aliases. Engine algorithms, the 48-role catalog, capability fixtures and golden
 outputs remain unchanged.

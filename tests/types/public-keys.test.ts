@@ -49,15 +49,13 @@ export type SimpleAll = Expect<
 >;
 simpleAll.tokens.source.base.toUpperCase();
 
-const simpleExact = orThrow(
-  compileTokenGraph(simple, { selection: { keys: ["source", "primary"] } }),
-);
+const simpleExact = orThrow(compileTokenGraph(simple, { selection: ["source", "primary"] }));
 export type SimpleExact = Expect<
   Equal<typeof simpleExact, CompiledScheme<"source" | "primary", "base", true>>
 >;
 
 const runtimeKeys: Array<"source" | "primary"> = ["primary"];
-const simpleRuntime = orThrow(compileTokenGraph(simple, { selection: { keys: runtimeKeys } }));
+const simpleRuntime = orThrow(compileTokenGraph(simple, { selection: runtimeKeys }));
 export type SimpleRuntimeArray = Expect<
   Equal<typeof simpleRuntime, CompiledScheme<"source" | "primary", "base", false>>
 >;
@@ -347,15 +345,13 @@ export type ParsedDefault = Expect<
 const parsedAll = orThrow(compileTokenGraph(parsedGraph, { selection: "all" }));
 export type ParsedAll = Expect<Equal<typeof parsedAll, CompiledScheme<string, string, false>>>;
 const parsedExact = orThrow(
-  compileTokenGraph(parsedGraph, { selection: { keys: ["runtime-validated.key"] } }),
+  compileTokenGraph(parsedGraph, { selection: ["runtime-validated.key"] }),
 );
 export type ParsedExact = Expect<
   Equal<typeof parsedExact, CompiledScheme<"runtime-validated.key", string, true>>
 >;
 declare const runtimeKey: string;
-const parsedRuntimeKey = orThrow(
-  compileTokenGraph(parsedGraph, { selection: { keys: [runtimeKey] } }),
-);
+const parsedRuntimeKey = orThrow(compileTokenGraph(parsedGraph, { selection: [runtimeKey] }));
 export type ParsedRuntimeKey = Expect<
   Equal<typeof parsedRuntimeKey, CompiledScheme<string, string, false>>
 >;
@@ -375,14 +371,14 @@ const statedLayer = defineTokenLayer({
     either: { value: "3", visibility: widened },
   },
 });
-export type StatedLayerVisibility = Expect<
+export type StatedLayerVisibilityFacts = Expect<
   Equal<
     typeof statedLayer extends TokenLayer<string, string, infer Visibility> ? Visibility : never,
     {
-      readonly default: "public";
-      readonly public: "either";
-      readonly internal: "hidden" | "either";
-      readonly omitted: "omitted";
+      readonly defaultVisibility: "public";
+      readonly mayStatePublicKeys: "either";
+      readonly mayStateInternalKeys: "hidden" | "either";
+      readonly mayOmitVisibilityKeys: "omitted";
     }
   >
 >;
@@ -440,3 +436,47 @@ const pairLayer = defineTokenLayer({ id: "pair", tokens: { x: "1", y: "2" } });
 // @ts-expect-error a layer type cannot hide one of its keys.
 export const hiddenKey: TokenLayer<"x"> = pairLayer;
 export const dynamicLayerType: TokenLayer = pairLayer;
+
+// Omitted graph-local tokens preserve the composed static claim.
+const compositionLayer = defineTokenLayer({
+  id: "composition",
+  tokens: { public: "A", private: { value: "B", visibility: "internal" } },
+});
+const compositionOnly = defineTokenGraph({ layers: [compositionLayer] });
+const compositionResult = orThrow(compileTokenGraph(compositionOnly));
+export type CompositionOnly = Expect<
+  Equal<typeof compositionResult, CompiledScheme<"public", "base", true>>
+>;
+const emptyGraph = defineTokenGraph({});
+export type EmptyGraph = Expect<Equal<GraphKeys<typeof emptyGraph>, never>>;
+// @ts-expect-error omitted own tokens do not make layer keys definite in the local record.
+void compositionOnly.tokens.public.base;
+// Empty selections are accepted statically and diagnosed at runtime.
+compileTokenGraph(compositionOnly, { selection: [] });
+// @ts-expect-error selection no longer accepts the wrapper object.
+compileTokenGraph(compositionOnly, { selection: { keys: ["public"] } });
+
+// @ts-expect-error explicit generic claims require the local declarations that establish them.
+defineTokenGraph<{ a: "A" }>({});
+
+const optionalPublicDefinition: { value: string; visibility?: "public" } = { value: "A" };
+const overlapLayer = defineTokenLayer({
+  id: "overlap",
+  tokens: {
+    stated: { value: "A", visibility: "public" },
+    hidden: { value: "B", visibility: "internal" },
+    omitted: "C",
+    optional: optionalPublicDefinition,
+  },
+});
+export type OverlappingMaySets = Expect<
+  Equal<
+    typeof overlapLayer extends TokenLayer<string, string, infer Facts> ? Facts : never,
+    {
+      readonly defaultVisibility: "public";
+      readonly mayStatePublicKeys: "stated" | "optional";
+      readonly mayStateInternalKeys: "hidden";
+      readonly mayOmitVisibilityKeys: "omitted" | "optional";
+    }
+  >
+>;

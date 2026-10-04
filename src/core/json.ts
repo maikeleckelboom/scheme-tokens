@@ -39,10 +39,16 @@ export function normalizeNumber(value: number): number {
   return Object.is(value, -0) ? 0 : value;
 }
 
-export function readPlainRecord<Code extends string>(
+export function readPlainRecord<
+  const Details extends {
+    readonly code: string;
+    readonly path?: string;
+    readonly message?: string;
+  },
+>(
   input: unknown,
-  issue: Omit<Issue<Code>, "message"> & { readonly message?: string },
-): Result<readonly RecordEntry[], Issue<Code>> {
+  issue: Details,
+): Result<readonly RecordEntry[], Details & { readonly message: string }> {
   if (input === null || typeof input !== "object" || Array.isArray(input)) {
     return invalidRecord(issue);
   }
@@ -76,10 +82,16 @@ export function readPlainRecord<Code extends string>(
   return { ok: true, value: entries };
 }
 
-export function readArray<Code extends string>(
+export function readArray<
+  const Details extends {
+    readonly code: string;
+    readonly path?: string;
+    readonly message?: string;
+  },
+>(
   input: unknown,
-  issue: Omit<Issue<Code>, "message"> & { readonly message?: string },
-): Result<readonly ArrayEntry[], Issue<Code>> {
+  issue: Details,
+): Result<readonly ArrayEntry[], Details & { readonly message: string }> {
   if (!Array.isArray(input)) {
     return invalidArray(issue);
   }
@@ -129,6 +141,14 @@ export function readArray<Code extends string>(
   return { ok: true, value: entries };
 }
 
+export function copyJsonValue<Code extends string>(
+  input: unknown,
+  options: { readonly path: string; readonly code: Code; readonly message?: string },
+): Result<JsonValue, Issue<Code> & { readonly path: string }>;
+export function copyJsonValue<Code extends string>(
+  input: unknown,
+  options: { readonly path?: string; readonly code: Code; readonly message?: string },
+): Result<JsonValue, Issue<Code>>;
 export function copyJsonValue<Code extends string>(
   input: unknown,
   options: {
@@ -204,9 +224,13 @@ export function sortedRecord<Value>(
   return record;
 }
 
-function invalidRecord<Code extends string>(
-  issue: Omit<Issue<Code>, "message"> & { readonly message?: string },
-): Result<never, Issue<Code>> {
+function invalidRecord<
+  const Details extends {
+    readonly code: string;
+    readonly path?: string;
+    readonly message?: string;
+  },
+>(issue: Details): Result<never, Details & { readonly message: string }> {
   return {
     ok: false,
     issues: [
@@ -218,9 +242,13 @@ function invalidRecord<Code extends string>(
   };
 }
 
-function invalidArray<Code extends string>(
-  issue: Omit<Issue<Code>, "message"> & { readonly message?: string },
-): Result<never, Issue<Code>> {
+function invalidArray<
+  const Details extends {
+    readonly code: string;
+    readonly path?: string;
+    readonly message?: string;
+  },
+>(issue: Details): Result<never, Details & { readonly message: string }> {
   return {
     ok: false,
     issues: [

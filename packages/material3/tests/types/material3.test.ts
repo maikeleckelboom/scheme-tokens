@@ -1,7 +1,7 @@
 import {
   material3,
   type Material3ColorMode,
-  type Material3Modes,
+  type Material3ModeSettings,
   type Material3Options,
   type Material3TokenKey,
 } from "@scheme-tokens/material3";
@@ -21,19 +21,19 @@ import type { Material3GraphFragment } from "@scheme-tokens/material3";
 // @ts-expect-error appearance is replaced by colorMode without an alias.
 import type { Material3Appearance } from "@scheme-tokens/material3";
 // @ts-expect-error per-mode settings stay unexported.
-import type { Material3ModeSettings } from "@scheme-tokens/material3";
+import type { Material3ModeOptions } from "@scheme-tokens/material3";
 // @ts-expect-error overrides stay unexported.
 import type { Material3ModeOverrides } from "@scheme-tokens/material3";
 // @ts-expect-error the empty-map marker stays unexported.
-import type { Material3ModesMustNotBeEmpty } from "@scheme-tokens/material3";
+import type { Material3ModeSettingsMustNotBeEmpty } from "@scheme-tokens/material3";
 
 // Export references keep these negative imports used without executing them.
 export type RemovedExports =
   | Material3GraphFragment
   | Material3Appearance
-  | Material3ModeSettings
+  | Material3ModeOptions
   | Material3ModeOverrides
-  | Material3ModesMustNotBeEmpty;
+  | Material3ModeSettingsMustNotBeEmpty;
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
     ? true
@@ -43,10 +43,10 @@ type MaterialLayer<Mode extends string, Visibility extends TokenVisibility> = To
   Material3TokenKey,
   Mode,
   {
-    readonly default: Visibility;
-    readonly public: never;
-    readonly internal: never;
-    readonly omitted: Material3TokenKey;
+    readonly defaultVisibility: Visibility;
+    readonly mayStatePublicKeys: never;
+    readonly mayStateInternalKeys: never;
+    readonly mayOmitVisibilityKeys: Material3TokenKey;
   }
 >;
 
@@ -106,20 +106,20 @@ material3<never>("#6750a4", undefined);
 // @ts-expect-error an empty options object does not establish a non-empty map.
 material3<never>("#6750a4", {});
 // @ts-expect-error an explicitly empty modes map is still invalid.
-material3<never>("#6750a4", { modes: {} });
+material3<never>("#6750a4", { modeSettings: {} });
 // @ts-expect-error an unrelated option does not establish either generic claim.
 material3<"custom", "internal">("#6750a4", { variant: "expressive" });
 // @ts-expect-error supplying visibility alone cannot establish custom modes.
 material3<"custom", "internal">("#6750a4", { visibility: "internal" });
 // @ts-expect-error supplying modes alone cannot establish internal visibility.
-material3<"custom", "internal">("#6750a4", { modes: { custom: { colorMode: "light" } } });
+material3<"custom", "internal">("#6750a4", { modeSettings: { custom: { colorMode: "light" } } });
 
 const undefinedDefaults = material3("#6750a4", undefined);
 const annotatedDefaults: Material3Options<Material3ColorMode, "public"> = {};
 const annotatedDefaultLayer = material3("#6750a4", annotatedDefaults);
 const explicitDefaults = material3<Material3ColorMode, "public">("#6750a4", {});
 const explicitCustom = material3<"custom", "internal">("#6750a4", {
-  modes: { custom: { colorMode: "light" } },
+  modeSettings: { custom: { colorMode: "light" } },
   visibility: "internal",
 });
 export type OmittedSettingsProof = Expect<Equal<typeof undefinedDefaults, typeof defaults>>;
@@ -160,7 +160,7 @@ function invalidBothWrapper(options: Material3Options<"custom", "internal"> = {}
 }
 function defaultedCustom(
   options: Material3Options<"custom", "internal"> = {
-    modes: { custom: { colorMode: "dark" } },
+    modeSettings: { custom: { colorMode: "dark" } },
     visibility: "internal",
   },
 ) {
@@ -184,12 +184,12 @@ export type DefaultedCustomProof = Expect<
 void [invalidModeWrapper, invalidVisibilityWrapper, invalidBothWrapper];
 
 declare const optionalSettings: {
-  readonly modes?: Material3Modes<"custom">;
+  readonly modeSettings?: Material3ModeSettings<"custom">;
   readonly visibility?: "internal";
 };
 // @ts-expect-error optional fields cannot promise custom generation or internal visibility.
 material3("#6750a4", optionalSettings);
-declare const optionalCustomModes: { readonly modes?: Material3Modes<"custom"> };
+declare const optionalCustomModes: { readonly modeSettings?: Material3ModeSettings<"custom"> };
 // @ts-expect-error an optional custom map can fall back to a different complete mode set.
 material3("#6750a4", optionalCustomModes);
 declare const optionalInternalVisibility: { readonly visibility?: "internal" };
@@ -218,7 +218,7 @@ export type InternalProof = Expect<
 const checkedOptions = {
   visibility: "internal",
   variant: "expressive",
-  modes: { light: {}, dark: {} },
+  modeSettings: { light: {}, dark: {} },
 } satisfies Material3Options;
 export type SettingsProof = Expect<Equal<typeof checkedOptions.variant, "expressive">>;
 const checked = material3("#6750a4", checkedOptions);
@@ -247,8 +247,8 @@ const materialModes = {
   "vivid-dark": { colorMode: "dark" },
   "material3-light": { colorMode: "light", sourceColor: "#009489" },
   "material3-dark": { colorMode: "dark", contrastLevel: 0.5 },
-} as const satisfies Material3Modes<CompilerMode>;
-const six = material3("#6750a4", { modes: materialModes, visibility: "internal" });
+} as const satisfies Material3ModeSettings<CompilerMode>;
+const six = material3("#6750a4", { modeSettings: materialModes, visibility: "internal" });
 export type SixModeProof = Expect<Equal<typeof six, MaterialLayer<CompilerMode, "internal">>>;
 
 function forward<Mode extends string, Visibility extends TokenVisibility>(
@@ -256,12 +256,12 @@ function forward<Mode extends string, Visibility extends TokenVisibility>(
 ) {
   return material3("#6750a4", options);
 }
-const wrapped = forward({ modes: materialModes, visibility: "internal" });
+const wrapped = forward({ modeSettings: materialModes, visibility: "internal" });
 export type WrapperProof = Expect<Equal<typeof wrapped, MaterialLayer<CompilerMode, "internal">>>;
-const wrapperOptions = { modes: materialModes, visibility: "internal" } satisfies Material3Options<
-  CompilerMode,
-  "internal"
->;
+const wrapperOptions = {
+  modeSettings: materialModes,
+  visibility: "internal",
+} satisfies Material3Options<CompilerMode, "internal">;
 export type WrapperOptionsProof = Expect<
   Equal<
     typeof forward<CompilerMode, "internal">,
@@ -270,41 +270,41 @@ export type WrapperOptionsProof = Expect<
 >;
 void wrapperOptions;
 
-const one = material3("#6750a4", { modes: { standard: { colorMode: "light" } } });
+const one = material3("#6750a4", { modeSettings: { standard: { colorMode: "light" } } });
 export type OneModeProof = Expect<Equal<typeof one, MaterialLayer<"standard", "public">>>;
-const concat = material3("#6750a4", { modes: { concat: { colorMode: "dark" } } });
+const concat = material3("#6750a4", { modeSettings: { concat: { colorMode: "dark" } } });
 export type ConcatModeProof = Expect<Equal<typeof concat, MaterialLayer<"concat", "public">>>;
-material3("#6750a4", { modes: { light: { sourceColor: "#009489" } } });
-material3("#6750a4", { modes: { dark: {} } });
+material3("#6750a4", { modeSettings: { light: { sourceColor: "#009489" } } });
+material3("#6750a4", { modeSettings: { dark: {} } });
 
 // @ts-expect-error missing mode in an exact checked map.
-const missing = { light: {} } satisfies Material3Modes<Material3ColorMode>;
+const missing = { light: {} } satisfies Material3ModeSettings<Material3ColorMode>;
 const extra = {
   light: {},
   dark: {},
   // @ts-expect-error extra mode in an exact checked map.
   dim: { colorMode: "dark" },
-} satisfies Material3Modes<Material3ColorMode>;
+} satisfies Material3ModeSettings<Material3ColorMode>;
 // @ts-expect-error an empty inline map must not fabricate an invariant layer.
-material3("#6750a4", { modes: {} });
+material3("#6750a4", { modeSettings: {} });
 // @ts-expect-error an annotated empty map is rejected by the named diagnostic marker.
-const empty: Material3Modes<never> = {};
+const empty: Material3ModeSettings<never> = {};
 // @ts-expect-error satisfies must reject the same empty map.
-const emptyChecked = {} satisfies Material3Modes<never>;
+const emptyChecked = {} satisfies Material3ModeSettings<never>;
 void [missing, extra, empty, emptyChecked];
 
 // @ts-expect-error custom mode requires colorMode.
-material3("#6750a4", { modes: { custom: { contrastLevel: 1 } } });
+material3("#6750a4", { modeSettings: { custom: { contrastLevel: 1 } } });
 // @ts-expect-error concat is a custom mode requiring colorMode.
-material3("#6750a4", { modes: { concat: {} } });
+material3("#6750a4", { modeSettings: { concat: {} } });
 // @ts-expect-error invalid colorMode.
-material3("#6750a4", { modes: { custom: { colorMode: "dim" } } });
-// @ts-expect-error redundant built-in light colorMode.
-material3("#6750a4", { modes: { light: { colorMode: "light" } } });
-// @ts-expect-error redundant built-in dark colorMode.
-material3("#6750a4", { modes: { dark: { colorMode: "dark" } } });
+material3("#6750a4", { modeSettings: { custom: { colorMode: "dim" } } });
+// Congruent explicit built-in settings are accepted.
+material3("#6750a4", { modeSettings: { light: { colorMode: "light" } } });
+// Both built-in names may state their inferred color mode.
+material3("#6750a4", { modeSettings: { dark: { colorMode: "dark" } } });
 // @ts-expect-error no string shorthand.
-material3("#6750a4", { modes: { custom: "light" } });
+material3("#6750a4", { modeSettings: { custom: "light" } });
 // @ts-expect-error positional source is the only global source.
 material3("#6750a4", { sourceColor: "#ff0000" });
 // @ts-expect-error removed exactModes.
@@ -312,13 +312,13 @@ material3("#6750a4", { exactModes: { light: {} } });
 // @ts-expect-error the graph owns defaultMode.
 material3("#6750a4", { defaultMode: "light" });
 // @ts-expect-error removed appearance in settings.
-material3("#6750a4", { modes: { custom: { colorMode: "light", appearance: "light" } } });
+material3("#6750a4", { modeSettings: { custom: { colorMode: "light", appearance: "light" } } });
 // @ts-expect-error no global appearance.
 material3("#6750a4", { appearance: "light" });
 // @ts-expect-error specVersion stays global.
-material3("#6750a4", { modes: { dark: { specVersion: "2025" } } });
+material3("#6750a4", { modeSettings: { dark: { specVersion: "2025" } } });
 // @ts-expect-error visibility stays global.
-material3("#6750a4", { modes: { dark: { visibility: "internal" } } });
+material3("#6750a4", { modeSettings: { dark: { visibility: "internal" } } });
 // @ts-expect-error platform is fixed internally.
 material3("#6750a4", { platform: "phone" });
 // @ts-expect-error unknown public option.
@@ -409,12 +409,12 @@ defineTokenGraph({
   modes: ["light", "dark", "dim"],
   defaultMode: "light",
   // @ts-expect-error the same mismatch is rejected for inline calls.
-  layers: [material3("#6750a4", { modes: { light: {}, dark: {} } })],
+  layers: [material3("#6750a4", { modeSettings: { light: {}, dark: {} } })],
   tokens: {},
 });
 
-declare const dynamicModes: Material3Modes<string>;
-const dynamic = material3("#6750a4", { modes: dynamicModes });
+declare const dynamicModes: Material3ModeSettings<string>;
+const dynamic = material3("#6750a4", { modeSettings: dynamicModes });
 export type DynamicModesProof = Expect<Equal<typeof dynamic, MaterialLayer<string, "public">>>;
 defineTokenGraph({
   modes: compilerModes,
@@ -500,7 +500,7 @@ export type UncertainCssProof = Expect<
 >;
 void [definitelyPresent, definitelyAbsent];
 const exactUncertain = orThrow(
-  compileTokenGraph(uncertainGraph, { selection: { keys: ["md.sys.color.primary"] } }),
+  compileTokenGraph(uncertainGraph, { selection: ["md.sys.color.primary"] }),
 );
 export type ExactSelectionProof = Expect<
   Equal<
@@ -552,3 +552,16 @@ defineTokenGraph({
     alias: tokenRef("brand.sead"),
   },
 });
+
+// @ts-expect-error built-in light cannot generate dark colors.
+material3("#6750a4", { modeSettings: { light: { colorMode: "dark" } } });
+// @ts-expect-error built-in dark cannot generate light colors.
+material3("#6750a4", { modeSettings: { dark: { colorMode: "light" } } });
+// @ts-expect-error old Material spelling is removed, without a fallback.
+material3("#6750a4", { modes: { light: {} } });
+const uniformSettings = {
+  light: { colorMode: "light" },
+  dark: { colorMode: "dark" },
+} as const satisfies Material3ModeSettings<Material3ColorMode>;
+const uniformLayer = material3("#6750a4", { modeSettings: uniformSettings });
+export type UniformSettingsProof = Expect<Equal<typeof uniformLayer, typeof defaults>>;

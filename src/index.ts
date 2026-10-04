@@ -14,7 +14,7 @@ export type { JsonValue } from "./core/json";
 export type { Issue, Result } from "./core/result";
 export type {
   DefinedTokenGraph,
-  LayerVisibility,
+  LayerVisibilityFacts,
   TokenDefinition,
   TokenExpression,
   TokenGraph,
@@ -38,6 +38,8 @@ export type {
   TokenSelection,
 } from "./core/compiled-types";
 export type {
+  CssActivationOptions,
+  CssAttributeActivation,
   CssCondition,
   CssVarBlock,
   CssVarDeclaration,

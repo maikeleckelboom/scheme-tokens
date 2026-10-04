@@ -14,7 +14,13 @@ import type {
   Material3Variant,
 } from "./types/material3";
 
-const optionKeys = new Set(["specVersion", "variant", "contrastLevel", "visibility", "modes"]);
+const optionKeys = new Set([
+  "specVersion",
+  "variant",
+  "contrastLevel",
+  "visibility",
+  "modeSettings",
+]);
 const modeOptionKeys = new Set(["colorMode", "sourceColor", "variant", "contrastLevel"]);
 const variants = new Set<string>([
   "monochrome",
@@ -51,10 +57,10 @@ export function material3(
   Material3TokenKey,
   Material3ColorMode,
   {
-    readonly default: "public";
-    readonly public: never;
-    readonly internal: never;
-    readonly omitted: Material3TokenKey;
+    readonly defaultVisibility: "public";
+    readonly mayStatePublicKeys: never;
+    readonly mayStateInternalKeys: never;
+    readonly mayOmitVisibilityKeys: Material3TokenKey;
   }
 >;
 export function material3<
@@ -67,10 +73,10 @@ export function material3<
   Material3TokenKey,
   NoInfer<Mode>,
   {
-    readonly default: NoInfer<Visibility>;
-    readonly public: never;
-    readonly internal: never;
-    readonly omitted: Material3TokenKey;
+    readonly defaultVisibility: NoInfer<Visibility>;
+    readonly mayStatePublicKeys: never;
+    readonly mayStateInternalKeys: never;
+    readonly mayOmitVisibilityKeys: Material3TokenKey;
   }
 >;
 export function material3(sourceColor: string, options?: unknown): TokenLayer {
@@ -91,15 +97,15 @@ function parseOptions(sourceColor: string, input: unknown): ParsedOptions {
   const entries = input === undefined ? [] : readDataRecord(input, "material3 options");
   rejectUnknownKeys(entries, optionKeys, "material3 options");
   const record = new Map(entries.map((entry) => [entry.key, entry.value]));
-  const modeEntries = record.has("modes")
-    ? readDataRecord(record.get("modes"), "material3 modes")
+  const modeEntries = record.has("modeSettings")
+    ? readDataRecord(record.get("modeSettings"), "material3 modeSettings")
     : [
         { key: "light", value: {} },
         { key: "dark", value: {} },
       ];
   const candidateModes = modeEntries.map((entry) => entry.key);
   if (!isNonEmpty(candidateModes)) {
-    throw new TypeError("material3 modes must contain at least one mode.");
+    throw new TypeError("material3 modeSettings must contain at least one mode.");
   }
 
   // Only core owns mode-name grammar. This empty envelope validates names before
@@ -117,8 +123,10 @@ function parseOptions(sourceColor: string, input: unknown): ParsedOptions {
     rejectUnknownKeys(overrides, modeOptionKeys, `material3 mode "${mode}"`);
     const settings = new Map(overrides.map((entry) => [entry.key, entry.value]));
     const builtIn = mode === "light" || mode === "dark";
-    if (builtIn && settings.has("colorMode")) {
-      throw new RangeError(`material3 mode "${mode}" must not declare redundant colorMode.`);
+    if (builtIn && settings.has("colorMode") && settings.get("colorMode") !== mode) {
+      throw new RangeError(
+        `material3 mode "${mode}" colorMode must agree with its graph mode name.`,
+      );
     }
     if (!builtIn && !settings.has("colorMode")) {
       throw new TypeError(`material3 mode "${mode}" requires colorMode.`);

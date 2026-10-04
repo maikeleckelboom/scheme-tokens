@@ -54,10 +54,8 @@ describe("CSS reference projection", () => {
   });
 
   test("exact selection governs links independently of public visibility", () => {
-    const omitted = orThrow(compileTokenGraph(graph, { selection: { keys: ["a.alias"] } }));
-    const included = orThrow(
-      compileTokenGraph(graph, { selection: { keys: ["a.alias", "z.target"] } }),
-    );
+    const omitted = orThrow(compileTokenGraph(graph, { selection: ["a.alias"] }));
+    const included = orThrow(compileTokenGraph(graph, { selection: ["a.alias", "z.target"] }));
     expect(values(orThrow(exportCssVars(omitted, { references: "var" })))).toEqual({
       "a.alias": "20px",
     });
@@ -68,7 +66,7 @@ describe("CSS reference projection", () => {
 
   test("an omitted intermediate is inlined rather than bypassed", () => {
     const chain = defineTokenGraph({ tokens: { a: tokenRef("b"), b: tokenRef("c"), c: "20px" } });
-    const scheme = orThrow(compileTokenGraph(chain, { selection: { keys: ["a", "c"] } }));
+    const scheme = orThrow(compileTokenGraph(chain, { selection: ["a", "c"] }));
     expect(values(orThrow(exportCssVars(scheme, { references: "var" })))).toEqual({
       a: "20px",
       c: "20px",
@@ -116,7 +114,13 @@ describe("CSS reference projection", () => {
         }),
       ),
     );
-    const exported = orThrow(exportCssVars(scheme, { references: "var", prefix: "app" }));
+    const exported = orThrow(
+      exportCssVars(scheme, {
+        activation: { attribute: "data-mode" },
+        references: "var",
+        prefix: "app",
+      }),
+    );
     expect(values(exported, "light").alias).toBe("5px");
     expect(values(exported, "dark").alias).toBe("var(--app-target)");
     expect(values(exported, "concat").alias).toBe("calc(var(--app-target) * 2)");
@@ -139,7 +143,9 @@ describe("CSS reference projection", () => {
         }),
       ),
     );
-    const exported = orThrow(exportCssVars(scheme, { references: "var" }));
+    const exported = orThrow(
+      exportCssVars(scheme, { activation: { attribute: "data-mode" }, references: "var" }),
+    );
     expect(values(exported, "constructor")).toEqual({ alias: "10px" });
     expect(values(exported, "dark")).toEqual({ alias: "20px" });
   });
@@ -156,7 +162,7 @@ describe("reference names and declaration fidelity", () => {
       },
     });
     const scheme = orThrow(
-      compileTokenGraph(graph, { selection: { keys: ["z.target", "b.width", "a.alias"] } }),
+      compileTokenGraph(graph, { selection: ["z.target", "b.width", "a.alias"] }),
     );
     const calls: string[] = [];
     const exported = orThrow(
@@ -288,11 +294,14 @@ describe("reference names and declaration fidelity", () => {
         ),
       );
       const options = {
+        activation: {
+          attribute: { name: "data-theme", includeHost: true },
+          root: ":host",
+          media: { dark: "screen" },
+          selectors: { dark: [{ selector: ".dark", media: "print" }, { selector: ".night" }] },
+        },
         format,
         cascadeLayer: "tokens",
-        root: ":host",
-        system: { dark: "screen" },
-        selectors: { dark: [{ selector: ".dark", media: "print" }, { selector: ".night" }] },
       } as const;
       const resolved = orThrow(exportCssVars(scheme, options));
       expect(p4Output.sourceSha).toBe("05ebcdf4cdf655b5545e81ef42d77a90ddc11116");
@@ -397,7 +406,7 @@ describe("projected declaration safety", () => {
         orThrow(
           compileTokenGraph(
             defineTokenGraph({ tokens: { target: "red;", alias: tokenRef("target") } }),
-            { selection: { keys: ["alias"] } },
+            { selection: ["alias"] },
           ),
         ),
         { references: "var" },
@@ -520,12 +529,13 @@ describe("projected declaration safety", () => {
       ),
     );
     const options = {
-      references: "var",
-      attribute: false,
-      selectors: {
-        light: [{ selector: ".light" }, { selector: ".day", media: "screen" }],
-        dark: ".dark",
+      activation: {
+        selectors: {
+          light: [{ selector: ".light" }, { selector: ".day", media: "screen" }],
+          dark: ".dark",
+        },
       },
+      references: "var",
     } as const;
     expect(exportCssVars(scheme, options)).toEqual({
       ok: false,
@@ -557,7 +567,7 @@ describe("projected declaration safety", () => {
         },
       },
     };
-    expect(exportCssVars(onlySafeMode, { references: "var", attribute: false }).ok).toBe(true);
+    expect(exportCssVars(onlySafeMode, { references: "var" }).ok).toBe(true);
     const malformed = {
       ...scheme,
       metadataByToken: {

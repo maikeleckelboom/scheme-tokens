@@ -658,7 +658,7 @@ function validCompiledWithValue(value: unknown): {
     string,
     {
       visibility: string;
-      declarations: { origin: { kind: string; id?: string }; visibility?: string }[];
+      declarations: { origin: { kind: string; id?: string }; declaredVisibility?: string }[];
       expressionByMode?: Record<string, unknown>;
       extensions?: unknown;
     }

@@ -444,7 +444,7 @@ function validateLayerModes(
       first = { modes, path: valuePath };
     } else if (!equalModeSets(first.modes, modes)) {
       context.collector.add({
-        code: "layer-mode-mismatch",
+        code: "inconsistent-layer-modes",
         message: "Layer mode maps disagree.",
         path: valuePath,
         firstPath: first.path,
@@ -479,9 +479,7 @@ function failure(context: Context): Result<never, TokenGraphIssue> {
   const mapped = issues.map((issue) => ({
     ...issue,
     ...(issue.path === undefined ? {} : { path: context.paths.original(issue.path) }),
-    ...(issue.firstPath === undefined
-      ? {}
-      : { firstPath: context.paths.original(issue.firstPath) }),
+    ...(!("firstPath" in issue) ? {} : { firstPath: context.paths.original(issue.firstPath) }),
   }));
   return { ok: false, issues: mapped as [TokenGraphIssue, ...TokenGraphIssue[]] };
 }

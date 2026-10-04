@@ -14,8 +14,8 @@ const scheme = orThrow(compileTokenGraph(graph));
 
 const cssVars = orThrow(
   exportCssVars(scheme, {
+    activation: { attribute: "data-theme", media: { dark: "(prefers-color-scheme: dark)" } },
     prefix: "color",
-    system: { dark: "(prefers-color-scheme: dark)" },
   }),
 );
 
@@ -76,7 +76,7 @@ const linked = orThrow(exportCssVars(scheme, { references: "var", prefix: "app" 
 const fixed = orThrow(exportCssVars(scheme, { references: "resolved", prefix: "app" }));
 ```
 
-The linked base block contains:
+The linked default block contains:
 
 ```css
 :where(:root) {
@@ -112,18 +112,18 @@ Use resolved output for arbitrary character assembly. There is no context-sensit
 
 A block holds one mode's declarations under one condition. A mode activates through four tiers, emitted in this order:
 
-1. **base**: the default mode at `root`. `root` defaults to `:root`; use `:host` in a shadow root.
-2. **system**: `system` maps a mode to a media condition at `root`. There is no default, because core does not know which mode is dark.
-3. **explicit**: one attribute marker per mode on any element. `attribute` defaults to `data-theme` when the scheme has more than one mode; set another `data-*` name, or `false` for no markers.
-4. **custom**: `selectors` maps a mode to one selector or to a list of `{ selector, media? }` conditions.
+1. **default**: the default mode at `activation.root`, which defaults to `:root`.
+2. **media**: `activation.media` maps modes to media conditions at that root, including `print`.
+3. **attribute**: `activation.attribute` explicitly opts into one `data-*` marker per mode. Omission emits no markers.
+4. **selector**: `activation.selectors` maps modes to selector strings, single `{ selector, media? }` objects, or non-empty lists of those objects.
 
-Within a tier, blocks follow the graph's authored mode order; within one mode, the order of its conditions. Modes are never sorted, and the default is not moved first. Every generated selector, custom ones included, is wrapped in `:where()` and has zero specificity, so when several blocks match one element, the later one wins. That makes explicit markers beat the system preference, and custom conditions beat both.
+Within a tier, blocks follow the graph's authored mode order; within one mode, the order of its conditions. Modes are never sorted, and the default is not moved first. Every generated selector, custom ones included, is wrapped in `:where()` and has zero specificity, so when several blocks match one element, the later one wins. That makes attribute markers beat media activation, and selector conditions beat both.
 
 Every block declares every selected token, even where a value equals another mode's. A later matching block therefore replaces every declaration of an earlier one, including on nested elements.
 
-Explicit markers are unanchored and include the default mode, so any element can switch modes, and a light island inside a dark section works. A marker value that is not a mode, such as `data-theme="system"`, matches no block and leaves the system preference in charge. With `root: ":host"`, the base and system blocks target the host, and each marker covers the host and the shadow tree: `:where(:host([data-theme="dark"]), [data-theme="dark"])`.
+Attribute markers are unanchored and include the default mode, so nested elements can switch back to it. Unknown marker values match no block. The string shorthand targets ordinary elements only. Set `activation.attribute` to `{ name: "data-mode", includeHost: true }` to add `:host([data-mode="dark"])` beside `[data-mode="dark"]`. `activation.root` affects only default and media rules; `:root`, `:host`, `:host(.app)`, `#app`, and `.theme-root` never change attribute targeting.
 
-## Custom conditions
+## Selector conditions
 
 ```ts
 import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
@@ -140,13 +140,14 @@ const scheme = orThrow(
 
 const cssVars = orThrow(
   exportCssVars(scheme, {
-    attribute: false,
-    selectors: {
-      dark: ".dark",
-      dim: [
-        { selector: ".dim" },
-        { selector: ".dark:not(.high-contrast)", media: "(prefers-contrast: less)" },
-      ],
+    activation: {
+      selectors: {
+        dark: ".dark",
+        dim: [
+          { selector: ".dim" },
+          { selector: ".dark:not(.high-contrast)", media: "(prefers-contrast: less)" },
+        ],
+      },
     },
   }),
 );
@@ -154,7 +155,7 @@ const cssVars = orThrow(
 
 Conditions are unanchored and may overlap. When conditions of two modes match one element, the mode that comes later in the graph's authored order wins, so author related modes from general to specific. Use `:not()` in a selector when conditions must stay disjoint. The exporter never generates exclusions: an element with two mode classes, such as `.light.dark`, resolves to the later mode, but that is an application error, not a supported way to express intent.
 
-The system and custom maps are partial and typed to the compiled mode union: TypeScript rejects an unknown mode of a literal scheme, and the runtime returns `unknown-condition-mode` for dynamic input. Omitting `attribute` selects the conventional default, while `attribute: false` generates no markers.
+The `activation.media` and `activation.selectors` maps are partial and typed to the compiled mode union: TypeScript rejects an unknown mode of a literal scheme, and runtime returns `unknown-condition-mode` for dynamic input. Omitting `activation.attribute` emits no markers.
 
 ## Application CSS and cascade layers
 

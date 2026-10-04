@@ -36,13 +36,13 @@ const graph = defineTokenGraph({
 const publicKeys = ["surface.canvas", "action.primary.background"] as const;
 const scheme = orThrow(
   compileTokenGraph(graph, {
-    selection: { keys: publicKeys },
+    selection: publicKeys,
   }),
 );
 const runtime = orThrow(
   exportCssVars(scheme, {
+    activation: { media: { dark: "(prefers-color-scheme: dark)" } },
     prefix: "app",
-    system: { dark: "(prefers-color-scheme: dark)" },
   }),
 );
 

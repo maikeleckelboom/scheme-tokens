@@ -422,19 +422,27 @@ function parseDeclarations(
       collector.addMany(record.issues);
       continue;
     }
-    rejectUnknownKeys(record.value, new Set(["origin", "visibility"]), entryPath, collector);
+    rejectUnknownKeys(
+      record.value,
+      new Set(["origin", "declaredVisibility"]),
+      entryPath,
+      collector,
+    );
     const fields = new Map(record.value.map((field) => [field.key, field.value]));
     const origin = parseOrigin(fields.get("origin"), entryPath + "/origin", collector);
-    const visibility = fields.has("visibility")
+    const declaredVisibility = fields.has("declaredVisibility")
       ? parseVisibility(
-          fields.get("visibility"),
-          entryPath + "/visibility",
+          fields.get("declaredVisibility"),
+          entryPath + "/declaredVisibility",
           "invalid-visibility",
           collector,
         )
       : undefined;
     if (origin !== undefined) {
-      declarations.push({ origin, ...(visibility === undefined ? {} : { visibility }) });
+      declarations.push({
+        origin,
+        ...(declaredVisibility === undefined ? {} : { declaredVisibility }),
+      });
     }
   }
   return declarations.length === 0

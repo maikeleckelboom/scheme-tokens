@@ -11,7 +11,7 @@ import type {
 } from "./authoring-types";
 import type { GraphState, LayerKeyOf, StateKey, StatePublicKey } from "./composition-types";
 import type { JsonValue } from "./json";
-import type { Issue } from "./result";
+export type { TokenGraphIssue } from "../types/diagnostics";
 import { orThrow } from "./result";
 import { isTokenKey, isSingleSegmentIdentifier } from "./identifiers";
 import { canonicalizeExpression } from "./canonical-expression";
@@ -59,16 +59,16 @@ export type TokenDefinition<
 };
 
 /**
- * Type-only visibility facts of a layer. `public` and `internal` name the keys whose
- * declaration may state that visibility, and `omitted` the keys whose declaration may omit
- * it. A key in exactly one set is known; a wider type only adds possibilities, so the
- * default `LayerVisibility` describes a layer whose visibility is not statically known.
+ * Type-only visibility facts of a layer. The mayStatePublicKeys and mayStateInternalKeys
+ * sets name declarations that may state visibility; mayOmitVisibilityKeys may omit
+ * it. These may-sets can overlap; a wider type only adds possibilities, so the
+ * default `LayerVisibilityFacts` describes a layer whose visibility is not statically known.
  */
-export interface LayerVisibility {
-  readonly default: TokenVisibility;
-  readonly public: string;
-  readonly internal: string;
-  readonly omitted: string;
+export interface LayerVisibilityFacts {
+  readonly defaultVisibility: TokenVisibility;
+  readonly mayStatePublicKeys: string;
+  readonly mayStateInternalKeys: string;
+  readonly mayOmitVisibilityKeys: string;
 }
 
 declare const layerStatic: unique symbol;
@@ -106,13 +106,13 @@ type GraphTokens<Key extends string, Mode extends string> =
 interface TokenLayerFields<
   Key extends string,
   Mode extends string,
-  Visibility extends LayerVisibility,
+  Visibility extends LayerVisibilityFacts,
 > {
   readonly $schema?: string;
   readonly kind: typeof tokenLayerKind;
   readonly formatVersion: 2;
   readonly id: string;
-  readonly defaultVisibility: Visibility["default"];
+  readonly defaultVisibility: Visibility["defaultVisibility"];
   readonly tokens: Readonly<Record<Key, TokenDefinition<string, Mode>>>;
   /** Static information only; never present at runtime or in serialized output. */
   readonly [layerStatic]?: {
@@ -131,9 +131,9 @@ interface TokenLayerFields<
 export type TokenLayer<
   Key extends string = string,
   Mode extends string = string,
-  Visibility extends LayerVisibility = LayerVisibility,
+  Visibility extends LayerVisibilityFacts = LayerVisibilityFacts,
 > = TokenLayerFields<Key, Mode, Visibility> &
-  ([string, string, LayerVisibility] extends [Key, Mode, Visibility]
+  ([string, string, LayerVisibilityFacts] extends [Key, Mode, Visibility]
     ? { readonly [layerStatic]?: unknown }
     : StaticProof);
 
@@ -209,46 +209,6 @@ export type TokenOrigin =
       readonly kind: "layer";
       readonly id: string;
     };
-
-export type TokenGraphIssue = Issue<
-  | "invalid-object"
-  | "unknown-property"
-  | "missing-property"
-  | "invalid-artifact-kind"
-  | "invalid-format-version"
-  | "invalid-schema-uri"
-  | "invalid-json-value"
-  | "empty-modes"
-  | "invalid-mode-key"
-  | "duplicate-mode-key"
-  | "default-mode-not-found"
-  | "invalid-default-visibility"
-  | "layer-mode-mismatch"
-  | "resolved-value-too-long"
-  | "invalid-layer-id"
-  | "duplicate-layer-id"
-  | "invalid-token-key"
-  | "invalid-visibility"
-  | "invalid-token-definition"
-  | "missing-token-value"
-  | "invalid-token-value"
-  | "missing-mode-value"
-  | "unknown-mode-value"
-  | "invalid-reference"
-  | "unknown-reference"
-  | "reference-cycle"
-  | "invalid-description"
-  | "invalid-deprecated"
-  | "invalid-extensions"
-> & {
-  readonly key?: string;
-  readonly mode?: string;
-  readonly layerId?: string;
-  readonly firstPath?: string;
-  readonly cycle?: readonly string[];
-  readonly modes?: readonly string[];
-  readonly layerModes?: readonly string[];
-};
 
 export function tokenRef<const Key extends string>(key: Key): TokenReference<Key> {
   if (typeof key !== "string" || !isTokenKey(key)) {
@@ -345,7 +305,7 @@ export function defineTokenGraph<
     Tokens,
     NoInfer<Extract<keyof Tokens, string> | LayerKeyOf<Layers[number]>>,
     NoInfer<GraphModes<Modes>>
-  >,
+  > = {},
   const Modes extends ModeTuple | undefined = undefined,
   const Layers extends readonly TokenLayerData[] = readonly [],
   const Default extends TokenVisibility = "public",
@@ -354,8 +314,9 @@ export function defineTokenGraph<
     readonly modes?: Modes & CheckModeNames<Modes>;
     readonly defaultVisibility?: Default;
     readonly layers?: Layers & CheckLayers<Layers, NoInfer<GraphModes<Modes>>>;
-    readonly tokens: Tokens;
-  } & DefaultModeInput<Modes>,
+    readonly tokens?: Tokens;
+  } & DefaultModeInput<Modes> &
+    ([keyof NoInfer<Tokens>] extends [never] ? unknown : { readonly tokens: Tokens }),
 ): DefinedTokenGraph<
   StateKey<GraphState<Tokens, Layers, Default>>,
   GraphModes<Modes>,
@@ -386,10 +347,10 @@ export function defineTokenLayer<
   Extract<keyof Tokens, string>,
   LayerModeEntries<Tokens>[keyof Tokens],
   {
-    readonly default: Default;
-    readonly public: DeclaredStateKeys<Tokens, "public">;
-    readonly internal: DeclaredStateKeys<Tokens, "internal">;
-    readonly omitted: DeclaredStateKeys<Tokens, "omitted">;
+    readonly defaultVisibility: Default;
+    readonly mayStatePublicKeys: DeclaredStateKeys<Tokens, "public">;
+    readonly mayStateInternalKeys: DeclaredStateKeys<Tokens, "internal">;
+    readonly mayOmitVisibilityKeys: DeclaredStateKeys<Tokens, "omitted">;
   }
 >;
 export function defineTokenLayer(input: unknown): TokenLayer {

@@ -137,29 +137,28 @@ tokens.
 
 ### Variants, contrast, and custom modes
 
-`modes` is an exact, non-empty map from graph modes to generation settings. Omitting it means
+`modeSettings` is an exact, non-empty map from graph modes to generation settings. Omitting it means
 `{ light: {}, dark: {} }`; supplying it replaces that set completely. The exact keys `light` and
-`dark` imply their Material color mode. Every other key requires `colorMode: "light" | "dark"`.
+`dark` imply their Material color mode and accept a matching explicit `colorMode`. Every other key requires `colorMode: "light" | "dark"`.
 
 ```ts
-import { material3, type Material3Modes } from "@scheme-tokens/material3";
+import { material3, type Material3ModeSettings } from "@scheme-tokens/material3";
 import { defineTokenGraph } from "scheme-tokens";
 
-const modes = {
+const modeSettings = {
   "light-high": { colorMode: "light", contrastLevel: 1 },
   "brand-dark": { colorMode: "dark", sourceColor: "#009489" },
-} satisfies Material3Modes<"light-high" | "brand-dark">;
+} satisfies Material3ModeSettings<"light-high" | "brand-dark">;
 const material = material3("#6750a4", {
   specVersion: "2025",
   variant: "expressive",
   contrastLevel: 0.5,
-  modes,
+  modeSettings,
 });
 const graph = defineTokenGraph({
   modes: ["light-high", "brand-dark"],
   defaultMode: "light-high",
   layers: [material],
-  tokens: {},
 });
 ```
 
@@ -168,7 +167,7 @@ resolve independently over global settings. Spec version and visibility stay glo
 coordinates are checked before generation, and core validates mode names. One-mode maps are valid;
 empty maps are rejected. The graph owns mode order and default, and its set must equal the layer's.
 
-TypeScript preserves the exact role keys, mode set, and visibility. `Material3Modes` checks a map
+TypeScript preserves the exact role keys, mode set, and visibility. `Material3ModeSettings` checks a map
 against an application's graph modes; `Material3Options` lets wrappers forward them. A default call
 is precisely public, an inline internal option stays internal, and bare `Material3Options` keeps
 visibility conservative. See the [adapter reference](./packages/material3/README.md#typescript-contract).
@@ -229,9 +228,10 @@ if (!compiled.ok) {
 }
 
 const exported = exportCssVars(compiled.value, {
-  attribute: false,
-  selectors: {
-    dark: ".dark",
+  activation: {
+    selectors: {
+      dark: ".dark",
+    },
   },
 });
 
@@ -281,9 +281,9 @@ const graph = defineTokenGraph({
 });
 ```
 
-Layers have stable IDs and local default visibility, but no mode envelope. Direct expressions fit every graph. All mode maps within one layer must name the same set; a non-empty set must exactly match the graph modes, ignoring order. Mismatches return one deterministic `layer-mode-mismatch` per invalid layer. The graph owns mode order and default. Layers compose in array order, then graph tokens compose last. The winner supplies value and descriptive metadata. Omitted visibility preserves prior effective visibility; explicit visibility restates it. With no explicit visibility, the default of the position that introduced the key applies.
+Layers have stable IDs and local default visibility, but no mode envelope. Direct expressions fit every graph. All mode maps within one layer must name the same set; a non-empty set must exactly match the graph modes, ignoring order. Disagreeing maps inside a layer return `inconsistent-layer-modes`; a consistent layer that differs from its graph returns `layer-mode-mismatch`. Each reports one deterministic failure per invalid layer. The graph owns mode order and default. Layers compose in array order, then graph tokens compose last. The winner supplies value and descriptive metadata. Omitted visibility preserves prior effective visibility; explicit visibility restates it. With no explicit visibility, the default of the position that introduced the key applies.
 
-Compiled values remain `tokens[key][mode]`. Metadata contains effective `visibility` and non-empty `declarations` in composition order. Each declaration contains `origin: { kind: "graph" }` or `{ kind: "layer", id }`, plus `visibility` only when explicitly authored. The last declaration wins. Sparse `expressionByMode` omits literal modes, retains pure `{ ref }` records without duplicated values, and retains canonical concat parts with `{ ref, value }` for referenced parts. Descriptions, deprecation, and extensions come only from the winner.
+Compiled values remain `tokens[key][mode]`. Metadata contains effective `visibility` and non-empty `declarations` in composition order. Each declaration contains `origin: { kind: "graph" }` or `{ kind: "layer", id }`, plus `declaredVisibility` only when explicitly authored. The last declaration wins. Sparse `expressionByMode` omits literal modes, retains pure `{ ref }` records without duplicated values, and retains canonical concat parts with `{ ref, value }` for referenced parts. Descriptions, deprecation, and extensions come only from the winner.
 
 ## Modes
 
@@ -353,9 +353,7 @@ const completeScheme = compileTokenGraph(graph, {
   selection: "all",
 });
 const exactScheme = compileTokenGraph(graph, {
-  selection: {
-    keys: ["primary"],
-  },
+  selection: ["primary"],
 });
 ```
 
@@ -377,7 +375,7 @@ scheme-tokens/schemas/token-layer.v2.schema.json
 scheme-tokens/schemas/compiled-scheme.v2.schema.json
 ```
 
-Current writers emit `formatVersion: 2`. Source parsers also accept historical v1 graphs/layers, upgrade once, and validate under the same current rules. Shadowed graph declarations move to a deterministic leading synthetic layer; only necessary visibility restatements are added, and historical default-first mode order is preserved. V1 schema hints are validated historically and dropped on upgrade. Standalone inconsistent layer maps return `layer-mode-mismatch`. Compiled v1 is rejected with `invalid-format-version`: recompile its source graph.
+Current writers emit `formatVersion: 2`. Source parsers also accept historical v1 graphs/layers, upgrade once, and validate under the same current rules. Shadowed graph declarations move to a deterministic leading synthetic layer; only necessary visibility restatements are added, and historical default-first mode order is preserved. V1 schema hints are validated historically and dropped on upgrade. Standalone inconsistent layer maps return `inconsistent-layer-modes`. Compiled v1 is rejected with `invalid-format-version`: recompile its source graph.
 
 In v2, `$schema` may be any string. It is preserved verbatim, never fetched or used for version selection, and never synthesized. Trusted helpers do not accept `$schema`. Only `kind` and `formatVersion` select the runtime format. A documented editor hint for the planned 0.4 release is `https://cdn.jsdelivr.net/npm/scheme-tokens@0.4.0/schemas/token-graph.v2.schema.json`; that release is not published yet. Each packaged schema has a stable identity such as `tag:maikel.site,2026-09-29:scheme-tokens/schema/token-graph/v2`. All three are self-contained Draft 2020-12 with fragment-only internal references.
 
@@ -411,10 +409,12 @@ if (!compiled.ok) {
 }
 
 const exported = exportCssVars(compiled.value, {
-  prefix: "app",
-  system: {
-    dark: "(prefers-color-scheme: dark)",
+  activation: {
+    media: {
+      dark: "(prefers-color-scheme: dark)",
+    },
   },
+  prefix: "app",
 });
 ```
 
@@ -446,12 +446,10 @@ Output:
 
 A mode activates through four tiers, emitted in this order:
 
-1. **base**: the default mode at `root` (`:root`, or `:host` for a shadow root);
-2. **system**: a media condition per mode at `root`, from `system`. No mode is inferred;
-3. **explicit**: one attribute marker per mode, `data-theme` when the scheme has several modes.
-   Set `attribute` to another `data-*` name, or to `false` for no markers;
-4. **custom**: author selectors per mode, from `selectors`, each optionally inside a media
-   condition.
+1. **default**: the default mode at `activation.root`, which defaults to `:root`.
+2. **media**: `activation.media` maps modes to media conditions at that root, including `print`.
+3. **attribute**: `activation.attribute` explicitly opts into one `data-*` marker per mode. Omission emits no markers.
+4. **selector**: `activation.selectors` maps modes to selector strings, single `{ selector, media? }` objects, or non-empty lists of those objects.
 
 Every selector is wrapped in `:where()`, so precedence comes only from this order: a later
 matching block wins, then the scheme's authored mode order, then the order of a mode's conditions.

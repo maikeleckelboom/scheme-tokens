@@ -10,14 +10,13 @@ are compiler-boundary details, not a theme-coordinate abstraction that the libra
 needs to expose.
 
 Exact token selection makes the downstream semantic contract explicit. The CSS exporter then activates
-each private compiler mode from the application's own attributes: turn off the generated markers with
-`attribute: false`, map the system preference with `system`, and describe each coordinate with custom
-conditions in `selectors`.
+each private compiler mode from the application's own attributes: omit `activation.attribute`, map the system preference with `activation.media`, and describe each coordinate with
+conditions in `activation.selectors`.
 
 ## Ordering two axes
 
-When several conditions match one element, the block emitted later wins: custom conditions come after
-the system tier, then the graph's authored mode order decides, then the order of a mode's conditions.
+When several conditions match one element, the block emitted later wins: selector conditions come after
+the media tier, then the graph's authored mode order decides, then the order of a mode's conditions.
 Author the flattened modes from general to specific, and use `:not()` where a fallback must not
 override an explicit choice:
 
@@ -44,21 +43,22 @@ const scheme = orThrow(
 
 const theme = orThrow(
   exportCssVars(scheme, {
-    prefix: "app",
-    attribute: false,
-    system: { "mono-dark": "(prefers-color-scheme: dark)" },
-    selectors: {
-      "mono-light": '[data-scheme="light"]',
-      "mono-dark": '[data-scheme="dark"]',
-      "vivid-light": '[data-palette="vivid"]',
-      "vivid-dark": [
-        {
-          selector: '[data-palette="vivid"]:not([data-scheme="light"])',
-          media: "(prefers-color-scheme: dark)",
-        },
-        { selector: '[data-palette="vivid"][data-scheme="dark"]' },
-      ],
+    activation: {
+      media: { "mono-dark": "(prefers-color-scheme: dark)" },
+      selectors: {
+        "mono-light": '[data-scheme="light"]',
+        "mono-dark": '[data-scheme="dark"]',
+        "vivid-light": '[data-palette="vivid"]',
+        "vivid-dark": [
+          {
+            selector: '[data-palette="vivid"]:not([data-scheme="light"])',
+            media: "(prefers-color-scheme: dark)",
+          },
+          { selector: '[data-palette="vivid"][data-scheme="dark"]' },
+        ],
+      },
     },
+    prefix: "app",
   }),
 );
 ```
@@ -81,7 +81,7 @@ demonstrates:
 - exact literal mode and public-role types, including for activation options;
 - public semantic roles that reference internal source tokens;
 - exact-key selection that excludes those source tokens from compiled and CSS output;
-- the activation above: a system fallback and ordered custom conditions with no generated markers;
+- the activation above: a media fallback and ordered selector conditions with no generated markers;
 - complete, canonical declarations in every block, and CSS rebuilt from the structured blocks alone;
 - deterministic compiled serialization, CSS, block, and variable-map output.
 

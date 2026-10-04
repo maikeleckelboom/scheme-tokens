@@ -22,18 +22,18 @@ interface Material3ModeOverrides {
   readonly contrastLevel?: number;
 }
 
-type Material3ModeSettings<Mode extends string> = Mode extends Material3ColorMode
-  ? Material3ModeOverrides & { readonly colorMode?: never }
+type Material3SettingsForMode<Mode extends string> = Mode extends Material3ColorMode
+  ? Material3ModeOverrides & { readonly colorMode?: Mode }
   : Material3ModeOverrides & { readonly colorMode: Material3ColorMode };
 
-interface Material3ModesMustNotBeEmpty {
-  readonly material3ModesMustNotBeEmpty: never;
+interface Material3ModeSettingsMustNotBeEmpty {
+  readonly material3ModeSettingsMustNotBeEmpty: never;
 }
 
 /** One settings entry per graph mode; the graph owns its envelope and order. */
-export type Material3Modes<Mode extends string> = {
-  readonly [M in Mode]: Material3ModeSettings<M>;
-} & ([Mode] extends [never] ? Material3ModesMustNotBeEmpty : unknown);
+export type Material3ModeSettings<Mode extends string> = {
+  readonly [M in Mode]: Material3SettingsForMode<M>;
+} & ([Mode] extends [never] ? Material3ModeSettingsMustNotBeEmpty : unknown);
 
 /** Non-default facts require the settings that establish them at runtime. */
 export type Material3Options<
@@ -44,8 +44,8 @@ export type Material3Options<
   readonly variant?: Material3Variant;
   readonly contrastLevel?: number;
   readonly visibility?: Visibility;
-  readonly modes?: Material3Modes<Mode>;
+  readonly modeSettings?: Material3ModeSettings<Mode>;
 } & ([NoInfer<Mode>, Material3ColorMode] extends [Material3ColorMode, NoInfer<Mode>]
   ? unknown
-  : { readonly modes: Material3Modes<NoInfer<Mode>> }) &
+  : { readonly modeSettings: Material3ModeSettings<NoInfer<Mode>> }) &
   ("public" extends NoInfer<Visibility> ? unknown : { readonly visibility: NoInfer<Visibility> });

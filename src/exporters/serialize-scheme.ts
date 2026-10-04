@@ -116,7 +116,9 @@ function canonicalCompiledScheme(scheme: AnyCompiledScheme): unknown {
       "declarations",
       metadata.declarations.map((declaration) => ({
         origin: canonicalOrigin(declaration.origin),
-        ...(declaration.visibility === undefined ? {} : { visibility: declaration.visibility }),
+        ...(declaration.declaredVisibility === undefined
+          ? {}
+          : { declaredVisibility: declaration.declaredVisibility }),
       })),
     );
     if (metadata.expressionByMode !== undefined) {

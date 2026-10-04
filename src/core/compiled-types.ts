@@ -1,36 +1,12 @@
-import {
-  compiledSchemeKind,
-  type TokenGraphIssue,
-  type TokenOrigin,
-  type TokenVisibility,
-} from "./graph";
+import { compiledSchemeKind, type TokenOrigin, type TokenVisibility } from "./graph";
 import type { JsonValue } from "./json";
-import type { Issue } from "./result";
+export type { CompileTokenGraphIssue, ParseCompiledSchemeIssue } from "../types/diagnostics";
 
-export type TokenSelection<Key extends string = string> =
-  | "public"
-  | "all"
-  | {
-      readonly keys: readonly Key[];
-    };
+export type TokenSelection<Key extends string = string> = "public" | "all" | readonly Key[];
 
 export interface CompileTokenGraphOptions<Key extends string = string> {
   readonly selection?: TokenSelection<Key>;
 }
-
-type CompileSelectionIssue = Issue<
-  | "invalid-compile-options"
-  | "invalid-selection"
-  | "empty-selection"
-  | "invalid-selection-key"
-  | "duplicate-selection-key"
-  | "unknown-selection-key"
-  | "no-selected-tokens"
-> & {
-  readonly key?: string;
-};
-
-export type CompileTokenGraphIssue = TokenGraphIssue | CompileSelectionIssue;
 
 export type CompiledToken<Mode extends string = string> = Readonly<Record<Mode, string>>;
 
@@ -40,7 +16,7 @@ type CompiledRecord<Key extends string, Value, Complete extends boolean> = Compl
 
 export interface TokenDeclarationRecord {
   readonly origin: TokenOrigin;
-  readonly visibility?: TokenVisibility;
+  readonly declaredVisibility?: TokenVisibility;
 }
 export type CompiledReference = { readonly ref: string };
 export type CompiledConcatPart = string | { readonly ref: string; readonly value: string };
@@ -70,32 +46,3 @@ export interface CompiledScheme<
   readonly tokens: CompiledRecord<Key, CompiledToken<Mode>, Complete>;
   readonly metadataByToken: CompiledRecord<Key, CompiledTokenMetadata<Mode>, Complete>;
 }
-
-export type ParseCompiledSchemeIssue = Issue<
-  | "invalid-object"
-  | "unknown-property"
-  | "missing-property"
-  | "invalid-artifact-kind"
-  | "invalid-format-version"
-  | "invalid-schema-uri"
-  | "invalid-mode-key"
-  | "duplicate-mode-key"
-  | "default-mode-not-found"
-  | "invalid-token-key"
-  | "invalid-visibility"
-  | "invalid-token-definition"
-  | "invalid-token-value"
-  | "missing-mode-value"
-  | "unknown-mode-value"
-  | "invalid-origin"
-  | "invalid-declarations"
-  | "invalid-expression"
-  | "empty-modes"
-  | "invalid-description"
-  | "invalid-deprecated"
-  | "invalid-extensions"
-  | "invalid-json-value"
-> & {
-  readonly key?: string;
-  readonly mode?: string;
-};

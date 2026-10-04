@@ -9,7 +9,7 @@ import {
   tokenRef,
 } from "scheme-tokens";
 import { describe, expect, test } from "vitest";
-import { material3, type Material3Modes } from "../src";
+import { material3, type Material3ModeSettings } from "../src";
 
 describe("core integration", () => {
   test("composes semantic references and preserves direct dependency metadata", () => {
@@ -91,7 +91,9 @@ describe("core integration", () => {
     if (!compiled.ok) {
       return;
     }
-    const exported = exportCssVars(compiled.value, { selectors: { dark: ".dark" } });
+    const exported = exportCssVars(compiled.value, {
+      activation: { attribute: "data-theme", selectors: { dark: ".dark" } },
+    });
     expect(exported.ok).toBe(true);
     if (!exported.ok) {
       throw new Error(JSON.stringify(exported.issues));
@@ -101,10 +103,10 @@ describe("core integration", () => {
       "--md-sys-color-on-primary-container",
     );
     expect(exported.value.blocks.map((block) => `${block.tier}:${block.mode}`)).toEqual([
-      "base:light",
-      "explicit:light",
-      "explicit:dark",
-      "custom:dark",
+      "default:light",
+      "attribute:light",
+      "attribute:dark",
+      "selector:dark",
     ]);
     for (const block of exported.value.blocks) {
       expect(block.declarations).toHaveLength(48);
@@ -161,7 +163,7 @@ describe("core integration", () => {
     });
     expect(
       all.metadataByToken["md.sys.color.primary"].declarations.every(
-        (declaration) => declaration.visibility === undefined,
+        (declaration) => declaration.declaredVisibility === undefined,
       ),
     ).toBe(true);
     expect(Object.keys(orThrow(compileTokenGraph(graph)).tokens)).toEqual([
@@ -200,7 +202,7 @@ describe("core integration", () => {
   });
 
   test("core rejects mismatched dynamic mode sets with one layer issue", () => {
-    const layer = material3("#6750a4", { modes: { standard: { colorMode: "light" } } });
+    const layer = material3("#6750a4", { modeSettings: { standard: { colorMode: "light" } } });
     const modes: readonly [string, ...string[]] = ["light", "dark"];
     const input = { modes, defaultMode: "light", layers: [layer], tokens: {} };
     const expected = {
@@ -224,8 +226,8 @@ describe("core integration", () => {
   });
 
   test("a dynamic settings map retains runtime validation in a literal graph", () => {
-    const modes: Material3Modes<string> = { standard: { colorMode: "light" } };
-    const layer = material3("#6750a4", { modes });
+    const modes: Material3ModeSettings<string> = { standard: { colorMode: "light" } };
+    const layer = material3("#6750a4", { modeSettings: modes });
     expect(() =>
       defineTokenGraph({
         modes: ["light", "dark"],

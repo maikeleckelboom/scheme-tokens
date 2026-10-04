@@ -47,9 +47,7 @@ type PublicCompiled<Input> =
 // Selection types that are not literal stay conservatively partial over every graph key.
 type SelectedCompiled<Input, Options> = [Options] extends [{ readonly selection: "all" }]
   ? CompiledScheme<GraphKey<Input>, GraphMode<Input>, IsFinite<GraphKey<Input>>>
-  : [Options] extends [
-        { readonly selection: { readonly keys: infer Keys extends readonly string[] } },
-      ]
+  : [Options] extends [{ readonly selection: infer Keys extends readonly string[] }]
     ? CompiledScheme<
         Keys[number],
         GraphMode<Input>,
@@ -193,32 +191,10 @@ function parseCompileSelection<Key extends string = string>(
     return { ok: true, value: selection };
   }
 
-  const selectionEntries = readPlainRecord(selection, {
+  const keyEntries = readArray(selection, {
     code: "invalid-selection",
-    message: "selection must be public, all, or { keys }.",
+    message: "selection must be public, all, or a dense array of token keys.",
     path: pointer("selection"),
-  });
-  if (!selectionEntries.ok) {
-    return selectionEntries as Result<never, CompileTokenGraphIssue>;
-  }
-  if (selectionEntries.value.length !== 1 || selectionEntries.value[0]?.key !== "keys") {
-    return {
-      ok: false,
-      issues: [
-        {
-          code: "invalid-selection",
-          message: "Exact selection must contain only keys.",
-          path: pointer("selection"),
-        },
-      ],
-    };
-  }
-
-  const keys = selectionEntries.value[0].value;
-  const keyEntries = readArray(keys, {
-    code: "invalid-selection",
-    message: "selection.keys must be a dense array.",
-    path: pointer("selection", "keys"),
   });
   if (!keyEntries.ok) {
     return {
@@ -226,8 +202,8 @@ function parseCompileSelection<Key extends string = string>(
       issues: [
         {
           code: "invalid-selection",
-          message: "selection.keys must be an array.",
-          path: pointer("selection", "keys"),
+          message: "selection must be public, all, or an array of token keys.",
+          path: pointer("selection"),
         },
       ],
     };
@@ -239,7 +215,7 @@ function parseCompileSelection<Key extends string = string>(
         {
           code: "empty-selection",
           message: "Exact selection must not be empty.",
-          path: pointer("selection", "keys"),
+          path: pointer("selection"),
         },
       ],
     };
@@ -254,7 +230,7 @@ function parseCompileSelection<Key extends string = string>(
       collector.add({
         code: "invalid-selection-key",
         message: "Selection keys must be valid token keys.",
-        path: pointer("selection", "keys", entry.index),
+        path: pointer("selection", entry.index),
         ...(typeof key === "string" ? { key } : {}),
       });
       continue;
@@ -263,7 +239,7 @@ function parseCompileSelection<Key extends string = string>(
       collector.add({
         code: "duplicate-selection-key",
         message: `Duplicate selection key: ${key}.`,
-        path: pointer("selection", "keys", entry.index),
+        path: pointer("selection", entry.index),
         key,
       });
       continue;
@@ -273,7 +249,7 @@ function parseCompileSelection<Key extends string = string>(
       collector.add({
         code: "unknown-selection-key",
         message: `Selection key does not exist: ${key}.`,
-        path: pointer("selection", "keys", entry.index),
+        path: pointer("selection", entry.index),
         key,
       });
       continue;
@@ -282,7 +258,7 @@ function parseCompileSelection<Key extends string = string>(
   }
 
   const issues = collector.issues();
-  return issues === undefined ? { ok: true, value: { keys: output } } : { ok: false, issues };
+  return issues === undefined ? { ok: true, value: output } : { ok: false, issues };
 }
 
 function selectTokenKeys<Key extends string>(
@@ -295,7 +271,7 @@ function selectTokenKeys<Key extends string>(
       ? keys
       : selection === "public"
         ? keys.filter((key) => graph.tokens[key]?.visibility === "public")
-        : [...selection.keys];
+        : [...selection];
 
   const canonical = [...selected].sort(compareCodeUnits);
   if (canonical.length === 0) {

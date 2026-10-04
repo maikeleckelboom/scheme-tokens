@@ -37,7 +37,10 @@ function tokensCss(
     },
   });
   const css = api.orThrow(
-    api.exportCssVars(api.orThrow(api.compileTokenGraph(graph)), options),
+    api.exportCssVars(api.orThrow(api.compileTokenGraph(graph)), {
+      ...options,
+      activation: { attribute: "data-theme", ...options.activation },
+    }),
   ).css;
   expect(css).not.toContain("important");
   return css;
@@ -96,14 +99,14 @@ function island(outer: Mode, inner: Mode): string {
 }
 
 test("base applies the default mode at the root", async ({ page }) => {
-  await render(page, { tokens: tokensCss({ attribute: false }), body: '<p id="child"></p>' });
+  await render(page, { tokens: tokensCss({}), body: '<p id="child"></p>' });
   expect(await read(page, ["root", "child"])).toEqual(["light", "light"]);
 });
 
 test("a matching system condition beats base; a non-matching one leaves base", async ({ page }) => {
-  await render(page, { tokens: tokensCss({ system: { dark: ALWAYS } }) });
+  await render(page, { tokens: tokensCss({ activation: { media: { dark: ALWAYS } } }) });
   expect(await read(page, ["root"])).toEqual(["dark"]);
-  await render(page, { tokens: tokensCss({ system: { dark: NEVER } }) });
+  await render(page, { tokens: tokensCss({ activation: { media: { dark: NEVER } } }) });
   expect(await read(page, ["root"])).toEqual(["light"]);
 });
 
@@ -111,7 +114,7 @@ for (const colorScheme of ["light", "dark"] as const) {
   test(`the system tier follows an emulated ${colorScheme} preference`, async ({ page }) => {
     await page.emulateMedia({ colorScheme });
     await render(page, {
-      tokens: tokensCss({ system: { dark: PREFERS_DARK } }),
+      tokens: tokensCss({ activation: { media: { dark: PREFERS_DARK } } }),
       body: '<p id="child"></p>',
     });
     expect(await read(page, ["root", "child"])).toEqual([colorScheme, colorScheme]);
@@ -120,29 +123,29 @@ for (const colorScheme of ["light", "dark"] as const) {
 
 test("explicit markers beat an active system condition in both directions", async ({ page }) => {
   await render(page, {
-    tokens: tokensCss({ system: { dark: ALWAYS } }),
+    tokens: tokensCss({ activation: { media: { dark: ALWAYS } } }),
     root: { "data-theme": "light" },
   });
   expect(await read(page, ["root"])).toEqual(["light"]);
   await render(page, {
-    tokens: tokensCss({ system: { light: ALWAYS, dark: NEVER } }),
+    tokens: tokensCss({ activation: { media: { light: ALWAYS, dark: NEVER } } }),
     root: { "data-theme": "dark" },
   });
   expect(await read(page, ["root"])).toEqual(["dark"]);
 
   await page.emulateMedia({ colorScheme: "dark" });
   await render(page, {
-    tokens: tokensCss({ system: { dark: PREFERS_DARK } }),
+    tokens: tokensCss({ activation: { media: { dark: PREFERS_DARK } } }),
     root: { "data-theme": "light" },
   });
   expect(await read(page, ["root"])).toEqual(["light"]);
 });
 
 test("a marker value that is not a mode keeps the system preference", async ({ page }) => {
-  const tokens = tokensCss({ system: { dark: PREFERS_DARK } });
+  const tokens = tokensCss({ activation: { media: { dark: PREFERS_DARK } } });
   for (const colorScheme of ["dark", "light"] as const) {
     await page.emulateMedia({ colorScheme });
-    for (const value of ["system", "light dark", ""]) {
+    for (const value of ["system", "media", "light dark", ""]) {
       await render(page, { tokens, root: { "data-theme": value } });
       expect(await read(page, ["root"]), `data-theme="${value}"`).toEqual([colorScheme]);
     }
@@ -151,7 +154,7 @@ test("a marker value that is not a mode keeps the system preference", async ({ p
 
 test("nested markers create islands in both directions", async ({ page }) => {
   const ids = ["root", "section", "plain", "island", "deep"];
-  const tokens = tokensCss({ system: { dark: PREFERS_DARK } });
+  const tokens = tokensCss({ activation: { media: { dark: PREFERS_DARK } } });
 
   await page.emulateMedia({ colorScheme: "light" });
   await render(page, { tokens, body: island("dark", "light") });
@@ -183,8 +186,10 @@ test("every activation point redeclares every token", async ({ page }) => {
 test("custom conditions beat explicit markers and system conditions", async ({ page }) => {
   await render(page, {
     tokens: tokensCss({
-      system: { dark: ALWAYS },
-      selectors: { light: ".force-light", dark: ".force-dark" },
+      activation: {
+        media: { dark: ALWAYS },
+        selectors: { light: ".force-light", dark: ".force-dark" },
+      },
     }),
     root: { class: "force-light" },
     body:
@@ -199,7 +204,7 @@ test("custom conditions beat explicit markers and system conditions", async ({ p
 });
 
 test("overlapping custom conditions resolve by authored mode order", async ({ page }) => {
-  const options = { attribute: false, selectors: { light: ".light", dark: ".dark" } } as const;
+  const options = { activation: { selectors: { light: ".light", dark: ".dark" } } } as const;
   const body = '<p id="both" class="light dark"></p>';
 
   await render(page, { tokens: tokensCss(options), body });
@@ -228,16 +233,17 @@ test("a two-axis palette and scheme resolves through ordered custom conditions",
   });
   const tokens = api.orThrow(
     api.exportCssVars(api.orThrow(api.compileTokenGraph(graph)), {
-      attribute: false,
-      system: { "mono-dark": PREFERS_DARK },
-      selectors: {
-        "mono-light": '[data-scheme="light"]',
-        "mono-dark": '[data-scheme="dark"]',
-        "vivid-light": '[data-palette="vivid"]',
-        "vivid-dark": [
-          { selector: '[data-palette="vivid"]:not([data-scheme="light"])', media: PREFERS_DARK },
-          { selector: '[data-palette="vivid"][data-scheme="dark"]' },
-        ],
+      activation: {
+        media: { "mono-dark": PREFERS_DARK },
+        selectors: {
+          "mono-light": '[data-scheme="light"]',
+          "mono-dark": '[data-scheme="dark"]',
+          "vivid-light": '[data-palette="vivid"]',
+          "vivid-dark": [
+            { selector: '[data-palette="vivid"]:not([data-scheme="light"])', media: PREFERS_DARK },
+            { selector: '[data-palette="vivid"][data-scheme="dark"]' },
+          ],
+        },
       },
     }),
   ).css;
@@ -293,7 +299,7 @@ test("shadcn stock fallback layers permit generated variables and restore after 
   const scheme = api.orThrow(api.compileTokenGraph(graph));
   const stock = ":root { --background: white; } .dark { --background: black; }";
   const selectors = { light: ".light", dark: ".dark" } as const;
-  const tokens = api.orThrow(api.exportCssVars(scheme, { attribute: false, selectors })).css;
+  const tokens = api.orThrow(api.exportCssVars(scheme, { activation: { selectors } })).css;
   const body = '<section id="dark" class="dark"><div id="light" class="light"></div></section>';
   const paint = "#dark, #light { background-color: var(--background); }";
   for (const placement of ["before", "after"] as const) {
@@ -301,9 +307,8 @@ test("shadcn stock fallback layers permit generated variables and restore after 
     expect(await read(page, ["root", "dark"], "--background")).toEqual(["white", "black"]);
     for (const generated of [
       tokens,
-      api.orThrow(
-        api.exportCssVars(scheme, { attribute: false, selectors, cascadeLayer: "tokens" }),
-      ).css,
+      api.orThrow(api.exportCssVars(scheme, { activation: { selectors }, cascadeLayer: "tokens" }))
+        .css,
     ]) {
       await render(page, {
         tokens: generated,
@@ -397,10 +402,18 @@ test("cascadeLayer follows cascade-layer order", async ({ page }) => {
 test("wrapped :host selectors match shadow hosts, and markers nest inside shadow trees", async ({
   page,
 }) => {
-  const tokens = tokensCss({ root: ":host" });
+  const tokens = tokensCss({
+    activation: { attribute: { name: "data-theme", includeHost: true }, root: ":host" },
+  });
   expect(tokens).toContain(":where(:host) {\n");
   expect(tokens).toContain(':where(:host([data-theme="dark"]), [data-theme="dark"]) {\n');
-  const systemTokens = tokensCss({ root: ":host", system: { dark: ALWAYS } });
+  const systemTokens = tokensCss({
+    activation: {
+      attribute: { name: "data-theme", includeHost: true },
+      root: ":host",
+      media: { dark: ALWAYS },
+    },
+  });
 
   await render(page, {
     tokens: "",
@@ -467,7 +480,7 @@ test("wrapped :host selectors match shadow hosts, and markers nest inside shadow
 });
 
 test("color-scheme follows its token only where application CSS binds it", async ({ page }) => {
-  const tokens = tokensCss({ selectors: { dark: ".dark" } });
+  const tokens = tokensCss({ activation: { selectors: { dark: ".dark" } } });
   const body =
     '<section id="section" data-theme="dark"><p id="child"></p></section>' +
     '<div id="custom" class="dark"><p id="custom-child"></p></div>';
@@ -518,6 +531,7 @@ function referenceCss(options: SchemeTokens.ExportCssVarsOptions<string, Mode> =
   return api.orThrow(
     api.exportCssVars(api.orThrow(api.compileTokenGraph(graph)), {
       ...options,
+      activation: { attribute: "data-theme", ...options.activation },
       references: "var",
     }),
   ).css;
@@ -587,7 +601,10 @@ test("an unmarked descendant target override leaves inherited aliases and concat
 test("var references compute at a shadow host and at nested shadow activation elements", async ({
   page,
 }) => {
-  const tokens = referenceCss({ root: ":host", cascadeLayer: "tokens" });
+  const tokens = referenceCss({
+    activation: { attribute: { name: "data-theme", includeHost: true }, root: ":host" },
+    cascadeLayer: "tokens",
+  });
   await render(page, { tokens: "", body: '<div id="host" data-theme="dark"></div>' });
   const computed = await page.evaluate((css) => {
     const host = document.getElementById("host");
@@ -658,3 +675,62 @@ test("var concat substitutes CSS tokens rather than assembling dimensions or quo
   expect(await read(page, ["probe"], "padding-left")).toEqual(["0px"]);
   expect(await content()).toBe('"var(--number)"');
 });
+
+test("omitted attribute activation ignores DOM markers and a singleton condition activates in print", async ({
+  page,
+}) => {
+  const scheme = api.orThrow(
+    api.compileTokenGraph(
+      api.defineTokenGraph({
+        modes: ["light", "dark"],
+        defaultMode: "light",
+        tokens: { surface: { light: "light", dark: "dark" } },
+      }),
+    ),
+  );
+  const plain = api.orThrow(api.exportCssVars(scheme)).css;
+  await render(page, {
+    tokens: plain,
+    root: { "data-theme": "dark" },
+    body: '<p id="target" data-theme="dark"></p>',
+  });
+  expect(await read(page, ["root", "target"])).toEqual(["light", "light"]);
+  const conditional = api.orThrow(
+    api.exportCssVars(scheme, {
+      activation: { selectors: { dark: { selector: ".dark", media: "print" } } },
+    }),
+  ).css;
+  await render(page, { tokens: conditional, body: '<p id="target" class="dark"></p>' });
+  await page.emulateMedia({ media: "screen" });
+  expect(await read(page, ["target"])).toEqual(["light"]);
+  await page.emulateMedia({ media: "print" });
+  expect(await read(page, ["target"])).toEqual(["dark"]);
+});
+
+for (const root of [":host", ":host(.app)", ".theme-root"]) {
+  test("host inclusion is independent of root " + root, async ({ page }) => {
+    for (const includeHost of [false, true]) {
+      const tokens = tokensCss({
+        activation: { root, attribute: { name: "data-theme", includeHost } },
+      });
+      await render(page, {
+        tokens: "",
+        body: '<div id="host" class="app" data-theme="dark"></div>',
+      });
+      const computed = await page.evaluate((css) => {
+        const host = document.getElementById("host")!;
+        const shadow = host.attachShadow({ mode: "open" });
+        const style = document.createElement("style");
+        style.textContent = css;
+        shadow.innerHTML =
+          '<p id="plain"></p><section data-theme="light"><p id="light"></p><div data-theme="dark"><p id="dark"></p></div></section>';
+        shadow.prepend(style);
+        return [host, ...["plain", "light", "dark"].map((id) => shadow.getElementById(id)!)].map(
+          (element) => getComputedStyle(element).getPropertyValue("--surface").trim(),
+        );
+      }, tokens);
+      const hostValue = includeHost ? "dark" : root === ".theme-root" ? "" : "light";
+      expect(computed).toEqual([hostValue, hostValue, "light", "dark"]);
+    }
+  });
+}

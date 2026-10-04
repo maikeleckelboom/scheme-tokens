@@ -77,9 +77,9 @@ describe("scheme-tokens core", () => {
       "primary",
       "secondary",
     ]);
-    expect(
-      expectOk(compileTokenGraph(graph, { selection: { keys: ["secondary"] } })).tokens,
-    ).toEqual({ secondary: { base: "#03dac6" } });
+    expect(expectOk(compileTokenGraph(graph, { selection: ["secondary"] })).tokens).toEqual({
+      secondary: { base: "#03dac6" },
+    });
   });
 
   test("reports when public selection contains no tokens", () => {
@@ -163,7 +163,7 @@ describe("scheme-tokens core", () => {
     expect(compiled.metadataByToken.primary).toEqual({
       visibility: "internal",
       declarations: [
-        { origin: { kind: "layer", id: "legacy" }, visibility: "internal" },
+        { origin: { kind: "layer", id: "legacy" }, declaredVisibility: "internal" },
         { origin: { kind: "layer", id: "brand" } },
       ],
       description: "Winning declaration.",
@@ -237,7 +237,7 @@ describe("scheme-tokens core", () => {
       metadataByToken: {
         "brand.600": {
           visibility: "internal",
-          declarations: [{ origin: { kind: "graph" }, visibility: "internal" }],
+          declarations: [{ origin: { kind: "graph" }, declaredVisibility: "internal" }],
           description: "Brand primary.",
           extensions: { owner: "design" },
         },

@@ -101,7 +101,7 @@ ${lines.join("\n")}
 });
 export const publicScheme = compileTokenGraph(graph);
 export const allScheme = compileTokenGraph(graph, { selection: "all" });
-export const exactScheme = compileTokenGraph(graph, { selection: { keys: ["${key(1)}", "${key(2)}"] } });
+export const exactScheme = compileTokenGraph(graph, { selection: ["${key(1)}", "${key(2)}"] });
 `;
 }
 

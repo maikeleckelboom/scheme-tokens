@@ -74,6 +74,8 @@ const graph = defineTokenGraph({
 - A direct explicit mode map.
 - One expanded `{ value, visibility?, description?, deprecated?, extensions? }` object, where `value` is an expression or mode map.
 
+Only the trusted `defineTokenGraph()` input may omit `tokens`; omission becomes an owned empty record. Canonical graphs, parsers, and schemas still require `tokens`.
+
 Bare strings are never references. `valueByMode`, `aliases`, and metadata mixed directly with mode keys are not accepted. For literal input TypeScript rejects these at the offending property, together with reference typos, missing or undeclared modes in a mode map, invalid visibility, and misspelled metadata; see [TypeScript contract](#typescript-contract).
 
 Omitting mode options creates `modes: ["base"]` and `defaultMode: "base"`. Multimode graphs require both `modes` and `defaultMode`:
@@ -110,7 +112,7 @@ Authored mode order is preserved, independently of `defaultMode`. Mode names are
 
 ## Layers
 
-Layers have stable IDs and local default visibility, but no mode envelope. Direct expressions fit every graph. All mode maps within one layer must name the same set; a non-empty set must exactly match the graph modes, ignoring order. Mismatches return one deterministic `layer-mode-mismatch` per invalid layer. The graph owns mode order and default. Layers compose in array order, then graph tokens compose last. The winner supplies value and descriptive metadata. Omitted visibility preserves prior effective visibility; explicit visibility restates it. With no explicit visibility, the default of the position that introduced the key applies.
+Layers have stable IDs and local default visibility, but no mode envelope. Direct expressions fit every graph. All mode maps within one layer must name the same set; a non-empty set must exactly match the graph modes, ignoring order. Disagreeing maps inside a layer return `inconsistent-layer-modes`; a consistent layer that differs from its graph returns `layer-mode-mismatch`. Each reports one deterministic failure per invalid layer. The graph owns mode order and default. Layers compose in array order, then graph tokens compose last. The winner supplies value and descriptive metadata. Omitted visibility preserves prior effective visibility; explicit visibility restates it. With no explicit visibility, the default of the position that introduced the key applies.
 
 ```ts
 import { compileTokenGraph, defineTokenGraph, defineTokenLayer, tokenRef } from "scheme-tokens";
@@ -131,14 +133,13 @@ const semantic = defineTokenLayer({
 });
 
 const graph = defineTokenGraph({
-  tokens: {},
   layers: [generated, semantic],
 });
 
 const compiled = compileTokenGraph(graph);
 ```
 
-The public `primary` token resolves through the internal `brand.600` token before public selection is applied.
+The public `primary` token resolves through the internal `brand.600` token before public selection is applied. The composition root omits graph-local `tokens`; the helper still returns canonical `tokens: {}`.
 
 A literal layer carries its mode set in its type: `never` without mode maps, the union of its mode-map names otherwise, and `string` for a parsed or dynamically built layer. Every mode map in a literal layer must name that whole set, so a disagreeing map fails on its own token. `defineTokenGraph` rejects a finite layer set that differs from a finite graph set with a `LayerModeMismatch<LayerModes, GraphModes>` diagnostic; when either set is `string`, only the runtime `layer-mode-mismatch` check applies.
 
@@ -179,7 +180,7 @@ const graph = defineTokenGraph({
 const publicOnly = compileTokenGraph(graph);
 const everything = compileTokenGraph(graph, { selection: "all" });
 const exact = compileTokenGraph(graph, {
-  selection: { keys: ["public"] },
+  selection: ["public"],
 });
 
 if (publicOnly.ok) {
@@ -195,17 +196,17 @@ if (exact.ok) {
 
 Omitted and explicit `public` selection return a complete record keyed exactly by the public keys when TypeScript knows them: every key is finite, and every visibility along layer order and graph-last composition is a literal. Uncertain visibility, such as a value typed `TokenVisibility`, or a dynamic key set anywhere in the composition keeps the public record partial over every graph key. `all` is complete whenever the composed key set is finite, whatever the visibility. An exact literal key tuple is complete after runtime validation. `parseTokenGraph(...).value`, graphs built from `Record<string, …>` or `Object.fromEntries`, layer lists that are not tuples, and parsed layers stay partial.
 
-Exact selections reject empty arrays, duplicate keys, malformed keys, and unknown keys. A runtime key array remains partial because it is not a finite literal tuple. Emitted token order is deterministic and independent of selection-array order. For advanced type annotations, `CompiledScheme<Key, Mode, Complete>` represents this completeness, and `CssVarsExport<Key, Mode, Complete>` preserves it in `variableByToken`; ordinary consumers should let both types infer.
+Ordinary key arrays are accepted; no non-empty tuple annotation is required. At runtime, explicit selections reject empty arrays, duplicate keys, malformed keys, and unknown keys. A runtime key array remains partial because it is not a finite literal tuple. Emitted token order is deterministic and independent of selection-array order. For advanced type annotations, `CompiledScheme<Key, Mode, Complete>` represents this completeness, and `CssVarsExport<Key, Mode, Complete>` preserves it in `variableByToken`; ordinary consumers should let both types infer.
 
 ## Compiled metadata
 
-Compiled values remain `tokens[key][mode]`. Metadata contains effective `visibility` and non-empty `declarations` in composition order. Each declaration contains `origin: { kind: "graph" }` or `{ kind: "layer", id }`, plus `visibility` only when explicitly authored. The last declaration wins. Sparse `expressionByMode` omits literal modes, retains pure `{ ref }` records without duplicated values, and retains canonical concat parts with `{ ref, value }` for referenced parts. Descriptions, deprecation, and extensions come only from the winner.
+Compiled values remain `tokens[key][mode]`. Metadata contains effective `visibility` and non-empty `declarations` in composition order. Each declaration contains `origin: { kind: "graph" }` or `{ kind: "layer", id }`, plus `declaredVisibility` only when explicitly authored. The last declaration wins. Sparse `expressionByMode` omits literal modes, retains pure `{ ref }` records without duplicated values, and retains canonical concat parts with `{ ref, value }` for referenced parts. Descriptions, deprecation, and extensions come only from the winner.
 
 ## CSS custom properties
 
 `exportCssVars()` returns CSS, structured blocks, and the generated property for each token.
 
-Options are `prefix`, `variableName`, `format` (`pretty` or `compact`), `references` (`resolved` or `var`), `root`, `attribute`, `system`, `selectors`, and `cascadeLayer`.
+Options are `prefix`, `variableName`, `format` (`pretty` or `compact`), `references` (`resolved` or `var`), `activation`, and `cascadeLayer`.
 
 ```ts
 import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
@@ -219,9 +220,8 @@ const scheme = orThrow(compileTokenGraph(graph));
 
 const cssVars = orThrow(
   exportCssVars(scheme, {
+    activation: { media: { dark: "(prefers-color-scheme: dark)" }, selectors: { dark: ".dark" } },
     prefix: "color",
-    system: { dark: "(prefers-color-scheme: dark)" },
-    selectors: { dark: ".dark" },
     format: "pretty",
   }),
 );
@@ -243,22 +243,18 @@ Core concat joins characters, while CSS `var()` substitutes token streams. `calc
 
 ### Activation
 
-A block holds one mode's declarations under one condition. Blocks are emitted in four tiers:
+Selector maps accept a string, one `{ selector, media? }` object, or a non-empty list of those objects. A block holds one mode's declarations under one condition. Blocks are emitted in four tiers:
 
-| Tier       | Condition                                              | Option and default                                        |
-| ---------- | ------------------------------------------------------ | --------------------------------------------------------- |
-| `base`     | the default mode at `root`                             | `root`, default `:root`; `:host` for a shadow root        |
-| `system`   | a media condition selects a mode at `root`             | `system`, none: core does not know which mode is dark     |
-| `explicit` | an attribute marker selects a mode on any element      | `attribute`, `data-theme` with several modes; `false` off |
-| `custom`   | author selectors, each optionally inside a media query | `selectors`, none                                         |
+| Tier        | Condition                                 | Option and default                               |
+| ----------- | ----------------------------------------- | ------------------------------------------------ |
+| `default`   | the default mode at the root selector     | `activation.root`, default `:root`               |
+| `media`     | a media condition selects a mode at root  | `activation.media`, no conditions by default     |
+| `attribute` | a marker selects a mode on an element     | `activation.attribute`, no markers by default    |
+| `selector`  | author selectors, optionally inside media | `activation.selectors`, no conditions by default |
 
-Within a tier, blocks follow the scheme's authored mode order, and a mode's custom conditions keep their order. Every generated selector, custom ones included, is wrapped in `:where()` and has zero specificity, so when several blocks match one element, the later block wins. The tier order therefore makes explicit markers beat the system preference and custom conditions beat both. Every block declares every selected token, in canonical key order, so a later block replaces all of an earlier one.
+Within a tier, blocks follow the scheme's authored mode order, and a mode's custom conditions keep their order. Every generated selector, custom ones included, is wrapped in `:where()` and has zero specificity, so when several blocks match one element, the later block wins. The tier order therefore makes attribute markers beat media activation and selector conditions beat both. Every block declares every selected token, in canonical key order, so a later block replaces all of an earlier one.
 
-- Explicit markers are unanchored and include the default mode, so any element can switch modes and nested islands work in both directions. A marker value that is not a mode, such as `data-theme="system"`, matches nothing and leaves the system preference in charge. There is no exclusion guard.
-- With `root: ":host"`, base and system blocks target the host, and each marker targets both the host and elements inside the shadow tree: `:where(:host([data-theme="dark"]), [data-theme="dark"])`.
-- `system` and `selectors` are partial maps keyed by the compiled mode union; TypeScript rejects unknown modes of a finite scheme, and the runtime returns `unknown-condition-mode` for dynamic input. A custom entry is one selector, or a non-empty list of `{ selector, media? }` conditions.
-- Custom conditions may overlap. When conditions of two modes match one element, the later mode in authored order wins, so author two-axis modes from general to specific, and use `:not()` in a selector for conditions that must stay disjoint. Two mode classes on one element are an application error with a deterministic outcome, not a supported way to express intent.
-- Omitting `attribute` and setting it to `false` differ: omission selects the conventional default, and `false` generates no markers. An explicit attribute applies to a one-mode scheme too.
+Attribute markers are unanchored and include the default mode, so nested elements can switch back to it. Unknown marker values match no block. The string shorthand targets ordinary elements only. Set `activation.attribute` to `{ name: "data-mode", includeHost: true }` to add `:host([data-mode="dark"])` beside `[data-mode="dark"]`. `activation.root` affects only default and media rules; `:root`, `:host`, `:host(.app)`, `#app`, and `.theme-root` never change attribute targeting.
 
 Application rules follow the normal cascade. Origin, importance, and cascade layers are compared before specificity. In the same layer, an application rule with any specificity overrides a generated declaration whether its stylesheet comes before or after the tokens, and a zero-specificity rule such as `:where(…)` competes by order. `cascadeLayer` wraps the whole output in `@layer <name>`: unlayered declarations and later layers then win over the tokens, earlier layers lose, and `!important` reverses layer order. The exporter never emits `!important`.
 
@@ -278,7 +274,7 @@ Selectors, media conditions, and layer names use intentionally bounded grammars 
 
 Input outside a grammar returns a structured issue; it is never sanitized.
 
-See [Application Theme Coordinates](./application-theme-coordinates.md) for combining independent application axes into private compiler modes and activating them with a system fallback and ordered custom conditions. See [Tailwind CSS v4](./tailwind-css-v4.md) for bridging runtime variables into Tailwind color utilities.
+See [Application Theme Coordinates](./application-theme-coordinates.md) for combining independent application axes into private compiler modes and activating them with a media fallback and ordered selector conditions. See [Tailwind CSS v4](./tailwind-css-v4.md) for bridging runtime variables into Tailwind color utilities.
 
 Compilation and serialization accept arbitrary token strings. CSS export is stricter because it emits declarations: a declaration-unsafe string fails with `invalid-css-value` instead of being written. Each emitted value is checked once, however many blocks declare it. This is an output-safety check, not token-domain interpretation. Option, name, and value failures are all collected rather than reported one at a time.
 
@@ -317,7 +313,7 @@ if (parsed.ok) {
 }
 ```
 
-Current writers emit `formatVersion: 2`. Source parsers also accept historical v1 graphs/layers, upgrade once, and validate under the same current rules. Shadowed graph declarations move to a deterministic leading synthetic layer; only necessary visibility restatements are added, and historical default-first mode order is preserved. V1 schema hints are validated historically and dropped on upgrade. Standalone inconsistent layer maps return `layer-mode-mismatch`. Compiled v1 is rejected with `invalid-format-version`: recompile its source graph.
+Current writers emit `formatVersion: 2`. Source parsers also accept historical v1 graphs/layers, upgrade once, and validate under the same current rules. Shadowed graph declarations move to a deterministic leading synthetic layer; only necessary visibility restatements are added, and historical default-first mode order is preserved. V1 schema hints are validated historically and dropped on upgrade. Standalone inconsistent layer maps return `inconsistent-layer-modes`. Compiled v1 is rejected with `invalid-format-version`: recompile its source graph.
 
 In v2, `$schema` may be any string. It is preserved verbatim, never fetched or used for version selection, and never synthesized. Trusted helpers do not accept `$schema`. Only `kind` and `formatVersion` select the runtime format. A documented editor hint for the planned 0.4 release is `https://cdn.jsdelivr.net/npm/scheme-tokens@0.4.0/schemas/token-graph.v2.schema.json`; that release is not published yet. Each packaged schema has a stable identity such as `tag:maikel.site,2026-09-29:scheme-tokens/schema/token-graph/v2`. All three are self-contained Draft 2020-12 with fragment-only internal references.
 
@@ -331,17 +327,19 @@ The three serializers produce the supported deterministic JSON wire representati
 
 ## TypeScript contract
 
-The supported compiler is TypeScript `>=5.9.3 <6.0.0 || >=6.0.2 <7.0.0 || >=7.0.2 <8.0.0`. `defineTokenGraph` returns `DefinedTokenGraph<Key, Mode, PublicKey, OwnKey>`, a `TokenGraph<Key, Mode, PublicKey>`: every composed key, the mode union, and the effective public keys after layers compose in array order and graph tokens compose last. `graph.tokens` holds only the graph's own declarations, so its authored keys (`OwnKey`) are definite there and a key that only a layer declares is not. The mode type is a union; it says nothing about authored order or which mode is the default. `defineTokenLayer` infers `TokenLayer<Key, Mode, Visibility>`, where `Mode` is the layer mode set and `Visibility` is a `LayerVisibility`: the layer default, and the keys that may declare `public`, declare `internal`, or omit visibility. A wider type only adds possibilities, so plain `TokenGraph` and `TokenLayer` describe unknown data.
+The supported compiler is TypeScript `>=5.9.3 <6.0.0 || >=6.0.2 <7.0.0 || >=7.0.2 <8.0.0`. `defineTokenGraph` returns `DefinedTokenGraph<Key, Mode, PublicKey, OwnKey>`, a `TokenGraph<Key, Mode, PublicKey>`: every composed key, the mode union, and the effective public keys after layers compose in array order and graph tokens compose last. `graph.tokens` holds only the graph's own declarations, so its authored keys (`OwnKey`) are definite there and a key that only a layer declares is not. The mode type is a union; it says nothing about authored order or which mode is the default. `defineTokenLayer` infers `TokenLayer<Key, Mode, Visibility>`, where `Mode` is the layer mode set and `Visibility` is a `LayerVisibilityFacts`: the layer default, and the keys that may declare `public`, declare `internal`, or omit visibility. A wider type only adds possibilities, so plain `TokenGraph` and `TokenLayer` describe unknown data.
 
-Literal input is checked by a strict constraint, and each failure lands on the offending property. Reference typos keep TypeScript's "Did you mean" suggestion. Other failures name a diagnostic marker in the compiler message: `UnknownTokenProperty<Name>`, `UnknownMode<Name>`, `InvalidModeName<Name>` for a mode outside the lower-kebab grammar or a reserved name, and `LayerModeMismatch<LayerModes, GraphModes>`. Markers explain a rejection; their wording and shape are not a compatibility contract, and they are not exported.
+Literal input is checked by a strict constraint, and each failure lands on the offending property. Direct graph reference typos keep TypeScript's "Did you mean" suggestion. Reusable layers may refer to keys supplied by another layer or graph-local declarations, so their targets are checked at compilation. A bounded composed-reference prototype was rejected for poor error locality and unnameable declaration types; see ADR 0018. Other failures name a diagnostic marker in the compiler message: `UnknownTokenProperty<Name>`, `UnknownMode<Name>`, `InvalidModeName<Name>` for a mode outside the lower-kebab grammar or a reserved name, and `LayerModeMismatch<LayerModes, GraphModes>`. Markers explain a rejection; their wording and shape are not a compatibility contract, and they are not exported.
 
 A precise static claim is nominal: only `defineTokenGraph`, `defineTokenLayer`, and the values that flow unchanged from them make one, however those values are assigned or passed. An object literal, a spread copy, a mapped type such as `Readonly<…>`, or a layer written inline in `layers` fits only the plain `TokenGraph` and `TokenLayer` forms and is treated like parsed data. A finite key union is an exact claim: a graph or layer type with other keys is not assignable to it, while every graph and layer is assignable to the plain forms. Compiling a union of graphs yields one scheme type per graph.
 
 Explicit assertions, and runtime rewrites that TypeScript still types as the original value, are outside this guarantee. `Object.assign({}, graph, { defaultVisibility: "internal" })` has the type of `graph`, proof included, although its public keys differ, because TypeScript types the merge as an intersection with `graph`; after an in-place `Object.assign(graph, …)` or a write through `any`, `graph` keeps its type. To change keys, visibility, layers, or modes, define the new graph or layer with `defineTokenGraph` or `defineTokenLayer`, which derive fresh facts. Persisted or untrusted data goes through the parsers.
 
+`LayerVisibilityFacts` exposes `defaultVisibility`, `mayStatePublicKeys`, `mayStateInternalKeys`, and `mayOmitVisibilityKeys`. These key unions may overlap: a token typed with optional public visibility can both state public and omit visibility. They are not effective outcomes. Material roles omit per-role visibility, so their two stated sets are `never` and their omitted set contains every role; the layer default still determines their visibility.
+
 ## Public types
 
-The root type surface centers on `Result`, `Issue`, `TokenReference`, `TokenGraph`, `DefinedTokenGraph`, `TokenLayer`, `LayerVisibility`, `CompiledScheme`, `CssVarsExport`, `CssVarBlock`, `CssCondition`, and the authoring, option, and issue types needed to use those operations. Public declarations do not expose dependency-internal types or validation machinery.
+The root type surface centers on `Result`, `Issue`, `TokenReference`, `TokenGraph`, `DefinedTokenGraph`, `TokenLayer`, `LayerVisibilityFacts`, `CompiledScheme`, `CssVarsExport`, `CssVarBlock`, `CssCondition`, and the authoring, option, and issue types needed to use those operations. Public declarations do not expose dependency-internal types or validation machinery.
 
 See [Diagnostics](./diagnostics.md) for issue contracts and [Migration to 0.1](./migration.md) for the reset from the earlier, never-published surface.
 
@@ -349,18 +347,17 @@ See [Diagnostics](./diagnostics.md) for issue contracts and [Migration to 0.1](.
 
 The sibling `@scheme-tokens/material3` package exports `material3` and exactly six named types:
 `Material3TokenKey`, `Material3ColorMode`, `Material3SpecVersion`, `Material3Variant`,
-`Material3Modes` and `Material3Options`. These belong to the adapter, not the core root exports.
+`Material3ModeSettings` and `Material3Options`. These belong to the adapter, not the core root exports.
 The P5 candidate returns one ordinary `TokenLayer` with fixed id `material3` and total maps for
 all 48 roles. Compose through `layers: [material]` with explicit graph modes/defaultMode.
 
-Its `modes` settings map is exact and non-empty; omitted means light/dark. Built-in names imply
-their colorMode, and custom names require it. Spec and visibility stay global; source/variant/
+Its `modeSettings` map is exact and non-empty; omitted means light/dark. Built-in names imply their colorMode and accept a matching explicit value; custom names require it. Spec and visibility stay global; source/variant/
 contrast override per field. Core owns mode-name errors and graph/layer mode agreement.
-P5.1 ties precise claims to field presence: non-default mode sets require `modes`, and visibility
+P5.1 ties precise claims to field presence: non-default mode sets require `modeSettings`, and visibility
 excluding public requires `visibility`. Omitted/undefined options use the non-generic default
 signature; explicit generics require options. Narrow or default possibly undefined options before
 forwarding. Required wrappers retain precise supplied facts; bare options remain conservative.
-The return carries NoInfer modes/default visibility and `omitted: Material3TokenKey`, since every
+The return carries NoInfer modes/default visibility and `mayOmitVisibilityKeys: Material3TokenKey`, since every
 generated declaration omits explicit visibility. Unknown visibility keeps public output partial
 over all composed keys, including possibly public roles. The candidate requires peer `^0.4.0`;
 committed versions are unchanged. P6.1 owns package-only verification and P7 remains separate. See the [adapter reference](../packages/material3/README.md).

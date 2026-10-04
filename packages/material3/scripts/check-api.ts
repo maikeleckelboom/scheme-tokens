@@ -7,7 +7,7 @@ import { canonicalizeDeclaration } from "../../../scripts/api-snapshot.ts";
 const expectedRuntimeExports = ["material3"] as const;
 const expectedTypeExports = [
   "Material3ColorMode",
-  "Material3Modes",
+  "Material3ModeSettings",
   "Material3Options",
   "Material3SpecVersion",
   "Material3TokenKey",
@@ -57,9 +57,9 @@ for (const required of [
   "type Material3Options<Mode extends string = Material3ColorMode, Visibility extends TokenVisibility = TokenVisibility>",
   'declare function material3<const Mode extends string = Material3ColorMode, const Visibility extends TokenVisibility = "public">',
   "TokenLayer<Material3TokenKey, NoInfer<Mode>,",
-  "readonly default: NoInfer<Visibility>;",
-  "readonly public: never; readonly internal: never; readonly omitted: Material3TokenKey;",
-  "Material3ModesMustNotBeEmpty",
+  "readonly defaultVisibility: NoInfer<Visibility>;",
+  "readonly mayStatePublicKeys: never; readonly mayStateInternalKeys: never; readonly mayOmitVisibilityKeys: Material3TokenKey;",
+  "Material3ModeSettingsMustNotBeEmpty",
 ]) {
   if (!normalizedDeclaration.includes(required)) {
     throw new Error(`Adapter declaration is missing contract fragment: ${required}`);

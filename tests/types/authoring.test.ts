@@ -137,7 +137,7 @@ const layeredGraph = defineTokenGraph({
 export type LayeredKeys = Expect<
   Equal<GraphKeys<typeof layeredGraph>, "generated.source.600" | "button" | "primary">
 >;
-compileTokenGraph(layeredGraph, { selection: { keys: ["button", "primary"] } });
+compileTokenGraph(layeredGraph, { selection: ["button", "primary"] });
 
 const generatedLayer = defineTokenLayer({
   id: "generated",
@@ -180,10 +180,8 @@ defineTokenGraph({
 });
 
 compileTokenGraph(simpleGraph, {
-  selection: {
-    // @ts-expect-error exact selection rejects keys outside the inferred graph union.
-    keys: ["missing"],
-  },
+  // @ts-expect-error exact selection rejects keys outside the inferred graph union.
+  selection: ["missing"],
 });
 
 // Default compilation of a finite, fully known public set is complete.
@@ -200,14 +198,14 @@ void publicCss.variableByToken["brand.400"];
 const allCompiled = compileTokenGraph(multiModeGraph, { selection: "all" });
 if (allCompiled.ok) {
   allCompiled.value.tokens["brand.400"].light.toUpperCase();
-  const allCss = exportCssVars(allCompiled.value, { selectors: { dark: ".dark" } });
+  const allCss = exportCssVars(allCompiled.value, { activation: { selectors: { dark: ".dark" } } });
   if (allCss.ok) {
     allCss.value.variableByToken["brand.400"].toUpperCase();
   }
 }
 
 const exactCompiled = compileTokenGraph(simpleGraph, {
-  selection: { keys: ["primary"] },
+  selection: ["primary"],
 });
 if (exactCompiled.ok) {
   const exact: CompiledScheme<"primary", "base"> = exactCompiled.value;

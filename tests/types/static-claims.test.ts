@@ -63,10 +63,10 @@ export const forgedVisibility: TokenLayer<
   "x",
   never,
   {
-    readonly default: "internal";
-    readonly public: "x";
-    readonly internal: never;
-    readonly omitted: never;
+    readonly defaultVisibility: "internal";
+    readonly mayStatePublicKeys: "x";
+    readonly mayStateInternalKeys: never;
+    readonly mayOmitVisibilityKeys: never;
   }
 > = omittedInternal;
 // Layer key forgery: the runtime key set is `x | y`.
@@ -75,10 +75,10 @@ export const hiddenLayerKey: TokenLayer<
   "x",
   never,
   {
-    readonly default: "internal";
-    readonly public: never;
-    readonly internal: never;
-    readonly omitted: "x";
+    readonly defaultVisibility: "internal";
+    readonly mayStatePublicKeys: never;
+    readonly mayStateInternalKeys: never;
+    readonly mayOmitVisibilityKeys: "x";
   }
 > = {
   kind: "scheme-tokens/token-layer",
@@ -140,10 +140,10 @@ export const exactLayer: TokenLayer<
   "x" | "y",
   never,
   {
-    readonly default: "internal";
-    readonly public: "y";
-    readonly internal: never;
-    readonly omitted: "x";
+    readonly defaultVisibility: "internal";
+    readonly mayStatePublicKeys: "y";
+    readonly mayStateInternalKeys: never;
+    readonly mayOmitVisibilityKeys: "x";
   }
 > = layer;
 // A wider visibility type only adds possibilities.
@@ -151,10 +151,10 @@ export const widerLayer: TokenLayer<
   "x" | "y",
   never,
   {
-    readonly default: TokenVisibility;
-    readonly public: "x" | "y";
-    readonly internal: "x";
-    readonly omitted: "x" | "y";
+    readonly defaultVisibility: TokenVisibility;
+    readonly mayStatePublicKeys: "x" | "y";
+    readonly mayStateInternalKeys: "x";
+    readonly mayOmitVisibilityKeys: "x" | "y";
   }
 > = layer;
 export const keyedLayer: TokenLayer<"x" | "y"> = layer;
@@ -164,10 +164,10 @@ export const narrowerLayer: TokenLayer<
   "x" | "y",
   never,
   {
-    readonly default: "internal";
-    readonly public: "x" | "y";
-    readonly internal: never;
-    readonly omitted: never;
+    readonly defaultVisibility: "internal";
+    readonly mayStatePublicKeys: "x" | "y";
+    readonly mayStateInternalKeys: never;
+    readonly mayOmitVisibilityKeys: never;
   }
 > = layer;
 // @ts-expect-error a layer claim cannot hide a key.

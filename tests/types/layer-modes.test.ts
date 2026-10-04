@@ -188,10 +188,10 @@ declare function generated<const Mode extends string = "light" | "dark">(
   "generated.role",
   NoInfer<Mode>,
   {
-    readonly default: "public";
-    readonly public: never;
-    readonly internal: never;
-    readonly omitted: "generated.role";
+    readonly defaultVisibility: "public";
+    readonly mayStatePublicKeys: never;
+    readonly mayStateInternalKeys: never;
+    readonly mayOmitVisibilityKeys: "generated.role";
   }
 >;
 const generatedDefault = generated();

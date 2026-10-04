@@ -106,15 +106,13 @@ defineTokenGraph({tokens: {
 }});
 
 compileTokenGraph(graph, {
-  selection: {
-    keys: [
+  selection: [
       // @ts-expect-error explicit selections preserve the graph key union
       "missing",
     ],
-  },
 });
 
-const selected = compileTokenGraph(graph, { selection: { keys: ["primary"] } });
+const selected = compileTokenGraph(graph, { selection: ["primary"] });
 if (selected.ok) {
   selected.value.tokens.primary.dark.toUpperCase();
   // @ts-expect-error an exact selection narrows the compiled token record
@@ -148,12 +146,7 @@ if ("brand.600" in compiled.value.tokens) {
   throw new Error("default public selection exposed an internal token");
 }
 
-const exported = exportCssVars(compiled.value, {
-  prefix: "color",
-  attribute: false,
-  system: { dark: "(prefers-color-scheme: dark)" },
-  selectors: { dark: ".dark" },
-});
+const exported = exportCssVars(compiled.value, { activation: { media: { dark: "(prefers-color-scheme: dark)" }, selectors: { dark: ".dark" } }, prefix: "color" });
 if (!exported.ok) {
   throw new Error(JSON.stringify(exported.issues));
 }
@@ -171,7 +164,7 @@ if (exported.value.variableByToken.primary !== "--color-primary") {
 const activationOrder = exported.value.blocks
   .map((block) => block.tier + ":" + block.mode + ":" + block.selectors.join(",") + ":" + (block.media ?? ""))
   .join(" | ");
-if (activationOrder !== "base:light::root: | system:dark::root:(prefers-color-scheme: dark) | custom:dark:.dark:") {
+if (activationOrder !== "default:light::root: | media:dark::root:(prefers-color-scheme: dark) | selector:dark:.dark:") {
   throw new Error("packed activation block order failed: " + activationOrder);
 }
 if (!exported.value.css.includes(":where(.dark) {") || exported.value.css.includes("important")) {

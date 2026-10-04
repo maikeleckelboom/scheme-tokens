@@ -15,15 +15,18 @@ describe("CSS activation blocks", () => {
     (format) => {
       const scheme = threeModeScheme();
       const options = {
+        activation: {
+          attribute: { name: "data-theme", includeHost: true },
+          root: ":host",
+          media: { dark: "(prefers-color-scheme: dark)", sepia: "print" },
+          selectors: {
+            light: ".light",
+            dark: [{ selector: ".dark", media: "screen" }, { selector: ".night" }],
+          },
+        },
         format,
         prefix: "app",
-        root: ":host",
         cascadeLayer: "tokens",
-        system: { dark: "(prefers-color-scheme: dark)", sepia: "print" },
-        selectors: {
-          light: ".light",
-          dark: [{ selector: ".dark", media: "screen" }, { selector: ".night" }],
-        },
       } as const;
       expect(exportCssVars(scheme, { ...options, references: "resolved" })).toEqual(
         exportCssVars(scheme, options),
@@ -40,7 +43,7 @@ describe("CSS activation blocks", () => {
     expect(exported.css).toBe(":where(:root) {\n  --background: #ffffff;\n}\n");
     expect(exported.blocks).toEqual([
       {
-        tier: "base",
+        tier: "default",
         mode: "base",
         selectors: [":root"],
         declarations: [{ tokenKey: "background", property: "--background", value: "#ffffff" }],
@@ -49,13 +52,15 @@ describe("CSS activation blocks", () => {
     expect(exported.blocks[0]).not.toHaveProperty("media");
   });
 
-  test("a multi-mode scheme adds explicit markers for every mode, the default included", () => {
-    const exported = orThrow(exportCssVars(lightDarkScheme()));
+  test("explicit attribute activation emits markers for every mode, the default included", () => {
+    const exported = orThrow(
+      exportCssVars(lightDarkScheme(), { activation: { attribute: "data-theme" } }),
+    );
 
     expect(summarize(exported.blocks)).toEqual([
-      ["base", "light", [":root"], undefined],
-      ["explicit", "light", ['[data-theme="light"]'], undefined],
-      ["explicit", "dark", ['[data-theme="dark"]'], undefined],
+      ["default", "light", [":root"], undefined],
+      ["attribute", "light", ['[data-theme="light"]'], undefined],
+      ["attribute", "dark", ['[data-theme="dark"]'], undefined],
     ]);
     expect(exported.css).toBe(
       ":where(:root) {\n" +
@@ -77,25 +82,28 @@ describe("CSS activation blocks", () => {
     const scheme = threeModeScheme();
     const exported = orThrow(
       exportCssVars(scheme, {
-        system: { sepia: "(min-width: 48rem)", dark: "(prefers-color-scheme: dark)" },
-        selectors: {
-          sepia: ".sepia",
-          dark: [{ selector: ".dark" }, { selector: ".night", media: "print" }],
+        activation: {
+          attribute: "data-theme",
+          media: { sepia: "(min-width: 48rem)", dark: "(prefers-color-scheme: dark)" },
+          selectors: {
+            sepia: ".sepia",
+            dark: [{ selector: ".dark" }, { selector: ".night", media: "print" }],
+          },
         },
       }),
     );
 
     // Authored order is dark, light, sepia; the default (light) is not moved first.
     expect(summarize(exported.blocks)).toEqual([
-      ["base", "light", [":root"], undefined],
-      ["system", "dark", [":root"], "(prefers-color-scheme: dark)"],
-      ["system", "sepia", [":root"], "(min-width: 48rem)"],
-      ["explicit", "dark", ['[data-theme="dark"]'], undefined],
-      ["explicit", "light", ['[data-theme="light"]'], undefined],
-      ["explicit", "sepia", ['[data-theme="sepia"]'], undefined],
-      ["custom", "dark", [".dark"], undefined],
-      ["custom", "dark", [".night"], "print"],
-      ["custom", "sepia", [".sepia"], undefined],
+      ["default", "light", [":root"], undefined],
+      ["media", "dark", [":root"], "(prefers-color-scheme: dark)"],
+      ["media", "sepia", [":root"], "(min-width: 48rem)"],
+      ["attribute", "dark", ['[data-theme="dark"]'], undefined],
+      ["attribute", "light", ['[data-theme="light"]'], undefined],
+      ["attribute", "sepia", ['[data-theme="sepia"]'], undefined],
+      ["selector", "dark", [".dark"], undefined],
+      ["selector", "dark", [".night"], "print"],
+      ["selector", "sepia", [".sepia"], undefined],
     ]);
   });
 
@@ -110,10 +118,9 @@ describe("CSS activation blocks", () => {
         }),
       ),
     );
-    const options = { attribute: false, selectors: { dark: ".dark", sepia: ".sepia" } } as const;
+    const options = { activation: { selectors: { dark: ".dark", sepia: ".sepia" } } } as const;
     const permutedOptions = {
-      selectors: { sepia: ".sepia", dark: ".dark" },
-      attribute: false,
+      activation: { selectors: { sepia: ".sepia", dark: ".dark" } },
     } as const;
 
     expect(orThrow(exportCssVars(forward, options)).css).toBe(
@@ -127,8 +134,7 @@ describe("CSS activation blocks", () => {
 
     const conditions = orThrow(
       exportCssVars(forward, {
-        attribute: false,
-        selectors: { dark: [{ selector: ".b" }, { selector: ".a" }] },
+        activation: { selectors: { dark: [{ selector: ".b" }, { selector: ".a" }] } },
       }),
     );
     expect(conditions.blocks.slice(1).map((block) => block.selectors[0])).toEqual([".b", ".a"]);
@@ -151,8 +157,11 @@ describe("CSS activation blocks", () => {
     );
     const exported = orThrow(
       exportCssVars(scheme, {
-        system: { dark: "(prefers-color-scheme: dark)" },
-        selectors: { light: ".light", dark: [{ selector: ".dark" }, { selector: ".dim" }] },
+        activation: {
+          attribute: "data-theme",
+          media: { dark: "(prefers-color-scheme: dark)" },
+          selectors: { light: ".light", dark: [{ selector: ".dark" }, { selector: ".dim" }] },
+        },
       }),
     );
 
@@ -168,55 +177,60 @@ describe("CSS activation blocks", () => {
 
   test("attribute false disables explicit markers and leaves custom conditions", () => {
     const exported = orThrow(
-      exportCssVars(lightDarkScheme(), {
-        attribute: false,
-        selectors: { dark: ".dark" },
-      }),
+      exportCssVars(lightDarkScheme(), { activation: { selectors: { dark: ".dark" } } }),
     );
 
     expect(summarize(exported.blocks)).toEqual([
-      ["base", "light", [":root"], undefined],
-      ["custom", "dark", [".dark"], undefined],
+      ["default", "light", [":root"], undefined],
+      ["selector", "dark", [".dark"], undefined],
     ]);
   });
 
   test("an explicit attribute applies to any mode count, and omission defaults only with several", () => {
     expect(
-      summarize(orThrow(exportCssVars(singleModeScheme(), { attribute: "data-mode" })).blocks),
+      summarize(
+        orThrow(exportCssVars(singleModeScheme(), { activation: { attribute: "data-mode" } }))
+          .blocks,
+      ),
     ).toEqual([
-      ["base", "base", [":root"], undefined],
-      ["explicit", "base", ['[data-mode="base"]'], undefined],
+      ["default", "base", [":root"], undefined],
+      ["attribute", "base", ['[data-mode="base"]'], undefined],
     ]);
     expect(
-      orThrow(exportCssVars(lightDarkScheme(), { attribute: "data-color-scheme" })).blocks.map(
-        (block) => block.selectors[0],
-      ),
+      orThrow(
+        exportCssVars(lightDarkScheme(), { activation: { attribute: "data-color-scheme" } }),
+      ).blocks.map((block) => block.selectors[0]),
     ).toEqual([":root", '[data-color-scheme="light"]', '[data-color-scheme="dark"]']);
   });
 
   test("explicit markers stay unanchored for any root", () => {
-    const exported = orThrow(exportCssVars(lightDarkScheme(), { root: "#app" }));
+    const exported = orThrow(
+      exportCssVars(lightDarkScheme(), { activation: { root: "#app", attribute: "data-theme" } }),
+    );
 
     expect(summarize(exported.blocks)).toEqual([
-      ["base", "light", ["#app"], undefined],
-      ["explicit", "light", ['[data-theme="light"]'], undefined],
-      ["explicit", "dark", ['[data-theme="dark"]'], undefined],
+      ["default", "light", ["#app"], undefined],
+      ["attribute", "light", ['[data-theme="light"]'], undefined],
+      ["attribute", "dark", ['[data-theme="dark"]'], undefined],
     ]);
   });
 
   test("a :host root targets the host for base and system blocks and the host and shadow tree for markers", () => {
     const exported = orThrow(
       exportCssVars(lightDarkScheme(), {
-        root: ":host",
-        system: { dark: "(prefers-color-scheme: dark)" },
+        activation: {
+          attribute: { name: "data-theme", includeHost: true },
+          root: ":host",
+          media: { dark: "(prefers-color-scheme: dark)" },
+        },
       }),
     );
 
     expect(summarize(exported.blocks)).toEqual([
-      ["base", "light", [":host"], undefined],
-      ["system", "dark", [":host"], "(prefers-color-scheme: dark)"],
-      ["explicit", "light", [':host([data-theme="light"])', '[data-theme="light"]'], undefined],
-      ["explicit", "dark", [':host([data-theme="dark"])', '[data-theme="dark"]'], undefined],
+      ["default", "light", [":host"], undefined],
+      ["media", "dark", [":host"], "(prefers-color-scheme: dark)"],
+      ["attribute", "light", [':host([data-theme="light"])', '[data-theme="light"]'], undefined],
+      ["attribute", "dark", [':host([data-theme="dark"])', '[data-theme="dark"]'], undefined],
     ]);
     expect(exported.css).toContain(":where(:host) {\n");
     expect(exported.css).toContain("@media (prefers-color-scheme: dark) {\n  :where(:host) {\n");
@@ -226,9 +240,12 @@ describe("CSS activation blocks", () => {
   test("pretty output nests media blocks and separates blocks with one blank line", () => {
     const exported = orThrow(
       exportCssVars(singleTokenLightDark(), {
-        system: { dark: "(prefers-color-scheme: dark)" },
-        selectors: {
-          dark: [{ selector: ".dark, .night", media: "screen and (min-width: 48rem)" }],
+        activation: {
+          attribute: "data-theme",
+          media: { dark: "(prefers-color-scheme: dark)" },
+          selectors: {
+            dark: [{ selector: ".dark, .night", media: "screen and (min-width: 48rem)" }],
+          },
         },
       }),
     );
@@ -266,10 +283,13 @@ describe("CSS activation blocks", () => {
   test("compact output keeps block order and removes insignificant whitespace", () => {
     const exported = orThrow(
       exportCssVars(singleTokenLightDark(), {
+        activation: {
+          attribute: { name: "data-theme", includeHost: true },
+          root: ":host",
+          media: { dark: "(prefers-color-scheme: dark)" },
+          selectors: { dark: [{ selector: ".dark", media: "print" }] },
+        },
         format: "compact",
-        root: ":host",
-        system: { dark: "(prefers-color-scheme: dark)" },
-        selectors: { dark: [{ selector: ".dark", media: "print" }] },
       }),
     );
 
@@ -284,9 +304,8 @@ describe("CSS activation blocks", () => {
 
   test("cascadeLayer wraps the complete output, media blocks included", () => {
     const options = {
+      activation: { media: { dark: "(prefers-color-scheme: dark)" } },
       cascadeLayer: "tokens",
-      attribute: false,
-      system: { dark: "(prefers-color-scheme: dark)" },
     } as const;
 
     expect(orThrow(exportCssVars(singleTokenLightDark(), options)).css).toBe(
@@ -321,13 +340,16 @@ describe("CSS activation blocks", () => {
   test("the CSS is exactly the structured blocks, with no exclusions or importance", () => {
     const exported = orThrow(
       exportCssVars(threeModeScheme(), {
-        root: ":host",
-        cascadeLayer: "tokens",
-        system: { dark: "(prefers-color-scheme: dark)" },
-        selectors: {
-          light: ".light",
-          dark: [{ selector: ".dark", media: "screen" }, { selector: "[data-contrast] .dark" }],
+        activation: {
+          attribute: { name: "data-theme", includeHost: true },
+          root: ":host",
+          media: { dark: "(prefers-color-scheme: dark)" },
+          selectors: {
+            light: ".light",
+            dark: [{ selector: ".dark", media: "screen" }, { selector: "[data-contrast] .dark" }],
+          },
         },
+        cascadeLayer: "tokens",
       }),
     );
 
@@ -345,14 +367,13 @@ describe("CSS activation blocks", () => {
   test("overlapping and identical custom conditions are deterministic data, not errors", () => {
     const exported = orThrow(
       exportCssVars(lightDarkScheme(), {
-        attribute: false,
-        selectors: { light: ".theme", dark: ".theme" },
+        activation: { selectors: { light: ".theme", dark: ".theme" } },
       }),
     );
 
     expect(summarize(exported.blocks).slice(1)).toEqual([
-      ["custom", "light", [".theme"], undefined],
-      ["custom", "dark", [".theme"], undefined],
+      ["selector", "light", [".theme"], undefined],
+      ["selector", "dark", [".theme"], undefined],
     ]);
   });
 
@@ -360,13 +381,11 @@ describe("CSS activation blocks", () => {
     const parsed = orThrow(
       parseCompiledScheme(JSON.parse(serializeCompiledScheme(threeModeScheme())) as unknown),
     );
-    const exported = orThrow(
-      exportCssVars(parsed, { attribute: false, system: { sepia: "print" } }),
-    );
+    const exported = orThrow(exportCssVars(parsed, { activation: { media: { sepia: "print" } } }));
 
     expect(summarize(exported.blocks)).toEqual([
-      ["base", "light", [":root"], undefined],
-      ["system", "sepia", [":root"], "print"],
+      ["default", "light", [":root"], undefined],
+      ["media", "sepia", [":root"], "print"],
     ]);
   });
 });
@@ -375,12 +394,14 @@ describe("CSS activation options", () => {
   test("explicit undefined options mean omitted options", () => {
     expect(
       exportCssVars(lightDarkScheme(), {
+        activation: {
+          root: undefined,
+          attribute: undefined,
+          media: { dark: undefined },
+          selectors: { light: undefined },
+        },
         prefix: undefined,
         references: undefined,
-        root: undefined,
-        attribute: undefined,
-        system: { dark: undefined },
-        selectors: { light: undefined },
         cascadeLayer: undefined,
         format: undefined,
       } as never),
@@ -406,15 +427,17 @@ describe("CSS activation options", () => {
 
   test("every independent option failure is collected in option-name order", () => {
     const result = exportCssVars(lightDarkScheme(), {
+      activation: {
+        media: { dark: "(prefers-color-scheme: dark", sepia: "print" },
+        selectors: { light: ".ok", dark: ".a{", sepia: ".s" },
+        root: ":root > ",
+        attribute: "theme",
+      },
       variableName: "--x",
-      system: { dark: "(prefers-color-scheme: dark", sepia: "print" },
-      selectors: { light: ".ok", dark: ".a{", sepia: ".s" },
-      root: ":root > ",
       prefix: "App",
       references: "linked",
       format: "minified",
       cascadeLayer: "revert",
-      attribute: "theme",
       unknown: true,
     } as never);
 
@@ -422,25 +445,29 @@ describe("CSS activation options", () => {
       ok: false,
       issues: [
         expect.objectContaining({ code: "invalid-attribute" }),
+        expect.objectContaining({
+          code: "invalid-media",
+          tier: "media",
+          mode: "dark",
+          media: "(prefers-color-scheme: dark",
+        }),
+        expect.objectContaining({ code: "unknown-condition-mode", tier: "media", mode: "sepia" }),
+        expect.objectContaining({ code: "invalid-root", selector: ":root > " }),
+        expect.objectContaining({
+          code: "invalid-selector",
+          tier: "selector",
+          mode: "dark",
+          selector: ".a{",
+        }),
+        expect.objectContaining({
+          code: "unknown-condition-mode",
+          tier: "selector",
+          mode: "sepia",
+        }),
         expect.objectContaining({ code: "invalid-cascade-layer" }),
         expect.objectContaining({ code: "invalid-css-options", option: "format" }),
         expect.objectContaining({ code: "invalid-css-prefix" }),
         expect.objectContaining({ code: "invalid-css-options", option: "references" }),
-        expect.objectContaining({ code: "invalid-root", selector: ":root > " }),
-        expect.objectContaining({
-          code: "invalid-selector",
-          tier: "custom",
-          mode: "dark",
-          selector: ".a{",
-        }),
-        expect.objectContaining({ code: "unknown-condition-mode", tier: "custom", mode: "sepia" }),
-        expect.objectContaining({
-          code: "invalid-media",
-          tier: "system",
-          mode: "dark",
-          media: "(prefers-color-scheme: dark",
-        }),
-        expect.objectContaining({ code: "unknown-condition-mode", tier: "system", mode: "sepia" }),
         expect.objectContaining({ code: "invalid-css-options", option: "unknown" }),
         expect.objectContaining({ code: "invalid-css-options", option: "variableName" }),
       ],
@@ -466,14 +493,13 @@ describe("CSS activation options", () => {
     });
     expect(
       exportCssVars(lightDarkScheme(), {
-        system: new Map() as never,
-        selectors: "dark" as never,
+        activation: { media: new Map() as never, selectors: "dark" as never },
       }),
     ).toMatchObject({
       ok: false,
       issues: [
-        { code: "invalid-css-options", option: "selectors" },
-        { code: "invalid-css-options", option: "system" },
+        { code: "invalid-css-options", option: "activation.media" },
+        { code: "invalid-css-options", option: "activation.selectors" },
       ],
     });
     expect(reads).toBe(0);
@@ -493,16 +519,18 @@ describe("CSS activation options", () => {
 
   test("custom condition shapes are validated per mode and per condition index", () => {
     const result = exportCssVars(threeModeScheme(), {
-      selectors: {
-        dark: [
-          { selector: ".ok" },
-          { selector: 42 },
-          { media: "print" },
-          { selector: ".x", media: "tv", extra: true },
-          "not an object",
-        ],
-        light: [],
-        sepia: 7,
+      activation: {
+        selectors: {
+          dark: [
+            { selector: ".ok" },
+            { selector: 42 },
+            { media: "print" },
+            { selector: ".x", media: "tv", extra: true },
+            "not an object",
+          ],
+          light: [],
+          sepia: 7,
+        },
       },
     } as never);
 
@@ -513,22 +541,22 @@ describe("CSS activation options", () => {
         {
           code: "invalid-selector",
           message: expect.any(String),
-          tier: "custom",
+          tier: "selector",
           mode: "dark",
           index: 1,
         },
-        expect.objectContaining({ code: "invalid-custom-condition", mode: "dark", index: 2 }),
-        expect.objectContaining({ code: "invalid-custom-condition", mode: "dark", index: 3 }),
+        expect.objectContaining({ code: "invalid-selector-condition", mode: "dark", index: 2 }),
+        expect.objectContaining({ code: "invalid-selector-condition", mode: "dark", index: 3 }),
         expect.objectContaining({
           code: "invalid-media",
-          tier: "custom",
+          tier: "selector",
           mode: "dark",
           index: 3,
           media: "tv",
         }),
-        expect.objectContaining({ code: "invalid-custom-condition", mode: "dark", index: 4 }),
-        expect.objectContaining({ code: "invalid-custom-condition", mode: "light" }),
-        expect.objectContaining({ code: "invalid-custom-condition", mode: "sepia" }),
+        expect.objectContaining({ code: "invalid-selector-condition", mode: "dark", index: 4 }),
+        expect.objectContaining({ code: "invalid-selector-condition", mode: "light" }),
+        expect.objectContaining({ code: "invalid-selector-condition", mode: "sepia" }),
       ],
     });
   });
@@ -537,23 +565,23 @@ describe("CSS activation options", () => {
     // Deliberately bypass authoring types to exercise untrusted JavaScript input.
     const media = "not valid media !!!";
     const result = exportCssVars(lightDarkScheme(), {
-      selectors: { dark: [{ media }] },
+      activation: { selectors: { dark: [{ media }] } },
     } as never);
 
     expect(result).toEqual({
       ok: false,
       issues: [
         {
-          code: "invalid-custom-condition",
+          code: "invalid-selector-condition",
           message: expect.any(String),
-          tier: "custom",
+          tier: "selector",
           mode: "dark",
           index: 0,
         },
         {
           code: "invalid-media",
           message: expect.any(String),
-          tier: "custom",
+          tier: "selector",
           mode: "dark",
           index: 0,
           media,
@@ -564,7 +592,7 @@ describe("CSS activation options", () => {
 
   test("unknown custom properties, missing selector, and invalid media collect in stable order", () => {
     const media = "not valid media !!!";
-    const options = { selectors: { dark: [{ media, extra: true }] } };
+    const options = { activation: { selectors: { dark: [{ media, extra: true }] } } };
     const result = exportCssVars(lightDarkScheme(), options as never);
 
     expect(result).toEqual({
@@ -572,23 +600,23 @@ describe("CSS activation options", () => {
       issues: [
         // Unknown properties are collected first, then selector, then media failures.
         {
-          code: "invalid-custom-condition",
+          code: "invalid-selector-condition",
           message: expect.stringContaining("extra"),
-          tier: "custom",
+          tier: "selector",
           mode: "dark",
           index: 0,
         },
         {
-          code: "invalid-custom-condition",
+          code: "invalid-selector-condition",
           message: expect.any(String),
-          tier: "custom",
+          tier: "selector",
           mode: "dark",
           index: 0,
         },
         {
           code: "invalid-media",
           message: expect.any(String),
-          tier: "custom",
+          tier: "selector",
           mode: "dark",
           index: 0,
           media,
@@ -597,7 +625,7 @@ describe("CSS activation options", () => {
     });
     expect(
       exportCssVars(lightDarkScheme(), {
-        selectors: { dark: [{ extra: true, media }] },
+        activation: { selectors: { dark: [{ extra: true, media }] } },
       } as never),
     ).toEqual(result);
   });
@@ -605,13 +633,13 @@ describe("CSS activation options", () => {
   test("an invalid custom selector does not skip invalid sibling media", () => {
     expect(
       exportCssVars(lightDarkScheme(), {
-        selectors: { dark: [{ selector: ".a{", media: "tv" }] },
+        activation: { selectors: { dark: [{ selector: ".a{", media: "tv" }] } },
       }),
     ).toMatchObject({
       ok: false,
       issues: [
-        { code: "invalid-selector", tier: "custom", mode: "dark", index: 0, selector: ".a{" },
-        { code: "invalid-media", tier: "custom", mode: "dark", index: 0, media: "tv" },
+        { code: "invalid-selector", tier: "selector", mode: "dark", index: 0, selector: ".a{" },
+        { code: "invalid-media", tier: "selector", mode: "dark", index: 0, media: "tv" },
       ],
     });
   });
@@ -628,7 +656,7 @@ function summarize(blocks: readonly CssVarBlock[]): readonly BlockSummary[] {
 }
 
 function customModes(blocks: readonly CssVarBlock[]): readonly string[] {
-  return blocks.filter((block) => block.tier === "custom").map((block) => block.mode);
+  return blocks.filter((block) => block.tier === "selector").map((block) => block.mode);
 }
 
 // Rebuilds pretty CSS from structured blocks alone, the way an application would re-emit them.
@@ -695,3 +723,117 @@ function threeModeScheme() {
     ),
   );
 }
+
+describe("explicit activation contracts", () => {
+  test("omitted activation never invents attribute markers for any mode count", () => {
+    for (const scheme of [singleModeScheme(), lightDarkScheme(), threeModeScheme()]) {
+      const exported = orThrow(exportCssVars(scheme));
+      expect(exported.blocks).toHaveLength(1);
+      expect(exported.blocks[0]?.tier).toBe("default");
+      expect(exported.css).not.toContain("data-theme");
+    }
+  });
+  test.each([":root", ":host", ":host(.app)", "#app", ".theme-root"])(
+    "root %s never changes attribute targeting",
+    (root) => {
+      for (const includeHost of [false, true]) {
+        const activation = { root, attribute: { name: "data-mode", includeHost } };
+        const exported = orThrow(exportCssVars(lightDarkScheme(), { activation }));
+        expect(exported.blocks[0]?.selectors).toEqual([root]);
+        expect(exported.blocks[2]?.selectors).toEqual(
+          includeHost
+            ? [':host([data-mode="dark"])', '[data-mode="dark"]']
+            : ['[data-mode="dark"]'],
+        );
+      }
+    },
+  );
+  test("ordinary attribute shorthand equals an explicit false flag", () => {
+    expect(exportCssVars(lightDarkScheme(), { activation: { attribute: "data-mode" } })).toEqual(
+      exportCssVars(lightDarkScheme(), {
+        activation: { attribute: { name: "data-mode", includeHost: false } },
+      }),
+    );
+  });
+  test("one condition object normalizes like a one-item list", () => {
+    const condition = { selector: ".dark", media: "(prefers-contrast: more)" };
+    expect(
+      exportCssVars(lightDarkScheme(), { activation: { selectors: { dark: condition } } }),
+    ).toEqual(
+      exportCssVars(lightDarkScheme(), { activation: { selectors: { dark: [condition] } } }),
+    );
+    expect(
+      exportCssVars(lightDarkScheme(), {
+        activation: { selectors: { dark: { media: "tv" } } },
+      } as never),
+    ).toMatchObject({
+      ok: false,
+      issues: [
+        { code: "invalid-selector-condition", mode: "dark", tier: "selector" },
+        { code: "invalid-media", mode: "dark", tier: "selector" },
+      ],
+    });
+  });
+  test.each([
+    false,
+    true,
+    {},
+    { name: "theme" },
+    { name: "data-mode", includeHost: "true" },
+    { name: "data-mode", host: true },
+  ])("rejects invalid attribute settings %j", (attribute) => {
+    expect(exportCssVars(lightDarkScheme(), { activation: { attribute } } as never)).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-attribute" }],
+    });
+  });
+  test("activation and attribute records reject accessors without executing them", () => {
+    let reads = 0;
+    const hostile = {
+      get name() {
+        reads += 1;
+        return "data-mode";
+      },
+    };
+    expect(exportCssVars(lightDarkScheme(), { activation: { attribute: hostile } }).ok).toBe(false);
+    expect(
+      exportCssVars(lightDarkScheme(), {
+        activation: Object.defineProperty({}, "root", {
+          enumerable: true,
+          get() {
+            reads += 1;
+            return ":root";
+          },
+        }),
+      }).ok,
+    ).toBe(false);
+    expect(reads).toBe(0);
+  });
+  test("old top-level activation spellings and unrelated nested concerns are rejected", () => {
+    expect(
+      exportCssVars(lightDarkScheme(), {
+        root: ":root",
+        attribute: "data-mode",
+        system: {},
+        selectors: {},
+      } as never),
+    ).toMatchObject({
+      ok: false,
+      issues: [
+        { code: "invalid-css-options", option: "attribute" },
+        { code: "invalid-css-options", option: "root" },
+        { code: "invalid-css-options", option: "selectors" },
+        { code: "invalid-css-options", option: "system" },
+      ],
+    });
+    expect(
+      exportCssVars(lightDarkScheme(), { activation: { prefix: "app", system: {} } } as never),
+    ).toMatchObject({
+      ok: false,
+      issues: [
+        { code: "invalid-css-options", option: "activation.prefix" },
+        { code: "invalid-css-options", option: "activation.system" },
+      ],
+    });
+  });
+});

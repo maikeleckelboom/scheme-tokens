@@ -55,6 +55,18 @@ function thrownIssues(run: () => unknown): readonly TokenGraphIssue[] {
 }
 
 describe("P2 public v2 contract", () => {
+  test("only trusted graph authoring normalizes omitted local tokens", () => {
+    const layer = defineTokenLayer({ id: "source", tokens: { a: "A" } });
+    const graph = defineTokenGraph({ layers: [layer] });
+    expect(graph.tokens).toEqual({});
+    expect(orThrow(compileTokenGraph(graph)).tokens.a.base).toBe("A");
+    expect(orThrow(parseTokenGraph(JSON.parse(serializeTokenGraph(graph))))).toEqual(graph);
+    const { tokens: _tokens, ...missingTokens } = graph;
+    expect(parseTokenGraph(missingTokens).ok).toBe(false);
+    expect(() => defineTokenGraph({ tokens: undefined } as never)).toThrow(/missing-property/u);
+    expect(() => defineTokenLayer({ id: "empty" } as never)).toThrow(/missing-property/u);
+    expect(defineTokenGraph({}).tokens).toEqual({});
+  });
   test.each(["public", "internal"] as const)(
     "explicit layer visibility restates %s and survives a graph override",
     (initial) => {
@@ -86,7 +98,7 @@ describe("P2 public v2 contract", () => {
         description: "winner",
         declarations: [
           { origin: { kind: "layer", id: "first" } },
-          { origin: { kind: "layer", id: "second" }, visibility: changed },
+          { origin: { kind: "layer", id: "second" }, declaredVisibility: changed },
           { origin: { kind: "graph" } },
         ],
       });
@@ -211,8 +223,10 @@ describe("P2 public v2 contract", () => {
     expect(parsed.modes).toEqual(["concat", "dark", "light"]);
     expect(parsed.defaultMode).toBe("light");
     expect(
-      orThrow(exportCssVars(parsed)).blocks.map((block) => `${block.tier}:${block.mode}`),
-    ).toEqual(["base:light", "explicit:concat", "explicit:dark", "explicit:light"]);
+      orThrow(exportCssVars(parsed, { activation: { attribute: "data-mode" } })).blocks.map(
+        (block) => `${block.tier}:${block.mode}`,
+      ),
+    ).toEqual(["default:light", "attribute:concat", "attribute:dark", "attribute:light"]);
   });
 
   test.each([1, 2])(
@@ -325,7 +339,11 @@ describe("P2 public v2 contract", () => {
         orThrow(compileTokenGraph(restated, { selection: "all" })).metadataByToken.a,
       ).toMatchObject({
         visibility: visibility === "public" ? "internal" : "public",
-        declarations: [{}, {}, { visibility: visibility === "public" ? "internal" : "public" }],
+        declarations: [
+          {},
+          {},
+          { declaredVisibility: visibility === "public" ? "internal" : "public" },
+        ],
       });
     },
   );
@@ -371,7 +389,7 @@ describe("P2 public v2 contract", () => {
       a: { light: "a", dark: "a" },
     };
     const issue = {
-      code: "layer-mode-mismatch",
+      code: "inconsistent-layer-modes",
       layerId: "example",
       key: "b",
       path: "/tokens/b",
@@ -533,7 +551,7 @@ describe("P2 public v2 contract", () => {
         b: tokenConcat`${tokenRef("a")}😀`,
       },
     });
-    for (const selection of ["public", "all", { keys: ["b"] }] as const) {
+    for (const selection of ["public", "all", ["b"]] as const) {
       const compiled = orThrow(compileTokenGraph(graph, { selection }));
       expect(compiled.tokens.b?.base.length).toBe(65_536);
       expect(compiled.metadataByToken.b?.expressionByMode?.base).toEqual({

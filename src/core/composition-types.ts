@@ -63,7 +63,7 @@ type IsUnion<Value, Whole = Value> = Value extends unknown
   : never;
 
 // A layer states only its own keys, so its may-sets are narrowed to them. The default
-// `LayerVisibility` then makes exactly that layer's keys unknown, which a later explicit
+// `LayerVisibilityFacts` then makes exactly that layer's keys unknown, which a later explicit
 // visibility can make known again.
 type ComposeLayer<State extends VisibilityState, Layer> =
   true extends IsUnion<Layer>
@@ -72,10 +72,10 @@ type ComposeLayer<State extends VisibilityState, Layer> =
       ? Composed<
           State,
           Key,
-          Extract<Key, Visibility["public"]>,
-          Extract<Key, Visibility["internal"]>,
-          Extract<Key, Visibility["omitted"]>,
-          Visibility["default"]
+          Extract<Key, Visibility["mayStatePublicKeys"]>,
+          Extract<Key, Visibility["mayStateInternalKeys"]>,
+          Extract<Key, Visibility["mayOmitVisibilityKeys"]>,
+          Visibility["defaultVisibility"]
         >
       : DynamicState;
 

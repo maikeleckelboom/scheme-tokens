@@ -31,7 +31,7 @@ describe("bounded selector grammar", () => {
     `${":is(".repeat(8)}.a${")".repeat(8)}`,
   ])("accepts %s as a custom condition and as root", (selector) => {
     const exported = orThrow(
-      exportCssVars(scheme(), { root: selector, selectors: { base: selector } }),
+      exportCssVars(scheme(), { activation: { root: selector, selectors: { base: selector } } }),
     );
 
     expect(exported.blocks.map((block) => block.selectors)).toEqual([[selector], [selector]]);
@@ -71,11 +71,13 @@ describe("bounded selector grammar", () => {
     ["over depth", `${":is(".repeat(9)}.a${")".repeat(9)}`],
     ["over length", `.${"a".repeat(256)}`],
   ])("rejects the %s selector", (_label, selector) => {
-    expect(exportCssVars(scheme(), { selectors: { base: selector } })).toMatchObject({
+    expect(
+      exportCssVars(scheme(), { activation: { selectors: { base: selector } } }),
+    ).toMatchObject({
       ok: false,
-      issues: [{ code: "invalid-selector", tier: "custom", mode: "base", selector }],
+      issues: [{ code: "invalid-selector", tier: "selector", mode: "base", selector }],
     });
-    expect(exportCssVars(scheme(), { root: selector })).toMatchObject({
+    expect(exportCssVars(scheme(), { activation: { root: selector } })).toMatchObject({
       ok: false,
       issues: [{ code: "invalid-root", selector }],
     });
@@ -85,7 +87,7 @@ describe("bounded selector grammar", () => {
     const started = performance.now();
     for (let depth = 1; depth <= 2_000; depth += 1) {
       const nested = `${":not(".repeat(depth)}.a${")".repeat(depth)}`;
-      exportCssVars(scheme(), { root: nested });
+      exportCssVars(scheme(), { activation: { root: nested } });
     }
     expect(performance.now() - started).toBeLessThan(5_000);
   });
@@ -124,8 +126,7 @@ describe("bounded media grammar", () => {
   ])("accepts %s for system and custom conditions", (media) => {
     const exported = orThrow(
       exportCssVars(scheme(), {
-        system: { base: media },
-        selectors: { base: [{ selector: ".a", media }] },
+        activation: { media: { base: media }, selectors: { base: [{ selector: ".a", media }] } },
       }),
     );
 
@@ -171,14 +172,13 @@ describe("bounded media grammar", () => {
   ])("rejects the %s media condition", (_label, media) => {
     expect(
       exportCssVars(scheme(), {
-        system: { base: media },
-        selectors: { base: [{ selector: ".a", media }] },
+        activation: { media: { base: media }, selectors: { base: [{ selector: ".a", media }] } },
       }),
     ).toMatchObject({
       ok: false,
       issues: [
-        { code: "invalid-media", tier: "custom", mode: "base", index: 0, media },
-        { code: "invalid-media", tier: "system", mode: "base", media },
+        { code: "invalid-media", tier: "media", mode: "base", media },
+        { code: "invalid-media", tier: "selector", mode: "base", index: 0, media },
       ],
     });
   });
@@ -187,9 +187,9 @@ describe("bounded media grammar", () => {
     const started = performance.now();
     for (let depth = 1; depth <= 1_000; depth += 1) {
       const nested = `${"(not ".repeat(depth)}(color)${")".repeat(depth)}`;
-      exportCssVars(scheme(), { system: { base: nested } });
+      exportCssVars(scheme(), { activation: { media: { base: nested } } });
       exportCssVars(scheme(), {
-        system: { base: `${"(".repeat(depth)}color${")".repeat(depth)}` },
+        activation: { media: { base: `${"(".repeat(depth)}color${")".repeat(depth)}` } },
       });
     }
     expect(performance.now() - started).toBeLessThan(5_000);
@@ -292,10 +292,7 @@ describe("declaration value safety", () => {
 
     // The light value is declared by the base and the custom block but reported once.
     expect(
-      exportCssVars(compiled, {
-        attribute: false,
-        selectors: { light: ".light", dark: ".dark" },
-      }),
+      exportCssVars(compiled, { activation: { selectors: { light: ".light", dark: ".dark" } } }),
     ).toEqual({
       ok: false,
       issues: [

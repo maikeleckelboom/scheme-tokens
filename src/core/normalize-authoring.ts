@@ -41,6 +41,9 @@ export function normalizeAuthoring(
     defineRecordValue(output, entry.key, entry.value);
   }
   const paths = new SourcePaths();
+  if (kind === "graph" && !Object.hasOwn(output, "tokens")) {
+    output.tokens = {};
+  }
   const tokens = readPlainRecord(output.tokens, {
     code: "invalid-object",
     message: "tokens must be a plain record.",

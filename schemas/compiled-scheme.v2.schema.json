@@ -170,7 +170,7 @@
             }
           ]
         },
-        "visibility": {
+        "declaredVisibility": {
           "$ref": "#/$defs/visibility"
         }
       }

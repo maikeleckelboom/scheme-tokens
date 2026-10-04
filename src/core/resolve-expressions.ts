@@ -1,16 +1,12 @@
 import type { ExpressionPart, ExpressionSource } from "./canonical-expression";
-import type { Issue } from "./result";
+import type { TokenGraphIssue } from "../types/diagnostics";
 
 export const MAX_RESOLVED_VALUE_LENGTH = 65_536;
 
-export interface ResolutionIssue extends Issue<
-  "unknown-reference" | "reference-cycle" | "resolved-value-too-long"
-> {
-  readonly key: string;
-  readonly mode: string;
-  readonly path: string;
-  readonly cycle?: readonly string[];
-}
+export type ResolutionIssue = Extract<
+  TokenGraphIssue,
+  { readonly code: "unknown-reference" | "reference-cycle" | "resolved-value-too-long" }
+>;
 
 type NodeState =
   | { readonly status: "active"; readonly stackIndex: number }
@@ -71,7 +67,7 @@ export function createExpressionResolver(
       memo.set(frame.key, { status: "failed" });
       stack.pop();
       if (issue !== undefined) {
-        if (issue.cycle !== undefined) {
+        if (issue.code === "reference-cycle") {
           const identity = JSON.stringify([issue.mode, issue.cycle]);
           if (cycles.has(identity)) {
             return;
@@ -130,19 +126,26 @@ export function createExpressionResolver(
         continue;
       }
 
-      fail(frame, {
-        code: dependency === undefined ? "unknown-reference" : "reference-cycle",
-        message:
-          dependency === undefined
-            ? `Reference target does not exist: ${part.ref}.`
-            : `Reference cycle detected for mode ${mode}.`,
+      const context = {
         key: frame.key,
         mode,
         path: frame.source.referencePaths[frame.referenceIndex] ?? frame.source.path,
-        ...(dependency?.status === "active"
-          ? { cycle: canonicalCycle(stack.slice(dependency.stackIndex).map((item) => item.key)) }
-          : {}),
-      });
+      };
+      fail(
+        frame,
+        dependency === undefined
+          ? {
+              ...context,
+              code: "unknown-reference",
+              message: `Reference target does not exist: ${part.ref}.`,
+            }
+          : {
+              ...context,
+              code: "reference-cycle",
+              message: `Reference cycle detected for mode ${mode}.`,
+              cycle: canonicalCycle(stack.slice(dependency.stackIndex).map((item) => item.key)),
+            },
+      );
     }
     const resolved = memo.get(key);
     return resolved?.status === "resolved" ? resolved.value : undefined;

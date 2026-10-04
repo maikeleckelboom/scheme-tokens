@@ -175,7 +175,7 @@ defineTokenGraph({ modes: ["light", "dark", "dim"], defaultMode: "light", layers
     source: `export const layer: TokenLayer<
   "x",
   never,
-  { default: "internal"; public: "x"; internal: never; omitted: never }
+  { defaultVisibility: "internal"; mayStatePublicKeys: "x"; mayStateInternalKeys: never; mayOmitVisibilityKeys: never }
 > = {
   kind: "scheme-tokens/token-layer",
   formatVersion: 2,

@@ -281,26 +281,26 @@ describe("pre-release API reset", () => {
       Object.keys(
         expectOk(
           compileTokenGraph(graph, {
-            selection: { keys: ["z", "a"] },
+            selection: ["z", "a"],
           }),
         ).tokens,
       ),
     ).toEqual(["a", "z"]);
-    expect(compileTokenGraph(graph, { selection: { keys: [] } })).toMatchObject({
+    expect(compileTokenGraph(graph, { selection: [] })).toMatchObject({
       ok: false,
       issues: [{ code: "empty-selection" }],
     });
-    expect(compileTokenGraph(graph, { selection: { keys: ["a", "a"] } })).toMatchObject({
+    expect(compileTokenGraph(graph, { selection: ["a", "a"] })).toMatchObject({
       ok: false,
-      issues: [{ code: "duplicate-selection-key", path: "/selection/keys/1", key: "a" }],
+      issues: [{ code: "duplicate-selection-key", path: "/selection/1", key: "a" }],
     });
-    expect(compileTokenGraph(graph, { selection: { keys: ["missing"] as never } })).toMatchObject({
+    expect(compileTokenGraph(graph, { selection: ["missing"] as never })).toMatchObject({
       ok: false,
-      issues: [{ code: "unknown-selection-key", path: "/selection/keys/0", key: "missing" }],
+      issues: [{ code: "unknown-selection-key", path: "/selection/0", key: "missing" }],
     });
-    expect(compileTokenGraph(graph, { selection: { keys: ["Bad Key"] as never } })).toMatchObject({
+    expect(compileTokenGraph(graph, { selection: ["Bad Key"] as never })).toMatchObject({
       ok: false,
-      issues: [{ code: "invalid-selection-key", path: "/selection/keys/0", key: "Bad Key" }],
+      issues: [{ code: "invalid-selection-key", path: "/selection/0", key: "Bad Key" }],
     });
   });
 
@@ -392,11 +392,7 @@ describe("pre-release API reset", () => {
     );
 
     const pretty = expectOk(
-      exportCssVars(compiled, {
-        prefix: "color",
-        attribute: false,
-        selectors: { dark: ".dark" },
-      }),
+      exportCssVars(compiled, { activation: { selectors: { dark: ".dark" } }, prefix: "color" }),
     );
     expect(pretty.css).toBe(
       ":where(:root) {\n" +
@@ -408,7 +404,11 @@ describe("pre-release API reset", () => {
         "  --color-primary: #d0bcff;\n" +
         "}\n",
     );
-    expect(expectOk(exportCssVars(compiled, { format: "compact" })).css).toBe(
+    expect(
+      expectOk(
+        exportCssVars(compiled, { activation: { attribute: "data-theme" }, format: "compact" }),
+      ).css,
+    ).toBe(
       ":where(:root){--background:#ffffff;--primary:#6750a4;}" +
         ':where([data-theme="light"]){--background:#ffffff;--primary:#6750a4;}' +
         ':where([data-theme="dark"]){--background:#111111;--primary:#d0bcff;}',
