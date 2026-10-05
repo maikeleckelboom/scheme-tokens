@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1
+
+### Patch Changes
+
+- b308616: Correct first-use documentation and restore the Material 3 to shadcn/ui application example.
+  This patch changes documentation only; runtime behavior and the public API are unchanged.
+
 ## 0.4.0
 
 ### Minor Changes
