@@ -26,7 +26,7 @@ try {
     readonly artifacts: readonly { readonly filename: string; readonly sha256: string }[];
     readonly versions: { readonly core: string; readonly adapter: string };
   };
-  assert.deepEqual(provenance.versions, { core: "0.4.0", adapter: "0.2.0" });
+  assert.deepEqual(provenance.versions, { core: "0.4.1", adapter: "0.2.0" });
   const patch = readFileSync(join(candidate, "source.patch"));
   assert.equal(sha256(patch), provenance.sourceDiffSha256);
   const reconstructed = join(workspace, "reconstructed");
@@ -70,7 +70,7 @@ try {
       private: true,
       type: "module",
       dependencies: {
-        "scheme-tokens": "file:vendor/scheme-tokens/scheme-tokens-0.4.0.tgz",
+        "scheme-tokens": "file:vendor/scheme-tokens/scheme-tokens-0.4.1.tgz",
         "@scheme-tokens/material3": "file:vendor/scheme-tokens/scheme-tokens-material3-0.2.0.tgz",
       },
     }),

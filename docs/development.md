@@ -71,9 +71,9 @@ declarations or another declaration file. It reports timings and is not a releas
 `pnpm check:module-resolution` checks the five export keys under Bundler and Node16 resolution
 and executes a compiled Node consumer.
 
-Paired checks install core `0.4.0` and Material `0.2.0` with peer `^0.4.0`. The shared packing
-helper versions only a temporary workspace when changesets are pending; with none pending, it
-uses the manifest versions. Consumers install with strict peer checking.
+Paired checks install the versions prepared by Changesets with Material's core peer `^0.4.0`.
+The shared packing helper versions only a temporary workspace when changesets are pending;
+with none pending, it uses the manifest versions. Consumers install with strict peer checking.
 
 `pnpm candidate:pack <empty-output-directory>` records Git source hashes, the binary-safe diff,
 and paired tarballs. Source inputs must be tracked, and output directories must be fresh.

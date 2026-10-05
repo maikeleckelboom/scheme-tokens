@@ -3,14 +3,17 @@
 Compile a graph, then pass the scheme to `exportCssVars()`:
 
 ```ts
-import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, exportCssVars } from "scheme-tokens";
 
 const graph = defineTokenGraph({ tokens: { "surface.canvas": "#ffffff" } });
-const scheme = orThrow(compileTokenGraph(graph));
-const cssVars = orThrow(exportCssVars(scheme, { prefix: "app" }));
-
-const stylesheet = cssVars.css;
-const backgroundProperty = cssVars.variableByToken["surface.canvas"];
+const compiled = compileTokenGraph(graph);
+if (compiled.ok) {
+  const exported = exportCssVars(compiled.value, { prefix: "app" });
+  if (exported.ok) {
+    const stylesheet = exported.value.css;
+    const backgroundProperty = exported.value.variableByToken["surface.canvas"];
+  }
+}
 ```
 
 ```css
@@ -19,30 +22,36 @@ const backgroundProperty = cssVars.variableByToken["surface.canvas"];
 }
 ```
 
-The result contains `css`, `blocks`, and `variableByToken`. Names join the prefix and token-key
-segments with hyphens.
+The successful result's `value` contains `css`, `blocks`, and `variableByToken`. Names join the
+prefix and token-key segments with hyphens. See [Diagnostics](../reference/diagnostics.md) for
+structured failures.
 
 ## Use theme activation
 
 Combine a system preference with an explicit theme choice:
 
+<!-- example: css-activation -->
+
 ```ts
-import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
+import { compileTokenGraph, defineTokenGraph, exportCssVars } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
   defaultMode: "light",
   tokens: { background: { light: "#ffffff", dark: "#111111" } },
 });
-const scheme = orThrow(compileTokenGraph(graph));
-const css = orThrow(
-  exportCssVars(scheme, {
+const compiled = compileTokenGraph(graph);
+if (compiled.ok) {
+  const exported = exportCssVars(compiled.value, {
     activation: {
       media: { dark: "(prefers-color-scheme: dark)" },
       attribute: "data-theme",
     },
-  }),
-).css;
+  });
+  if (exported.ok) {
+    console.log(exported.value.css);
+  }
+}
 ```
 
 Light values apply at `:root`; the media condition activates dark values there. A
@@ -55,21 +64,19 @@ default and media blocks should target the host too.
 
 ## Activate with selectors
 
-Class-based themes use `activation.selectors`:
+For the same compiled graph, class-based themes use `activation.selectors`:
+
+<!-- example: css-activation -->
 
 ```ts
-import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
-
-const graph = defineTokenGraph({
-  modes: ["light", "dark"],
-  defaultMode: "light",
-  tokens: { background: { light: "#ffffff", dark: "#111111" } },
-});
-const css = orThrow(
-  exportCssVars(orThrow(compileTokenGraph(graph)), {
+if (compiled.ok) {
+  const exported = exportCssVars(compiled.value, {
     activation: { selectors: { light: ".light", dark: ".dark" } },
-  }),
-).css;
+  });
+  if (exported.ok) {
+    console.log(exported.value.css);
+  }
+}
 ```
 
 Generated blocks follow this order: default, media, attribute, selector. Within each tier, modes
@@ -89,7 +96,6 @@ import {
   compileTokenGraph,
   defineTokenGraph,
   exportCssVars,
-  orThrow,
   tokenConcat,
   tokenRef,
 } from "scheme-tokens";
@@ -102,9 +108,16 @@ const graph = defineTokenGraph({
     width: tokenConcat`calc(${tokenRef("spacing")} + ${tokenRef("extra")})`,
   },
 });
-const css = orThrow(
-  exportCssVars(orThrow(compileTokenGraph(graph)), { references: "var", prefix: "app" }),
-).css;
+const compiled = compileTokenGraph(graph);
+if (compiled.ok) {
+  const exported = exportCssVars(compiled.value, {
+    references: "var",
+    prefix: "app",
+  });
+  if (exported.ok) {
+    console.log(exported.value.css);
+  }
+}
 ```
 
 ```css

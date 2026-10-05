@@ -15,7 +15,7 @@ afterEach(() => {
 const core = "scheme-tokens";
 const material = "@scheme-tokens/material3";
 const filenames: Readonly<Record<string, string>> = {
-  [core]: "scheme-tokens-0.4.0.tgz",
+  [core]: "scheme-tokens-0.4.1.tgz",
   [material]: "scheme-tokens-material3-0.2.0.tgz",
 };
 const spec = (name: string) => `file:vendor/scheme-tokens/${filenames[name]}`;
@@ -50,7 +50,7 @@ function fixture(section = "dependencies") {
     const path = join(root, "vendor", "scheme-tokens", filename);
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, bytes);
-    const version = name === core ? "0.4.0" : "0.2.0";
+    const version = name === core ? "0.4.1" : "0.2.0";
     const peer = name === core ? {} : { peerDependencies: { [core]: "^0.4.0" } };
     packages[packageKey(name)] = {
       version,

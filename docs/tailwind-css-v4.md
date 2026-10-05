@@ -1,46 +1,99 @@
 # Tailwind CSS v4
 
-Export runtime variables in an application namespace, then map them to Tailwind theme variables.
-Use `@theme inline` so utilities read the runtime variable where they are applied.
+Define application tokens, compile their values, and export runtime CSS variables. Bridge those
+variables to Tailwind utilities with `@theme inline` so each utility reads the active value in
+its own scope. The [shadcn section](#use-shadcn-variables) applies the same flow to Material-backed
+application aliases.
 
-## Export runtime variables
+## Define application tokens
 
+<!-- example: tailwind-runtime -->
+
+<!-- prettier-ignore -->
 ```ts
-import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
+import {
+  defineTokenGraph,
+} from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
   defaultMode: "light",
   tokens: {
-    "surface.canvas": { light: "oklch(98% 0.01 250)", dark: "oklch(18% 0.02 250)" },
-    "action.primary": { light: "oklch(55% 0.2 250)", dark: "oklch(75% 0.14 250)" },
+    "surface.canvas": {
+      light: "oklch(98% 0.01 250)",
+      dark: "oklch(18% 0.02 250)",
+    },
+    "action.primary": {
+      light: "oklch(55% 0.2 250)",
+      dark: "oklch(75% 0.14 250)",
+    },
   },
 });
-const runtimeCss = orThrow(
-  exportCssVars(orThrow(compileTokenGraph(graph)), {
-    prefix: "app",
-    activation: {
-      attribute: "data-theme",
-      media: { dark: "(prefers-color-scheme: dark)" },
-    },
-  }),
-).css;
 ```
 
-Load `runtimeCss` with the application. It defines `--app-surface-canvas` and
-`--app-action-primary`, follows the system preference, and lets a `data-theme` marker override
-it for a subtree.
+## Compile the graph
+
+<!-- example: tailwind-runtime -->
+
+<!-- prettier-ignore -->
+```ts
+import {
+  compileTokenGraph,
+} from "scheme-tokens";
+
+const compiled = compileTokenGraph(graph);
+```
+
+Compilation resolves the values for each mode. It returns a `Result`; see
+[Diagnostics](https://github.com/maikeleckelboom/scheme-tokens/blob/dev/docs/diagnostics.md)
+for structured failures.
+
+## Export runtime variables
+
+<!-- example: tailwind-runtime -->
+
+<!-- prettier-ignore -->
+```ts
+import {
+  exportCssVars,
+} from "scheme-tokens";
+
+if (compiled.ok) {
+  const exported = exportCssVars(
+    compiled.value,
+    {
+      prefix: "app",
+      activation: {
+        attribute: "data-theme",
+        media: {
+          dark:
+            "(prefers-color-scheme: dark)",
+        },
+      },
+    },
+  );
+  if (exported.ok) {
+    console.log(exported.value.css);
+  }
+}
+```
+
+Load `exported.value.css` with the application after successful export. It defines
+`--app-surface-canvas` and `--app-action-primary`, follows the system preference, and lets a
+`data-theme` marker override it for a subtree.
 
 ## Register utilities
 
 In the CSS processed by Tailwind:
 
+<!-- prettier-ignore -->
 ```css
 @import "tailwindcss";
 
 @theme inline {
   --color-canvas: var(--app-surface-canvas);
-  --color-primary: var(--app-action-primary);
+  --color-primary:
+    var(--app-action-primary);
 }
 ```
 
@@ -62,10 +115,32 @@ declarations can then override them.
 
 ## Use shadcn variables
 
-For shadcn's `background`, `foreground`, and related roles, expose those names as token keys.
-Material roles can supply the values through `tokenRef()`; choose the mapping to fit your
-application's semantics. See the
-[Material guide](https://github.com/maikeleckelboom/scheme-tokens/blob/dev/docs-site/guide/material3.md#use-application-names).
+The [Material application-alias example](https://github.com/maikeleckelboom/scheme-tokens/blob/dev/docs-site/guide/material3.md#use-shadcn-names)
+keeps generated Material roles internal and exposes `background`, `foreground`, `primary`,
+and the other shadcn roles through `tokenRef()`. Default compilation selects those aliases;
+CSS export produces `--background`, `--foreground`, `--primary`, and their companion variables.
+Use no prefix for these names.
+
+For the usual light-root / dark-subtree setup, export with
+`activation: { selectors: { dark: ".dark" } }`. Connect the resulting variables to Tailwind:
+
+<!-- prettier-ignore -->
+```css
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground:
+    var(--primary-foreground);
+}
+```
+
+Material generation supplies the roles, application aliases name them, and `@theme inline`
+makes them available as `bg-background`, `text-foreground`, and
+`bg-primary text-primary-foreground`. Repeat the bridge for the remaining semantic colors used
+by your components.
+
+### Keep stock values as fallbacks
 
 Stock `:root` and `.dark` variable declarations have more specificity than generated
 `:where(...)` rules. Loading tokens later in the same layer will not override those stock values.
@@ -73,6 +148,7 @@ Stock `:root` and `.dark` variable declarations have more specificity than gener
 Keep stock values as fallbacks in `@layer base`, then load generated output unlayered or in a
 layer ordered after `base`:
 
+<!-- prettier-ignore -->
 ```css
 @import "tailwindcss";
 
@@ -87,17 +163,19 @@ layer ordered after `base`:
     --foreground: white;
   }
 }
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-}
 ```
 
-Export matching token keys with
-`activation: { selectors: { light: ".light", dark: ".dark" } }`. Including both modes supports
-nested light regions inside dark ones.
+Retain the `@theme inline` bridge above. For layered output, declare `@layer base, tokens;`
+before either layer appears, then use `cascadeLayer: "tokens"`. Tailwind's `theme` layer is
+earlier than `base`, so it does not override fallbacks in `base`.
 
-For layered output, declare `@layer base, tokens;` before either layer appears, then use
-`cascadeLayer: "tokens"`. Tailwind's `theme` layer is earlier than `base`, so it does not
-override fallbacks in `base`. Removing generated output restores the stock values.
+### Activate nested light regions
+
+If the UI needs an explicit light region inside a dark one, export both selectors:
+`activation: { selectors: { light: ".light", dark: ".dark" } }`. Apply `.light` to that region;
+its declarations replace the inherited dark values for its subtree.
+
+### Restore fallbacks
+
+Removing the generated stylesheet restores the stock values in `@layer base`. Keep those
+declarations and the Tailwind bridge loaded independently of the generated output.

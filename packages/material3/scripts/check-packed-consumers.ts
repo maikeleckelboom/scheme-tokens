@@ -27,7 +27,7 @@ try {
       ? {
           coreTarball: coreArtifact,
           adapterTarball: materialArtifact,
-          versions: { core: "0.4.0", adapter: "0.2.0" },
+          versions: { core: "0.4.1", adapter: "0.2.0" },
         }
       : packReleaseCandidate(workspace);
 

@@ -133,6 +133,8 @@ function extractTypeScriptExamples(files: readonly MarkdownFile[]): readonly Typ
   const supportedInfos = new Set(["ts", "typescript"]);
 
   for (const file of files) {
+    // A named example can continue across fences without repeating its setup.
+    const groups = new Map<string, string[]>();
     for (const match of file.text.matchAll(/^```([^\r\n]*)\r?\n([\s\S]*?)^```/gm)) {
       const info = normalizeFenceInfo(match[1] ?? "");
       const code = match[2];
@@ -149,7 +151,18 @@ function extractTypeScriptExamples(files: readonly MarkdownFile[]): readonly Typ
           code.includes("from 'scheme-tokens'") ||
           code.includes('from "@scheme-tokens/material3"')
         ) {
-          examples.push({ code, label: file.label });
+          const group = file.text
+            .slice(0, match.index)
+            .match(
+              /<!-- example: ([a-z0-9-]+) -->\r?\n(?:\s*<!-- prettier-ignore -->\r?\n)?\s*$/u,
+            )?.[1];
+          if (group === undefined) {
+            examples.push({ code, label: file.label });
+          } else {
+            const parts = groups.get(group) ?? [];
+            parts.push(code);
+            groups.set(group, parts);
+          }
         }
         continue;
       }
@@ -161,6 +174,9 @@ function extractTypeScriptExamples(files: readonly MarkdownFile[]): readonly Typ
       if (/^(ts|tsx|typescript)\b/.test(info)) {
         throw new Error(`Unsupported TypeScript fence info "${match[1]}" in ${file.label}`);
       }
+    }
+    for (const [group, parts] of groups) {
+      examples.push({ code: parts.join("\n"), label: `${file.label} (${group})` });
     }
   }
 

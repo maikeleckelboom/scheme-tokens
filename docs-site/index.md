@@ -2,7 +2,7 @@
 layout: home
 hero:
   name: scheme-tokens
-  text: Compile tokens into CSS variables
+  text: Compose and resolve token graphs
   tagline: Define string values, references, modes, and layers in TypeScript.
   actions:
     - theme: brand
@@ -13,12 +13,10 @@ hero:
       link: /reference/api
 ---
 
+<!-- prettier-ignore -->
 ```ts
 import {
-  compileTokenGraph,
   defineTokenGraph,
-  exportCssVars,
-  orThrow,
   tokenRef,
 } from "scheme-tokens";
 
@@ -28,9 +26,6 @@ const graph = defineTokenGraph({
     primary: tokenRef("brand.600"),
   },
 });
-
-const scheme = orThrow(compileTokenGraph(graph));
-const css = orThrow(exportCssVars(scheme)).css;
 ```
 
 A graph describes the tokens and their relationships. Compilation resolves those relationships
@@ -38,4 +33,6 @@ into values; CSS export turns the values into custom properties.
 
 Start with [your first stylesheet](./guide/getting-started.md), then add
 [modes and layers](./guide/define-tokens.md) or
-[Material 3 colors](./guide/material3.md).
+[Material 3 colors](./guide/material3.md). Use generated roles behind application aliases with
+the [Material/shadcn example](./guide/material3.md#use-shadcn-names), then connect them to
+[Tailwind utilities](./guide/tailwind-css-v4.md#use-shadcn-variables).

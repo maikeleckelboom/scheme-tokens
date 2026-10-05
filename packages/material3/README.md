@@ -6,7 +6,8 @@ layer. Values are lowercase six-digit hex strings, with `light` and `dark` modes
 ## Install
 
 ```sh
-pnpm add scheme-tokens @scheme-tokens/material3
+pnpm add scheme-tokens
+pnpm add @scheme-tokens/material3
 ```
 
 Material `0.2.0` requires `scheme-tokens: ^0.4.0`. Both packages are ESM-only and support browsers
@@ -15,8 +16,13 @@ for supported compiler versions.
 
 ## Generate a layer
 
+<!-- example: material-layer -->
+
+<!-- prettier-ignore -->
 ```ts
-import { material3 } from "@scheme-tokens/material3";
+import {
+  material3,
+} from "@scheme-tokens/material3";
 
 const material = material3("#6750a4");
 ```
@@ -28,39 +34,60 @@ The layer includes roles such as `md.sys.color.primary`, `md.sys.color.on-primar
 
 The graph declares the modes and their default, then composes the generated layer:
 
+<!-- example: material-layer -->
+
+<!-- prettier-ignore -->
 ```ts
-import { material3 } from "@scheme-tokens/material3";
-import { compileTokenGraph, defineTokenGraph, orThrow } from "scheme-tokens";
+import {
+  defineTokenGraph,
+} from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
   defaultMode: "light",
-  layers: [material3("#6750a4")],
+  layers: [material],
 });
-
-const scheme = orThrow(compileTokenGraph(graph));
-const primary = scheme.tokens["md.sys.color.primary"].light;
 ```
 
-Use the core CSS exporter or serializer with this scheme. Default CSS names follow the role
-names, for example `--md-sys-color-primary`.
+Compile this graph with core, then export CSS or serialize the resolved scheme. Default CSS names
+follow the role names, for example `--md-sys-color-primary`.
 
 ## Expose application aliases
 
-Set Material visibility to `internal` when you want your application to expose its own names:
+Keep Material roles internal while your application exposes stable semantic names. For shadcn/ui,
+use names such as `background`, `foreground`, and `primary`:
 
+<!-- prettier-ignore -->
 ```ts
-import { material3 } from "@scheme-tokens/material3";
-import { defineTokenGraph, tokenRef } from "scheme-tokens";
+import {
+  material3,
+} from "@scheme-tokens/material3";
+import {
+  defineTokenGraph,
+  tokenRef,
+} from "scheme-tokens";
+
+const material = material3("#6750a4", {
+  visibility: "internal",
+});
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
   defaultMode: "light",
-  layers: [material3("#6750a4", { visibility: "internal" })],
+  layers: [material],
   tokens: {
-    "surface.canvas": tokenRef("md.sys.color.surface"),
-    "action.primary.background": tokenRef("md.sys.color.primary"),
-    "action.primary.foreground": tokenRef("md.sys.color.on-primary"),
+    background: tokenRef(
+      "md.sys.color.background",
+    ),
+    foreground: tokenRef(
+      "md.sys.color.on-background",
+    ),
+    primary: tokenRef(
+      "md.sys.color.primary",
+    ),
+    "primary-foreground": tokenRef(
+      "md.sys.color.on-primary",
+    ),
   },
 });
 ```
@@ -69,10 +96,19 @@ Default compilation resolves the internal roles and returns the public aliases. 
 layers after Material to override role values; graph-local declarations take precedence over
 every layer. An override keeps a role's visibility unless it specifies a new one.
 
+The mapping is application-owned. The [core README](../../README.md#material-3-with-shadcnui)
+shows the full shadcn mapping and `.dark` activation; the
+[Material guide](../../docs-site/guide/material3.md#use-shadcn-names) walks through CSS export.
+The [Tailwind/shadcn guide](../../docs/tailwind-css-v4.md#use-shadcn-variables) connects
+`--background` and `--primary` to utilities such as `bg-background` and `bg-primary`.
+
 ## Variants and contrast
 
+<!-- prettier-ignore -->
 ```ts
-import { material3 } from "@scheme-tokens/material3";
+import {
+  material3,
+} from "@scheme-tokens/material3";
 
 const material = material3("#6750a4", {
   specVersion: "2025",
@@ -99,9 +135,15 @@ variant list and input rules.
 `modeSettings` replaces the default light/dark set. Its keys must match the graph's modes.
 Each entry can override source color, variant, and contrast independently:
 
+<!-- prettier-ignore -->
 ```ts
-import { material3, type Material3ModeSettings } from "@scheme-tokens/material3";
-import { defineTokenGraph } from "scheme-tokens";
+import {
+  material3,
+  type Material3ModeSettings,
+} from "@scheme-tokens/material3";
+import {
+  defineTokenGraph,
+} from "scheme-tokens";
 
 const modeSettings = {
   "light-high": { colorMode: "light", contrastLevel: 1 },

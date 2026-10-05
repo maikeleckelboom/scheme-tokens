@@ -78,7 +78,7 @@ assertEqual(installedManifest.name, "scheme-tokens", "installed package name");
 // has to track the manifest rather than a value that goes stale on release.
 assertEqual(
   installedManifest.version,
-  process.env.SCHEME_TOKENS_CORE_TARBALL === undefined ? manifest.version : "0.4.0",
+  process.env.SCHEME_TOKENS_CORE_TARBALL === undefined ? manifest.version : "0.4.1",
   "installed package version",
 );
 assertDeepEqual(

@@ -37,7 +37,7 @@ interface Lockfile {
 }
 
 const artifacts = [
-  { name: "scheme-tokens", version: "0.4.0", filename: "scheme-tokens-0.4.0.tgz" },
+  { name: "scheme-tokens", version: "0.4.1", filename: "scheme-tokens-0.4.1.tgz" },
   {
     name: "@scheme-tokens/material3",
     version: "0.2.0",

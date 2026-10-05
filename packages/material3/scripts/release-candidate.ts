@@ -92,8 +92,8 @@ function assertReleaseCandidateVersions(candidateRoot: string): {
   // Changesets transforms only this temporary workspace; committed versions stay unchanged.
   const core = readManifest(join(candidateRoot, "package.json"));
   const adapter = readManifest(join(candidateRoot, "packages", "material3", "package.json"));
-  if (core.version !== "0.4.0") {
-    throw new Error(`Core release candidate must be 0.4.0, received ${core.version}.`);
+  if (core.version !== "0.4.1") {
+    throw new Error(`Core release candidate must be 0.4.1, received ${core.version}.`);
   }
   if (adapter.version !== "0.2.0") {
     throw new Error(
