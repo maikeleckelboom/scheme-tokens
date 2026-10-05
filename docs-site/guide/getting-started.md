@@ -1,45 +1,53 @@
-# Getting Started
+# Getting started
 
-Install the dependency-light root package.
+Install the package:
 
 ```sh
 pnpm add scheme-tokens
 ```
 
-Define string-valued tokens, compile an exact public contract, then export CSS custom properties. The
-example uses the public [`orThrow` helper](../reference/diagnostics.md#throwing-at-an-application-boundary)
-for boundaries where a failure should stop the operation. Failure causes retain the complete issue tuple.
+Use an ESM project with Node.js 24 or newer, or a browser build.
+
+## Define a graph
 
 ```ts
 import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
 
-const publicKeys = ["background", "foreground"] as const;
+const graph = defineTokenGraph({
+  tokens: {
+    background: "#ffffff",
+    foreground: "#111111",
+  },
+});
 
-export function createStylesheet(): string {
-  const graph = defineTokenGraph({
-    tokens: {
-      background: "#ffffff",
-      foreground: "#111111",
-    },
-  });
+const scheme = orThrow(compileTokenGraph(graph));
+const stylesheet = orThrow(exportCssVars(scheme)).css;
+```
 
-  const scheme = orThrow(
-    compileTokenGraph(graph, {
-      selection: publicKeys,
-    }),
-  );
-  const cssVars = orThrow(exportCssVars(scheme));
+`defineTokenGraph()` creates the graph. `compileTokenGraph()` resolves its values, and
+`exportCssVars()` produces the stylesheet:
 
-  return cssVars.css;
+```css
+:where(:root) {
+  --background: #ffffff;
+  --foreground: #111111;
 }
 ```
 
-Without mode options, `defineTokenGraph()` creates the single `base` mode.
+Save `stylesheet` as a CSS file or assign it to a style element's `textContent`.
 
-`compileTokenGraph(graph)` uses public selection by default. For a literal graph TypeScript knows the
-public keys, so that result is a complete record too. An exact literal tuple such as `publicKeys` states
-the contract explicitly: it is validated at runtime, then `scheme.tokens.background.base` is definite even
-when the public set comes from dynamic data.
+## Use the variables
 
-Continue with [Define Tokens](./define-tokens.md) for explicit modes, references, metadata, visibility,
-and layers.
+```css
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+```
+
+The graph uses a single `base` mode and public visibility by default. `orThrow()` stops the
+operation if compilation or export fails. For recoverable failures, see
+[error handling](../reference/diagnostics.md).
+
+Continue with [Define tokens](./define-tokens.md) to add references, modes, and layers, or
+[Export CSS variables](./export-css-variables.md) to configure theme activation.

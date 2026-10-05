@@ -1,7 +1,7 @@
 {
   "name": "scheme-tokens",
   "version": "0.4.0",
-  "description": "Zero-runtime-dependency design-token graph compiler for TypeScript apps.",
+  "description": "Compile string-valued token graphs and export CSS custom properties.",
   "keywords": [
     "css-variables",
     "design-tokens",

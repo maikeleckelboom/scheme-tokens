@@ -1,46 +1,34 @@
-# Application Theme Coordinates
+# Application theme coordinates
 
-Applications can have several independent theme axes even though `scheme-tokens` models one explicit
-mode envelope. Keep the application concepts independent in runtime state, persistence, controls, and
-URLs. Combine them only at the compiler boundary.
+An application can track palette and light/dark preference independently. Combine those choices
+into graph modes when building tokens, while keeping application state and controls in terms of
+the original choices.
 
-For example, an application can own `PaletteId` and `ResolvedScheme` while its build adapter privately
-maps each coordinate to a complete compiler mode. Flattened names such as `mono-light` and `vivid-dark`
-are compiler-boundary details, not a theme-coordinate abstraction that the library or application state
-needs to expose.
+For example, `mono-light`, `mono-dark`, `vivid-light`, and `vivid-dark` describe two palettes
+in two color schemes. Activate them using the application's `data-palette` and `data-scheme`
+attributes.
 
-Exact token selection makes the downstream semantic contract explicit. The CSS exporter then activates
-each private compiler mode from the application's own attributes: omit `activation.attribute`, map the system preference with `activation.media`, and describe each coordinate with
-conditions in `activation.selectors`.
+## Combine two axes
 
-## Ordering two axes
-
-When several conditions match one element, the block emitted later wins: selector conditions come after
-the media tier, then the graph's authored mode order decides, then the order of a mode's conditions.
-Author the flattened modes from general to specific, and use `:not()` where a fallback must not
-override an explicit choice:
+Order the modes from general to specific. Selector blocks follow that order, so later matching
+conditions win:
 
 ```ts
 import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
 
-const modes = ["mono-light", "mono-dark", "vivid-light", "vivid-dark"] as const;
-const scheme = orThrow(
-  compileTokenGraph(
-    defineTokenGraph({
-      modes,
-      defaultMode: "mono-light",
-      tokens: {
-        "surface.canvas": {
-          "mono-light": "#ffffff",
-          "mono-dark": "#111111",
-          "vivid-light": "#fffaf5",
-          "vivid-dark": "#111321",
-        },
-      },
-    }),
-  ),
-);
-
+const graph = defineTokenGraph({
+  modes: ["mono-light", "mono-dark", "vivid-light", "vivid-dark"],
+  defaultMode: "mono-light",
+  tokens: {
+    "surface.canvas": {
+      "mono-light": "#ffffff",
+      "mono-dark": "#111111",
+      "vivid-light": "#fffaf5",
+      "vivid-dark": "#111321",
+    },
+  },
+});
+const scheme = orThrow(compileTokenGraph(graph));
 const theme = orThrow(
   exportCssVars(scheme, {
     activation: {
@@ -63,48 +51,29 @@ const theme = orThrow(
 );
 ```
 
-`data-palette` absent means mono and `data-scheme` absent means "follow the system". An element with
-`data-palette="vivid"` and no scheme is vivid-light, or vivid-dark under a dark system preference; an
-explicit `data-scheme` always wins over the preference. Conditions are unanchored, so a section that
-carries both attributes re-themes its subtree. Put both attributes on the same element: a compound
-condition does not see an ancestor's attribute.
+With neither attribute, the mono palette follows the system preference. `data-palette="vivid"`
+switches palettes while retaining that preference. An explicit `data-scheme="light"` or
+`data-scheme="dark"` wins over it.
 
-## Executable reference
+Put both attributes on the same theme element. The compound selectors match attributes on that
+element, rather than on its ancestors. A section carrying the attributes themes its subtree.
 
-The checked-in
-[theme-coordinate example](https://github.com/maikeleckelboom/scheme-tokens/tree/main/examples/theme-coordinates)
-is the source that the packed release-consumer gate typechecks and executes. Its
-[`theme.ts`](https://github.com/maikeleckelboom/scheme-tokens/blob/main/examples/theme-coordinates/theme.ts)
-demonstrates:
+The `:not([data-scheme="light"])` condition keeps the vivid dark fallback from overriding an
+explicit light choice. Attribute generation is omitted because the selectors use the application's
+two attributes directly.
 
-- independent palette and resolved-scheme application types mapped to four complete compiler modes;
-- exact literal mode and public-role types, including for activation options;
-- public semantic roles that reference internal source tokens;
-- exact-key selection that excludes those source tokens from compiled and CSS output;
-- the activation above: a media fallback and ordered selector conditions with no generated markers;
-- complete, canonical declarations in every block, and CSS rebuilt from the structured blocks alone;
-- deterministic compiled serialization, CSS, block, and variable-map output.
+## Application integration
 
-The CSS browser suite verifies the same activation shape in Chromium, Firefox, and WebKit under both
-system preferences. Run `pnpm check:theme-coordinate-consumer` from the repository root to pack the
-package, install that tarball into a strict NodeNext consumer, then typecheck and execute the checked-in
-source.
+Keep theme state, persistence, controls, and URLs in application code. The graph receives the
+combined mode names; CSS activation maps them back to the chosen attributes.
 
-## Ownership boundary
+If you define a `color-scheme` token, bind it on each theme element so nested themes get the
+appropriate browser styling. See the
+[CSS guide](https://github.com/maikeleckelboom/scheme-tokens/blob/dev/docs-site/guide/export-css-variables.md#let-application-css-override-tokens).
 
-The compiler receives four explicit, complete modes and returns only the selected public roles.
-Internal source tokens remain available during reference resolution but are absent from the selected
-compiled record and CSS output.
+## Examples
 
-The application remains responsible for theme state, persistence, controls, URLs, which attributes it
-sets, the order of its flattened modes, and binding mode-level properties such as `color-scheme` at
-every activated element. The exporter owns only the generated blocks and their order. Color parsing,
-conversion, color-gamut decisions, palette generation, and contrast policy also remain outside
-`scheme-tokens`; the graph stores and preserves the strings the application supplies.
-
-## Paired Material example
-
-`examples/theme-coordinates/material.ts` composes a Material layer across six application-owned
-coordinates. The paired packed-consumer gate copies and executes that exact source, including
-its precise mode and exact-selection checks. The core-only coordinate gate still installs core alone.
-Real application verification and framework limitations are recorded in the P6 consumer evidence report.
+The [theme-coordinate example](https://github.com/maikeleckelboom/scheme-tokens/tree/dev/examples/theme-coordinates)
+includes application types, internal source tokens, public aliases, and explicit selection.
+The [Material example](https://github.com/maikeleckelboom/scheme-tokens/blob/dev/examples/theme-coordinates/material.ts)
+uses the same approach with generated color roles across six modes.

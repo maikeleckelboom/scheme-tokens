@@ -1,93 +1,146 @@
-# Define Tokens
+# Define tokens
 
-## One authoring grammar
+## Define values
 
-Use a direct string, a direct `tokenRef()`, a concat expression, a direct explicit mode map, or an expanded definition with required `value` and optional metadata.
+Token values are strings. Keys use dot-separated lower-kebab paths, such as `surface.canvas`
+or `brand.600`.
+
+```ts
+import { defineTokenGraph } from "scheme-tokens";
+
+const graph = defineTokenGraph({
+  tokens: {
+    "surface.canvas": "#ffffff",
+    "spacing.small": "8px",
+  },
+});
+```
+
+## Add references
 
 ```ts
 import { defineTokenGraph, tokenRef } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   tokens: {
-    "brand.600": {
-      value: "oklch(62% 0.18 250)",
-      visibility: "internal",
-      description: "Brand source",
-    },
+    "brand.600": "#6750a4",
     primary: tokenRef("brand.600"),
-    literal: "brand.600",
+    label: "brand.600",
   },
 });
-
-export { graph };
 ```
 
-`primary` is a reference. `literal` is the literal string `"brand.600"`. The package never infers references from spelling.
+`primary` resolves to `#6750a4`. `label` stays the literal string `brand.600`.
 
-`valueByMode`, aliases, and metadata mixed directly with mode keys are not part of the grammar.
-
-## Explicit modes
-
-Omitted mode options mean `base`/`base`. Multimode graphs require an explicit envelope and default:
+Use `tokenConcat` when a value combines text and references:
 
 ```ts
-import { defineTokenGraph, tokenRef } from "scheme-tokens";
+import { defineTokenGraph, tokenConcat, tokenRef } from "scheme-tokens";
+
+const graph = defineTokenGraph({
+  tokens: {
+    primary: "#6750a4",
+    ring: tokenConcat`0 0 0 3px ${tokenRef("primary")}`,
+  },
+});
+```
+
+Template substitutions must be references. See the
+[expression reference](../reference/api.md#expressions) for normalization and limits.
+
+## Add modes
+
+Declare the modes and `defaultMode` on the graph:
+
+```ts
+import { defineTokenGraph } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
   defaultMode: "light",
   tokens: {
-    "brand.600": "oklch(62% 0.18 250)",
-    "brand.400": "oklch(78% 0.12 250)",
-    background: {
-      light: "#ffffff",
-      dark: "#111111",
-    },
-    primary: {
-      value: {
-        light: tokenRef("brand.600"),
-        dark: tokenRef("brand.400"),
-      },
-      description: "Primary action fill",
-    },
+    background: { light: "#ffffff", dark: "#111111" },
+    spacing: "8px",
   },
 });
-
-export { graph };
 ```
 
-There is no mode discovery from token keys and no first-key default. Authored mode order is preserved, even when the default is not first.
+A mode map supplies every graph mode. A direct expression applies to all modes. The graph
+preserves your mode order, and `defaultMode` can be any member of that list.
 
-`tokenConcat` is a tagged template with reference-only substitutions. An empty template becomes `""`; a lone reference becomes `{ ref }`. Exact `{ concat: [...] }` source expressions merge adjacent literals, drop empty literals, and collapse literal-only content. Empty arrays and nested concat are invalid. Resolved concat is limited to 65,536 UTF-16 code units before joining; arbitrary literals and pure references remain unrestricted.
+## Compose layers
 
-`concat` is a valid mode name: `{ concat: "opaque" }`, `{ concat: { ref: "a" } }`, and `{ concat: { concat: ["x", { ref: "a" }] } }` are mode maps. Only an exact singleton object with an array under `concat` is a concat expression. `{ concat: [] }` is therefore an invalid expression, never a mode map. `ref`, `value`, `visibility`, `description`, `deprecated`, and `extensions` remain reserved.
-
-## Layers
-
-Layers have stable IDs and local default visibility, but no mode envelope. Direct expressions fit every graph. All mode maps within one layer must name the same set; a non-empty set must exactly match the graph modes, ignoring order. Disagreeing maps inside a layer return `inconsistent-layer-modes`; a consistent layer that differs from its graph returns `layer-mode-mismatch`. Each reports one deterministic failure per invalid layer. The graph owns mode order and default. Layers compose in array order, then graph tokens compose last. The winner supplies value and descriptive metadata. Omitted visibility preserves prior effective visibility; explicit visibility restates it. With no explicit visibility, the default of the position that introduced the key applies.
+Use layers to share tokens or separate generated values from application declarations:
 
 ```ts
 import { defineTokenGraph, defineTokenLayer, tokenRef } from "scheme-tokens";
 
-const generated = defineTokenLayer({
-  id: "generated",
-  defaultVisibility: "internal",
-  tokens: { "brand.600": "oklch(62% 0.18 250)" },
+const brand = defineTokenLayer({
+  id: "brand",
+  tokens: { "brand.600": "#6750a4" },
 });
-
-const semantic = defineTokenLayer({
-  id: "semantic",
-  tokens: { primary: tokenRef("brand.600") },
+const overrides = defineTokenLayer({
+  id: "overrides",
+  tokens: { "brand.600": "#009489" },
 });
 
 const graph = defineTokenGraph({
-  tokens: {},
-  layers: [generated, semantic],
+  layers: [brand, overrides],
+  tokens: { primary: tokenRef("brand.600") },
 });
-
-export { graph };
 ```
 
-Later layers override earlier definitions with the same key. This is deterministic token composition, not CSS cascade behavior. TypeScript tracks the same composition, so the inferred public keys of a literal graph match what compilation returns; see [TypeScript Access](./typescript-access.md).
+`primary` resolves to `#009489`. Layers compose in array order, then graph-local tokens take
+precedence. Each layer needs a unique ID. Layers provide values for the graph's modes; their
+mode maps must share the same mode set and match the graph when composed.
 
-The graph/layer helpers, `tokenRef`, and `tokenConcat` are trusted TypeScript entry points. They copy accepted data and may throw for programmer misuse. Use the parser functions for untrusted persisted input.
+## Control visibility
+
+Keep source values internal while exposing application names:
+
+```ts
+import { compileTokenGraph, defineTokenGraph, tokenRef } from "scheme-tokens";
+
+const graph = defineTokenGraph({
+  tokens: {
+    "brand.600": { value: "#6750a4", visibility: "internal" },
+    primary: tokenRef("brand.600"),
+  },
+});
+
+const publicTokens = compileTokenGraph(graph);
+const allTokens = compileTokenGraph(graph, { selection: "all" });
+const selectedTokens = compileTokenGraph(graph, { selection: ["primary"] });
+```
+
+Default compilation returns public tokens after resolving references through the whole graph.
+`selection: "all"` includes internal tokens; a key array chooses the output directly.
+
+Set `defaultVisibility: "internal"` on a graph or layer to make newly introduced tokens internal.
+An override keeps the existing visibility unless it specifies `visibility`. The
+[composition reference](../reference/api.md#layers-and-visibility) covers these rules.
+
+## Add metadata
+
+Put an expression or mode map under `value` when adding metadata:
+
+```ts
+import { defineTokenGraph } from "scheme-tokens";
+
+const graph = defineTokenGraph({
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  tokens: {
+    background: {
+      value: { light: "#ffffff", dark: "#111111" },
+      description: "Page background",
+    },
+  },
+});
+```
+
+Definitions support `visibility`, `description`, `deprecated`, and `extensions`.
+Later declarations replace descriptive metadata along with the value.
+
+Use the helpers for TypeScript authoring and [parsers](../reference/api.md#parsers) for
+persisted or untrusted data.

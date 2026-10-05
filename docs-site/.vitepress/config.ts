@@ -2,7 +2,7 @@ import { defineConfig } from "vitepress";
 
 export default defineConfig({
   title: "scheme-tokens",
-  description: "Compile authored token graphs and export deterministic CSS variables.",
+  description: "Compile string-valued token graphs and export CSS custom properties.",
   lang: "en-US",
   cleanUrls: true,
   lastUpdated: false,
@@ -32,8 +32,7 @@ export default defineConfig({
       "meta",
       {
         property: "og:description",
-        content:
-          "Stable token graph contracts, scheme compilation, and deterministic CSS variable export.",
+        content: "Compile string-valued token graphs and export CSS custom properties.",
       },
     ],
   ],
@@ -42,7 +41,6 @@ export default defineConfig({
       { text: "Getting Started", link: "/guide/getting-started" },
       { text: "API", link: "/reference/api" },
       { text: "Diagnostics", link: "/reference/diagnostics" },
-      { text: "Migration", link: "/guide/migration" },
     ],
     sidebar: [
       {
@@ -56,20 +54,23 @@ export default defineConfig({
         text: "Guides",
         items: [
           { text: "Define Tokens", link: "/guide/define-tokens" },
+          { text: "Export CSS Variables", link: "/guide/export-css-variables" },
+          { text: "Add Material 3 Roles", link: "/guide/material3" },
           {
             text: "Application Theme Coordinates",
             link: "/guide/application-theme-coordinates",
           },
-          { text: "Export CSS Variables", link: "/guide/export-css-variables" },
           { text: "Tailwind CSS v4", link: "/guide/tailwind-css-v4" },
           { text: "TypeScript Access", link: "/guide/typescript-access" },
-          { text: "Migration to 0.1", link: "/guide/migration" },
+          { text: "Upgrade to 0.4", link: "/guide/migration" },
         ],
       },
       {
         text: "Reference",
         items: [
           { text: "API", link: "/reference/api" },
+          { text: "CSS", link: "/reference/css" },
+          { text: "Material 3", link: "/reference/material3" },
           { text: "Diagnostics", link: "/reference/diagnostics" },
         ],
       },

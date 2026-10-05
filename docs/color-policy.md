@@ -1,15 +1,26 @@
-# Value Policy
+# Token values
 
-The initial public value model is intentionally narrow: a token value is a string or an explicit token reference that eventually resolves to a string.
+Token expressions are strings, explicit references, or flat concat expressions. Compilation
+resolves each expression to a string.
 
-## Rules
+```ts
+import { defineTokenGraph, tokenConcat, tokenRef } from "scheme-tokens";
 
-- Bare strings are literal values.
-- References use `tokenRef("token.key")` in trusted TypeScript and exact `{ ref: "token.key" }` records in persisted artifacts.
-- The package preserves strings; it does not parse, normalize, convert, repair, or prove their meaning.
-- Compilation and serialization accept and preserve arbitrary strings.
-- CSS export does not reinterpret token meaning, but it does reject declaration-unsafe strings with `invalid-css-value` before emitting code.
-- Structured design-token values are outside the current contract.
-- External producers may compute strings before passing them to `scheme-tokens`, but their algorithms and policy remain outside this package.
+const graph = defineTokenGraph({
+  tokens: {
+    color: "#6750a4",
+    primary: tokenRef("color"),
+    ring: tokenConcat`0 0 0 3px ${tokenRef("primary")}`,
+  },
+});
+```
 
-The CSS check is an output-safety boundary, not a color or token-domain parser. The package name describes scheme compilation, not ownership of a color engine or a general design-system value model.
+Bare strings are literal values. Compilation and serialization preserve their contents.
+Generators such as `@scheme-tokens/material3` compute strings before graph composition.
+
+CSS export checks whether an emitted value is safe within a declaration and reports
+`invalid-css-value` when it is not. Token meaning, such as whether a string is a suitable color,
+remains the caller's concern.
+
+See the [expression reference](../docs-site/reference/api.md#expressions) and
+[CSS safety rules](../docs-site/reference/css.md#safe-emission).

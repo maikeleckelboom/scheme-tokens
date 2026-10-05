@@ -1,28 +1,29 @@
-# API
+# API reference
 
 ## Runtime exports
 
-| Export                    | Purpose                                                         |
-| ------------------------- | --------------------------------------------------------------- |
-| `defineTokenGraph`        | Define a trusted graph with explicit options or layers.         |
-| `defineTokenLayer`        | Define a trusted reusable layer.                                |
-| `tokenConcat`             | Build a reference-only tagged-template concat.                  |
-| `orThrow`                 | Unwrap success or throw an Error with every issue in its cause. |
-| `tokenRef`                | Create an explicit reference.                                   |
-| `parseTokenGraph`         | Parse an untrusted strict graph.                                |
-| `parseTokenLayer`         | Parse an untrusted strict layer.                                |
-| `parseCompiledScheme`     | Parse an untrusted compiled scheme.                             |
-| `compileTokenGraph`       | Compile a graph with explicit selection.                        |
-| `exportCssVars`           | Project a compiled scheme to CSS custom properties.             |
-| `serializeTokenGraph`     | Canonically serialize a graph.                                  |
-| `serializeTokenLayer`     | Canonically serialize a layer.                                  |
-| `serializeCompiledScheme` | Canonically serialize compiled output.                          |
+| Export                    | Purpose                                                 |
+| ------------------------- | ------------------------------------------------------- |
+| `defineTokenGraph`        | Author and normalize a graph.                           |
+| `defineTokenLayer`        | Author and normalize a reusable layer.                  |
+| `tokenRef`                | Create a token reference.                               |
+| `tokenConcat`             | Combine text and references in a tagged template.       |
+| `orThrow`                 | Return a successful result's value or throw its issues. |
+| `parseTokenGraph`         | Validate a persisted graph.                             |
+| `parseTokenLayer`         | Validate a persisted layer.                             |
+| `parseCompiledScheme`     | Validate a compiled artifact.                           |
+| `compileTokenGraph`       | Compose, resolve, and select tokens.                    |
+| `exportCssVars`           | Export a compiled scheme as CSS custom properties.      |
+| `serializeTokenGraph`     | Serialize a graph to JSON.                              |
+| `serializeTokenLayer`     | Serialize a layer to JSON.                              |
+| `serializeCompiledScheme` | Serialize a compiled scheme to JSON.                    |
 
-These are the complete root runtime exports.
+These are the root runtime exports. Material generation is provided by
+[`@scheme-tokens/material3`](./material3.md).
 
-## Result
+## Results and errors
 
-Every fallible operation uses the same public type:
+Parsers, compilation, and CSS export return `Result`:
 
 ```ts
 type Result<Value, Problem> =
@@ -38,41 +39,177 @@ const compiled = compileTokenGraph(defineTokenGraph({ tokens: { background: "#ff
 if (compiled.ok) {
   const exported = exportCssVars(compiled.value);
   if (exported.ok) {
-    exported.value.css;
-    exported.value.blocks;
-    exported.value.variableByToken;
+    console.log(exported.value.css);
+  } else {
+    console.error(exported.issues);
   }
+} else {
+  console.error(compiled.issues);
 }
 ```
 
-`orThrow()` returns the exact success value or throws `Error` with every issue code, path when present, and message. Its `cause` is the original non-empty issue tuple. Graph/layer helpers use the same convention.
+`orThrow()` returns the value or throws `Error`. Its message includes every issue's code, path
+when present, and message; `cause` is the original issues tuple. Authoring helpers throw using
+the same convention. Serializers return strings from accepted artifacts.
 
-## Trusted helpers
+See [Diagnostics](./diagnostics.md) for issue codes, paths, and payloads.
 
-- `defineTokenGraph(input)`
-- `defineTokenLayer(input)`
-- `tokenRef(key)`
-- `tokenConcat` tagged templates
+## Authoring
 
-Trusted helpers normalize and copy accepted TypeScript authoring input. They may throw for malformed keys, invalid references, contradictory mode options, or other programmer misuse.
+`defineTokenGraph()` accepts these options:
 
-Omitted mode options mean `base`/`base`. Explicit `modes` require `defaultMode`. Authored mode order survives independently of the default. Mode names are single lower-kebab identifiers; `ref`, `value`, `visibility`, `description`, `deprecated`, and `extensions` are reserved.
+| Field               | Requirement and default                                                    |
+| ------------------- | -------------------------------------------------------------------------- |
+| `tokens`            | Token definitions; omission becomes `{}`.                                  |
+| `modes`             | A non-empty list of unique mode names; defaults to `["base"]`.             |
+| `defaultMode`       | Required when `modes` is supplied; otherwise `"base"`. Must be in `modes`. |
+| `defaultVisibility` | `"public"` or `"internal"`; defaults to `"public"`.                        |
+| `layers`            | Layers in composition order.                                               |
 
-Layers have stable IDs and local default visibility, but no mode envelope. Direct expressions fit every graph. All mode maps within one layer must name the same set; a non-empty set must exactly match the graph modes, ignoring order. Disagreeing maps inside a layer return `inconsistent-layer-modes`; a consistent layer that differs from its graph returns `layer-mode-mismatch`. Each reports one deterministic failure per invalid layer. The graph owns mode order and default. Layers compose in array order, then graph tokens compose last. The winner supplies value and descriptive metadata. Omitted visibility preserves prior effective visibility; explicit visibility restates it. With no explicit visibility, the default of the position that introduced the key applies.
+A definition is an expression, a mode map, or an expanded object:
 
-`tokenConcat` is a tagged template with reference-only substitutions. An empty template becomes `""`; a lone reference becomes `{ ref }`. Exact `{ concat: [...] }` source expressions merge adjacent literals, drop empty literals, and collapse literal-only content. Empty arrays and nested concat are invalid. Resolved concat is limited to 65,536 UTF-16 code units before joining; arbitrary literals and pure references remain unrestricted.
+```ts
+import { defineTokenGraph, tokenRef } from "scheme-tokens";
 
-`concat` is a valid mode name: `{ concat: "opaque" }`, `{ concat: { ref: "a" } }`, and `{ concat: { concat: ["x", { ref: "a" }] } }` are mode maps. Only an exact singleton object with an array under `concat` is a concat expression. `{ concat: [] }` is therefore an invalid expression, never a mode map. `ref`, `value`, `visibility`, `description`, `deprecated`, and `extensions` remain reserved.
+const graph = defineTokenGraph({
+  modes: ["light", "dark"],
+  defaultMode: "light",
+  tokens: {
+    source: "#6750a4",
+    primary: tokenRef("source"),
+    background: { light: "#ffffff", dark: "#111111" },
+    foreground: {
+      value: { light: "#111111", dark: "#ffffff" },
+      description: "Text on the page background",
+    },
+  },
+});
+```
 
-## Untrusted parsers
+Expanded definitions require `value` and accept:
 
-- `parseTokenGraph(input: unknown)`
-- `parseTokenLayer(input: unknown)`
-- `parseCompiledScheme(input: unknown)`
+| Metadata      | Type                                 |
+| ------------- | ------------------------------------ |
+| `visibility`  | `"public" \| "internal"`             |
+| `description` | `string`                             |
+| `deprecated`  | `boolean \| string`                  |
+| `extensions`  | A string-keyed record of JSON values |
 
-Parsers do not throw for JSON-compatible input. They strictly validate kinds, versions, properties, definition and reference shapes, and available mode coverage, then return an owned canonical artifact under `value`. Graph parsing also validates reference targets and cycles.
+Put metadata beside `value`, rather than beside mode names. A direct expression applies to every
+mode; a mode map must contain exactly the graph's modes.
 
-Parsed key sets are dynamic. `parseTokenGraph()` returns `TokenGraph` with `string` keys and public keys, and `parseTokenLayer()` returns `TokenLayer` with an unknown mode set and visibility. `parseCompiledScheme()` always returns an incomplete token record, and exporting CSS from it keeps `variableByToken` partial.
+Token keys are dot-separated lower-kebab paths. The first segment starts with a lowercase letter;
+later segments may start with digits, as in `brand.600`. Mode names are single lower-kebab
+identifiers. The names `ref`, `value`, `visibility`, `description`, `deprecated`, and
+`extensions` are reserved. Mode order is preserved independently of `defaultMode`.
+
+Helpers normalize, validate, and copy accepted input. Graph reference targets and cycles are
+checked when compiling the composed graph. Use [parsers](#parsers) for untrusted input.
+
+## Expressions
+
+Bare strings are literal. References use `tokenRef("token.key")` in TypeScript and exact
+`{ ref: "token.key" }` objects in artifacts.
+
+```ts
+import { defineTokenGraph, tokenConcat, tokenRef } from "scheme-tokens";
+
+const graph = defineTokenGraph({
+  tokens: {
+    primary: "#6750a4",
+    ring: tokenConcat`0 0 0 3px ${tokenRef("primary")}`,
+  },
+});
+```
+
+`tokenConcat` accepts reference-only substitutions. Its wire form is a flat
+`{ concat: [string | { ref: string }, ...] }` expression. Normalization merges adjacent literals,
+drops empty literals, reduces literal-only content to a string, and reduces a lone reference to
+`{ ref }`. An empty tagged template becomes `""`; empty concat arrays and nested concat
+expressions are rejected.
+
+Resolved concat values are limited to 65,536 UTF-16 code units. Larger results return
+`resolved-value-too-long`. Literal values and pure references have no corresponding length limit.
+
+`concat` is also a valid mode name. Shape distinguishes it from an expression:
+
+| Shape                                                 | Interpretation                          |
+| ----------------------------------------------------- | --------------------------------------- |
+| `{ concat: ["text", { ref: "source" }] }`             | Concat expression                       |
+| `{ concat: "text" }`                                  | Mode map                                |
+| `{ concat: { ref: "source" } }`                       | Mode map                                |
+| `{ concat: { concat: ["text", { ref: "source" }] } }` | Mode map containing a concat expression |
+| `{ concat: [] }`                                      | Invalid concat expression               |
+
+## Layers and visibility
+
+`defineTokenLayer()` takes a unique lower-kebab `id`, required `tokens`, and optional
+`defaultVisibility` (default `"public"`). The graph defines the modes and their default.
+Direct layer expressions apply to every graph mode. All mode maps within a layer must share
+one set, which must match the graph's set when composed; map order is irrelevant.
+
+Conflicting maps inside a layer use `inconsistent-layer-modes`. A consistent layer that differs
+from the graph uses `layer-mode-mismatch`. Each invalid layer reports one such issue.
+
+Layers compose in array order, then graph tokens compose last. The winning declaration supplies
+the value, description, deprecation, and extensions. Descriptive metadata is replaced as a whole.
+
+Visibility follows these rules:
+
+1. An explicit `visibility` replaces the previous visibility.
+2. An override that omits visibility keeps the previous visibility.
+3. A new key that omits visibility uses its introducing graph or layer's `defaultVisibility`.
+
+Public tokens can reference internal tokens. Resolution uses the complete composed graph before
+selection.
+
+## Compilation and selection
+
+`compileTokenGraph(graph, options?)` accepts one option, `selection`:
+
+| Selection             | Output                               |
+| --------------------- | ------------------------------------ |
+| Omitted or `"public"` | Public tokens                        |
+| `"all"`               | Every composed token                 |
+| A key array           | Those keys, regardless of visibility |
+
+Explicit arrays reject empty selections, duplicate keys, malformed keys, and unknown keys.
+A selection that produces no tokens returns `no-selected-tokens`. All composed tokens are
+resolved before output selection, so errors in omitted tokens still fail compilation.
+
+Output keys use code-unit order, independent of selection-array order. The scheme retains the
+graph's mode order and `defaultMode`. Resolved values are read as `scheme.tokens[key][mode]`.
+
+## Compiled metadata
+
+`metadataByToken[key]` contains:
+
+| Field                                     | Contents                                                 |
+| ----------------------------------------- | -------------------------------------------------------- |
+| `visibility`                              | Effective visibility after composition                   |
+| `declarations`                            | Non-empty declaration list in composition order          |
+| `expressionByMode`                        | Retained expressions for non-literal modes, when present |
+| `description`, `deprecated`, `extensions` | Metadata from the winning declaration                    |
+
+Each declaration has `origin: { kind: "graph" }` or `origin: { kind: "layer", id }`.
+`declaredVisibility` is present only when that declaration specified visibility. The last
+declaration wins.
+
+Retained pure references use `{ ref }`. Retained concat parts are strings or `{ ref, value }`,
+where `value` is that part's resolved string for the mode. Literal modes have no retained
+expression entry. This data supports [CSS reference projection](./css.md#reference-projection).
+
+## Parsers
+
+| Parser                                | Accepted input and checks                                                                      |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `parseTokenGraph(input: unknown)`     | Graph structure, mode coverage, composition, reference targets, and cycles                     |
+| `parseTokenLayer(input: unknown)`     | Layer structure and agreement among its mode maps; reference targets are checked when composed |
+| `parseCompiledScheme(input: unknown)` | Compiled values and metadata structure                                                         |
+
+Parsers return copies of accepted artifacts and `Result` issues for invalid JSON-compatible data.
+They reject unknown properties and unsupported versions. They accept the expanded artifact grammar,
+rather than authoring shorthand.
 
 ```ts
 import { compileTokenGraph, parseTokenGraph } from "scheme-tokens";
@@ -81,71 +218,94 @@ declare const input: unknown;
 const parsed = parseTokenGraph(input);
 
 if (parsed.ok) {
-  const compiled = compileTokenGraph(parsed.value, {
-    selection: "public",
-  });
+  const compiled = compileTokenGraph(parsed.value);
 }
 ```
 
-## Compilation
+Compiled parsing checks retained-expression structure. It does not check that edited expressions
+agree with resolved values or form an acyclic graph. Recompile source when changing token relationships.
 
-`compileTokenGraph()` supports `selection: "public"` (the default), `selection: "all"` (all graph tokens), and explicit selection arrays. Empty arrays are rejected at runtime. It validates the complete graph before selection, so public tokens can safely reference internal tokens.
+## Artifacts and schemas
 
-Compiled values remain `tokens[key][mode]`. Metadata contains effective `visibility` and non-empty `declarations` in composition order. Each declaration contains `origin: { kind: "graph" }` or `{ kind: "layer", id }`, plus `declaredVisibility` only when explicitly authored. The last declaration wins. Sparse `expressionByMode` omits literal modes, retains pure `{ ref }` records without duplicated values, and retains canonical concat parts with `{ ref, value }` for referenced parts. Descriptions, deprecation, and extensions come only from the winner.
+Writers emit `formatVersion: 2`. Artifacts have these required fields, plus optional `$schema`:
 
-Omitted and explicit `public` selection have complete token and metadata records keyed by the public keys when TypeScript knows them: a finite key set and literal visibility at every composition position. Otherwise they are partial over every graph key. `all` is complete for a finite key set; an exact literal key tuple is complete after runtime validation. Parsed graphs, dynamic key sets, and runtime key arrays remain partial. Advanced annotations can express this through `CompiledScheme<Key, Mode, Complete>`; inference is preferred.
+| Artifact        | `kind`                          | Other required fields                                 |
+| --------------- | ------------------------------- | ----------------------------------------------------- |
+| Graph           | `scheme-tokens/token-graph`     | `modes`, `defaultMode`, `defaultVisibility`, `tokens` |
+| Layer           | `scheme-tokens/token-layer`     | `id`, `defaultVisibility`, `tokens`                   |
+| Compiled scheme | `scheme-tokens/compiled-scheme` | `modes`, `defaultMode`, `tokens`, `metadataByToken`   |
 
-## CSS export
+Graphs may also contain `layers`. Graph and layer token definitions always contain `value`,
+holding an expression or complete mode map.
 
-`exportCssVars()` takes `prefix`, `variableName`, `format` (`pretty` or `compact`), `references` (`resolved` or `var`), `activation`, and `cascadeLayer`. The structured `value` contains `css`, `blocks`, and `variableByToken`.
+```ts
+import { parseTokenGraph } from "scheme-tokens";
 
-Omission, explicit `undefined`, and `"resolved"` retain existing resolved output. `"var"` projects only retained explicit references for each emitted token/mode. Direct targets link using their actual `variableByToken` name only when emitted by this same selected scheme; other pure references inline their own resolved value, and other concat parts inline their retained value. Literal parts remain exact, without added separators or `var()` fallback arguments. Selected internal targets can link; omitted public targets cannot. Names are built once per selected key in canonical order, respecting prefix/custom callbacks; naming failures and collisions fail export rather than changing eligible links. Authored `var(...)` strings are opaque.
+const parsed = parseTokenGraph({
+  $schema: "https://cdn.jsdelivr.net/npm/scheme-tokens@0.4.0/schemas/token-graph.v2.schema.json",
+  kind: "scheme-tokens/token-graph",
+  formatVersion: 2,
+  modes: ["base"],
+  defaultMode: "base",
+  defaultVisibility: "public",
+  tokens: { background: { value: "#ffffff" } },
+});
+```
 
-Every block redeclares every alias. Target overrides at declaration/activation elements propagate through local aliases, including unlayered overrides of layered tokens in either stylesheet order; a target override on an unmarked descendant does not change its inherited alias. Core concat assembles characters while CSS substitutes tokens: `calc(var(--spacing) * 2)` can stay live, `var(--number)px` is not `20px` for a numeric target of `20`, and inserted `var()` inside a quoted string stays literal. See [Reference output](../guide/export-css-variables.md#reference-output) for examples and limits.
+`$schema` is an optional string preserved verbatim for editor use. Runtime format selection
+uses `kind` and `formatVersion`; schema hints are neither fetched nor synthesized. Authoring
+helpers reject `$schema`.
 
-Blocks come in tier order default, media, attribute, selector; within a tier in authored mode order; within a mode in condition order. The default mode and media blocks target `activation.root` (default `:root`). Attribute markers require `activation.attribute`; omission creates no DOM contract. `activation.selectors` accepts a selector string, one `{ selector, media? }` condition, or a non-empty condition list. Every block declares every selected token and wraps its selectors in `:where()`. `root` is a pure selector: only `attribute: { name: "data-mode", includeHost: true }` adds Shadow DOM host matching alongside ordinary elements. Structured blocks expose `tier`, `mode`, `selectors`, optional `media`, and `declarations`.
-
-Default names join the prefix and key segments with single hyphens; every collision among exported names returns `duplicate-css-variable`. The `variableName` callback is advanced and contained: exceptions, unsafe names, and collisions return issues.
-
-`variableByToken` mirrors the compiled record's partial or complete key contract, including the partial result from a parsed compiled artifact and the complete result of a finite, fully known public selection. `activation.media` and `activation.selectors` are partial maps keyed by the compiled mode union, so TypeScript rejects an unknown mode of a finite scheme.
-
-Compilation and serialization preserve arbitrary strings. CSS export structurally parses the whole artifact before options and checks complete projected declarations once per emitted key/mode. The exact checked string is `blocks[].declarations[].value` in either format; blocks do not encode formatting or the cascade-layer wrapper. Unsafe values use `invalid-css-value`: resolved/direct token values keep `/tokens/<key>/<mode>`, and retained concat projection uses `/metadataByToken/<key>/expressionByMode/<mode>`. Unused resolved values, unused fallbacks, and isolated fragments are not checked in `"var"` mode. Selected targets' own declarations are checked. Metadata structure does not prove consistency with tokens or acyclicity of edited references. Selectors, media conditions, and layer names use intentionally bounded grammars; emission safety does not establish general CSS semantics or HTML embedding safety.
-
-See [Application Theme Coordinates](../guide/application-theme-coordinates.md) for a complete exact-selection example activated through a media fallback and ordered selector conditions.
-
-## TypeScript
-
-The supported compiler is TypeScript `>=5.9.3 <6.0.0 || >=6.0.2 <7.0.0 || >=7.0.2 <8.0.0`. `defineTokenGraph` returns a `DefinedTokenGraph`: a `TokenGraph<Key, Mode, PublicKey>` whose own authored keys are definite in `graph.tokens`, while a key that only a layer declares is not. `defineTokenLayer` infers `TokenLayer<Key, Mode, Visibility>`, where a layer `Mode` is `never` without mode maps, a finite union for a literal layer, and `string` when unknown, and `Visibility` is a `LayerVisibilityFacts`. Literal input is validated strictly; failures name the offending property, keep reference suggestions, and use the diagnostic markers described in [TypeScript Access](../guide/typescript-access.md). Precise claims are nominal: only the helpers and the values that flow unchanged from them make one. A finite key union is an exact claim, and an object literal, a spread copy, or a plain `TokenGraph` or `TokenLayer` describes unknown data.
-
-## Serializers and schemas
-
-The three serializers emit canonical supported artifacts. Published schema subpaths are:
+Packaged schemas are self-contained JSON Schema Draft 2020-12 files with internal fragment
+references:
 
 - `scheme-tokens/schemas/token-graph.v2.schema.json`
 - `scheme-tokens/schemas/token-layer.v2.schema.json`
 - `scheme-tokens/schemas/compiled-scheme.v2.schema.json`
 
-Strict token definitions have one required `value`, which contains either a string/reference/concat expression or a complete mode map.
+Their `$id` values use stable `tag:` identities, such as
+`tag:maikel.site,2026-09-29:scheme-tokens/schema/token-graph/v2`. Use a versioned package-CDN URL,
+as above, when an editor needs a retrievable schema.
 
-Current writers emit `formatVersion: 2`. Source parsers also accept historical v1 graphs/layers, upgrade once, and validate under the same current rules. Shadowed graph declarations move to a deterministic leading synthetic layer; only necessary visibility restatements are added, and historical default-first mode order is preserved. V1 schema hints are validated historically and dropped on upgrade. Standalone inconsistent layer maps return `inconsistent-layer-modes`. Compiled v1 is rejected with `invalid-format-version`: recompile its source graph.
+### Reading v1 source
 
-In v2, `$schema` may be any string. It is preserved verbatim, never fetched or used for version selection, and never synthesized. Trusted helpers do not accept `$schema`. Only `kind` and `formatVersion` select the runtime format. A documented editor hint for the planned 0.4 release is `https://cdn.jsdelivr.net/npm/scheme-tokens@0.4.0/schemas/token-graph.v2.schema.json`; that release is not published yet. Each packaged schema has a stable identity such as `tag:maikel.site,2026-09-29:scheme-tokens/schema/token-graph/v2`. All three are self-contained Draft 2020-12 with fragment-only internal references.
+Source parsers accept v1 graphs and layers, upgrade them to v2, and apply v2 validation. The upgrade
+preserves published v1 values, effective visibility, descriptive metadata, and historical
+default-first mode order. Shadowed graph declarations move into a leading synthetic layer;
+visibility is restated where needed. V1 schema hints are checked under v1 rules and then dropped.
+Diagnostics point to the original source document.
 
-## Optional Material 3 adapter
+Compiled v1 is rejected with `invalid-format-version`. Parse and recompile its source graph.
 
-The sibling `@scheme-tokens/material3` package exports `material3` and exactly six named types:
-`Material3TokenKey`, `Material3ColorMode`, `Material3SpecVersion`, `Material3Variant`,
-`Material3ModeSettings` and `Material3Options`. These belong to the adapter, not the core root exports.
-The P5 candidate returns one ordinary `TokenLayer` with fixed id `material3` and total maps for
-all 48 roles. Compose through `layers: [material]` with explicit graph modes/defaultMode.
+## Serialization
 
-Its `modeSettings` map is exact and non-empty; omitted means light/dark. Built-in names imply their colorMode and accept matching explicit values; custom names require it. Spec and visibility stay global; source/variant/
-contrast override per field. Core owns mode-name errors and graph/layer mode agreement.
-P5.1 ties precise claims to field presence: non-default mode sets require `modeSettings`, and visibility
-excluding public requires `visibility`. Omitted/undefined options use the non-generic default
-signature; explicit generics require options. Narrow or default possibly undefined options before
-forwarding. Required wrappers retain precise supplied facts; bare options remain conservative.
-The return carries NoInfer modes/default visibility and `mayOmitVisibilityKeys: Material3TokenKey`, since every
-generated declaration omits explicit visibility. Unknown visibility keeps public output partial
-over all composed keys, including possibly public roles. The candidate requires peer `^0.4.0`;
-committed versions are unchanged. P6.1 owns package-only verification and P7 remains separate. External application migrations are not release requirements. See the [adapter reference](https://github.com/maikeleckelboom/scheme-tokens/blob/dev/packages/material3/README.md).
+`serializeTokenGraph()`, `serializeTokenLayer()`, and `serializeCompiledScheme()` return
+formatted JSON with a trailing newline. They take accepted artifacts; parse unknown data first.
+
+Record keys use code-unit order. Graph mode and layer arrays retain their order; compiled token
+mode values follow the graph's mode order. Graph serialization writes layers before graph-local
+tokens. Parse/serialize round trips preserve accepted artifacts.
+
+## TypeScript
+
+Helpers infer keys, modes, and visibility from literal input. Compilation returns complete records
+when the selected key set is known, and partial records when it is uncertain. CSS export carries
+that distinction into `variableByToken`.
+
+The [TypeScript guide](../guide/typescript-access.md) owns the completeness rules, generic types,
+and authoring diagnostics. The [Material reference](./material3.md#typescript) covers generated layers.
+
+## CSS export
+
+`exportCssVars(scheme, options?)` returns CSS, structured blocks, and `variableByToken`.
+Options are `prefix`, `variableName`, `format`, `references`, `activation`, and `cascadeLayer`.
+
+See the [CSS guide](../guide/export-css-variables.md) for examples and the
+[CSS reference](./css.md) for option shapes, activation order, reference projection, and safety.
+
+## Public types
+
+The root exports `Result`, `Issue`, `JsonValue`, graph and expression types, compiled value and
+metadata types, CSS types, and operation-specific option and issue types. The
+[declaration snapshot](https://github.com/maikeleckelboom/scheme-tokens/blob/dev/api/scheme-tokens.api.d.ts)
+lists the full type surface.

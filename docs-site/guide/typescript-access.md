@@ -1,6 +1,11 @@
-# TypeScript Access
+# TypeScript access
 
-Literal token keys, explicit modes, and visibility flow through trusted authoring, compilation, CSS export, and serialization. The supported compiler is TypeScript `>=5.9.3 <6.0.0 || >=6.0.2 <7.0.0 || >=7.0.2 <8.0.0`.
+The supported compiler range is
+`>=5.9.3 <6.0.0 || >=6.0.2 <7.0.0 || >=7.0.2 <8.0.0`.
+
+## Read inferred tokens
+
+Helpers preserve literal keys, modes, and visibility:
 
 ```ts
 import { compileTokenGraph, defineTokenGraph, orThrow, tokenRef } from "scheme-tokens";
@@ -9,46 +14,106 @@ const graph = defineTokenGraph({
   modes: ["light", "dark"],
   defaultMode: "light",
   tokens: {
-    "brand.600": { value: { light: "#6750a4", dark: "#d0bcff" }, visibility: "internal" },
+    source: { value: { light: "#6750a4", dark: "#d0bcff" }, visibility: "internal" },
     background: { light: "#ffffff", dark: "#111111" },
-    primary: tokenRef("brand.600"),
+    primary: tokenRef("source"),
   },
 });
 
 const scheme = orThrow(compileTokenGraph(graph));
 scheme.tokens.primary.dark.toUpperCase();
-scheme.metadataByToken.background.declarations.length.toFixed();
 
 const everything = orThrow(compileTokenGraph(graph, { selection: "all" }));
-everything.tokens["brand.600"].light.toUpperCase();
-
-const exact = orThrow(compileTokenGraph(graph, { selection: ["primary"] }));
-exact.tokens.primary.light.toUpperCase();
+everything.tokens.source.light.toUpperCase();
 ```
 
-`defineTokenGraph` returns a `DefinedTokenGraph`, a `TokenGraph<Key, Mode, PublicKey>`: every composed key, the mode union, and the public keys after layers compose in array order and graph tokens compose last. Visibility follows the runtime rule: explicit visibility replaces, an omitted override keeps what it replaces, and a new key takes the default of the position that introduced it. Here `PublicKey` is `"background" | "primary"`, so the default public result is a complete record of exactly those keys. `graph.tokens` holds the graph's own declarations: keys the graph authors are definite there, and a key that only a layer declares is not.
+The public result contains `background` and `primary`; both are definite keys. The `all` result
+also contains `source`.
 
-Precise claims are nominal. Only `defineTokenGraph`, `defineTokenLayer`, and the values that flow unchanged from them make one, so an annotation cannot add, hide, or publish a key the value does not prove. An object literal, a spread copy, a frozen copy, or a layer written inline in `layers` fits only the plain `TokenGraph` and `TokenLayer` forms and is treated like parsed data. Explicit assertions and rewrites that TypeScript still types as the original are escape hatches: `Object.assign({}, graph, { defaultVisibility: "internal" })` keeps the facts of `graph`, and so does `graph` itself after an in-place `Object.assign(graph, …)`. To change keys, visibility, layers, or modes, define the new graph or layer with `defineTokenGraph` or `defineTokenLayer`.
+## Complete and partial records
 
-The public record stays partial whenever TypeScript cannot know the public set: a visibility typed `TokenVisibility` rather than a literal, a graph built from `Record<string, …>` or `Object.fromEntries`, a parsed graph or layer, data that did not come from the helpers, a layer list that is not a tuple, or a layer typed only as `TokenLayer<Key>`. `all` is complete whenever the key set is finite, because visibility never removes a key from it. An exact literal tuple is complete after runtime validation; a runtime key array is partial.
+A complete record guarantees each selected key after successful compilation. A partial record
+requires a presence check.
 
-The third `Complete` generic on `CompiledScheme<Key, Mode, Complete>` represents this distinction. `parseCompiledScheme()` always returns the incomplete form. `CssVarsExport<Key, Mode, Complete>` carries the input completeness into `variableByToken`. Let inference provide these generics unless an integration boundary needs an explicit annotation.
+| Selection             | Complete when                                                    |
+| --------------------- | ---------------------------------------------------------------- |
+| Omitted or `"public"` | All composed keys and visibility declarations are known literals |
+| `"all"`               | The composed key union is finite                                 |
+| A key tuple           | The tuple contains finite literal keys                           |
+| A runtime key array   | Remains partial                                                  |
 
-## Layer mode sets
+Public output stays partial over every graph key if keys or visibility are uncertain. Examples
+include `Record<string, …>`, `Object.fromEntries`, parsed graphs or layers, a layer list that is
+not a tuple, and a layer annotated only as `TokenLayer<Key>`.
 
-`defineTokenLayer` infers `TokenLayer<Key, Mode, Visibility>`. `Mode` is the layer mode set: `never` when the layer has only direct expressions, which fits every graph, and the union of its mode-map names otherwise. Every mode map in a literal layer must name the whole set. A finite layer set must equal a finite graph set, in any order; otherwise the `layers` entry fails with `LayerModeMismatch<LayerModes, GraphModes>` naming both sets. Parsed and dynamic layers have the mode set `string` and rely on the runtime `layer-mode-mismatch` check.
+Use a literal key tuple when dynamic input must provide a specific output contract:
 
-## Rejected at compile time
+```ts
+import { compileTokenGraph, orThrow, parseTokenGraph } from "scheme-tokens";
 
-For literal input the helpers reject, at the offending property:
+declare const input: unknown;
+const graph = orThrow(parseTokenGraph(input));
+const scheme = orThrow(compileTokenGraph(graph, { selection: ["primary"] }));
+scheme.tokens.primary[scheme.defaultMode].toUpperCase();
+```
 
-- a reference to a key the graph and its layers do not define, with TypeScript's "Did you mean" suggestion;
-- a mode map that misses a graph mode, or names one the graph does not declare (`UnknownMode<Name>`);
-- metadata mixed directly with mode keys, or a misspelled metadata property (`UnknownTokenProperty<Name>`);
-- a visibility other than `"public"` or `"internal"`;
-- a mode outside the lower-kebab grammar, or a reserved name such as `value` (`InvalidModeName<Name>`); `concat` is a valid mode;
-- `modes` without `defaultMode`, or a `defaultMode` outside `modes`.
+Compilation validates that `primary` exists before returning it. This selection guarantees the
+key; parsed mode names remain dynamic.
 
-The marker names appear in compiler messages to explain a rejection. They are not exported, and their wording is not a compatibility contract.
+`CompiledScheme<Key, Mode, Complete>` represents completeness for both `tokens` and
+`metadataByToken`. `parseCompiledScheme()` always returns the incomplete form.
+`CssVarsExport<Key, Mode, Complete>` carries it into `variableByToken`. Prefer inference unless
+an integration boundary needs an annotation.
 
-Public types center on `Result`, `Issue`, `TokenReference`, `TokenGraph`, `DefinedTokenGraph`, `TokenLayer`, `LayerVisibilityFacts`, `CompiledScheme`, `CssVarsExport`, and their essential option and issue types.
+## Graph and layer types
+
+`defineTokenGraph()` returns `DefinedTokenGraph<Key, Mode, PublicKey, OwnKey>`:
+
+- `Key` is every composed key.
+- `Mode` is the mode union.
+- `PublicKey` is the effective public key union after composition.
+- `OwnKey` is the graph's own authored key union.
+
+Own keys are definite in `graph.tokens`; a key supplied only by a layer is not promised there.
+The mode union describes membership, while the runtime array retains order and `defaultMode`.
+
+`defineTokenLayer()` infers `TokenLayer<Key, Mode, Visibility>`. Layer `Mode` is `never` for
+direct expressions, a finite union for literal mode maps, and `string` when unknown. Every map
+in a layer must name the whole set. A finite layer set must equal a finite graph set, in any
+order; dynamic sets rely on runtime validation.
+
+`Visibility` is a `LayerVisibilityFacts` type with `defaultVisibility`, `mayStatePublicKeys`,
+`mayStateInternalKeys`, and `mayOmitVisibilityKeys`. These sets describe possible declarations,
+not effective visibility, and may overlap. Wider types retain more possibilities.
+
+## Keep inferred facts attached to authored values
+
+Precise graph and layer types are nominal: they come from the helpers and values passed unchanged
+from them. Raw objects, spread copies, and mapped types such as `Readonly<…>` are treated as
+dynamic data. A finite key union is an exact claim; annotations cannot add or hide keys.
+Compiling a union of graphs keeps a separate scheme type for each graph.
+
+Assertions and mutations escape that guarantee. For example,
+`Object.assign({}, graph, { defaultVisibility: "internal" })` keeps the original graph type,
+although visibility changed. In-place mutation does the same. Define a changed graph or layer
+with the helpers so inference reflects the new data.
+
+## Understand authoring errors
+
+For literal input, helpers reject errors at the affected property:
+
+| Input problem                                | Diagnostic                                  |
+| -------------------------------------------- | ------------------------------------------- |
+| A direct graph reference to an unknown key   | TypeScript key suggestions                  |
+| Missing or undeclared mode values            | Missing property or `UnknownMode<Name>`     |
+| Mixed or misspelled metadata                 | `UnknownTokenProperty<Name>`                |
+| Invalid or reserved mode names               | `InvalidModeName<Name>`                     |
+| A layer mode set that differs from the graph | `LayerModeMismatch<LayerModes, GraphModes>` |
+
+They also reject invalid visibility, disagreeing layer maps, missing `defaultMode` for supplied
+`modes`, and defaults outside the mode set. Reusable layers can reference another layer or
+graph-local keys; compilation checks those targets.
+
+Diagnostic marker names explain rejections and are not exported. Their wording is not a
+compatibility contract. See [runtime diagnostics](../reference/diagnostics.md) for issue codes,
+and [Material's TypeScript reference](../reference/material3.md#typescript) for generated layers.

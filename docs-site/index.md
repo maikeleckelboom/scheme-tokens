@@ -2,31 +2,40 @@
 layout: home
 hero:
   name: scheme-tokens
-  text: String-valued token graph compiler
-  tagline: Define explicit graphs, compile deterministic schemes, and export CSS custom properties.
+  text: Compile tokens into CSS variables
+  tagline: Define string values, references, modes, and layers in TypeScript.
   actions:
     - theme: brand
-      text: Get Started
+      text: Get started
       link: /guide/getting-started
     - theme: alt
-      text: API
+      text: API reference
       link: /reference/api
 ---
 
 ```ts
-import { compileTokenGraph, defineTokenGraph, exportCssVars, orThrow } from "scheme-tokens";
+import {
+  compileTokenGraph,
+  defineTokenGraph,
+  exportCssVars,
+  orThrow,
+  tokenRef,
+} from "scheme-tokens";
 
 const graph = defineTokenGraph({
   tokens: {
-    background: "#ffffff",
-    foreground: "#111111",
+    "brand.600": "#6750a4",
+    primary: tokenRef("brand.600"),
   },
 });
 
 const scheme = orThrow(compileTokenGraph(graph));
-const cssVars = orThrow(exportCssVars(scheme));
-const stylesheet = cssVars.css;
+const css = orThrow(exportCssVars(scheme)).css;
 ```
 
-This uses the [public `orThrow` helper](./reference/diagnostics.md#throwing-at-an-application-boundary)
-to keep the first path compact without changing the package's `Result` contract.
+A graph describes the tokens and their relationships. Compilation resolves those relationships
+into values; CSS export turns the values into custom properties.
+
+Start with [your first stylesheet](./guide/getting-started.md), then add
+[modes and layers](./guide/define-tokens.md) or
+[Material 3 colors](./guide/material3.md).

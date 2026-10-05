@@ -1,21 +1,21 @@
 # Theme coordinates
 
-This executable example maps two application-owned axes—palette and light/dark scheme—to four
-complete compiler modes: mono-light, mono-dark, vivid-light, and vivid-dark.
+The example keeps palette and light/dark scheme as separate application choices and maps them
+to four graph modes: mono-light, mono-dark, vivid-light, and vivid-dark.
 
-Flattening happens only at the compiler boundary. Application state can keep the axes independent
-while scheme-tokens receives one explicit mode envelope. The example then selects an exact public
-role contract, resolves references through internal source tokens, and activates the modes from the
-application's own `data-palette` and `data-scheme` attributes: no generated markers, a media
-fallback, and selector conditions ordered from general to specific.
+[theme.ts](./theme.ts) resolves public aliases through internal source tokens and activates modes
+with `data-palette` and `data-scheme`. [material.ts](./material.ts) uses a Material layer across
+six modes.
 
-From the repository root, run:
+Run the packed core example from the repository root:
 
-    pnpm check:theme-coordinate-consumer
+```sh
+pnpm check:theme-coordinate-consumer
+```
 
-The check packs scheme-tokens, installs the tarball with lifecycle scripts disabled, copies this
-exact [theme.ts](./theme.ts) source into a strict NodeNext consumer, typechecks it, and executes its
-runtime assertions. pnpm typecheck also checks the source directly in the repository.
+This installs the package tarball in a strict NodeNext consumer, then typechecks and executes
+`theme.ts`. `pnpm typecheck` also checks the repository source. The paired Material example runs
+through `pnpm --filter @scheme-tokens/material3 check:packed-consumers`.
 
-See [Application Theme Coordinates](../../docs/application-theme-coordinates.md) for the design
-boundary and the ordering rule.
+See [Application theme coordinates](../../docs/application-theme-coordinates.md) for the
+activation recipe.
