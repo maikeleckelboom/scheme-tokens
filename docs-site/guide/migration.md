@@ -8,12 +8,23 @@ Use Material `0.2.0` alongside it; its peer range is `^0.4.0`.
 Replace defineTokens calls with `defineTokenGraph({ tokens })`. Declare `modes` and
 `defaultMode` on the graph when supplying modes. Layers provide values for those modes.
 
+Remove `$schema` from helper inputs; keep editor hints on persisted artifacts.
+
 Layers now compose before graph-local tokens. Move any intended final override into graph
 tokens or order it after the other layers. Overrides preserve visibility unless they specify
 a new `visibility`.
 
 All mode maps within a layer must share one set and match the graph. Internally conflicting maps
 return `inconsistent-layer-modes`; a layer/graph difference returns `layer-mode-mismatch`.
+
+## Update explicit selections
+
+Supply the key array directly; the `keys` wrapper object is gone:
+
+```diff
+- compileTokenGraph(graph, { selection: { keys: ["primary"] } });
++ compileTokenGraph(graph, { selection: ["primary"] });
+```
 
 ## Recompile persisted data
 

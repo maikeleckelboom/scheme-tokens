@@ -6,6 +6,23 @@ export default defineConfig({
   lang: "en-US",
   cleanUrls: true,
   lastUpdated: false,
+  markdown: {
+    config(md) {
+      const renderLink = md.renderer.rules.link_open;
+      md.renderer.rules.link_open = (tokens, index, options, env, self) => {
+        const token = tokens[index];
+        const href = token.attrGet("href");
+        // Shared Markdown keeps GitHub links; render their docs routes in VitePress.
+        const docsPrefix = "https://github.com/maikeleckelboom/scheme-tokens/blob/dev/docs-site/";
+        if (href?.startsWith(docsPrefix)) {
+          token.attrSet("href", `/${href.slice(docsPrefix.length)}`);
+        }
+        return renderLink
+          ? renderLink(tokens, index, options, env, self)
+          : self.renderToken(tokens, index, options);
+      };
+    },
+  },
   head: [
     [
       "meta",

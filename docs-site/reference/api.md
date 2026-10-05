@@ -2,21 +2,21 @@
 
 ## Runtime exports
 
-| Export                    | Purpose                                                 |
-| ------------------------- | ------------------------------------------------------- |
-| `defineTokenGraph`        | Author and normalize a graph.                           |
-| `defineTokenLayer`        | Author and normalize a reusable layer.                  |
-| `tokenRef`                | Create a token reference.                               |
-| `tokenConcat`             | Combine text and references in a tagged template.       |
-| `orThrow`                 | Return a successful result's value or throw its issues. |
-| `parseTokenGraph`         | Validate a persisted graph.                             |
-| `parseTokenLayer`         | Validate a persisted layer.                             |
-| `parseCompiledScheme`     | Validate a compiled artifact.                           |
-| `compileTokenGraph`       | Compose, resolve, and select tokens.                    |
-| `exportCssVars`           | Export a compiled scheme as CSS custom properties.      |
-| `serializeTokenGraph`     | Serialize a graph to JSON.                              |
-| `serializeTokenLayer`     | Serialize a layer to JSON.                              |
-| `serializeCompiledScheme` | Serialize a compiled scheme to JSON.                    |
+| Export                    | Purpose                                            |
+| ------------------------- | -------------------------------------------------- |
+| `defineTokenGraph`        | Author and normalize a graph.                      |
+| `defineTokenLayer`        | Author and normalize a reusable layer.             |
+| `tokenRef`                | Create a token reference.                          |
+| `tokenConcat`             | Combine text and references in a tagged template.  |
+| `orThrow`                 | Return the value or throw an Error.                |
+| `parseTokenGraph`         | Validate a persisted graph.                        |
+| `parseTokenLayer`         | Validate a persisted layer.                        |
+| `parseCompiledScheme`     | Validate a compiled artifact.                      |
+| `compileTokenGraph`       | Compose, resolve, and select tokens.               |
+| `exportCssVars`           | Export a compiled scheme as CSS custom properties. |
+| `serializeTokenGraph`     | Serialize a graph to JSON.                         |
+| `serializeTokenLayer`     | Serialize a layer to JSON.                         |
+| `serializeCompiledScheme` | Serialize a compiled scheme to JSON.               |
 
 These are the root runtime exports. Material generation is provided by
 [`@scheme-tokens/material3`](./material3.md).
