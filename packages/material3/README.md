@@ -1,13 +1,12 @@
 # @scheme-tokens/material3
 
-Generate 48 Material 3 system color roles from a source color and use them as a `scheme-tokens`
-layer. Values are lowercase six-digit hex strings, with `light` and `dark` modes by default.
+Generate 48 Material 3 system color roles from a source color as a `scheme-tokens` layer.
+By default, every role has `light` and `dark` values.
 
 ## Install
 
 ```sh
-pnpm add scheme-tokens
-pnpm add @scheme-tokens/material3
+pnpm add scheme-tokens @scheme-tokens/material3
 ```
 
 Material `0.2.0` requires `scheme-tokens: ^0.4.0`. Both packages are ESM-only and support browsers
@@ -25,7 +24,7 @@ const material = material3("#6750a4");
 ```
 
 The layer includes roles such as `md.sys.color.primary`, `md.sys.color.on-primary`,
-`md.sys.color.surface`, and `md.sys.color.outline`. It has the ID `material3` and public visibility.
+`md.sys.color.surface`, and `md.sys.color.outline`. Generated roles are public by default.
 
 ## Compose a graph
 
@@ -43,13 +42,13 @@ const graph = defineTokenGraph({
 });
 ```
 
-Compile this graph with core, then export CSS or serialize the resolved scheme. Default CSS names
-follow the role names, for example `--md-sys-color-primary`.
+Compile the graph with `compileTokenGraph()`, then export it to CSS or serialize the resolved
+scheme. Default CSS names follow the role names, for example `--md-sys-color-primary`.
 
-## Expose application aliases
+## Map to application names
 
-Keep Material roles internal while your application exposes stable semantic names. For shadcn/ui,
-use names such as `background`, `foreground`, and `primary`:
+Keep the generated Material roles internal and expose the names your application actually uses.
+For shadcn/ui, those are names such as `background`, `foreground`, and `primary`:
 
 ```ts
 import { material3 } from "@scheme-tokens/material3";
@@ -72,11 +71,11 @@ const graph = defineTokenGraph({
 });
 ```
 
-Default compilation resolves the internal roles and returns the public aliases. Add authored
-layers after Material to override role values; graph-local declarations take precedence over
-every layer. An override keeps a role's visibility unless it specifies a new one.
+Default compilation resolves the internal Material roles and returns the public aliases.
+Graph-local tokens can override generated roles when needed.
 
-The mapping is application-owned. The [core README](../../README.md#material-3-with-shadcnui)
+Material roles feed your application names, and shadcn/Tailwind consume those names. The mapping is
+application-owned. The [core README](../../README.md#material-3-with-shadcnui)
 shows the full shadcn mapping and `.dark` activation; the
 [Material guide](../../docs-site/guide/material3.md#use-shadcn-names) walks through CSS export.
 The [Tailwind/shadcn guide](../../docs/tailwind-css-v4.md#use-shadcn-variables) connects
@@ -94,15 +93,15 @@ const material = material3("#6750a4", {
 });
 ```
 
-| Setting         | Default                 | Per-mode override |
-| --------------- | ----------------------- | ----------------- |
-| `sourceColor`   | Required first argument | Yes               |
-| `variant`       | `tonal-spot`            | Yes               |
-| `contrastLevel` | `0`                     | Yes               |
-| `specVersion`   | `2021`                  | No                |
-| `visibility`    | `public`                | No                |
+| Setting         | Default        | Per-mode override |
+| --------------- | -------------- | ----------------- |
+| Source color    | First argument | `sourceColor`     |
+| `variant`       | `tonal-spot`   | Yes               |
+| `contrastLevel` | `0`            | Yes               |
+| `specVersion`   | `2021`         | No                |
+| `visibility`    | `public`       | No                |
 
-Source colors must use `#RRGGBB` notation. Contrast ranges from `-1` to `1`. The 2025 spec supports
+Source colors use `#RRGGBB` notation, and generated values are lowercase `#RRGGBB`. Contrast ranges from `-1` to `1`. The 2025 spec supports
 `neutral`, `tonal-spot`, `vibrant`, and `expressive`; see the
 [Material reference](../../docs-site/reference/material3.md#generation-settings) for the full
 variant list and input rules.
@@ -131,16 +130,11 @@ const graph = defineTokenGraph({
 `light` and `dark` imply their `colorMode`. Custom names require it. A single-mode map is valid;
 an empty map is rejected.
 
-## TypeScript behavior
+## TypeScript
 
-Inline settings preserve the role keys, modes, and visibility. Use `satisfies Material3Options`
-to check a settings object while retaining its literals. A variable annotated as
-`Material3Options` leaves visibility uncertain, so public compilation remains partial.
-
-Custom mode types require `modeSettings`; types that exclude public visibility require
-`visibility`. Narrow possibly undefined options or provide a valid fallback before calling
-`material3()`. The [TypeScript reference](../../docs-site/reference/material3.md#typescript)
-covers generic wrappers and the return type.
+TypeScript infers the generated role keys, modes, and visibility from inline options. For generic
+wrappers, reusable `Material3Options`, and optional settings, see the
+[TypeScript reference](../../docs-site/reference/material3.md#typescript).
 
 ## Reference and licensing
 
