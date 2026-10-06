@@ -116,8 +116,14 @@ import { material3, type Material3ModeSettings } from "@scheme-tokens/material3"
 import { defineTokenGraph } from "scheme-tokens";
 
 const modeSettings = {
-  "light-high": { colorMode: "light", contrastLevel: 1 },
-  "brand-dark": { colorMode: "dark", sourceColor: "#009489" },
+  "light-high": {
+    colorMode: "light",
+    contrastLevel: 1,
+  },
+  "brand-dark": {
+    colorMode: "dark",
+    sourceColor: "#009489",
+  },
 } satisfies Material3ModeSettings<"light-high" | "brand-dark">;
 
 const graph = defineTokenGraph({
