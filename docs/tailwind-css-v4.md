@@ -9,11 +9,8 @@ application aliases.
 
 <!-- example: tailwind-runtime -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  defineTokenGraph,
-} from "scheme-tokens";
+import { defineTokenGraph } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
@@ -35,11 +32,8 @@ const graph = defineTokenGraph({
 
 <!-- example: tailwind-runtime -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  compileTokenGraph,
-} from "scheme-tokens";
+import { compileTokenGraph } from "scheme-tokens";
 
 const compiled = compileTokenGraph(graph);
 ```
@@ -52,26 +46,19 @@ for structured failures.
 
 <!-- example: tailwind-runtime -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  exportCssVars,
-} from "scheme-tokens";
+import { exportCssVars } from "scheme-tokens";
 
 if (compiled.ok) {
-  const exported = exportCssVars(
-    compiled.value,
-    {
-      prefix: "app",
-      activation: {
-        attribute: "data-theme",
-        media: {
-          dark:
-            "(prefers-color-scheme: dark)",
-        },
+  const exported = exportCssVars(compiled.value, {
+    prefix: "app",
+    activation: {
+      attribute: "data-theme",
+      media: {
+        dark: "(prefers-color-scheme: dark)",
       },
     },
-  );
+  });
   if (exported.ok) {
     console.log(exported.value.css);
   }
@@ -86,14 +73,12 @@ Load `exported.value.css` with the application after successful export. It defin
 
 In the CSS processed by Tailwind:
 
-<!-- prettier-ignore -->
 ```css
 @import "tailwindcss";
 
 @theme inline {
   --color-canvas: var(--app-surface-canvas);
-  --color-primary:
-    var(--app-action-primary);
+  --color-primary: var(--app-action-primary);
 }
 ```
 
@@ -124,14 +109,12 @@ Use no prefix for these names.
 For the usual light-root / dark-subtree setup, export with
 `activation: { selectors: { dark: ".dark" } }`. Connect the resulting variables to Tailwind:
 
-<!-- prettier-ignore -->
 ```css
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
-  --color-primary-foreground:
-    var(--primary-foreground);
+  --color-primary-foreground: var(--primary-foreground);
 }
 ```
 
@@ -148,7 +131,6 @@ Stock `:root` and `.dark` variable declarations have more specificity than gener
 Keep stock values as fallbacks in `@layer base`, then load generated output unlayered or in a
 layer ordered after `base`:
 
-<!-- prettier-ignore -->
 ```css
 @import "tailwindcss";
 

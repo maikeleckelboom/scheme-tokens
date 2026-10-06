@@ -18,11 +18,8 @@ for supported compiler versions.
 
 <!-- example: material-layer -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  material3,
-} from "@scheme-tokens/material3";
+import { material3 } from "@scheme-tokens/material3";
 
 const material = material3("#6750a4");
 ```
@@ -36,11 +33,8 @@ The graph declares the modes and their default, then composes the generated laye
 
 <!-- example: material-layer -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  defineTokenGraph,
-} from "scheme-tokens";
+import { defineTokenGraph } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
@@ -57,15 +51,9 @@ follow the role names, for example `--md-sys-color-primary`.
 Keep Material roles internal while your application exposes stable semantic names. For shadcn/ui,
 use names such as `background`, `foreground`, and `primary`:
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  material3,
-} from "@scheme-tokens/material3";
-import {
-  defineTokenGraph,
-  tokenRef,
-} from "scheme-tokens";
+import { material3 } from "@scheme-tokens/material3";
+import { defineTokenGraph, tokenRef } from "scheme-tokens";
 
 const material = material3("#6750a4", {
   visibility: "internal",
@@ -76,18 +64,10 @@ const graph = defineTokenGraph({
   defaultMode: "light",
   layers: [material],
   tokens: {
-    background: tokenRef(
-      "md.sys.color.background",
-    ),
-    foreground: tokenRef(
-      "md.sys.color.on-background",
-    ),
-    primary: tokenRef(
-      "md.sys.color.primary",
-    ),
-    "primary-foreground": tokenRef(
-      "md.sys.color.on-primary",
-    ),
+    background: tokenRef("md.sys.color.background"),
+    foreground: tokenRef("md.sys.color.on-background"),
+    primary: tokenRef("md.sys.color.primary"),
+    "primary-foreground": tokenRef("md.sys.color.on-primary"),
   },
 });
 ```
@@ -104,11 +84,8 @@ The [Tailwind/shadcn guide](../../docs/tailwind-css-v4.md#use-shadcn-variables) 
 
 ## Variants and contrast
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  material3,
-} from "@scheme-tokens/material3";
+import { material3 } from "@scheme-tokens/material3";
 
 const material = material3("#6750a4", {
   specVersion: "2025",
@@ -135,15 +112,9 @@ variant list and input rules.
 `modeSettings` replaces the default light/dark set. Its keys must match the graph's modes.
 Each entry can override source color, variant, and contrast independently:
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  material3,
-  type Material3ModeSettings,
-} from "@scheme-tokens/material3";
-import {
-  defineTokenGraph,
-} from "scheme-tokens";
+import { material3, type Material3ModeSettings } from "@scheme-tokens/material3";
+import { defineTokenGraph } from "scheme-tokens";
 
 const modeSettings = {
   "light-high": { colorMode: "light", contrastLevel: 1 },

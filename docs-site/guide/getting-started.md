@@ -12,12 +12,8 @@ Use an ESM project with Node.js 24 or newer, or a browser build.
 
 <!-- example: first-stylesheet -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  defineTokenGraph,
-  tokenRef,
-} from "scheme-tokens";
+import { defineTokenGraph, tokenRef } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   tokens: {
@@ -36,18 +32,13 @@ mode and public visibility by default.
 
 <!-- example: first-stylesheet -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  compileTokenGraph,
-} from "scheme-tokens";
+import { compileTokenGraph } from "scheme-tokens";
 
 const compiled = compileTokenGraph(graph);
 
 if (compiled.ok) {
-  console.log(
-    compiled.value.tokens.primary.base,
-  ); // "#6750a4"
+  console.log(compiled.value.tokens.primary.base); // "#6750a4"
 }
 ```
 
@@ -60,16 +51,11 @@ Pass the successful compiled scheme to the exporter:
 
 <!-- example: first-stylesheet -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  exportCssVars,
-} from "scheme-tokens";
+import { exportCssVars } from "scheme-tokens";
 
 if (compiled.ok) {
-  const exported = exportCssVars(
-    compiled.value,
-  );
+  const exported = exportCssVars(compiled.value);
   if (exported.ok) {
     console.log(exported.value.css);
   }

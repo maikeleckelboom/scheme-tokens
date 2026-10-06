@@ -11,11 +11,8 @@ pnpm add @scheme-tokens/material3
 
 <!-- example: material-layer -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  material3,
-} from "@scheme-tokens/material3";
+import { material3 } from "@scheme-tokens/material3";
 
 const material = material3("#6750a4");
 ```
@@ -26,11 +23,8 @@ The layer supplies 48 Material 3 color roles with light and dark mode maps.
 
 <!-- example: material-layer -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  defineTokenGraph,
-} from "scheme-tokens";
+import { defineTokenGraph } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
@@ -48,11 +42,8 @@ Keep generated roles internal when components should depend on your application'
 
 <!-- example: material-shadcn -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  material3,
-} from "@scheme-tokens/material3";
+import { material3 } from "@scheme-tokens/material3";
 
 const material = material3("#6750a4", {
   visibility: "internal",
@@ -68,12 +59,8 @@ Compose that internal layer with application aliases matching shadcn's variables
 
 <!-- example: material-shadcn -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  defineTokenGraph,
-  tokenRef,
-} from "scheme-tokens";
+import { defineTokenGraph, tokenRef } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
@@ -89,13 +76,9 @@ const graph = defineTokenGraph({
     primary: tokenRef("md.sys.color.primary"),
     "primary-foreground": tokenRef("md.sys.color.on-primary"),
     secondary: tokenRef("md.sys.color.secondary-container"),
-    "secondary-foreground": tokenRef(
-      "md.sys.color.on-secondary-container",
-    ),
+    "secondary-foreground": tokenRef("md.sys.color.on-secondary-container"),
     muted: tokenRef("md.sys.color.surface-container-low"),
-    "muted-foreground": tokenRef(
-      "md.sys.color.on-surface-variant",
-    ),
+    "muted-foreground": tokenRef("md.sys.color.on-surface-variant"),
     accent: tokenRef("md.sys.color.surface-container-high"),
     "accent-foreground": tokenRef("md.sys.color.on-surface"),
     destructive: tokenRef("md.sys.color.error"),
@@ -115,24 +98,17 @@ keeps the role internal, and components keep using the same public names.
 
 <!-- example: material-shadcn -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  compileTokenGraph,
-  exportCssVars,
-} from "scheme-tokens";
+import { compileTokenGraph, exportCssVars } from "scheme-tokens";
 
 const compiled = compileTokenGraph(graph);
 
 if (compiled.ok) {
-  const exported = exportCssVars(
-    compiled.value,
-    {
-      activation: {
-        selectors: { dark: ".dark" },
-      },
+  const exported = exportCssVars(compiled.value, {
+    activation: {
+      selectors: { dark: ".dark" },
     },
-  );
+  });
   if (exported.ok) {
     console.log(exported.value.css);
   }
@@ -146,14 +122,12 @@ specificity. Compilation and export return structured failures; see
 
 ### Register Tailwind utilities
 
-<!-- prettier-ignore -->
 ```css
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
-  --color-primary-foreground:
-    var(--primary-foreground);
+  --color-primary-foreground: var(--primary-foreground);
 }
 ```
 
@@ -163,11 +137,8 @@ fallbacks, order cascade layers, and activate nested light regions.
 
 ## Adjust generation
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  material3,
-} from "@scheme-tokens/material3";
+import { material3 } from "@scheme-tokens/material3";
 
 const material = material3("#6750a4", {
   specVersion: "2025",
@@ -181,14 +152,9 @@ The [Material reference](../reference/material3.md#generation-settings) lists va
 
 ## Use custom modes
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  material3,
-} from "@scheme-tokens/material3";
-import {
-  defineTokenGraph,
-} from "scheme-tokens";
+import { material3 } from "@scheme-tokens/material3";
+import { defineTokenGraph } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light-high", "dark-high"],

@@ -17,12 +17,8 @@ The package is ESM-only and runs in browsers and Node.js 24 or newer. TypeScript
 
 <!-- example: first-graph -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  defineTokenGraph,
-  tokenRef,
-} from "scheme-tokens";
+import { defineTokenGraph, tokenRef } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   tokens: {
@@ -40,18 +36,13 @@ Bare strings are literal values. `tokenRef()` connects one token to another. Gra
 
 <!-- example: first-graph -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  compileTokenGraph,
-} from "scheme-tokens";
+import { compileTokenGraph } from "scheme-tokens";
 
 const compiled = compileTokenGraph(graph);
 
 if (compiled.ok) {
-  console.log(
-    compiled.value.tokens.primary.base,
-  ); // "#6750a4"
+  console.log(compiled.value.tokens.primary.base); // "#6750a4"
 }
 ```
 
@@ -65,16 +56,11 @@ Continue with the compiled result:
 
 <!-- example: first-graph -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  exportCssVars,
-} from "scheme-tokens";
+import { exportCssVars } from "scheme-tokens";
 
 if (compiled.ok) {
-  const exported = exportCssVars(
-    compiled.value,
-  );
+  const exported = exportCssVars(compiled.value);
   if (exported.ok) {
     console.log(exported.value.css);
   }
@@ -95,11 +81,8 @@ names by joining their dot-separated segments with hyphens: `surface.canvas` bec
 
 ## Add modes
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  defineTokenGraph,
-} from "scheme-tokens";
+import { defineTokenGraph } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
@@ -121,13 +104,8 @@ and selector activation.
 
 ## Compose layers
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  defineTokenGraph,
-  defineTokenLayer,
-  tokenRef,
-} from "scheme-tokens";
+import { defineTokenGraph, defineTokenLayer, tokenRef } from "scheme-tokens";
 
 const brand = defineTokenLayer({
   id: "brand",
@@ -158,11 +136,8 @@ pnpm add @scheme-tokens/material3
 
 <!-- example: material-shadcn -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  material3,
-} from "@scheme-tokens/material3";
+import { material3 } from "@scheme-tokens/material3";
 
 const material = material3("#6750a4", {
   visibility: "internal",
@@ -179,12 +154,8 @@ Compose the Material layer and map its roles to shadcn/ui's semantic names:
 
 <!-- example: material-shadcn -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  defineTokenGraph,
-  tokenRef,
-} from "scheme-tokens";
+import { defineTokenGraph, tokenRef } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   modes: ["light", "dark"],
@@ -200,13 +171,9 @@ const graph = defineTokenGraph({
     primary: tokenRef("md.sys.color.primary"),
     "primary-foreground": tokenRef("md.sys.color.on-primary"),
     secondary: tokenRef("md.sys.color.secondary-container"),
-    "secondary-foreground": tokenRef(
-      "md.sys.color.on-secondary-container",
-    ),
+    "secondary-foreground": tokenRef("md.sys.color.on-secondary-container"),
     muted: tokenRef("md.sys.color.surface-container-low"),
-    "muted-foreground": tokenRef(
-      "md.sys.color.on-surface-variant",
-    ),
+    "muted-foreground": tokenRef("md.sys.color.on-surface-variant"),
     accent: tokenRef("md.sys.color.surface-container-high"),
     "accent-foreground": tokenRef("md.sys.color.on-surface"),
     destructive: tokenRef("md.sys.color.error"),
@@ -226,24 +193,17 @@ Compile this graph and configure dark activation:
 
 <!-- example: material-shadcn -->
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  compileTokenGraph,
-  exportCssVars,
-} from "scheme-tokens";
+import { compileTokenGraph, exportCssVars } from "scheme-tokens";
 
 const compiled = compileTokenGraph(graph);
 
 if (compiled.ok) {
-  const exported = exportCssVars(
-    compiled.value,
-    {
-      activation: {
-        selectors: { dark: ".dark" },
-      },
+  const exported = exportCssVars(compiled.value, {
+    activation: {
+      selectors: { dark: ".dark" },
     },
-  );
+  });
   if (exported.ok) {
     console.log(exported.value.css);
   }

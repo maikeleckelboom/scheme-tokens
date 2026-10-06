@@ -13,12 +13,8 @@ hero:
       link: /reference/api
 ---
 
-<!-- prettier-ignore -->
 ```ts
-import {
-  defineTokenGraph,
-  tokenRef,
-} from "scheme-tokens";
+import { defineTokenGraph, tokenRef } from "scheme-tokens";
 
 const graph = defineTokenGraph({
   tokens: {
