@@ -74,8 +74,8 @@ const graph = defineTokenGraph({
 Default compilation resolves the internal Material roles and returns the public aliases.
 Graph-local tokens can override generated roles when needed.
 
-Material roles feed your application names, and shadcn/Tailwind consume those names. The mapping is
-application-owned. The [core README](../../README.md#material-3-with-shadcnui)
+Your app maps Material roles to its own semantic names; shadcn/Tailwind use those names. The mapping
+is application-owned. The [core README](../../README.md#material-3-with-shadcnui)
 shows the full shadcn mapping and `.dark` activation; the
 [Material guide](../../docs-site/guide/material3.md#use-shadcn-names) walks through CSS export.
 The [Tailwind/shadcn guide](../../docs/tailwind-css-v4.md#use-shadcn-variables) connects
@@ -101,7 +101,7 @@ const material = material3("#6750a4", {
 | `specVersion`   | `2021`         | No                |
 | `visibility`    | `public`       | No                |
 
-Source colors use `#RRGGBB` notation, and generated values are lowercase `#RRGGBB`. Contrast ranges from `-1` to `1`. The 2025 spec supports
+Source colors use `#RRGGBB` notation. Generated values are normalized to lowercase. Contrast ranges from `-1` to `1`. The 2025 spec supports
 `neutral`, `tonal-spot`, `vibrant`, and `expressive`; see the
 [Material reference](../../docs-site/reference/material3.md#generation-settings) for the full
 variant list and input rules.
